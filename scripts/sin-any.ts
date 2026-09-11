@@ -6,6 +6,10 @@
  * `tests/fixtures`) y falla con `archivo:línea` ante cualquier
  * `SyntaxKind.AnyKeyword`. Ver docs/adr/0002-any-explicito-en-typecheck.md.
  *
+ * Saltea lo que genera Next.js (`.next/types/`, `next-env.d.ts`): entra al
+ * `tsconfig.json` para que `tsc` valide las exportaciones de páginas y rutas,
+ * pero no es código nuestro y trae `any` propios (ADR 0005).
+ *
  * `npm run typecheck` lo corre después de `tsc --noEmit`.
  */
 
@@ -13,6 +17,12 @@ import path from "node:path";
 import process from "node:process";
 import ts from "typescript";
 import { detectarAnyEnArchivo } from "./lib/detectar-any.ts";
+
+/** Archivos que escribe Next.js en `next dev`/`next build` (ruta relativa a la raíz). */
+function esGeneradoPorNext(rutaRelativa: string): boolean {
+  const ruta = rutaRelativa.split(path.sep).join("/");
+  return ruta.startsWith(".next/") || ruta === "next-env.d.ts";
+}
 
 function ubicacionesDeAny(rutaTsconfig: string): string[] {
   const cwd = process.cwd();
@@ -30,7 +40,12 @@ function ubicacionesDeAny(rutaTsconfig: string): string[] {
 
   const ubicaciones: string[] = [];
 
-  for (const nombreArchivo of config.fileNames) {
+  const raiz = path.dirname(rutaTsconfig);
+  const archivosPropios = config.fileNames.filter(
+    (nombreArchivo) => !esGeneradoPorNext(path.relative(raiz, nombreArchivo)),
+  );
+
+  for (const nombreArchivo of archivosPropios) {
     const contenido = ts.sys.readFile(nombreArchivo);
     if (contenido === undefined) {
       continue;

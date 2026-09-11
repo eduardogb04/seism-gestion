@@ -16,10 +16,10 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-03):** TypeScript severo, un test de humo, Biome como formato y lint,
-dependency-cruiser con los límites de arquitectura, y los scripts que va a tener el proyecto
-(algunos todavía son placeholders — ver *Comandos*). Next.js (F0-04), Postgres/Prisma (F0-08) y CI
-(F0-05) todavía no existen.
+**Estado (F0-04):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
+límites de arquitectura, y Next.js mínimo: una página, el latido `GET /api/salud` y el entorno
+validado con Zod al arrancar. Postgres/Prisma (F0-08) y CI (F0-05) todavía no existen
+(`db:migrate` sigue fallando a propósito — ver *Comandos*).
 
 ## Leer primero
 
@@ -36,11 +36,12 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 
 | Comando | Qué hace hoy |
 |---|---|
-| `npm run dev` | **Placeholder.** Imprime qué tarea trae la herramienta (F0-04) y sale 0 |
-| `npm run build` | **Placeholder.** Ídem (F0-04) |
+| `npm run dev` | `next dev`: la app en `http://localhost:3000`. Necesita `.env` (copiá `.env.example`); si falta una variable o es inválida, **no arranca** (sale 1 y dice cuál). Ver *Next.js y entorno* |
+| `npm run build` | `next build` con `output: "standalone"`: compila, corre `tsc` y deja `.next/standalone/server.js`. **No necesita `.env`**; sí git o `APP_VERSION` (la versión del latido) |
+| `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
 | `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz. `-- --write` aplica los arreglos |
-| `npm test` | Vitest sobre `tests/dominio/` (hoy: el test de humo) |
-| `npm run typecheck` | `tsc --noEmit` (TypeScript severo) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002) |
+| `npm test` | Vitest sobre `tests/dominio/` (hoy: el test de humo, el esquema de entorno y la resolución de la versión) |
+| `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que genera Next, ADR 0005) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
 | `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre `tests/fixtures/lint/debe-fallar.ts`, que **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`. Sale 0 si Biome lo rechazó con las dos reglas, 1 si lo aceptó o si falta alguna |
 | `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
@@ -48,7 +49,43 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run db:migrate` | **Sale 1** con mensaje claro: no hay esquema ni Prisma hasta F0-08 |
 
 Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm test && npm run
-typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures`.
+typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures && npm run build`.
+
+## Next.js y entorno
+
+Next.js 16 (App Router) en `src/app/`. **Esta versión cambió mucho respecto de lo que conocen los
+modelos:** antes de escribir código de Next, leé la guía que corresponda en
+`node_modules/next/dist/docs/` (viene con el paquete y coincide con la versión instalada).
+`next.config.ts` tiene `agentRules: false` para que `next dev` no escriba su propio bloque en este
+archivo (ADR 0005).
+
+- **Levantar en local.** Copiá `.env.example` a `.env` (`.env` está en `.gitignore`: nunca entra
+  al repo) y `npm run dev`. Next lee `.env` solo.
+- **`.env` y `standalone`.** Si al compilar existe un `.env`, `next build` lo **copia** a
+  `.next/standalone/.env` y `server.js` lo lee. Sin `.env` al compilar, las variables van en el
+  entorno del proceso. Para la imagen Docker (F0-07): el `.env` no puede entrar al contexto del
+  build (`.dockerignore`), o la imagen se lleva los valores adentro.
+- **El entorno se valida al arrancar**, no al compilar: `src/instrumentation.ts` (lo levanta Next
+  una vez, antes de atender pedidos) llama a `exigirEntornoValido` de
+  `src/infraestructura/entorno.ts`. Si una variable falta o es inválida, escribe en stderr cuál
+  (sin repetir el valor) y el proceso sale con código 1, en `next dev` y en `server.js`. `npm
+  run build` no valida el entorno ni necesita `.env`.
+- **La versión del latido** (`GET /api/salud` → `{ ok: true, version }`) se fija al compilar:
+  `next.config.ts` usa `APP_VERSION` si está definida (la pasa el build de Docker desde F0-07) o,
+  si no, el SHA corto de git; sin ninguna, el build falla. Next reemplaza
+  `process.env.APP_VERSION` por el literal en el código compilado.
+- **Archivos de Next.** `page.tsx`, `layout.tsx` y `route.ts` los carga Next por su nombre, y
+  `src/instrumentation.ts` tiene que vivir en la raíz de `src/` pero cuenta como parte de `app`
+  para los límites. El layout raíz es el mínimo que exige el App Router (`<html lang="es">`), sin
+  estilos.
+- **`tsconfig.json` y Next.** Next exige `jsx: "react-jsx"` y agrega el plugin `next`, los tipos
+  que genera (`next-env.d.ts`, `.next/types/`) e `incremental`. Las seis opciones severas no se
+  tocan; si una tipificación de Next choca, se documenta la excepción puntual en un ADR, no se
+  relaja el `tsconfig`. `next-env.d.ts` y `*.tsbuildinfo` están en `.gitignore`. Detalle en el
+  ADR 0005.
+- **Imports.** Relativos y con extensión (`../../infraestructura/entorno.ts`), como en el resto
+  del repo; no hay alias `@/*`. Desde `next.config.ts`, los módulos de `next` van con extensión
+  (`next/constants.js`): el paquete no tiene mapa `exports`.
 
 ## Formato y lint
 
@@ -56,11 +93,11 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
 `npm run lint` corre `biome check .`, que es **verificación**, no escribe nada; agregando
 `-- --write` aplica formato y los arreglos seguros de lint.
 
-- **Alcance.** `src/`, `tests/` (menos `tests/fixtures/`, que un lint normal no puede tocar — es
-  donde viven los fixtures que **tienen** que fallar), `scripts/` y los archivos de config de la
-  raíz (`*.ts`, `*.json` menos `package-lock.json`, y `.dependency-cruiser.cjs`). `.next/` y
-  `next-env.d.ts` quedan afuera desde ya (riesgo anotado en el plan: cuando exista Next.js en
-  F0-04, esos archivos generados pueden no coincidir con el formato de Biome).
+- **Alcance.** `src/` (`.ts` y `.tsx`), `tests/` (menos `tests/fixtures/`, que un lint normal no
+  puede tocar — es donde viven los fixtures que **tienen** que fallar), `scripts/` y los archivos
+  de config de la raíz (`*.ts` —`next.config.ts` incluido—, `*.json` menos `package-lock.json`, y
+  `.dependency-cruiser.cjs`). Lo que genera Next (`.next/` y `next-env.d.ts`) queda afuera: su
+  formato no es el de Biome.
 - **Reglas en `error`, ninguna en `warn`.** Biome trae reglas de `recommended` con severidad mixta
   (`warn` en varias, `error` en otras) — un lint que solo emite `warn` no hace fallar `biome
   check` y no cumple el criterio. `biome.json` fija en `"error"`, rule por rule, las que
@@ -91,12 +128,13 @@ carpeta de `src/` puede importar a cuál. La tabla completa, con el porqué de c
 | `src/casos-uso` | `dominio` y `puertos`. Nunca `adaptadores`, `app`, `worker`, `infraestructura`, `@prisma/*` | `casos-uso-sin-afuera` |
 | `src/puertos` | `dominio` (y otros puertos). Nada de paquetes npm ni `node:*` | `puertos-solo-dominio` |
 | `src/adaptadores` | `dominio`, `puertos`, `infraestructura`, paquetes. Nunca `casos-uso`, `app`, `worker` | `adaptadores-sin-casos-uso-ni-entradas` |
-| `src/app`, `src/worker` | `casos-uso`, `puertos`, `infraestructura`. Adaptadores **solo** a través de `src/infraestructura/arranque/`; dominio **solo** con `import type` | `adaptadores-solo-en-arranque` · `app-worker-dominio-solo-tipos` |
+| `src/app` (con `src/instrumentation.ts`), `src/worker` | `casos-uso`, `puertos`, `infraestructura`. Adaptadores **solo** a través de `src/infraestructura/arranque/`; dominio **solo** con `import type` | `adaptadores-solo-en-arranque` · `app-worker-dominio-solo-tipos` |
 | `src/infraestructura` | Lo que necesite, pero adaptadores **solo** desde `arranque/` (el punto de armado) | `adaptadores-solo-en-arranque` |
 
 Más `no-circular` (ningún ciclo, tampoco solo de tipos) y `no-orphans` (ningún módulo suelto en
-`src/`; `tests/` y `scripts/` son puntos de entrada y quedan exceptuados). Todas en `error`. El
-punto de armado y el "dominio solo por tipos" están decididos en el ADR 0004.
+`src/`; `tests/`, `scripts/` y los archivos que Next carga por su nombre son puntos de entrada y
+quedan exceptuados). Todas en `error`, sobre `.ts` y `.tsx`. El punto de armado y el "dominio
+solo por tipos" están decididos en el ADR 0004; lo de Next, en el ADR 0005.
 
 - **`import type`, no `import { type X }`.** Para leer tipos del dominio desde `app` o `worker` se
   usa `import type { X }`. La forma inline `import { type X }` dependency-cruiser la deja pasar,
@@ -128,7 +166,7 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
    frena el explícito — es lo que corre `npm run typecheck` (ver ADR 0002). Biome (`noExplicitAny`,
    `npm run lint`) es la segunda red.
 5. **Todo borde externo se valida con Zod**, incluidas las variables de entorno al arrancar: si
-   falta una, la app no arranca. (Llega en F0-04.)
+   falta una, la app no arranca (`src/infraestructura/entorno.ts`, ver *Next.js y entorno*).
 6. **Todo error tiene código estable** del catálogo (`DOM-0001`). No existe `throw new Error`.
    (El catálogo llega en el lote 6.)
 7. **Ningún log con secretos ni datos personales.** Hay un test dedicado. (Llega en F0-24.)
@@ -185,11 +223,17 @@ Cómo se prueba · Riesgos.
 
 *(Cada tarea de Fase 0 completa su sección acá.)*
 
-**...un comando que todavía no tiene herramienta (F0-01).** Se apunta a
-`scripts/pendiente.ts <comando> <tarea>` (imprime qué tarea lo trae y sale 0) o, si el comando
-tiene que fallar hasta que exista su herramienta (como `db:migrate`), un script dedicado que sale
-1 con un mensaje claro en castellano. Se reemplaza por la herramienta real en la tarea que
-corresponda, sin dejar rastro del placeholder.
+**...un comando que todavía no tiene herramienta (F0-01).** Un script dedicado que sale 1 con un
+mensaje claro en castellano que dice qué tarea lo trae (como `scripts/db-migrate-pendiente.ts`
+para `db:migrate`). Se reemplaza por la herramienta real en la tarea que corresponda, sin dejar
+rastro del placeholder. (El placeholder genérico que salía 0, `scripts/pendiente.ts`, se borró en
+F0-04 al quedar sin uso.)
+
+**...una variable de entorno (F0-04).** En la misma tarea: al esquema de
+`src/infraestructura/entorno.ts` (con el tipo más estrecho posible: `z.enum`, `z.url()`...), su
+caso en `tests/dominio/entorno.test.ts` (ausente, inválida, válida), y a `.env.example`: **sin
+valor si es secreta** (`NOMBRE=`), con su único valor válido en local si no lo es (como
+`APP_ENTORNO=local`). Si hace falta en el servidor o en CI, el paso manual va a `RUNBOOK.md`.
 
 **...un fixture que una herramienta tiene que rechazar (F0-01).** Un archivo bajo
 `tests/fixtures/<herramienta>/` que viola **una sola** regla, por lo demás válido. El script
@@ -213,7 +257,11 @@ este archivo.
 `src/` que no importa nada y que nadie importa. Si es un punto de entrada legítimo (un archivo que
 levanta un framework o un proceso, no código muerto), se agrega su ruta al `pathNot` de
 `no-orphans` en `.dependency-cruiser.cjs`, con un comentario que diga quién lo levanta. Hoy están
-exceptuados `tests/` (Vitest) y `scripts/` (`node` desde `package.json`).
+exceptuados `tests/` (Vitest), `scripts/` (`node` desde `package.json`) y los archivos de Next que
+carga el framework (F0-04): `page`, `layout` y `route` (`.ts`/`.tsx`) en cualquier carpeta de
+`src/app/`, y `src/instrumentation.ts`. Si una tarea usa otro archivo especial de Next
+(`loading.tsx`, `error.tsx`, `not-found.tsx`...), lo suma a esa excepción y al fixture
+`tests/fixtures/limites/no-orphans/`.
 
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
@@ -228,11 +276,13 @@ src/dominio          puro; solo importa de sí mismo (vacío hasta el lote 5)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces (vacío hasta el lote 5)
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles (vacío hasta F0-08)
-src/infraestructura  entorno, log, arranque/ = punto de armado (vacío hasta F0-04)
-src/app              Next.js; habla con casos-uso y arranque (vacío hasta F0-04)
+src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
+src/app              Next.js (App Router): página de inicio, layout raíz, api/salud
+src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
 tests/               dominio · casos-uso · extraccion · e2e · contratos · fixtures
 scripts/             utilidades de los comandos de package.json (sin-any.ts, etc.)
+next.config.ts       configuración de Next: standalone, versión del build, agentRules
 docs/                arquitectura.md (capas y límites) · adr/
 ```
 

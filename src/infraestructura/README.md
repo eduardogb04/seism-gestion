@@ -7,4 +7,6 @@ uso que usan `app` y `worker`. El resto de esta carpeta no importa
 adaptadores (dependency-cruiser, `npm run limites`; ver
 `docs/arquitectura.md` y ADR 0004).
 
-Vacío hasta F0-04 (`entorno.ts`, la primera variable validada).
+Desde F0-04: `entorno.ts` (el esquema de variables de entorno y su
+validación al arrancar) y `version.ts` (cómo se resuelve la versión del
+build). El log llega en F0-24 y `arranque/` cuando haya adaptadores.

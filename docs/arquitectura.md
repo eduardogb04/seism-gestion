@@ -1,6 +1,7 @@
 # Arquitectura
 
 > Primera versión (F0-03): las capas y sus límites, aterrizados en las carpetas reales del repo.
+> F0-04 suma los archivos de Next.js (ADR 0005).
 > Es la sección 1 del documento de diseño del sistema (*Arquitectura y modelo de dominio*, que
 > vive fuera de este repositorio) llevada a reglas que una máquina hace cumplir. Los módulos de
 > negocio se suman acá cuando existan.
@@ -33,7 +34,7 @@ puerto y es reemplazable cambiando un adaptador y una línea del punto de armado
 | `src/puertos` | Interfaces que el núcleo le pide al afuera (repositorios, almacén, IA, correo, identidad...) |
 | `src/adaptadores` | Implementaciones concretas de los puertos, y sus dobles para tests |
 | `src/infraestructura` | Entorno validado, log, y `arranque/`: el punto de armado |
-| `src/app` | Next.js. Una entrada: recibe pedidos y los pasa a casos de uso |
+| `src/app` | Next.js (App Router). Una entrada: recibe pedidos y los pasa a casos de uso. `src/instrumentation.ts` (lo levanta Next al arrancar; tiene que vivir en la raíz de `src/`) es parte de esta entrada |
 | `src/worker` | Proceso aparte (planificador y jobs). La otra entrada, con las mismas reglas que `app` |
 
 ## Límites
@@ -47,7 +48,7 @@ en `error`). Si uno se viola, el comando sale distinto de 0 y, desde F0-05, CI q
 | `src/casos-uso` | `src/dominio`, `src/puertos` | `src/adaptadores`, `src/app`, `src/worker`, `src/infraestructura`, `@prisma/*` | `casos-uso-sin-afuera` |
 | `src/puertos` | `src/dominio` (y otros puertos) | Todo lo demás, paquetes npm y módulos de Node incluidos | `puertos-solo-dominio` |
 | `src/adaptadores` | `src/dominio`, `src/puertos`, `src/infraestructura`, paquetes npm, Node | `src/casos-uso`, `src/app`, `src/worker` | `adaptadores-sin-casos-uso-ni-entradas` |
-| `src/app` y `src/worker` | `src/casos-uso`, `src/puertos`, `src/infraestructura` (incluido `arranque/`), **tipos** de `src/dominio` | `src/adaptadores` directo; **valores** de `src/dominio` | `adaptadores-solo-en-arranque` · `app-worker-dominio-solo-tipos` |
+| `src/app` (con `src/instrumentation.ts`) y `src/worker` | `src/casos-uso`, `src/puertos`, `src/infraestructura` (incluido `arranque/`), **tipos** de `src/dominio` | `src/adaptadores` directo; **valores** de `src/dominio` | `adaptadores-solo-en-arranque` · `app-worker-dominio-solo-tipos` |
 | `src/infraestructura` | Sin restricciones propias, salvo la del punto de armado | `src/adaptadores`, excepto desde `src/infraestructura/arranque/` | `adaptadores-solo-en-arranque` |
 | Todo lo analizado | — | Ciclos de dependencias (también los que existen solo por tipos) | `no-circular` |
 | `src/` | — | Módulos sueltos: que no importan nada y que nadie importa | `no-orphans` |
@@ -95,14 +96,17 @@ igual. La regla `useImportType` de Biome (en `error`, `npm run lint`) lo rechaza
 
 ## Qué analiza `npm run limites`
 
-- **Carpetas:** `src/`, `tests/` y `scripts/`. Los archivos de configuración de la raíz no son
-  código de la arquitectura y no entran. Los `README.md` tampoco: dependency-cruiser solo lee
-  JavaScript y TypeScript.
+- **Carpetas:** `src/`, `tests/` y `scripts/`, archivos `.ts` y `.tsx`. Los archivos de
+  configuración de la raíz (`next.config.ts` incluido) no son código de la arquitectura y no
+  entran. Los `README.md` tampoco: dependency-cruiser solo lee JavaScript y TypeScript.
 - **`tests/` y `scripts/`** entran para que `no-circular` los vea y para que un módulo de `src/`
   usado solo por su test no cuente como suelto. Las reglas por capa miran solo `src/`: un test
   puede importar lo que necesite (las suites de `tests/contratos/` ejercitan adaptadores).
 - **`no-orphans`** excluye `tests/` y `scripts/`: cada test lo levanta Vitest y cada script lo
-  levanta `node` desde `package.json`. Son puntos de entrada, no código muerto.
+  levanta `node` desde `package.json`. Excluye también los archivos que Next.js carga por su
+  nombre sin que nadie los importe: `page`, `layout` y `route` en cualquier carpeta de
+  `src/app/`, y `src/instrumentation.ts` (ADR 0005). Son puntos de entrada, no código muerto; un
+  `.tsx` suelto con otro nombre sí es huérfano.
 - **`tests/fixtures/`** queda fuera del análisis: son archivos que **tienen** que violar reglas.
 
 ## Cómo se prueba

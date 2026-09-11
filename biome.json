@@ -12,6 +12,7 @@
       "scripts/**",
       "*.ts",
       "*.json",
+      ".dependency-cruiser.cjs",
       "!package-lock.json",
       "!tests/fixtures",
       "!.next",

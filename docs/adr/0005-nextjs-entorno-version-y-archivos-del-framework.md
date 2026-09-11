@@ -5,7 +5,7 @@
 > otro que lo reemplaza y este se marca *Reemplazado por NNNN*.
 
 **Fecha:** 2026-09-11
-**Estado:** Propuesto
+**Estado:** Aprobado
 **Tarea:** F0-04
 **Decide:** el orquestador de Fase 0 (validación al arrancar y origen de la versión), sobre el
 criterio de F0-04; el resto, el dev de F0-04

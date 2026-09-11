@@ -16,10 +16,9 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-01):** solo existe el esqueleto: TypeScript severo, un test de humo, y los scripts
+**Estado (F0-02):** TypeScript severo, un test de humo, Biome como formato y lint, y los scripts
 que va a tener el proyecto (algunos todavía son placeholders — ver *Comandos*). Next.js (F0-04),
-Biome (F0-02), dependency-cruiser (F0-03), Postgres/Prisma (F0-08) y CI (F0-05) todavía no
-existen.
+dependency-cruiser (F0-03), Postgres/Prisma (F0-08) y CI (F0-05) todavía no existen.
 
 ## Leer primero
 
@@ -39,14 +38,45 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 |---|---|
 | `npm run dev` | **Placeholder.** Imprime qué tarea trae la herramienta (F0-04) y sale 0 |
 | `npm run build` | **Placeholder.** Ídem (F0-04) |
-| `npm run lint` | **Placeholder.** Ídem (F0-02, Biome) |
+| `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz. `-- --write` aplica los arreglos |
 | `npm test` | Vitest sobre `tests/dominio/` (hoy: el test de humo) |
 | `npm run typecheck` | `tsc --noEmit` (TypeScript severo) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
+| `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre `tests/fixtures/lint/debe-fallar.ts`, que **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`. Sale 0 si Biome lo rechazó con las dos reglas, 1 si lo aceptó o si falta alguna |
 | `npm run db:migrate` | **Sale 1** con mensaje claro: no hay esquema ni Prisma hasta F0-08 |
 
-Antes de abrir un PR: `npm run typecheck && npm test`. (`lint` y `limites` se suman a esta línea
-cuando dejen de ser placeholders, en F0-02 y F0-03.)
+Antes de abrir un PR: `npm run typecheck && npm run lint && npm test && npm run typecheck:fixtures
+&& npm run lint:fixtures`. (`limites` se suma a esta línea cuando deje de ser placeholder, en
+F0-03.)
+
+## Formato y lint
+
+Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta: formato y lint.
+`npm run lint` corre `biome check .`, que es **verificación**, no escribe nada; agregando
+`-- --write` aplica formato y los arreglos seguros de lint.
+
+- **Alcance.** `src/`, `tests/` (menos `tests/fixtures/`, que un lint normal no puede tocar — es
+  donde viven los fixtures que **tienen** que fallar), `scripts/` y los archivos de config de la
+  raíz (`*.ts`, `*.json`, menos `package-lock.json`). `.next/` y `next-env.d.ts` quedan afuera
+  desde ya (riesgo anotado en el plan: cuando exista Next.js en F0-04, esos archivos generados
+  pueden no coincidir con el formato de Biome).
+- **Reglas en `error`, ninguna en `warn`.** Biome trae reglas de `recommended` con severidad mixta
+  (`warn` en varias, `error` en otras) — un lint que solo emite `warn` no hace fallar `biome
+  check` y no cumple el criterio. `biome.json` fija en `"error"`, rule por rule, las que
+  `recommended` deja en `warn` o `info`, más las cinco que pide el criterio de F0-02
+  (`noExplicitAny`, `noUnusedVariables`, `noUnusedImports`, `noNonNullAssertion`, `useConst`).
+  `a11y` y `security` ya vienen en `error` en `recommended`, sin overrides. Ver ADR 0003 (por qué
+  no alcanza con `--error-on-warnings`, y qué revisar si Dependabot sube la versión de Biome).
+- **Prueba de que rechaza.** `tests/fixtures/lint/debe-fallar.ts` tiene un `any` explícito y una
+  variable sin usar (dos reglas independientes, para que el rechazo de una no tape que la otra
+  dejó de andar). Como el lint normal excluye `tests/fixtures/`, esa carpeta tiene su propio
+  `biome.json` (`"root": true`, no hereda nada de la raíz) solo con esas dos reglas. `npm run
+  lint:fixtures` (`scripts/lint-fixtures.ts`) invoca el binario de Biome con `cwd` en esa carpeta,
+  imprime su salida de error, e **invierte** el código de salida: sale 0 si Biome rechazó el
+  fixture y aparecen los diagnósticos de las dos reglas, 1 si lo aceptó o si falta alguno de los
+  dos.
+- **`// biome-ignore` exige motivo.** Ninguno sin explicar por qué en el mismo comentario. Si
+  Biome choca con código real, se arregla el código, no la regla.
 
 ## Reglas no negociables
 
@@ -60,8 +90,8 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
 3. **El reloj se inyecta.** Cero llamadas a la fecha del sistema en el dominio. Biome lo va a
    hacer cumplir desde F0-18/F0-19 (dominio todavía no existe).
 4. **Nada de `any`.** `tsc --noEmit` (TypeScript severo) frena el implícito; `scripts/sin-any.ts`
-   frena el explícito — es lo que corre `npm run typecheck` (ver ADR 0002). Biome suma una segunda
-   red en F0-02.
+   frena el explícito — es lo que corre `npm run typecheck` (ver ADR 0002). Biome (`noExplicitAny`,
+   `npm run lint`) es la segunda red.
 5. **Todo borde externo se valida con Zod**, incluidas las variables de entorno al arrancar: si
    falta una, la app no arranca. (Llega en F0-04.)
 6. **Todo error tiene código estable** del catálogo (`DOM-0001`). No existe `throw new Error`.
@@ -131,6 +161,9 @@ corresponda, sin dejar rastro del placeholder.
 `<herramienta>:fixtures` corre el chequeo real sobre el fixture e **invierte** el código de
 salida: sale 0 si la herramienta lo rechazó (mostrando su salida de error, para que se vea que
 rechaza a propósito), 1 si lo aceptó. `tests/fixtures/` está excluido del chequeo normal.
+Excepción (F0-02, decisión del orquestador): `lint/debe-fallar.ts` viola **dos** reglas a
+propósito (`noExplicitAny` y `noUnusedVariables`) y el script verifica que **las dos** aparezcan
+en la salida, para que el rechazo de una no tape que la otra dejó de andar.
 
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·

@@ -8,10 +8,10 @@ regla 1.
 
 ## Estado
 
-Lote 0, tarea F0-01: esqueleto del proyecto (TypeScript severo, scripts base, un test de humo).
-Todavía no hay Next.js, ni lint, ni límites de arquitectura, ni base de datos, ni CI: llegan en
-las tareas siguientes del plan (ver `Kickoff/ESTADO.md` fuera de este repo, o `docs/adr/` para las
-decisiones ya tomadas).
+Lote 0, tarea F0-02: esqueleto del proyecto (TypeScript severo, scripts base, un test de humo) más
+Biome como formato y lint. Todavía no hay Next.js, ni límites de arquitectura, ni base de datos, ni
+CI: llegan en las tareas siguientes del plan (ver `Kickoff/ESTADO.md` fuera de este repo, o
+`docs/adr/` para las decisiones ya tomadas).
 
 ## Cómo se levanta (hoy)
 
@@ -21,10 +21,11 @@ Requiere Node 24 (ver `.nvmrc`).
 npm install
 npm test           # Vitest, nivel dominio
 npm run typecheck  # tsc --noEmit + rechazo de 'any' explícito
+npm run lint       # Biome: lint + formato en modo verificación
 ```
 
-`npm run dev`, `npm run build` y `npm run lint` existen pero todavía no hacen nada real (avisan
-qué tarea los trae). `npm run db:migrate` sale en error hasta que exista esquema (lote 2).
+`npm run dev` y `npm run build` existen pero todavía no hacen nada real (avisan qué tarea los
+trae). `npm run db:migrate` sale en error hasta que exista esquema (lote 2).
 
 ## Dónde está todo
 

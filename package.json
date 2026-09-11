@@ -10,13 +10,15 @@
   "scripts": {
     "dev": "node scripts/pendiente.ts dev F0-04",
     "build": "node scripts/pendiente.ts build F0-04",
-    "lint": "node scripts/pendiente.ts lint F0-02",
+    "lint": "biome check .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json && node scripts/sin-any.ts",
     "typecheck:fixtures": "node scripts/typecheck-fixtures.ts",
+    "lint:fixtures": "node scripts/lint-fixtures.ts",
     "db:migrate": "node scripts/db-migrate-pendiente.ts"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.13",
     "@types/node": "^24.13.4",
     "typescript": "6.0.3",
     "vitest": "^5.0.0"

@@ -35,9 +35,16 @@ function ubicacionesDeAny(rutaTsconfig: string): string[] {
     if (contenido === undefined) {
       continue;
     }
-    const sourceFile = ts.createSourceFile(nombreArchivo, contenido, ts.ScriptTarget.Latest, true);
+    const sourceFile = ts.createSourceFile(
+      nombreArchivo,
+      contenido,
+      ts.ScriptTarget.Latest,
+      true,
+    );
     for (const ubicacion of detectarAnyEnArchivo(sourceFile)) {
-      ubicaciones.push(`${path.relative(cwd, nombreArchivo)}:${ubicacion.linea}`);
+      ubicaciones.push(
+        `${path.relative(cwd, nombreArchivo)}:${ubicacion.linea}`,
+      );
     }
   }
 
@@ -46,7 +53,11 @@ function ubicacionesDeAny(rutaTsconfig: string): string[] {
 
 function main(): void {
   const cwd = process.cwd();
-  const rutaTsconfig = ts.findConfigFile(cwd, ts.sys.fileExists, "tsconfig.json");
+  const rutaTsconfig = ts.findConfigFile(
+    cwd,
+    ts.sys.fileExists,
+    "tsconfig.json",
+  );
 
   if (rutaTsconfig === undefined) {
     console.error("No se encontró tsconfig.json.");

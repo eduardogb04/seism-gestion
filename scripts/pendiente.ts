@@ -14,5 +14,7 @@ if (comando === undefined || tarea === undefined) {
   process.exit(1);
 }
 
-console.log(`'${comando}' todavía no tiene herramienta propia: llega en ${tarea}. No hace nada por ahora.`);
+console.log(
+  `'${comando}' todavía no tiene herramienta propia: llega en ${tarea}. No hace nada por ahora.`,
+);
 process.exit(0);

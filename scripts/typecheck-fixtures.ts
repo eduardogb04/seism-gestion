@@ -40,16 +40,27 @@ function leerCompilerOptions(rutaTsconfig: string): ts.CompilerOptions {
 }
 
 function formatearDiagnostico(diagnostico: ts.Diagnostic): string {
-  const mensaje = ts.flattenDiagnosticMessageText(diagnostico.messageText, "\n");
+  const mensaje = ts.flattenDiagnosticMessageText(
+    diagnostico.messageText,
+    "\n",
+  );
   if (diagnostico.file !== undefined && diagnostico.start !== undefined) {
-    const { line, character } = diagnostico.file.getLineAndCharacterOfPosition(diagnostico.start);
-    const nombreArchivo = path.relative(process.cwd(), diagnostico.file.fileName);
+    const { line, character } = diagnostico.file.getLineAndCharacterOfPosition(
+      diagnostico.start,
+    );
+    const nombreArchivo = path.relative(
+      process.cwd(),
+      diagnostico.file.fileName,
+    );
     return `  ${nombreArchivo}:${line + 1}:${character + 1} - error TS${diagnostico.code}: ${mensaje}`;
   }
   return `  error TS${diagnostico.code}: ${mensaje}`;
 }
 
-function chequearFixture(rutaArchivo: string, opciones: ts.CompilerOptions): ResultadoFixture {
+function chequearFixture(
+  rutaArchivo: string,
+  opciones: ts.CompilerOptions,
+): ResultadoFixture {
   const nombreArchivo = path.relative(process.cwd(), rutaArchivo);
   const salida: string[] = [];
 
@@ -71,10 +82,15 @@ function chequearFixture(rutaArchivo: string, opciones: ts.CompilerOptions): Res
 
   const ubicacionesAny = detectarAnyEnArchivo(sourceFile);
   for (const ubicacion of ubicacionesAny) {
-    salida.push(`  ${nombreArchivo}:${ubicacion.linea} - 'any' explícito, prohibido (sin-any).`);
+    salida.push(
+      `  ${nombreArchivo}:${ubicacion.linea} - 'any' explícito, prohibido (sin-any).`,
+    );
   }
 
-  return { rechazado: diagnosticos.length > 0 || ubicacionesAny.length > 0, salida };
+  return {
+    rechazado: diagnosticos.length > 0 || ubicacionesAny.length > 0,
+    salida,
+  };
 }
 
 function main(): void {
@@ -92,15 +108,21 @@ function main(): void {
     }
 
     if (resultado.rechazado) {
-      console.log(`OK: '${nombre}' fue rechazado por la herramienta, como se esperaba.\n`);
+      console.log(
+        `OK: '${nombre}' fue rechazado por la herramienta, como se esperaba.\n`,
+      );
     } else {
-      console.error(`ERROR: '${nombre}' fue ACEPTADO. El typecheck no lo está rechazando.\n`);
+      console.error(
+        `ERROR: '${nombre}' fue ACEPTADO. El typecheck no lo está rechazando.\n`,
+      );
       todosRechazados = false;
     }
   }
 
   if (todosRechazados) {
-    console.log("typecheck:fixtures: los dos fixtures fueron rechazados a propósito. Todo bien.");
+    console.log(
+      "typecheck:fixtures: los dos fixtures fueron rechazados a propósito. Todo bien.",
+    );
     process.exit(0);
   }
 

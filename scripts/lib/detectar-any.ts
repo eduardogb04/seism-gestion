@@ -10,12 +10,16 @@ export interface UbicacionAny {
   readonly linea: number;
 }
 
-export function detectarAnyEnArchivo(archivoFuente: ts.SourceFile): UbicacionAny[] {
+export function detectarAnyEnArchivo(
+  archivoFuente: ts.SourceFile,
+): UbicacionAny[] {
   const ubicaciones: UbicacionAny[] = [];
 
   function visitar(nodo: ts.Node): void {
     if (nodo.kind === ts.SyntaxKind.AnyKeyword) {
-      const { line } = archivoFuente.getLineAndCharacterOfPosition(nodo.getStart());
+      const { line } = archivoFuente.getLineAndCharacterOfPosition(
+        nodo.getStart(),
+      );
       ubicaciones.push({ linea: line + 1 });
     }
     ts.forEachChild(nodo, visitar);

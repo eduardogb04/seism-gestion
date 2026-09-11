@@ -77,7 +77,8 @@ los commits nuevos.**
 
 Duración real de la corrida verde de referencia (push de la rama `f0-05-ci`, primera corrida, sin
 caché de npm todavía): **44 s** de punta a punta (41 s de job). `npm ci` 10 s, `build` 10 s,
-`limites:fixtures` 4 s, el resto de a 0–2 s. Muy lejos de los 10 minutos de P9.
+`limites:fixtures` 4 s, el resto de a 0–2 s. Muy lejos de los 10 minutos de P9. Las dos corridas
+del PR de esta tarea (#9), ya con la caché de npm en la de `push`: 37 s y 38 s.
 
 ## Alternativas descartadas
 
@@ -100,6 +101,10 @@ caché de npm todavía): **44 s** de punta a punta (41 s de job). `npm ci` 10 s,
   check `ci`. Dan lo mismo salvo el rango de gitleaks, que en `push` de una rama nueva incluye
   todos los commits de la rama. Con repo público los minutos no tienen tope (plan, riesgos de
   F0-05).
+- **Alcance de la caché de npm:** GitHub deja restaurar la caché de la propia rama o la de `main`.
+  La corrida `pull_request` corre sobre `refs/pull/<N>/merge` y no ve la de la rama: usa la de
+  `main`, que existe desde la primera corrida en `main` después de fusionar esta tarea. Antes de
+  eso dice `npm cache is not found` y baja todo (10 s): no es un error.
 - **gitleaks no lo sube Dependabot**: versión y SHA-256 están en `ci.yml`. Para subirlo: tomar el
   valor de `gitleaks_<versión>_checksums.txt` del release nuevo, compararlo con el `digest` del
   archivo en `gh api repos/gitleaks/gitleaks/releases/tags/v<versión>`, y cambiar

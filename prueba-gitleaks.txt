@@ -1,0 +1,2 @@
+# Secreto FALSO para la prueba de gitleaks de F0-05. No es de ningun servicio. No se fusiona.
+api_key = "AB5QnOumGtpF6wHw93jfINIEcgzC6bRl"

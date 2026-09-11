@@ -16,9 +16,10 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-04):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
-límites de arquitectura, y Next.js mínimo: una página, el latido `GET /api/salud` y el entorno
-validado con Zod al arrancar. Postgres/Prisma (F0-08) y CI (F0-05) todavía no existen
+**Estado (F0-05):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
+límites de arquitectura, Next.js mínimo (una página, el latido `GET /api/salud` y el entorno
+validado con Zod al arrancar) y CI en GitHub Actions: el check `ci` corre todos los controles y
+gitleaks en cada push y cada PR (ver *CI*). Postgres/Prisma (F0-08) todavía no existe
 (`db:migrate` sigue fallando a propósito — ver *Comandos*).
 
 ## Leer primero
@@ -49,7 +50,42 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run db:migrate` | **Sale 1** con mensaje claro: no hay esquema ni Prisma hasta F0-08 |
 
 Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm test && npm run
-typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures && npm run build`.
+typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures && npm run build`. Es lo
+mismo que corre CI (menos gitleaks); correrlo antes ahorra una vuelta.
+
+## CI
+
+`.github/workflows/ci.yml`, un solo job llamado **`ci`**: es el nombre del check que la protección
+de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
+
+- **Cuándo corre.** En cada `push` (cualquier rama o tag) y en cada `pull_request`. Una rama con PR
+  abierto corre dos veces por commit (en la página del PR, `ci / ci (push)` y
+  `ci / ci (pull_request)`; en `gh pr checks`, dos filas `ci`); tienen que estar verdes las dos.
+- **Qué corre.** `npm ci` (nunca `npm install`) y después, en orden: `typecheck`,
+  `typecheck:fixtures`, `lint`, `lint:fixtures`, `limites`, `limites:fixtures`, `test`, `build`
+  (sin `.env`) y gitleaks sobre los commits nuevos (los del PR; en un push, los que trajo). Si
+  `npm ci` anduvo, **corren todos aunque falle uno**, así el log muestra todos los rojos juntos; el
+  check queda en rojo si falla cualquiera.
+- **Tope: 10 minutos** (P9, `timeout-minutes`). Hoy tarda menos de un minuto. Si pasa de 10, el
+  check queda en rojo y es un bug de CI.
+- **Cómo leer el resultado.** `gh pr checks <N>` lista los checks del PR con su estado y el link a
+  la corrida (`gh pr checks <N> --watch` espera a que terminen). Si hay rojo:
+  `gh run view <id-de-corrida> --log-failed` muestra solo los pasos que fallaron; el nombre del
+  paso es el del comando (`test`, `limites:fixtures`...) y se reproduce local con
+  `npm run <paso>`. Sin PR: `gh run list --branch <rama>`.
+- **gitleaks en rojo.** El log dice regla, archivo, línea y commit, con el valor `REDACTED` (los
+  logs de un repo público son públicos). Si es un secreto real: **no alcanza con borrarlo en otro
+  commit** — ya está en el historial de la rama; se para, se avisa a Eduardo y se rota en el
+  servicio que lo emitió (`RUNBOOK.md` tiene reservada la sección *Si un secreto entró al repo*,
+  todavía sin escribir). Si es un falso positivo: `.gitleaksignore` con el *fingerprint* del log y el
+  motivo en el PR; nunca se saca el paso.
+- **Reglas del workflow.** Permisos base `contents: read`; un job que necesite más los eleva en su
+  propio bloque (el de la imagen, F0-07). Ningún paso con `continue-on-error`. Toda acción de
+  terceros, incluidas las de `actions/*`, **fijada por SHA de commit completo** con el tag en un
+  comentario (`uses: actions/checkout@<sha> # v7.0.1`), verificado con
+  `gh api repos/<dueño>/<acción>/commits/<tag>`; nunca por tag. Dependabot propone las subidas de
+  las acciones; gitleaks (versión y SHA-256 del binario en `ci.yml`) se sube a mano, con el
+  procedimiento del ADR 0006. Biome no lee YAML: `ci.yml` no lo lintea nada, se revisa en el PR.
 
 ## Next.js y entorno
 
@@ -177,9 +213,10 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
 11. **Todo paso manual va a `RUNBOOK.md`** en el mismo PR. Ninguna tarea cierra con uno sin
     documentar.
 12. **Un cambio de arquitectura sin ADR no pasa revisión.**
-13. **Todo entra por PR. CI en rojo = no se fusiona y no arranca ninguna tarea nueva.** (CI llega
-    en F0-05; hasta entonces, "CI en verde" significa correr localmente los comandos de la sección
-    *Comandos* y que todos den lo que tienen que dar.)
+13. **Todo entra por PR. CI en rojo = no se fusiona y no arranca ninguna tarea nueva.** "CI" es el
+    check `ci` de GitHub Actions (sección *CI*): en rojo en un PR, ese PR no se fusiona; en rojo en
+    `main`, lo primero es arreglarlo, antes de cualquier tarea nueva. Se mira con `gh pr checks
+    <N>` o, para `main`, `gh run list --branch main`.
 14. **Sin `TODO`, sin código muerto.** Lo que no se hace ahora, no se deja anotado en el código:
     se escribe como tarea.
 15. **No hay configuración atada a ningún editor ni a ningún CLI de agente**, con una única
@@ -209,8 +246,8 @@ Cómo se prueba · Riesgos.
 
 - [ ] Criterios de aceptación escritos antes de empezar, todos verdes
 - [ ] Tests en el nivel que corresponde (dominio · casos de uso · e2e · extracción)
-- [ ] CI entera en verde: typecheck, lint, límites, tests, migraciones (hasta F0-05: los mismos
-      comandos, corridos a mano)
+- [ ] CI entera en verde: el check `ci` del PR (typecheck, lint, límites, tests, fixtures, build,
+      gitleaks; migraciones desde F0-11), visto con `gh pr checks <N>`
 - [ ] Si tocó el esquema: migración con `down.sql` y el test que aplica y revierte
 - [ ] Si cambió la arquitectura: ADR
 - [ ] Si dejó un paso manual: `RUNBOOK.md`
@@ -263,6 +300,14 @@ carga el framework (F0-04): `page`, `layout` y `route` (`.ts`/`.tsx`) en cualqui
 (`loading.tsx`, `error.tsx`, `not-found.tsx`...), lo suma a esa excepción y al fixture
 `tests/fixtures/limites/no-orphans/`.
 
+**...un control a CI (F0-05).** El comando va primero a `package.json` (se tiene que poder correr
+local con `npm run <nombre>`) y después como paso del job `ci` en `.github/workflows/ci.yml`, con
+`name` igual al script y la misma condición que los demás
+(`if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}`), sin `continue-on-error`.
+Si el control es un `*:fixtures`, va al lado de su control. Si necesita una acción de terceros, va
+fijada por SHA con el tag en comentario. La corrida tiene que seguir entrando en 10 minutos; se
+suma a la lista de *Antes de abrir un PR* y a la sección *CI*.
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -284,6 +329,7 @@ tests/               dominio · casos-uso · extraccion · e2e · contratos · f
 scripts/             utilidades de los comandos de package.json (sin-any.ts, etc.)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
 docs/                arquitectura.md (capas y límites) · adr/
+.github/             workflows/ci.yml (el check `ci`) · CODEOWNERS · dependabot.yml
 ```
 
 Cada carpeta de `src/` y `tests/` tiene su propio `README.md` explicando qué va a vivir ahí y

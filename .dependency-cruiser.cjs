@@ -15,7 +15,15 @@
  * estructura `src/...` para que estas mismas reglas le apliquen).
  *
  * Todas en `error`: una regla en `warn` no hace fallar el comando.
+ *
+ * Next.js (F0-04, ADR 0005): `src/instrumentation.ts` es un archivo de Next
+ * que tiene que vivir en la raíz de `src/` (no puede ir en `src/app/`), pero
+ * es parte de la entrada `app`: las reglas de `app` le aplican igual. Se
+ * analizan `.ts` y `.tsx` (las páginas de Next son `.tsx`).
  */
+
+/** `src/instrumentation.ts`: lo levanta Next al arrancar; cuenta como `app`. */
+const INSTRUMENTACION_NEXT = "^src/instrumentation\\.ts$";
 
 /** @type {import("dependency-cruiser").IConfiguration} */
 module.exports = {
@@ -86,12 +94,13 @@ module.exports = {
       // importar un adaptador. `app` y `worker` los reciben a través de él, y
       // el resto de `infraestructura` (entorno, log) tampoco los importa.
       // Dominio, casos-uso y puertos ya lo tienen prohibido por sus reglas.
+      // `src/instrumentation.ts` es parte de `app` (ADR 0005).
       name: "adaptadores-solo-en-arranque",
       comment:
-        "Solo src/infraestructura/arranque puede importar src/adaptadores; app, worker y el resto de infraestructura pasan por él (ADR 0004; docs/arquitectura.md).",
+        "Solo src/infraestructura/arranque puede importar src/adaptadores; app (con src/instrumentation.ts), worker y el resto de infraestructura pasan por él (ADR 0004 y 0005; docs/arquitectura.md).",
       severity: "error",
       from: {
-        path: "^src/(app|worker|infraestructura)/",
+        path: ["^src/(app|worker|infraestructura)/", INSTRUMENTACION_NEXT],
         pathNot: "^src/infraestructura/arranque/",
       },
       to: { path: "^src/adaptadores/" },
@@ -110,11 +119,12 @@ module.exports = {
       // valores) dependency-cruiser lo marca `type-only`, pero TypeScript
       // con `verbatimModuleSyntax` deja el import en el JavaScript. Lo cierra
       // Biome: `useImportType` (en `error`) exige `import type` en ese caso.
+      // `src/instrumentation.ts` es parte de `app` (ADR 0005).
       name: "app-worker-dominio-solo-tipos",
       comment:
-        "src/app y src/worker solo pueden importar tipos de src/dominio (`import type`); para escribir se pasa por casos-uso (ADR 0004; docs/arquitectura.md).",
+        "src/app (con src/instrumentation.ts) y src/worker solo pueden importar tipos de src/dominio (`import type`); para escribir se pasa por casos-uso (ADR 0004 y 0005; docs/arquitectura.md).",
       severity: "error",
-      from: { path: "^src/(app|worker)/" },
+      from: { path: ["^src/(app|worker)/", INSTRUMENTACION_NEXT] },
       to: {
         path: "^src/dominio/",
         dependencyTypesNot: ["type-only", "type-import"],
@@ -138,9 +148,16 @@ module.exports = {
       // Excepciones (puntos de entrada legítimos, no código muerto):
       // - `tests/`: cada test lo levanta Vitest, nadie lo importa.
       // - `scripts/`: cada script lo levanta `node` desde package.json.
-      // Los archivos de configuración de la raíz (`vitest.config.ts`, este
-      // mismo archivo) nunca entran al análisis: `npm run limites` solo mira
-      // `src/`, `tests/` y `scripts/`. Los `README.md` de cada carpeta
+      // - Los archivos de Next.js que carga el framework por su nombre, sin
+      //   que nadie los importe (F0-04, ADR 0005): `page`, `layout` y `route`
+      //   en cualquier carpeta de `src/app/`, y `src/instrumentation.ts`. Si
+      //   se usa otro archivo especial de Next (`loading`, `error`,
+      //   `not-found`...), se suma acá en la tarea que lo trae. Un `.tsx`
+      //   suelto con otro nombre sigue siendo huérfano.
+      // Los archivos de configuración de la raíz (`vitest.config.ts`,
+      // `next.config.ts`, este mismo archivo) nunca entran al análisis:
+      // `npm run limites` solo mira `src/`, `tests/` y `scripts/`. Los
+      // `README.md` de cada carpeta
       // tampoco: dependency-cruiser solo lee JavaScript y TypeScript, así que
       // no hace falta excluirlos acá. `tests/fixtures/` queda fuera de todo
       // (ver `options.exclude`).
@@ -149,7 +166,15 @@ module.exports = {
       severity: "error",
       from: {
         orphan: true,
-        pathNot: ["^tests/", "^scripts/"],
+        pathNot: [
+          "^tests/",
+          "^scripts/",
+          // Dos expresiones en vez de `(.+/)?`: dependency-cruiser rechaza
+          // las expresiones con cuantificadores anidados ("unsafe regex").
+          "^src/app/(page|layout|route)\\.tsx?$",
+          "^src/app/.+/(page|layout|route)\\.tsx?$",
+          INSTRUMENTACION_NEXT,
+        ],
       },
       to: {},
     },

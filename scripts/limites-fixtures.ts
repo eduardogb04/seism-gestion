@@ -94,6 +94,8 @@ const FIXTURES: readonly Fixture[] = [
     regla: "adaptadores-solo-en-arranque",
     archivosQueViolan: [
       "src/app/usa-adaptador.ts",
+      "src/app/page.tsx",
+      "src/instrumentation.ts",
       "src/worker/usa-adaptador.ts",
       "src/infraestructura/log/usa-adaptador.ts",
     ],
@@ -103,6 +105,7 @@ const FIXTURES: readonly Fixture[] = [
     archivosQueViolan: [
       "src/app/escribe-dominio.ts",
       "src/app/import-mixto.ts",
+      "src/instrumentation.ts",
       "src/worker/escribe-dominio.ts",
     ],
   },
@@ -113,7 +116,10 @@ const FIXTURES: readonly Fixture[] = [
   },
   {
     regla: "no-orphans",
-    archivosQueViolan: ["src/casos-uso/huerfano.ts"],
+    // Los archivos especiales de Next (`src/app/page.tsx`,
+    // `src/instrumentation.ts`) están sueltos pero exceptuados; un `.tsx`
+    // con otro nombre, no.
+    archivosQueViolan: ["src/casos-uso/huerfano.ts", "src/app/suelto.tsx"],
   },
 ];
 

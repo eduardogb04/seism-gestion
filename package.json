@@ -15,11 +15,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && node scripts/sin-any.ts",
     "typecheck:fixtures": "node scripts/typecheck-fixtures.ts",
     "lint:fixtures": "node scripts/lint-fixtures.ts",
+    "limites": "depcruise src tests scripts --config .dependency-cruiser.cjs",
+    "limites:fixtures": "node scripts/limites-fixtures.ts",
     "db:migrate": "node scripts/db-migrate-pendiente.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
     "@types/node": "^24.13.4",
+    "dependency-cruiser": "18.2.0",
     "typescript": "6.0.3",
     "vitest": "^5.0.0"
   }

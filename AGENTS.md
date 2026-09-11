@@ -16,19 +16,19 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-02):** TypeScript severo, un test de humo, Biome como formato y lint, y los scripts
-que va a tener el proyecto (algunos todavía son placeholders — ver *Comandos*). Next.js (F0-04),
-dependency-cruiser (F0-03), Postgres/Prisma (F0-08) y CI (F0-05) todavía no existen.
+**Estado (F0-03):** TypeScript severo, un test de humo, Biome como formato y lint,
+dependency-cruiser con los límites de arquitectura, y los scripts que va a tener el proyecto
+(algunos todavía son placeholders — ver *Comandos*). Next.js (F0-04), Postgres/Prisma (F0-08) y CI
+(F0-05) todavía no existen.
 
 ## Leer primero
 
 1. Este archivo, entero.
 2. `README.md` — cómo se levanta.
-3. `docs/adr/` — las decisiones y por qué. No se reabren sin un ADR nuevo.
-4. La spec de la tarea que te toca (`docs/specs/` o la que te pasaron).
-5. `RUNBOOK.md` solo si tu tarea toca infraestructura o deja un paso manual.
-
-(`docs/arquitectura.md` todavía no existe: lo agrega F0-03.)
+3. `docs/arquitectura.md` — capas, carpetas y qué puede importar cada una.
+4. `docs/adr/` — las decisiones y por qué. No se reabren sin un ADR nuevo.
+5. La spec de la tarea que te toca (`docs/specs/` o la que te pasaron).
+6. `RUNBOOK.md` solo si tu tarea toca infraestructura o deja un paso manual.
 
 ## Comandos
 
@@ -43,11 +43,12 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run typecheck` | `tsc --noEmit` (TypeScript severo) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
 | `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre `tests/fixtures/lint/debe-fallar.ts`, que **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`. Sale 0 si Biome lo rechazó con las dos reglas, 1 si lo aceptó o si falta alguna |
+| `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
+| `npm run limites:fixtures` | Prueba negativa de `limites`: corre dependency-cruiser sobre cada carpeta de `tests/fixtures/limites/` (una por regla), por separado. Sale 0 si cada una fue rechazada por **su** regla y desde los archivos esperados; 1 si alguna pasó, la rechazó otra regla, o hay una regla sin fixture |
 | `npm run db:migrate` | **Sale 1** con mensaje claro: no hay esquema ni Prisma hasta F0-08 |
 
-Antes de abrir un PR: `npm run typecheck && npm run lint && npm test && npm run typecheck:fixtures
-&& npm run lint:fixtures`. (`limites` se suma a esta línea cuando deje de ser placeholder, en
-F0-03.)
+Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm test && npm run
+typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures`.
 
 ## Formato y lint
 
@@ -57,9 +58,9 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
 
 - **Alcance.** `src/`, `tests/` (menos `tests/fixtures/`, que un lint normal no puede tocar — es
   donde viven los fixtures que **tienen** que fallar), `scripts/` y los archivos de config de la
-  raíz (`*.ts`, `*.json`, menos `package-lock.json`). `.next/` y `next-env.d.ts` quedan afuera
-  desde ya (riesgo anotado en el plan: cuando exista Next.js en F0-04, esos archivos generados
-  pueden no coincidir con el formato de Biome).
+  raíz (`*.ts`, `*.json` menos `package-lock.json`, y `.dependency-cruiser.cjs`). `.next/` y
+  `next-env.d.ts` quedan afuera desde ya (riesgo anotado en el plan: cuando exista Next.js en
+  F0-04, esos archivos generados pueden no coincidir con el formato de Biome).
 - **Reglas en `error`, ninguna en `warn`.** Biome trae reglas de `recommended` con severidad mixta
   (`warn` en varias, `error` en otras) — un lint que solo emite `warn` no hace fallar `biome
   check` y no cumple el criterio. `biome.json` fija en `"error"`, rule por rule, las que
@@ -78,6 +79,39 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
 - **`// biome-ignore` exige motivo.** Ninguno sin explicar por qué en el mismo comentario. Si
   Biome choca con código real, se arregla el código, no la regla.
 
+## Límites de arquitectura
+
+dependency-cruiser (`.dependency-cruiser.cjs`, reglas comentadas en castellano) hace cumplir qué
+carpeta de `src/` puede importar a cuál. La tabla completa, con el porqué de cada fila, está en
+`docs/arquitectura.md`. En corto:
+
+| Carpeta | Solo puede importar | Regla |
+|---|---|---|
+| `src/dominio` | `src/dominio`. Nada de paquetes npm ni `node:*`, aunque no estén instalados | `dominio-puro` |
+| `src/casos-uso` | `dominio` y `puertos`. Nunca `adaptadores`, `app`, `worker`, `infraestructura`, `@prisma/*` | `casos-uso-sin-afuera` |
+| `src/puertos` | `dominio` (y otros puertos). Nada de paquetes npm ni `node:*` | `puertos-solo-dominio` |
+| `src/adaptadores` | `dominio`, `puertos`, `infraestructura`, paquetes. Nunca `casos-uso`, `app`, `worker` | `adaptadores-sin-casos-uso-ni-entradas` |
+| `src/app`, `src/worker` | `casos-uso`, `puertos`, `infraestructura`. Adaptadores **solo** a través de `src/infraestructura/arranque/`; dominio **solo** con `import type` | `adaptadores-solo-en-arranque` · `app-worker-dominio-solo-tipos` |
+| `src/infraestructura` | Lo que necesite, pero adaptadores **solo** desde `arranque/` (el punto de armado) | `adaptadores-solo-en-arranque` |
+
+Más `no-circular` (ningún ciclo, tampoco solo de tipos) y `no-orphans` (ningún módulo suelto en
+`src/`; `tests/` y `scripts/` son puntos de entrada y quedan exceptuados). Todas en `error`. El
+punto de armado y el "dominio solo por tipos" están decididos en el ADR 0004.
+
+- **`import type`, no `import { type X }`.** Para leer tipos del dominio desde `app` o `worker` se
+  usa `import type { X }`. La forma inline `import { type X }` dependency-cruiser la deja pasar,
+  pero TypeScript la deja en el JavaScript; la frena Biome (`useImportType`). Ver ADR 0004.
+- **Prueba de que rechaza.** `tests/fixtures/limites/` tiene **una carpeta por regla**, con el
+  nombre de la regla. Cada una replica la estructura `src/...` que hace falta para que la regla le
+  aplique, y trae archivos que la violan y archivos que no (el caso permitido). `npm run
+  limites:fixtures` (`scripts/limites-fixtures.ts`) corre dependency-cruiser sobre cada carpeta
+  por separado, con `cwd` en ella y la configuración de la raíz, imprime la salida e **invierte**
+  el código: 0 si cada fixture fue rechazado por su regla y exactamente desde los archivos
+  declarados en el script; 1 si alguno pasó, lo rechazó otra regla, un archivo permitido aparece
+  como violación, o una regla no tiene fixture (o una carpeta no tiene regla).
+- **dependency-cruiser y TypeScript.** dependency-cruiser 18.2.0 parsea TypeScript `>=2 <7`. Es
+  otro motivo para no aceptar un bump de TypeScript a 7.x sin decidirlo aparte (ADR 0002 y 0004).
+
 ## Reglas no negociables
 
 Las hace cumplir la máquina donde se puede; donde no, la revisión.
@@ -85,8 +119,9 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
 1. **Nada real en el repo.** Ni datos de la empresa, de clientes, de personas, ni montos, ni
    documentos de negocio, ni secretos, ni `.env`. Las semillas y los tests usan datos
    **ficticios**. El repo es público: lo que entra queda indexado en minutos. Si dudás, no entra.
-2. **El dominio no importa infraestructura.** `src/dominio` solo importa de `src/dominio`.
-   dependency-cruiser lo va a hacer cumplir desde F0-03; hasta entonces, revisión.
+2. **El dominio no importa infraestructura.** `src/dominio` solo importa de `src/dominio`, y
+   cada capa respeta sus límites (sección *Límites de arquitectura*). Lo hace cumplir `npm run
+   limites` (dependency-cruiser).
 3. **El reloj se inyecta.** Cero llamadas a la fecha del sistema en el dominio. Biome lo va a
    hacer cumplir desde F0-18/F0-19 (dominio todavía no existe).
 4. **Nada de `any`.** `tsc --noEmit` (TypeScript severo) frena el implícito; `scripts/sin-any.ts`
@@ -164,6 +199,21 @@ rechaza a propósito), 1 si lo aceptó. `tests/fixtures/` está excluido del che
 Excepción (F0-02, decisión del orquestador): `lint/debe-fallar.ts` viola **dos** reglas a
 propósito (`noExplicitAny` y `noUnusedVariables`) y el script verifica que **las dos** aparezcan
 en la salida, para que el rechazo de una no tape que la otra dejó de andar.
+En `limites/` (F0-03) el fixture es una **carpeta** por regla, no un archivo: puede tener varios
+archivos que violan esa regla (y solo esa) y archivos que representan el caso permitido; el
+script verifica la regla y la lista exacta de archivos que la violan.
+
+**...un límite de arquitectura nuevo o cambiado (F0-03).** Un ADR que diga qué cambia y por qué;
+la regla en `.dependency-cruiser.cjs`, en `error` y comentada en castellano; su carpeta en
+`tests/fixtures/limites/<nombre-de-la-regla>/` y su entrada en `scripts/limites-fixtures.ts`
+(el script falla si una regla no tiene fixture); y la tabla de `docs/arquitectura.md` y la de
+este archivo.
+
+**...un punto de entrada que nadie importa (F0-03).** `no-orphans` rechaza cualquier módulo de
+`src/` que no importa nada y que nadie importa. Si es un punto de entrada legítimo (un archivo que
+levanta un framework o un proceso, no código muerto), se agrega su ruta al `pathNot` de
+`no-orphans` en `.dependency-cruiser.cjs`, con un comentario que diga quién lo levanta. Hoy están
+exceptuados `tests/` (Vitest) y `scripts/` (`node` desde `package.json`).
 
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
@@ -178,11 +228,12 @@ src/dominio          puro; solo importa de sí mismo (vacío hasta el lote 5)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces (vacío hasta el lote 5)
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles (vacío hasta F0-08)
-src/infraestructura  entorno, log, arranque (vacío hasta F0-04)
-src/app              Next.js; solo habla con casos-uso (vacío hasta F0-04)
+src/infraestructura  entorno, log, arranque/ = punto de armado (vacío hasta F0-04)
+src/app              Next.js; habla con casos-uso y arranque (vacío hasta F0-04)
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
 tests/               dominio · casos-uso · extraccion · e2e · contratos · fixtures
 scripts/             utilidades de los comandos de package.json (sin-any.ts, etc.)
+docs/                arquitectura.md (capas y límites) · adr/
 ```
 
 Cada carpeta de `src/` y `tests/` tiene su propio `README.md` explicando qué va a vivir ahí y

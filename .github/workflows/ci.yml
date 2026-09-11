@@ -1,0 +1,130 @@
+# Portón de CI (F0-05). Decisiones y porqués: docs/adr/0006-porton-ci.md.
+#
+# Un solo job, `ci`: es el nombre del check que la protección de `main`
+# exige en verde (F0-06). Queda en rojo si falla cualquier control.
+#
+# - Corre en cada push y en cada pull_request, sin filtro de ramas.
+# - `timeout-minutes: 10` es P9: la corrida entera tiene que entrar en 10
+#   minutos; si se pasa, GitHub la corta y el check queda en rojo.
+# - Los controles corren todos aunque falle uno (así se ven todos los rojos
+#   de una vez), pero cualquier paso que falle pone el job en rojo. No hay
+#   `continue-on-error` en ningún paso.
+# - Acciones fijadas por SHA de commit completo, con el tag en el comentario.
+#   Dependabot (`github-actions`) propone las subidas.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+# Base de solo lectura. El job de la imagen (F0-07) eleva `packages: write`
+# en su propio bloque; ningún otro lo necesita.
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      # Historial completo: gitleaks recorre los commits nuevos, no solo el
+      # último árbol. Sin credenciales guardadas en .git/config: ningún
+      # paso posterior las necesita.
+      - name: Código
+        id: codigo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Node de .nvmrc; caché de ~/.npm con clave en package-lock.json.
+      # node_modules no se cachea: `npm ci` lo borra y lo arma de cero.
+      - name: Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Dependencias (npm ci)
+        id: dependencias
+        run: npm ci
+
+      - name: typecheck
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run typecheck
+
+      - name: typecheck:fixtures
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run typecheck:fixtures
+
+      - name: lint
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run lint
+
+      - name: lint:fixtures
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run lint:fixtures
+
+      - name: limites
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run limites
+
+      - name: limites:fixtures
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run limites:fixtures
+
+      - name: test
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm test
+
+      # Sin .env: compilar no valida el entorno. La versión del latido sale
+      # del SHA de git del checkout (ADR 0005).
+      - name: build
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run build
+
+      # gitleaks (P14): segunda red detrás de push protection. Binario de un
+      # release fijo, verificado contra su SHA-256 antes de ejecutarlo.
+      - name: gitleaks (descarga verificada)
+        id: gitleaks
+        if: ${{ !cancelled() && steps.codigo.outcome == 'success' }}
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+        run: |
+          archivo="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$RUNNER_TEMP/$archivo" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archivo}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archivo" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archivo" -C "$RUNNER_TEMP" gitleaks
+
+      # Qué commits se escanean:
+      # - pull_request: los del PR (base..cabeza).
+      # - push: los que trajo el push (antes..después). Si `before` no sirve
+      #   (rama o tag nuevos, historia reescrita), lo que no está en la rama
+      #   principal.
+      # `--redact`: los logs de un repo público son públicos; el hallazgo se
+      # informa sin el valor.
+      - name: gitleaks (commits nuevos)
+        if: ${{ !cancelled() && steps.gitleaks.outcome == 'success' }}
+        env:
+          EVENTO: ${{ github.event_name }}
+          BASE_PR: ${{ github.event.pull_request.base.sha }}
+          CABEZA_PR: ${{ github.event.pull_request.head.sha }}
+          ANTES: ${{ github.event.before }}
+          RAMA_PRINCIPAL: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$EVENTO" = "pull_request" ]; then
+            rango="${BASE_PR}..${CABEZA_PR}"
+          elif [ -n "$ANTES" ] && git cat-file -e "${ANTES}^{commit}" 2>/dev/null; then
+            rango="${ANTES}..${GITHUB_SHA}"
+          else
+            rango="origin/${RAMA_PRINCIPAL}..${GITHUB_SHA}"
+          fi
+          echo "Rango escaneado: ${rango}"
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact --verbose \
+            --log-opts="${rango}" .

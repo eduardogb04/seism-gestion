@@ -8,10 +8,12 @@ regla 1.
 
 ## Estado
 
-Lote 0, tarea F0-04: esqueleto del proyecto (TypeScript severo, scripts base), Biome como formato
-y lint, dependency-cruiser con los límites de arquitectura, y Next.js mínimo: una página, el
-latido `GET /api/salud` y el entorno validado al arrancar. Todavía no hay base de datos ni CI:
-llegan en las tareas siguientes del plan (ver `docs/adr/` para las decisiones ya tomadas).
+Lote 1, tarea F0-05: esqueleto del proyecto (TypeScript severo, scripts base), Biome como formato
+y lint, dependency-cruiser con los límites de arquitectura, Next.js mínimo (una página, el latido
+`GET /api/salud` y el entorno validado al arrancar) y CI: el check `ci` de GitHub Actions corre
+todos los chequeos y gitleaks en cada push y cada PR (`.github/workflows/ci.yml`). Todavía no hay
+base de datos: llega en las tareas siguientes del plan (ver `docs/adr/` para las decisiones ya
+tomadas).
 
 ## Cómo se levanta (hoy)
 
@@ -50,6 +52,7 @@ src/      dominio · casos-uso · puertos · adaptadores · infraestructura · a
 tests/    dominio · casos-uso · extraccion · e2e · contratos · fixtures
 scripts/  utilidades de los comandos de package.json
 docs/     arquitectura.md (capas y límites) · adr/ (decisiones de arquitectura)
+.github/  workflows/ci.yml (CI) · CODEOWNERS · dependabot.yml
 ```
 
 Cada carpeta de `src/` y `tests/` tiene su propio `README.md`.

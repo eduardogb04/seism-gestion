@@ -108,6 +108,10 @@ igual. La regla `useImportType` de Biome (en `error`, `npm run lint`) lo rechaza
   `src/app/`, y `src/instrumentation.ts` (ADR 0005). Son puntos de entrada, no código muerto; un
   `.tsx` suelto con otro nombre sí es huérfano.
 - **`tests/fixtures/`** queda fuera del análisis: son archivos que **tienen** que violar reglas.
+- **El cliente generado de Prisma** (`src/adaptadores/prisma/generado/`, F0-08, ADR 0008) sí se
+  analiza: es un adaptador más, y las reglas por capa le aplican a quien lo importe (el fixture de
+  `casos-uso-sin-afuera` lo prueba). Solo `no-circular` ignora los ciclos que **empiezan** en él:
+  Prisma genera archivos que se importan entre sí.
 
 ## Cómo se prueba
 

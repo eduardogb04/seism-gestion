@@ -31,23 +31,72 @@
 
 ## 1. Prerrequisitos de la máquina
 
-**Qué hace falta:** Node 24 (ver `.nvmrc`), git, Docker Desktop corriendo (para la sección 14 y,
-desde el lote 2, para la base), GitHub CLI autenticado.
+**Qué hace falta:** Node 24 (ver `.nvmrc`), git, **WSL** (en Windows, antes de Docker Desktop),
+Docker Desktop corriendo (la base local desde F0-08 y la sección 14), GitHub CLI autenticado.
 
 **Cómo verificar:**
 ```
 node --version        → v24.x (.nvmrc pide 24)
 git --version
-docker run hello-world     # ver sección 14; hace falta de verdad desde F0-08
+wsl --status          → muestra la distribución y la versión 2 (solo Windows)
+docker run hello-world     → "Hello from Docker!"
 gh auth status              → "Logged in to github.com"
 ```
 
-**Docker todavía no corre en esta máquina** (está instalado, pero nunca se aceptaron los términos
-de Docker Desktop). Nada de Fase 0 está bloqueado por eso: la imagen se construye y se prueba en
-CI (F0-07, ADR 0007). Cuando lo abras, la sección 14 dice cómo repetir esa misma prueba acá.
-
 Node 24 corre `.ts` directo (type stripping nativo, sin `tsx` ni `ts-node`): `node
 scripts/sin-any.ts` funciona tal cual, sin paso de compilación previo.
+
+### WSL (Windows, una sola vez, antes de Docker Desktop)
+
+Docker Desktop en Windows corre sobre WSL 2. **Síntoma si falta:** al abrir Docker Desktop aparece
+el cartel *"WSL not installed"* y Docker no arranca.
+
+1. Menú Inicio → escribí `PowerShell` → clic derecho → *Ejecutar como administrador*.
+2. Pegá `wsl --install` y Enter. Tarda unos minutos; al final pide reiniciar.
+3. **Reiniciá la máquina.**
+4. Abrí Docker Desktop (la primera vez pide aceptar sus términos) y esperá a que el ícono de la
+   barra diga *running*.
+
+**Cómo verificar:** `docker run hello-world` imprime `Hello from Docker!`.
+
+**Si falla:** si `wsl --install` dice que la virtualización está deshabilitada, hay que activarla
+en el firmware de la máquina (BIOS/UEFI: *Intel VT-x* o *AMD-V/SVM*) y repetir. Si Docker Desktop
+sigue con el cartel después de reiniciar, `wsl --update` en PowerShell como administrador y abrirlo
+de nuevo.
+
+### La base local (desde F0-08)
+
+Postgres 16 en un contenedor, definido en `docker-compose.yml`. No hace falta instalar Postgres.
+Las credenciales son de desarrollo, ficticias, y ya están en `.env.example`.
+
+1. Docker Desktop corriendo.
+2. Parado en la carpeta del repo:
+   ```
+   docker compose up -d --wait     # levanta Postgres y espera a que esté sano
+   cp .env.example .env            # si todavía no tenés .env (cmd: copy .env.example .env)
+   npm run db:migrate              # aplica las migraciones
+   ```
+
+**Cómo verificar que salió bien:**
+- `docker compose ps` muestra el servicio `postgres` con estado `Up … (healthy)` y el puerto
+  `127.0.0.1:5432->5432/tcp`.
+- `npm run db:migrate` termina con `All migrations have been successfully applied.` (o, si ya
+  estaba al día, `No pending migrations to apply.`).
+- `docker compose exec postgres psql -U seism -d seism_gestion -c "\dt"` lista `configuracion` (y
+  `_prisma_migrations`, el registro de Prisma).
+
+**Apagarla:** `docker compose down` (los datos quedan en el volumen `seism-gestion_postgres-datos`).
+`docker compose down -v` la apaga **y borra el volumen**: la próxima vez arranca vacía.
+
+**Si falla:**
+- `Entorno inválido: db:migrate no arranca.` y una lista → falta `.env` o le falta la variable que
+  nombra (`DATABASE_URL`, `APP_ENTORNO`): copiá `.env.example` a `.env`. Es a propósito: sin
+  `DATABASE_URL` válida no arranca ni la app ni ningún script de base.
+- `Can't reach database server at localhost:5432` → la base no está levantada o todavía no está
+  sana: `docker compose up -d --wait` y `docker compose ps`.
+- `docker compose up` dice que el puerto `5432` está ocupado → hay otro Postgres escuchando en esta
+  máquina (uno instalado aparte u otro contenedor). Apagalo y repetí.
+- `unhealthy` en `docker compose ps` → `docker compose logs postgres` dice por qué.
 
 ## 2. Repositorio y GitHub
 
@@ -128,9 +177,11 @@ adentro de la imagen.
    ```
 3. Si querés verla con el navegador, en vez del paso 2:
    ```
-   docker run --rm -p 3000:3000 -e APP_ENTORNO=local seism-gestion:local
+   docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba seism-gestion:local
    ```
    y abrí `http://localhost:3000` y `http://localhost:3000/api/salud`. Se corta con `Ctrl+C`.
+   La app todavía no se conecta a la base: alcanza con una `DATABASE_URL` de Postgres válida, como
+   esa, ficticia. Sin ella el contenedor no arranca (F0-08).
 
 ### Cómo verificar que salió bien
 
@@ -139,7 +190,8 @@ adentro de la imagen.
   `GET /api/salud → 200 {"ok":true,"version":"<SHA corto del commit>"}`,
   `Archivos .env adentro de la imagen: ninguno`, la lista de variables de la imagen (tienen que ser
   solo `PATH`, `NODE_VERSION`, `YARN_VERSION`, `NEXT_TELEMETRY_DISABLED`, `NODE_ENV`, `PORT` y
-  `HOSTNAME`), `Sin APP_ENTORNO el contenedor salió 1: … Entorno inválido: la app no arranca.`, el
+  `HOSTNAME`), `Sin APP_ENTORNO ni DATABASE_URL el contenedor salió 1: …` con las dos variables
+  nombradas, el
   tamaño de la imagen, y al final `OK: el contenedor sirve / y /api/salud…`. Sale con código 0.
 - Con el paso 3: `http://localhost:3000` muestra `SeisM · gestión · fase 0` y
   `http://localhost:3000/api/salud` devuelve `{"ok":true,"version":"…"}`, con la misma versión que
@@ -189,8 +241,10 @@ repositorio sea público: hay que cambiarlo a mano una vez, y queda así para si
 - Desde cualquier máquina con Docker, **sin `docker login`**:
   ```
   docker pull ghcr.io/eduardogb04/seism-gestion:latest
-  docker run --rm -p 3000:3000 -e APP_ENTORNO=local ghcr.io/eduardogb04/seism-gestion:latest
+  docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba ghcr.io/eduardogb04/seism-gestion:latest
   ```
+  (desde F0-08 la imagen exige `DATABASE_URL`; la app todavía no se conecta, alcanza con esa URL
+  ficticia)
   y `http://localhost:3000/api/salud` devuelve la versión del último commit de `main`.
 - Después del sexto merge a `main`, el paso *Retención en GHCR (últimas 5)* del job `publicar`
   imprime `Borrando la versión …` y en la página del paquete quedan **5** versiones.

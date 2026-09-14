@@ -16,13 +16,14 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-07):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
+**Estado (F0-08):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
 límites de arquitectura, Next.js mínimo (una página, el latido `GET /api/salud` y el entorno
 validado con Zod al arrancar), CI en GitHub Actions (el check `ci` corre todos los controles y
-gitleaks en cada push y cada PR — ver *CI*) e imagen Docker: se construye y se prueba en cada
-corrida, y se publica en `ghcr.io/eduardogb04/seism-gestion` en cada push a `main` (ver *Imagen
-Docker*). Postgres/Prisma (F0-08) todavía no existe (`db:migrate` sigue fallando a propósito — ver
-*Comandos*).
+gitleaks en cada push y cada PR — ver *CI*), imagen Docker (se construye y se prueba en cada
+corrida, y se publica en `ghcr.io/eduardogb04/seism-gestion` en cada push a `main` — ver *Imagen
+Docker*) y la base: Postgres 16 local en `docker-compose.yml`, Prisma 7 con la tabla
+`configuracion` y su primera migración (con `down.sql`), y `npm run db:migrate` real — ver *Base de
+datos*. La app todavía no se conecta a la base; CI todavía no tiene base (F0-11).
 
 ## Leer primero
 
@@ -39,19 +40,22 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 
 | Comando | Qué hace hoy |
 |---|---|
+| `npm install` / `npm ci` | Instala y, en `postinstall`, corre `prisma generate`: escribe el cliente de Prisma en `src/adaptadores/prisma/generado/` (no se versiona). No necesita base ni `.env`. Ver *Base de datos* |
+| `docker compose up -d --wait` | Levanta el Postgres 16 local (`docker-compose.yml`) y espera a que esté sano. `docker compose ps` → `(healthy)`; `docker compose down` lo apaga (`-v` borra el volumen). Necesita Docker corriendo |
 | `npm run dev` | `next dev`: la app en `http://localhost:3000`. Necesita `.env` (copiá `.env.example`); si falta una variable o es inválida, **no arranca** (sale 1 y dice cuál). Ver *Next.js y entorno* |
 | `npm run build` | `next build` con `output: "standalone"`: compila, corre `tsc` y deja `.next/standalone/server.js`. **No necesita `.env`**; sí git o `APP_VERSION` (la versión del latido) |
 | `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
 | `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz. `-- --write` aplica los arreglos |
-| `npm test` | Vitest sobre `tests/dominio/` (hoy: el test de humo, el esquema de entorno y la resolución de la versión) |
-| `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que genera Next, ADR 0005) |
+| `npm test` | Vitest sobre `tests/dominio/` (hoy: el test de humo, el esquema de entorno —`APP_ENTORNO` y `DATABASE_URL`— y la resolución de la versión) |
+| `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que generan Next, ADR 0005, y Prisma, ADR 0008) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
 | `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre `tests/fixtures/lint/debe-fallar.ts`, que **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`. Sale 0 si Biome lo rechazó con las dos reglas, 1 si lo aceptó o si falta alguna |
 | `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
 | `npm run limites:fixtures` | Prueba negativa de `limites`: corre dependency-cruiser sobre cada carpeta de `tests/fixtures/limites/` (una por regla), por separado. Sale 0 si cada una fue rechazada por **su** regla y desde los archivos esperados; 1 si alguna pasó, la rechazó otra regla, o hay una regla sin fixture |
 | `npm run imagen` | Construye la imagen Docker: `docker build` multi-stage con `--build-arg APP_VERSION` (el SHA corto de git, o `APP_VERSION` si está definida). Sin etiqueta, `seism-gestion:local`; `-- <etiqueta>...` construye con las que le pases (es lo que hace CI al publicar). Necesita Docker corriendo, no necesita `npm ci` |
 | `npm run imagen:prueba` | Levanta esa imagen, espera el `HEALTHCHECK`, pide `/` y `/api/salud`, compara la versión con la del build, verifica que no lleve `.env` ni variables de más y que entre en el tope de tamaño. Informa **todas** las verificaciones que fallaron. `-- <etiqueta>` para probar otra |
-| `npm run db:migrate` | **Sale 1** con mensaje claro: no hay esquema ni Prisma hasta F0-08 |
+| `npm run db:migrate` | `scripts/db-migrate.ts`: lee `.env` si existe, **valida el entorno** (el mismo esquema que la app) y recién entonces corre `prisma migrate deploy`, que aplica las migraciones pendientes de `prisma/migrations/` (desde una base vacía o una ya migrada). Si `DATABASE_URL` falta o no es `postgresql://`/`postgres://`, **sale 1** nombrando la variable y Prisma ni se ejecuta. Necesita la base levantada |
+| `npm run db:generar` | `prisma generate`: regenera el cliente en `src/adaptadores/prisma/generado/` después de cambiar `prisma/schema.prisma`. No se conecta a ninguna base |
 
 Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm test && npm run
 typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures && npm run build`. Es lo
@@ -107,7 +111,9 @@ modelos:** antes de escribir código de Next, leé la guía que corresponda en
 archivo (ADR 0005).
 
 - **Levantar en local.** Copiá `.env.example` a `.env` (`.env` está en `.gitignore`: nunca entra
-  al repo) y `npm run dev`. Next lee `.env` solo.
+  al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO` y
+  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`). La app
+  todavía no se conecta a la base, pero sin `DATABASE_URL` válida no arranca.
 - **`.env` y `standalone`.** Si al compilar existe un `.env`, `next build` lo **copia** a
   `.next/standalone/.env` y `server.js` lo lee. Sin `.env` al compilar, las variables van en el
   entorno del proceso. Para la imagen Docker (F0-07): el `.env` no puede entrar al contexto del
@@ -157,8 +163,12 @@ Decisiones y porqués en el ADR 0007. En corto:
 - **`npm run imagen:prueba` es el test de esta parte**, y corre en CI: `HEALTHCHECK` sano, `/` y
   `/api/salud` con la versión del build, ningún archivo `.env` adentro, ninguna variable fuera de
   la lista permitida, ninguna capa que mencione un `.env`, el contenedor **sale 1 sin
-  `APP_ENTORNO`**, y el tamaño por debajo de **250 MB** (hoy 206 MB). Falla nombrando **todas** las
-  verificaciones que no pasaron.
+  `APP_ENTORNO` ni `DATABASE_URL`** (nombrando las dos), y el tamaño por debajo de **250 MB** (hoy
+  206 MB). Falla nombrando **todas** las verificaciones que no pasaron. El contenedor de la prueba
+  se levanta con `APP_ENTORNO=ci` y una `DATABASE_URL` ficticia (la app todavía no se conecta).
+- **Prisma en la imagen (F0-08).** La etapa `dependencias` copia `prisma.config.ts` y
+  `prisma/schema.prisma` antes de `npm ci`, porque `postinstall` genera el cliente; el cliente
+  generado de la máquina no entra al contexto (`.dockerignore`).
 - **Publicación:** solo en `push` a `main`, job `publicar`, etiquetas SHA y `latest` en
   `ghcr.io/eduardogb04/seism-gestion`, y retención de las últimas 5 versiones (P8). Solo
   `linux/amd64`; multi-arch es una línea comentada en el `Dockerfile`. Los pasos manuales de GitHub
@@ -167,6 +177,35 @@ Decisiones y porqués en el ADR 0007. En corto:
 - **Si tocás el `Dockerfile`**, el `.dockerignore` o el script: corré los dos comandos antes del PR
   (o dejá que lo haga el check `ci`, que los corre igual), y si cambia algo de lo de arriba,
   actualizá esta sección y el ADR.
+
+## Base de datos
+
+Postgres + Prisma 7 (`prisma` y `@prisma/client` fijados en 7.10.0). **Antes de tocar el esquema,
+leé `docs/convenciones-base.md`** (la regla, los nombres y el ciclo de una migración). Decisiones y
+porqués en el ADR 0008. En corto:
+
+- **Nadie toca la base a mano.** Todo cambio de esquema es una migración en
+  `prisma/migrations/<marca>_<nombre>/` con **`migration.sql` y `down.sql`** (P1). El `down.sql` se
+  genera con `prisma migrate diff` y se revisa a mano; revierte solo el esquema de su migración y no
+  toca `_prisma_migrations` (el registro de Prisma, que no es tabla propia). Nunca `prisma db
+  push`; nunca se edita una migración que ya está en `main`.
+- **Local:** `docker compose up -d --wait` (Postgres 16, volumen `postgres-datos`, solo en
+  `127.0.0.1:5432`) y `npm run db:migrate`. Las credenciales de `docker-compose.yml` y la
+  `DATABASE_URL` de `.env.example` son **de desarrollo local, ficticias**; una URL real nunca entra
+  al repo. RUNBOOK, sección 1.
+- **Configuración:** `prisma.config.ts` (raíz) da las rutas y toma la URL de `DATABASE_URL` (carga
+  `.env` si existe: Prisma 7 no lo lee solo). No valida, para que `prisma generate` corra sin base;
+  la validación está en `npm run db:*`, que es por donde se corren los comandos de base.
+- **El cliente generado** vive en `src/adaptadores/prisma/generado/`: lo escribe `postinstall` /
+  `npm run db:generar`, **no se versiona y no se edita**. Nada escrito a mano va en esa carpeta.
+  Como está dentro de `src/adaptadores/`, dependency-cruiser no deja importarlo desde `dominio`,
+  `puertos` ni `casos-uso`, y `app`/`worker` solo llegan por `src/infraestructura/arranque/`. Tres
+  excepciones por ruta, solo por ser generado: `sin-any.ts` lo saltea, Biome lo excluye y
+  `no-circular` ignora los ciclos que empiezan en él. `tsc` lo incluye (trae `// @ts-nocheck`).
+- **Todavía no hay** adaptador de driver (`@prisma/adapter-pg` llega con el primer código que
+  instancie el cliente), ni test de migraciones (F0-09), ni `db:migrate:down` (F0-09), ni seed
+  (F0-10), ni base en CI (F0-11). Hasta F0-09 la reversión se verifica a mano contra compose
+  (`docs/convenciones-base.md`, *Verificar la reversión*).
 
 ## Formato y lint
 
@@ -177,8 +216,8 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
 - **Alcance.** `src/` (`.ts` y `.tsx`), `tests/` (menos `tests/fixtures/`, que un lint normal no
   puede tocar — es donde viven los fixtures que **tienen** que fallar), `scripts/` y los archivos
   de config de la raíz (`*.ts` —`next.config.ts` incluido—, `*.json` menos `package-lock.json`, y
-  `.dependency-cruiser.cjs`). Lo que genera Next (`.next/` y `next-env.d.ts`) queda afuera: su
-  formato no es el de Biome.
+  `.dependency-cruiser.cjs`). Lo que genera Next (`.next/` y `next-env.d.ts`) y el cliente de
+  Prisma (`src/adaptadores/prisma/generado/`, ADR 0008) quedan afuera: no es código nuestro.
 - **Reglas en `error`, ninguna en `warn`.** Biome trae reglas de `recommended` con severidad mixta
   (`warn` en varias, `error` en otras) — un lint que solo emite `warn` no hace fallar `biome
   check` y no cumple el criterio. `biome.json` fija en `"error"`, rule por rule, las que
@@ -215,7 +254,9 @@ carpeta de `src/` puede importar a cuál. La tabla completa, con el porqué de c
 Más `no-circular` (ningún ciclo, tampoco solo de tipos) y `no-orphans` (ningún módulo suelto en
 `src/`; `tests/`, `scripts/` y los archivos que Next carga por su nombre son puntos de entrada y
 quedan exceptuados). Todas en `error`, sobre `.ts` y `.tsx`. El punto de armado y el "dominio
-solo por tipos" están decididos en el ADR 0004; lo de Next, en el ADR 0005.
+solo por tipos" están decididos en el ADR 0004; lo de Next, en el ADR 0005. `no-circular` no mira
+los ciclos que empiezan en el cliente generado de Prisma (`src/adaptadores/prisma/generado/`, ADR
+0008); importarlo desde el núcleo sigue siendo violación (fixture `casos-uso-sin-afuera`).
 
 - **`import type`, no `import { type X }`.** Para leer tipos del dominio desde `app` o `worker` se
   usa `import type { X }`. La forma inline `import { type X }` dependency-cruiser la deja pasar,
@@ -254,7 +295,7 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
 8. **La IA nunca escribe en el dominio.** Crea borradores o propone; un humano confirma.
 9. **Un archivo que crece demasiado se parte.**
 10. **Todo cambio de esquema es una migración con su `down.sql`.** Nadie toca la base a mano.
-    (Aplica desde F0-08.)
+    Cómo se hace: `docs/convenciones-base.md` (sección *Base de datos*).
 11. **Todo paso manual va a `RUNBOOK.md`** en el mismo PR. Ninguna tarea cierra con uno sin
     documentar.
 12. **Un cambio de arquitectura sin ADR no pasa revisión.**
@@ -306,16 +347,26 @@ Cómo se prueba · Riesgos.
 *(Cada tarea de Fase 0 completa su sección acá.)*
 
 **...un comando que todavía no tiene herramienta (F0-01).** Un script dedicado que sale 1 con un
-mensaje claro en castellano que dice qué tarea lo trae (como `scripts/db-migrate-pendiente.ts`
-para `db:migrate`). Se reemplaza por la herramienta real en la tarea que corresponda, sin dejar
-rastro del placeholder. (El placeholder genérico que salía 0, `scripts/pendiente.ts`, se borró en
-F0-04 al quedar sin uso.)
+mensaje claro en castellano que dice qué tarea lo trae (como fue `scripts/db-migrate-pendiente.ts`
+para `db:migrate` hasta F0-08). Se reemplaza por la herramienta real en la tarea que corresponda,
+sin dejar rastro del placeholder. (Los dos placeholders que hubo ya se borraron:
+`scripts/pendiente.ts` en F0-04 y `scripts/db-migrate-pendiente.ts` en F0-08.)
 
 **...una variable de entorno (F0-04).** En la misma tarea: al esquema de
 `src/infraestructura/entorno.ts` (con el tipo más estrecho posible: `z.enum`, `z.url()`...), su
 caso en `tests/dominio/entorno.test.ts` (ausente, inválida, válida), y a `.env.example`: **sin
 valor si es secreta** (`NOMBRE=`), con su único valor válido en local si no lo es (como
 `APP_ENTORNO=local`). Si hace falta en el servidor o en CI, el paso manual va a `RUNBOOK.md`.
+Si la app la exige al arrancar, también a la lista de `--env` con que `scripts/imagen.ts` levanta
+el contenedor de prueba (con un valor ficticio) y a los `docker run` del `RUNBOOK.md` (secciones 14
+y 15). Excepción decidida (F0-08): la `DATABASE_URL` de `.env.example` lleva valor aunque en el
+servidor sea secreta, porque apunta al Postgres local de compose, con credenciales ficticias.
+
+**...una migración (F0-08).** Siguiendo `docs/convenciones-base.md`, *Cómo nace una migración*:
+`schema.prisma` → `npx prisma migrate dev --create-only --name <nombre>` → `down.sql` con `prisma
+migrate diff` → revisión a mano de los dos → `npm run db:migrate` y `npm run db:generar` →
+verificar la reversión → commit de los tres archivos juntos. Una tabla nueva sigue los nombres de
+P6 (en esa misma página) y nace en la tarea que la usa.
 
 **...un fixture que una herramienta tiene que rechazar (F0-01).** Un archivo bajo
 `tests/fixtures/<herramienta>/` que viola **una sola** regla, por lo demás válido. El script
@@ -374,7 +425,7 @@ estimación; el orden real de creación manda).
 src/dominio          puro; solo importa de sí mismo (vacío hasta el lote 5)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces (vacío hasta el lote 5)
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles (vacío hasta F0-08)
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar)
 src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
@@ -382,8 +433,11 @@ src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6
 tests/               dominio · casos-uso · extraccion · e2e · contratos · fixtures
 scripts/             utilidades de los comandos de package.json (sin-any.ts, etc.)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
+prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql}
+prisma.config.ts     configuración de la CLI de Prisma: rutas y DATABASE_URL
+docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27)
 Dockerfile           imagen multi-stage de la app (y del worker desde F0-25) · .dockerignore
-docs/                arquitectura.md (capas y límites) · adr/
+docs/                arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/
 .github/             workflows/ci.yml (el check `ci` y el job `publicar`) · CODEOWNERS · dependabot.yml
 ```
 

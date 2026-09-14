@@ -9,3 +9,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  # La imagen base del Dockerfile está fijada por digest (F0-07): Dependabot
+  # sube tag y digest juntos, como hace con el SHA de las acciones.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"

@@ -235,9 +235,15 @@ function verificarSinSecretos(etiqueta: string): string[] {
     "{{.CreatedBy}}",
     etiqueta,
   ]);
-  if (capas.toLowerCase().includes(".env")) {
+  // `process.env.PORT`, del HEALTHCHECK, no es un archivo de entorno: se saca
+  // antes de buscar, para que el control no cante un falso positivo.
+  const capasConEnv = capas
+    .split("\n")
+    .map((capa) => capa.replaceAll("process.env", ""))
+    .filter((capa) => capa.toLowerCase().includes(".env"));
+  if (capasConEnv.length > 0) {
     problemas.push(
-      "Alguna capa de la imagen menciona un archivo .env (ver 'docker history --no-trunc').",
+      `Alguna capa de la imagen menciona un archivo .env: ${capasConEnv.join(" | ")}`,
     );
   }
 

@@ -26,6 +26,12 @@ const ETIQUETA_LOCAL = "seism-gestion:local";
 const CONTENEDOR = "seism-gestion-prueba";
 const CONTENEDOR_SIN_ENTORNO = "seism-gestion-prueba-sin-entorno";
 const PUERTO = 3000;
+/**
+ * La app valida `DATABASE_URL` al arrancar (F0-08) pero todavía no se
+ * conecta a ninguna base: para la prueba alcanza una URL de Postgres válida y
+ * ficticia, a la que nadie se conecta.
+ */
+const DATABASE_URL_PRUEBA = "postgresql://prueba:prueba@127.0.0.1:5432/prueba";
 /** Objetivo de tamaño de la imagen final (criterio de F0-07). */
 const TOPE_MB = 250;
 const ESPERA_MAXIMA_MS = 120_000;
@@ -256,11 +262,15 @@ function verificarSinSecretos(etiqueta: string): string[] {
   borrarContenedor(CONTENEDOR_SIN_ENTORNO);
   const salida = `${sinEntorno.stdout ?? ""}${sinEntorno.stderr ?? ""}`;
   console.log(
-    `Sin APP_ENTORNO el contenedor salió ${sinEntorno.status}: ${salida.trim()}`,
+    `Sin APP_ENTORNO ni DATABASE_URL el contenedor salió ${sinEntorno.status}: ${salida.trim()}`,
   );
-  if (sinEntorno.status !== 1 || !salida.includes("APP_ENTORNO")) {
+  if (
+    sinEntorno.status !== 1 ||
+    !salida.includes("APP_ENTORNO") ||
+    !salida.includes("DATABASE_URL")
+  ) {
     problemas.push(
-      "Sin APP_ENTORNO el contenedor tendría que salir 1 nombrando la variable que falta; no lo hizo (¿se coló un .env adentro?).",
+      "Sin APP_ENTORNO ni DATABASE_URL el contenedor tendría que salir 1 nombrando las dos variables que faltan; no lo hizo (¿se coló un .env adentro?).",
     );
   }
 
@@ -298,6 +308,8 @@ async function probar(etiqueta: string): Promise<void> {
     `${PUERTO}:3000`,
     "--env",
     "APP_ENTORNO=ci",
+    "--env",
+    `DATABASE_URL=${DATABASE_URL_PRUEBA}`,
     etiqueta,
   ]);
 

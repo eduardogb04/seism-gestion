@@ -24,6 +24,8 @@
 node_modules
 .next
 *.tsbuildinfo
+# El cliente de Prisma lo genera `npm ci` adentro de la imagen (ADR 0008).
+src/adaptadores/prisma/generado
 
 # No hacen falta para compilar la app.
 tests

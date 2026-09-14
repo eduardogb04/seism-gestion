@@ -6,3 +6,5 @@ next-env.d.ts
 dist/
 coverage/
 *.log
+# Cliente de Prisma: lo genera `prisma generate` (postinstall), no se versiona (ADR 0008).
+/src/adaptadores/prisma/generado/

@@ -25,6 +25,13 @@
 /** `src/instrumentation.ts`: lo levanta Next al arrancar; cuenta como `app`. */
 const INSTRUMENTACION_NEXT = "^src/instrumentation\\.ts$";
 
+/**
+ * El cliente que genera `prisma generate` (F0-08, ADR 0008). Vive adentro de
+ * `src/adaptadores/`, así que las reglas por capa ya lo cubren como a
+ * cualquier adaptador; solo `no-circular` lo exceptúa.
+ */
+const CLIENTE_PRISMA_GENERADO = "^src/adaptadores/prisma/generado/";
+
 /** @type {import("dependency-cruiser").IConfiguration} */
 module.exports = {
   forbidden: [
@@ -135,11 +142,18 @@ module.exports = {
       // módulos es la forma más común de que dos capas terminen siendo una.
       // Con `tsPreCompilationDeps` también cuenta un ciclo que existe solo
       // por tipos: es acoplamiento igual (ADR 0004).
+      // Excepción (F0-08, ADR 0008): el cliente que genera Prisma en
+      // `src/adaptadores/prisma/generado/` trae ciclos internos entre sus
+      // propios archivos. No es código nuestro ni se edita: se exceptúan solo
+      // los ciclos que **empiezan** en él. Un ciclo que pase por un archivo
+      // nuestro se sigue informando desde ese archivo. Las reglas por capa
+      // no se tocan: importar el cliente desde `casos-uso`, `dominio` o
+      // `puertos` sigue siendo violación (fixture en `casos-uso-sin-afuera`).
       name: "no-circular",
       comment:
         "Ningún ciclo de dependencias entre módulos (F0-03; docs/arquitectura.md).",
       severity: "error",
-      from: {},
+      from: { pathNot: CLIENTE_PRISMA_GENERADO },
       to: { circular: true },
     },
     {

@@ -1,0 +1,44 @@
+# Servicios locales de desarrollo (F0-08). Decisiones y porqués:
+# docs/adr/0008-prisma-y-reversion.md y docs/convenciones-base.md.
+#
+# Hoy solo Postgres. MinIO (almacenamiento de documentos) llega en F0-27.
+#
+#   docker compose up -d      levanta la base (espera al healthcheck con --wait)
+#   docker compose ps         tiene que decir "healthy"
+#   docker compose down       la apaga; los datos quedan en el volumen
+#   docker compose down -v    la apaga y BORRA el volumen (base vacía)
+#
+# Las credenciales de acá son de desarrollo local, ficticias y descartables:
+# el contenedor solo escucha en 127.0.0.1 y no guarda nada real. Son las
+# mismas que trae DATABASE_URL en .env.example. No son secretos (ver
+# .gitleaks.toml si gitleaks las marcara).
+
+name: seism-gestion
+
+services:
+  postgres:
+    # Postgres 16 (criterio de F0-08), fijado por tag y digest como la base
+    # del Dockerfile (ADR 0006 y 0007): un tag se mueve, un digest no. Se sube
+    # a mano: cambiar tag y digest juntos (`docker pull postgres:16.N-alpine`
+    # imprime el digest).
+    image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    environment:
+      POSTGRES_USER: seism
+      POSTGRES_PASSWORD: seism_local
+      POSTGRES_DB: seism_gestion
+    ports:
+      # Solo en la máquina local: no se expone a la red.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-datos:/var/lib/postgresql/data
+    healthcheck:
+      # Sano = acepta conexiones en la base de la app, no solo "el proceso
+      # existe".
+      test: ["CMD-SHELL", "pg_isready --username=seism --dbname=seism_gestion"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres-datos:

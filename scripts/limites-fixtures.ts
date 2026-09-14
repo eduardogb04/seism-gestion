@@ -70,6 +70,7 @@ const FIXTURES: readonly Fixture[] = [
     archivosQueViolan: [
       "src/casos-uso/usa-adaptador.ts",
       "src/casos-uso/usa-prisma.ts",
+      "src/casos-uso/usa-cliente-prisma-generado.ts",
       "src/casos-uso/usa-infraestructura.ts",
       "src/casos-uso/usa-app.ts",
       "src/casos-uso/usa-worker.ts",

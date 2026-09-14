@@ -10,6 +10,10 @@
  * `tsconfig.json` para que `tsc` valide las exportaciones de páginas y rutas,
  * pero no es código nuestro y trae `any` propios (ADR 0005).
  *
+ * Por el mismo motivo saltea el cliente que genera Prisma
+ * (`src/adaptadores/prisma/generado/`, ADR 0008): lo escribe
+ * `prisma generate`, no está en git y trae `any` propios. Nada más se saltea.
+ *
  * `npm run typecheck` lo corre después de `tsc --noEmit`.
  */
 
@@ -18,10 +22,17 @@ import process from "node:process";
 import ts from "typescript";
 import { detectarAnyEnArchivo } from "./lib/detectar-any.ts";
 
-/** Archivos que escribe Next.js en `next dev`/`next build` (ruta relativa a la raíz). */
-function esGeneradoPorNext(rutaRelativa: string): boolean {
+/**
+ * Archivos que escriben las herramientas, no nosotros (ruta relativa a la
+ * raíz): Next.js en `next dev`/`next build` y Prisma en `prisma generate`.
+ */
+function esGenerado(rutaRelativa: string): boolean {
   const ruta = rutaRelativa.split(path.sep).join("/");
-  return ruta.startsWith(".next/") || ruta === "next-env.d.ts";
+  return (
+    ruta.startsWith(".next/") ||
+    ruta === "next-env.d.ts" ||
+    ruta.startsWith("src/adaptadores/prisma/generado/")
+  );
 }
 
 function ubicacionesDeAny(rutaTsconfig: string): string[] {
@@ -42,7 +53,7 @@ function ubicacionesDeAny(rutaTsconfig: string): string[] {
 
   const raiz = path.dirname(rutaTsconfig);
   const archivosPropios = config.fileNames.filter(
-    (nombreArchivo) => !esGeneradoPorNext(path.relative(raiz, nombreArchivo)),
+    (nombreArchivo) => !esGenerado(path.relative(raiz, nombreArchivo)),
   );
 
   for (const nombreArchivo of archivosPropios) {

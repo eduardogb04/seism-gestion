@@ -1,0 +1,38 @@
+// Esquema de la base (F0-08). Convenciones: docs/convenciones-base.md.
+// Decisiones (Prisma, cliente generado, reversión): docs/adr/0008-prisma-y-reversion.md.
+//
+// Nadie toca la base a mano: todo cambio acá es una migración con su
+// `down.sql` en `prisma/migrations/`. Nombres en la base en castellano y
+// `snake_case` (`@@map`/`@map`); en TypeScript, `camelCase`.
+
+// El cliente se genera adentro de `src/adaptadores/prisma/`, que es el único
+// lugar del diseño donde puede vivir Prisma: dependency-cruiser no deja que
+// `dominio`, `puertos` ni `casos-uso` lo importen. No se versiona (está en
+// `.gitignore`): lo regenera `npm install`/`npm ci` (`postinstall`) o
+// `npm run db:generar`, sin conectarse a ninguna base.
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/adaptadores/prisma/generado"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+// La URL no va acá: la da `prisma.config.ts` desde `DATABASE_URL`.
+datasource db {
+  provider = "postgresql"
+}
+
+// Parámetros del sistema que se cambian sin redeploy (por ejemplo, el tope de
+// gasto de IA del lote 7). Una fila por clave.
+model Configuracion {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clave          String   @unique
+  valor          String
+  creadoEn       DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn  DateTime @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+  // Quién la cambió por última vez. Nullable hasta que existan usuarios
+  // (lote 8), que la va a ligar a `usuarios`.
+  actualizadoPor String?  @map("actualizado_por") @db.Uuid
+
+  @@map("configuracion")
+}

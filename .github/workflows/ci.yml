@@ -86,6 +86,22 @@ jobs:
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
         run: npm run build
 
+      # La imagen Docker (F0-07) se construye y se prueba acá: en la máquina
+      # de Eduardo, Docker no corre (RUNBOOK, sección 14). El runner de Ubuntu
+      # trae Docker. Los dos pasos dependen del checkout y no de `npm ci`: la
+      # app se compila adentro de la imagen, no en el runner.
+      - name: imagen
+        id: imagen
+        if: ${{ !cancelled() && steps.codigo.outcome == 'success' }}
+        run: npm run imagen
+
+      # Levanta el contenedor, espera el HEALTHCHECK, pide `/` y `/api/salud`,
+      # compara la versión con el SHA del commit, verifica que la imagen no se
+      # haya llevado ningún `.env` y que entre en el tope de tamaño.
+      - name: imagen:prueba
+        if: ${{ !cancelled() && steps.imagen.outcome == 'success' }}
+        run: npm run imagen:prueba
+
       # gitleaks (P14): segunda red detrás de push protection. Binario de un
       # release fijo, verificado contra su SHA-256 antes de ejecutarlo.
       - name: gitleaks (descarga verificada)
@@ -128,3 +144,84 @@ jobs:
           echo "Rango escaneado: ${rango}"
           "$RUNNER_TEMP/gitleaks" git --no-banner --redact --verbose \
             --log-opts="${rango}" .
+
+  # Publicación de la imagen en GHCR (F0-07). Job aparte por los permisos: es
+  # el único con `packages: write`; el resto del workflow sigue en solo
+  # lectura. Corre **solo** en push a `main` y después de que `ci` esté en
+  # verde, así que en un PR ni aparece: el check que exige F0-06 se llama `ci`
+  # y sigue reflejando todo lo que corre en un PR (la imagen incluida, que se
+  # construye y se prueba en el job `ci`).
+  publicar:
+    needs: ci
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGEN: ghcr.io/${{ github.repository_owner }}/seism-gestion
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Sin `cache: npm`: setup-node desaconseja su caché en un job con
+      # permisos elevados, y acá no se instalan dependencias (el script de la
+      # imagen corre con Node pelado y la app se compila adentro de la imagen).
+      - name: Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      # Las dos etiquetas del criterio: el SHA del commit y `latest`. La
+      # versión que va a devolver `/api/salud` es el SHA corto, prefijo de la
+      # primera.
+      - name: imagen
+        run: npm run imagen -- "$IMAGEN:$GITHUB_SHA" "$IMAGEN:latest"
+
+      # No se publica una imagen que no levanta: las mismas verificaciones que
+      # en `ci`, sobre la imagen que se va a empujar.
+      - name: imagen:prueba
+        run: npm run imagen:prueba -- "$IMAGEN:$GITHUB_SHA"
+
+      - name: Entrar a GHCR
+        env:
+          TOKEN_GHCR: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$TOKEN_GHCR" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publicar
+        run: |
+          docker push "$IMAGEN:$GITHUB_SHA"
+          docker push "$IMAGEN:latest"
+
+      # Retención (P8): se conservan las últimas 5 versiones del paquete, se
+      # borran las más viejas. Con la API de GitHub y `gh` (ya viene en el
+      # runner), sin acciones de terceros. Si el token no alcanzara, el paso
+      # queda en rojo y el RUNBOOK (sección 15) dice qué hacer.
+      - name: Retención en GHCR (últimas 5)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DUENO: ${{ github.repository_owner }}
+          PAQUETE: seism-gestion
+          CONSERVAR: "5"
+        run: |
+          set -euo pipefail
+          versiones="$(gh api --paginate \
+            "/users/${DUENO}/packages/container/${PAQUETE}/versions" \
+            --jq '.[] | "\(.created_at) \(.id)"' | sort -r)"
+          total="$(printf '%s\n' "$versiones" | grep -c . || true)"
+          echo "Versiones en GHCR: ${total}. Se conservan las últimas ${CONSERVAR}."
+          if [ "$total" -le "$CONSERVAR" ]; then
+            echo "Nada que borrar."
+            exit 0
+          fi
+          printf '%s\n' "$versiones" | tail -n "+$((CONSERVAR + 1))" | \
+          while read -r fecha id; do
+            echo "Borrando la versión ${id} (creada ${fecha})."
+            gh api --method DELETE \
+              "/users/${DUENO}/packages/container/${PAQUETE}/versions/${id}"
+          done

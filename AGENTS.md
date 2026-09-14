@@ -16,11 +16,13 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-05):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
+**Estado (F0-07):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
 límites de arquitectura, Next.js mínimo (una página, el latido `GET /api/salud` y el entorno
-validado con Zod al arrancar) y CI en GitHub Actions: el check `ci` corre todos los controles y
-gitleaks en cada push y cada PR (ver *CI*). Postgres/Prisma (F0-08) todavía no existe
-(`db:migrate` sigue fallando a propósito — ver *Comandos*).
+validado con Zod al arrancar), CI en GitHub Actions (el check `ci` corre todos los controles y
+gitleaks en cada push y cada PR — ver *CI*) e imagen Docker: se construye y se prueba en cada
+corrida, y se publica en `ghcr.io/eduardogb04/seism-gestion` en cada push a `main` (ver *Imagen
+Docker*). Postgres/Prisma (F0-08) todavía no existe (`db:migrate` sigue fallando a propósito — ver
+*Comandos*).
 
 ## Leer primero
 
@@ -47,11 +49,15 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre `tests/fixtures/lint/debe-fallar.ts`, que **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`. Sale 0 si Biome lo rechazó con las dos reglas, 1 si lo aceptó o si falta alguna |
 | `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
 | `npm run limites:fixtures` | Prueba negativa de `limites`: corre dependency-cruiser sobre cada carpeta de `tests/fixtures/limites/` (una por regla), por separado. Sale 0 si cada una fue rechazada por **su** regla y desde los archivos esperados; 1 si alguna pasó, la rechazó otra regla, o hay una regla sin fixture |
+| `npm run imagen` | Construye la imagen Docker: `docker build` multi-stage con `--build-arg APP_VERSION` (el SHA corto de git, o `APP_VERSION` si está definida). Sin etiqueta, `seism-gestion:local`; `-- <etiqueta>...` construye con las que le pases (es lo que hace CI al publicar). Necesita Docker corriendo, no necesita `npm ci` |
+| `npm run imagen:prueba` | Levanta esa imagen, espera el `HEALTHCHECK`, pide `/` y `/api/salud`, compara la versión con la del build, verifica que no lleve `.env` ni variables de más y que entre en el tope de tamaño. Informa **todas** las verificaciones que fallaron. `-- <etiqueta>` para probar otra |
 | `npm run db:migrate` | **Sale 1** con mensaje claro: no hay esquema ni Prisma hasta F0-08 |
 
 Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm test && npm run
 typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures && npm run build`. Es lo
-mismo que corre CI (menos gitleaks); correrlo antes ahorra una vuelta.
+mismo que corre CI (menos gitleaks y la imagen); correrlo antes ahorra una vuelta. Si tocaste el
+`Dockerfile`, el `.dockerignore` o `scripts/imagen.ts`, sumá `npm run imagen && npm run
+imagen:prueba` (hace falta Docker corriendo; si no lo tenés, lo corre CI igual).
 
 ## CI
 
@@ -63,11 +69,16 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   `ci / ci (pull_request)`; en `gh pr checks`, dos filas `ci`); tienen que estar verdes las dos.
 - **Qué corre.** `npm ci` (nunca `npm install`) y después, en orden: `typecheck`,
   `typecheck:fixtures`, `lint`, `lint:fixtures`, `limites`, `limites:fixtures`, `test`, `build`
-  (sin `.env`) y gitleaks sobre los commits nuevos (los del PR; en un push, los que trajo). Si
+  (sin `.env`), `imagen` e `imagen:prueba` (F0-07: construye la imagen Docker y la verifica
+  levantada) y gitleaks sobre los commits nuevos (los del PR; en un push, los que trajo). Si
   `npm ci` anduvo, **corren todos aunque falle uno**, así el log muestra todos los rojos juntos; el
-  check queda en rojo si falla cualquiera.
-- **Tope: 10 minutos** (P9, `timeout-minutes`). Hoy tarda menos de un minuto. Si pasa de 10, el
-  check queda en rojo y es un bug de CI.
+  check queda en rojo si falla cualquiera. Los de la imagen y el de gitleaks solo dependen del
+  checkout: corren aunque `npm ci` falle.
+- **Hay un segundo job, `publicar`** (F0-07): publica la imagen en GHCR y **solo corre en `push` a
+  `main`**, con `needs: ci`. En un PR ni aparece; el check que se mira sigue siendo `ci`, que cubre
+  todo lo que corre en un PR.
+- **Tope: 10 minutos** (P9, `timeout-minutes` en cada job). Hoy la corrida entera tarda poco más de
+  un minuto, la mitad de eso el build de la imagen. Si pasa de 10, el check queda en rojo y es un bug de CI.
 - **Cómo leer el resultado.** `gh pr checks <N>` lista los checks del PR con su estado y el link a
   la corrida (`gh pr checks <N> --watch` espera a que terminen). Si hay rojo:
   `gh run view <id-de-corrida> --log-failed` muestra solo los pasos que fallaron; el nombre del
@@ -80,7 +91,7 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   todavía sin escribir). Si es un falso positivo: `.gitleaksignore` con el *fingerprint* del log y el
   motivo en el PR; nunca se saca el paso.
 - **Reglas del workflow.** Permisos base `contents: read`; un job que necesite más los eleva en su
-  propio bloque (el de la imagen, F0-07). Ningún paso con `continue-on-error`. Toda acción de
+  propio bloque (hoy solo `publicar`, con `packages: write`). Ningún paso con `continue-on-error`. Toda acción de
   terceros, incluidas las de `actions/*`, **fijada por SHA de commit completo** con el tag en un
   comentario (`uses: actions/checkout@<sha> # v7.0.1`), verificado con
   `gh api repos/<dueño>/<acción>/commits/<tag>`; nunca por tag. Dependabot propone las subidas de
@@ -122,6 +133,40 @@ archivo (ADR 0005).
 - **Imports.** Relativos y con extensión (`../../infraestructura/entorno.ts`), como en el resto
   del repo; no hay alias `@/*`. Desde `next.config.ts`, los módulos de `next` van con extensión
   (`next/constants.js`): el paquete no tiene mapa `exports`.
+
+## Imagen Docker
+
+`Dockerfile` y `.dockerignore` en la raíz; `scripts/imagen.ts` es el comando que la construye y la
+prueba, el mismo en CI y en cualquier máquina (`npm run imagen`, `npm run imagen:prueba`).
+Decisiones y porqués en el ADR 0007. En corto:
+
+- **Multi-stage.** La etapa de build hace `npm ci` + `npm run build`; la final se lleva solo
+  `.next/standalone` y `.next/static`, corre como el usuario `node` (no root) y trae un
+  `HEALTHCHECK` que pide `/api/salud` con `fetch` (sin curl ni wget adentro). Base
+  `node:24.14.1-alpine3.22` **fijada por digest**, como las acciones (ADR 0006); Dependabot
+  (ecosistema `docker`) propone las subidas.
+- **La misma imagen sirve para app y worker.** No hay `ENTRYPOINT` propio: `CMD` es
+  `node server.js` (la app) y el worker (F0-25) va a correr esta misma imagen sobrescribiendo el
+  comando. No se inventa nada de eso antes de que el worker exista.
+- **La versión entra como `--build-arg APP_VERSION`** (el SHA corto). `.git` no está en el contexto,
+  así que **sin ese argumento el build falla**, a propósito (ADR 0005). `/api/salud` devuelve
+  exactamente esa versión y la prueba la compara.
+- **El `.env` no entra al contexto**, primera línea del `.dockerignore`: si existiera al compilar,
+  `next build` lo copiaría al `standalone` y la imagen —pública— se lo llevaría adentro. También
+  quedan afuera `.git`, `.github`, `node_modules`, `.next`, `tests/` y `docs/`.
+- **`npm run imagen:prueba` es el test de esta parte**, y corre en CI: `HEALTHCHECK` sano, `/` y
+  `/api/salud` con la versión del build, ningún archivo `.env` adentro, ninguna variable fuera de
+  la lista permitida, ninguna capa que mencione un `.env`, el contenedor **sale 1 sin
+  `APP_ENTORNO`**, y el tamaño por debajo de **250 MB** (hoy 206 MB). Falla nombrando **todas** las
+  verificaciones que no pasaron.
+- **Publicación:** solo en `push` a `main`, job `publicar`, etiquetas SHA y `latest` en
+  `ghcr.io/eduardogb04/seism-gestion`, y retención de las últimas 5 versiones (P8). Solo
+  `linux/amd64`; multi-arch es una línea comentada en el `Dockerfile`. Los pasos manuales de GitHub
+  (hacer público el paquete, rol *Admin* del repositorio sobre él) están en el `RUNBOOK.md`,
+  secciones 14 y 15.
+- **Si tocás el `Dockerfile`**, el `.dockerignore` o el script: corré los dos comandos antes del PR
+  (o dejá que lo haga el check `ci`, que los corre igual), y si cambia algo de lo de arriba,
+  actualizá esta sección y el ADR.
 
 ## Formato y lint
 
@@ -308,6 +353,15 @@ Si el control es un `*:fixtures`, va al lado de su control. Si necesita una acci
 fijada por SHA con el tag en comentario. La corrida tiene que seguir entrando en 10 minutos; se
 suma a la lista de *Antes de abrir un PR* y a la sección *CI*.
 
+**...algo a la imagen Docker (F0-07).** Lo que la imagen necesita adentro va al `Dockerfile` (a la
+etapa que corresponda: `dependencias` y `construccion` tienen el código y las herramientas; `final`
+solo lo que corre en producción) y, si es un archivo del repo, se saca del `.dockerignore` **con el
+motivo escrito al lado**; `.env` y `.env.*` no se sacan nunca. Si es algo que hay que **verificar**
+de la imagen, va como una verificación más de `probar` en `scripts/imagen.ts`, que suma su problema
+a la lista en vez de cortar en el primero. Un paso del workflow que no necesita `node_modules` (los
+de la imagen, gitleaks) se condiciona al checkout (`steps.codigo.outcome`), no a `npm ci`. Y el
+tamaño de la imagen se anota en el ADR 0007 si cambió de manera apreciable.
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -328,8 +382,9 @@ src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6
 tests/               dominio · casos-uso · extraccion · e2e · contratos · fixtures
 scripts/             utilidades de los comandos de package.json (sin-any.ts, etc.)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
+Dockerfile           imagen multi-stage de la app (y del worker desde F0-25) · .dockerignore
 docs/                arquitectura.md (capas y límites) · adr/
-.github/             workflows/ci.yml (el check `ci`) · CODEOWNERS · dependabot.yml
+.github/             workflows/ci.yml (el check `ci` y el job `publicar`) · CODEOWNERS · dependabot.yml
 ```
 
 Cada carpeta de `src/` y `tests/` tiene su propio `README.md` explicando qué va a vivir ahí y

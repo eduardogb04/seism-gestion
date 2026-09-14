@@ -1,0 +1,41 @@
+# Qué NO entra al contexto del build de la imagen (F0-07).
+# Decisiones y porqués: docs/adr/0007-imagen-docker.md.
+#
+# Lo primero de esta lista no es tamaño, es seguridad: si al compilar existe un
+# `.env`, `next build` lo copia a `.next/standalone/.env` y el servidor lo lee
+# (ADR 0005). Un `.env` en el contexto sería un `.env` adentro de la imagen, y
+# la imagen es pública. `npm run imagen:prueba` verifica que no haya ninguno.
+
+# Secretos y entorno local. Nunca.
+.env
+.env.*
+
+# El repositorio y sus metadatos: la imagen no necesita historia.
+# Como `.git` no entra, la versión del latido se pasa con
+# `--build-arg APP_VERSION` (si falta, el build falla: ADR 0005).
+.git
+.gitignore
+.gitattributes
+.github
+.gitleaksignore
+
+# Se reconstruyen adentro de la imagen; traerlos de la máquina de quien
+# construye mezclaría binarios de otra plataforma o de otra rama.
+node_modules
+.next
+*.tsbuildinfo
+
+# No hacen falta para compilar la app.
+tests
+docs
+coverage
+dist
+*.log
+Dockerfile
+.dockerignore
+AGENTS.md
+CLAUDE.md
+README.md
+RUNBOOK.md
+SECURITY.md
+LICENSE

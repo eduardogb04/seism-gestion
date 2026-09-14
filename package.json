@@ -19,7 +19,9 @@
     "limites:fixtures": "node scripts/limites-fixtures.ts",
     "imagen": "node scripts/imagen.ts construir",
     "imagen:prueba": "node scripts/imagen.ts probar",
-    "db:migrate": "node scripts/db-migrate-pendiente.ts"
+    "postinstall": "prisma generate",
+    "db:generar": "prisma generate",
+    "db:migrate": "node scripts/db-migrate.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
@@ -27,10 +29,12 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "dependency-cruiser": "18.2.0",
+    "prisma": "7.10.0",
     "typescript": "6.0.3",
     "vitest": "^5.0.0"
   },
   "dependencies": {
+    "@prisma/client": "7.10.0",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",

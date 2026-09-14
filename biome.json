@@ -16,7 +16,8 @@
       "!package-lock.json",
       "!tests/fixtures",
       "!.next",
-      "!next-env.d.ts"
+      "!next-env.d.ts",
+      "!src/adaptadores/prisma/generado"
     ]
   },
   "formatter": {

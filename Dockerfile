@@ -27,8 +27,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Dependencias aparte del código: mientras `package-lock.json` no cambie, esta
 # capa se reusa y `npm ci` no se vuelve a correr.
+# `npm ci` corre `postinstall` = `prisma generate` (F0-08, ADR 0008), que lee
+# el esquema y `prisma.config.ts`: entran acá, antes del resto del código. No
+# se conecta a ninguna base.
 FROM base AS dependencias
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json prisma.config.ts ./
+COPY prisma/schema.prisma ./prisma/schema.prisma
 RUN npm ci
 
 FROM dependencias AS construccion

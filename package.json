@@ -17,6 +17,8 @@
     "lint:fixtures": "node scripts/lint-fixtures.ts",
     "limites": "depcruise src tests scripts --config .dependency-cruiser.cjs",
     "limites:fixtures": "node scripts/limites-fixtures.ts",
+    "imagen": "node scripts/imagen.ts construir",
+    "imagen:prueba": "node scripts/imagen.ts probar",
     "db:migrate": "node scripts/db-migrate-pendiente.ts"
   },
   "devDependencies": {

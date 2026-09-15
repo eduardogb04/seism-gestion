@@ -16,16 +16,17 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-09):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
+**Estado (F0-11):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
 límites de arquitectura, Next.js mínimo (una página, el latido `GET /api/salud` y el entorno
 validado con Zod al arrancar), CI en GitHub Actions (el check `ci` corre todos los controles y
 gitleaks en cada push y cada PR — ver *CI*), imagen Docker (se construye y se prueba en cada
 corrida, y se publica en `ghcr.io/eduardogb04/seism-gestion` en cada push a `main` — ver *Imagen
 Docker*) y la base: Postgres 16 local en `docker-compose.yml`, Prisma 7 con la tabla
 `configuracion` y su primera migración (con `down.sql`), `npm run db:migrate` y
-`npm run db:migrate:down`, y el test que aplica y revierte la cadena entera contra un Postgres de
-Testcontainers (corre en `npm test` y en CI) — ver *Base de datos*. La app todavía no se conecta a
-la base; el control de migraciones y drift de CI es F0-11.
+`npm run db:migrate:down`, el test que aplica y revierte la cadena entera contra un Postgres de
+Testcontainers (corre en `npm test` y en CI), y el control de drift en CI: un paso propio del check
+`ci` pone rojo un cambio en `schema.prisma` sin su migración — ver *Base de datos*. La app todavía
+no se conecta a la base.
 
 ## Leer primero
 
@@ -48,7 +49,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run build` | `next build` con `output: "standalone"`: compila, corre `tsc` y deja `.next/standalone/server.js`. **No necesita `.env`**; sí git o `APP_VERSION` (la versión del latido) |
 | `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
 | `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz. `-- --write` aplica los arreglos |
-| `npm test` | Vitest sobre `tests/dominio/` (el test de humo, el esquema de entorno —`APP_ENTORNO` y `DATABASE_URL`— y la resolución de la versión) y `tests/casos-uso/` (F0-09: el test de migraciones, con un Postgres 16 efímero de Testcontainers). **Necesita Docker corriendo**; sin Docker, el de migraciones falla al levantar el contenedor. No necesita `.env` ni la base de compose |
+| `npm test` | Vitest sobre `tests/dominio/` (el test de humo, el esquema de entorno —`APP_ENTORNO` y `DATABASE_URL`— y la resolución de la versión) y `tests/casos-uso/` (F0-09: el test de migraciones, con un Postgres 16 efímero de Testcontainers; F0-11: migraciones completas —`migration.sql` + `down.sql`—, sin Docker). **Necesita Docker corriendo**; sin Docker, el de migraciones (F0-09) falla al levantar el contenedor, pero el de migraciones completas (F0-11) corre igual. No necesita `.env` ni la base de compose |
 | `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que generan Next, ADR 0005, y Prisma, ADR 0008) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
 | `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre `tests/fixtures/lint/debe-fallar.ts`, que **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`. Sale 0 si Biome lo rechazó con las dos reglas, 1 si lo aceptó o si falta alguna |
@@ -77,12 +78,18 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   `ci / ci (pull_request)`; en `gh pr checks`, dos filas `ci`); tienen que estar verdes las dos.
 - **Qué corre.** `npm ci` (nunca `npm install`) y después, en orden: `typecheck`,
   `typecheck:fixtures`, `lint`, `lint:fixtures`, `limites`, `limites:fixtures`, `test` (con el test
-  de migraciones: Testcontainers usa el Docker que trae el runner, sin pasos extra), `build`
+  de migraciones: Testcontainers usa el Docker que trae el runner, sin pasos extra), **`Migrar
+  (para el paso de drift)`** y **`drift`** (F0-11: aplica las migraciones contra el `services:
+  postgres` del job y compara el resultado con `schema.prisma` — ver *Base de datos*), `build`
   (sin `.env`), `imagen` e `imagen:prueba` (F0-07: construye la imagen Docker y la verifica
   levantada) y gitleaks sobre los commits nuevos (los del PR; en un push, los que trajo). Si
   `npm ci` anduvo, **corren todos aunque falle uno**, así el log muestra todos los rojos juntos; el
   check queda en rojo si falla cualquiera. Los de la imagen y el de gitleaks solo dependen del
   checkout: corren aunque `npm ci` falle.
+- **`drift` en rojo.** El mensaje `hay un cambio en \`schema.prisma\` sin migración` quiere decir
+  que alguien cambió el esquema y no creó la migración (`docs/convenciones-base.md`, sección *El
+  ciclo de una migración*). Si el mensaje es otro (`prisma migrate diff falló...`), la herramienta
+  no llegó a comparar — mirar el log de arriba de ese mismo paso.
 - **Hay un segundo job, `publicar`** (F0-07): publica la imagen en GHCR y **solo corre en `push` a
   `main`**, con `needs: ci`. En un PR ni aparece; el check que se mira sigue siendo `ci`, que cubre
   todo lo que corre en un PR.
@@ -218,8 +225,18 @@ porqués en el ADR 0008. En corto:
   tablas propias. Recorre la carpeta: **una migración nueva entra sola**, y si su `down.sql` no
   revierte exacto o `schema.prisma` no coincide, `npm test` queda en rojo. No deja contenedores
   (datos en `tmpfs`, `afterAll` y Ryuk).
+- **Control de drift en CI (F0-11, ADR 0011).** Dos pasos del check `ci`, contra un Postgres
+  descartable propio del job (`services: postgres`, no el de Testcontainers de arriba): `Migrar
+  (para el paso de drift)` aplica las migraciones existentes, y `drift` corre `prisma migrate diff
+  --from-config-datasource --to-schema prisma/schema.prisma --exit-code` contra esa base. Si no da
+  vacío, el paso escribe `::error::hay un cambio en \`schema.prisma\` sin migración` y el check
+  queda en rojo. Prisma 7.10 no tiene los flags que pedía el plan (`--from-migrations
+  --to-schema-datamodel`, de Prisma 5/6); el equivalente que queda, `--from-migrations`, pide una
+  shadow database nueva, así que se compara desde la base ya migrada. El otro caso del mismo
+  criterio (`prisma/migrations/` con una carpeta sin `down.sql`) lo cubre
+  `tests/casos-uso/migraciones-completas.test.ts`, sin Docker.
 - **Todavía no hay** adaptador de driver (`@prisma/adapter-pg` llega con el primer código que
-  instancie el cliente, F0-10), ni seed (F0-10), ni control de migraciones y drift en CI (F0-11).
+  instancie el cliente, F0-10) ni seed (F0-10).
 
 ## Formato y lint
 

@@ -184,7 +184,126 @@ ni en el historial de una rama que sobreviva.
 
 ## 3. Proteger la rama principal
 
-*(F0-06 completa esta sección.)*
+**Cuándo hace falta:** ya se hizo el 2026-09-15 (F0-06), con el OK explícito de Eduardo en el chat
+del orquestador ese mismo día para tocar la configuración del repo en GitHub (D1: repo público →
+protección de rama gratis). Esta sección **verifica** que sigue así; si algo faltara, se repone acá.
+**Quién:** Eduardo (dueño de la cuenta `eduardogb04`) o un agente con su OK explícito, registrado en
+el chat con fecha.
+**Necesitás antes:** `gh` autenticado con permisos de admin sobre el repo.
+
+### Qué hace el ruleset
+
+Un *ruleset* de GitHub sobre `main` (no la protección de rama "clásica": los rulesets son la forma
+actual y admiten `bypass_actors: []`, sin excepción ni para el dueño). Nombre **"Proteger rama
+principal"**, `target: branch`, `enforcement: active`, aplicado sobre `~DEFAULT_BRANCH`. Reglas:
+
+- `deletion` — no se puede borrar `main`.
+- `non_fast_forward` — prohíbe force-push.
+- `pull_request` — exige que todo cambio entre por PR (esto es lo que prohíbe el push directo),
+  con `required_approving_review_count: 0` (en Fase 0 el revisor es el agente tester, no una
+  aprobación de GitHub — DISENO, *Quién hace qué*) y `required_review_thread_resolution: true`
+  (toda conversación del PR se resuelve antes de fusionar).
+- `required_status_checks` — exige el check `ci` en verde, con
+  `strict_required_status_checks_policy: true` (*strict*: la rama tiene que estar al día con `main`
+  antes de fusionar; si `main` avanzó mientras el PR estaba abierto, hay que actualizar la rama).
+- `bypass_actors: []` — nadie lo saltea, ni Eduardo. Verificado en la respuesta de la API:
+  `"current_user_can_bypass":"never"`.
+
+Aplicado con `gh api repos/eduardogb04/seism-gestion/rulesets -X POST --input ruleset-main.json`,
+con este JSON (sin tokens ni datos sensibles: es configuración pública del repo):
+
+```json
+{
+  "name": "Proteger rama principal",
+  "target": "branch",
+  "enforcement": "active",
+  "bypass_actors": [],
+  "conditions": {
+    "ref_name": {
+      "include": ["~DEFAULT_BRANCH"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": true
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "required_status_checks": [{ "context": "ci" }],
+        "strict_required_status_checks_policy": true
+      }
+    }
+  ]
+}
+```
+
+Resultado: ruleset creado con `id: 23473097`, `enforcement: "active"`,
+`current_user_can_bypass: "never"`.
+
+### Los tres intentos (F0-06, 2026-09-15)
+
+**1. Push directo a `main` — tiene que ser rechazado.**
+Con `main` local al día con `origin/main`, un commit vacío (`git commit --allow-empty`) y
+`git push origin main`. Resultado: rechazado —
+`remote: error: GH013: Repository rule violations found for refs/heads/main.` con
+`Changes must be made through a pull request.` y `Required status check "ci" is expected.`. El
+commit vacío nunca llegó al remoto. Después, `git reset --hard origin/main` en el local: quedó
+idéntico a `origin/main`, sin el commit de prueba.
+
+**2. Un PR con `ci` en rojo bloquea la fusión.**
+Sobre el PR #16 de esta misma tarea (F0-06), commit `548c1ab`: rompe a propósito
+`tests/dominio/humo.test.ts` (`expect(1 + 1).toBe(3)`). Resultado: los dos checks `ci` (push y
+pull_request) quedaron en rojo, `gh pr view 16 --json mergeStateStatus` devolvió `BLOCKED`, y
+`gh pr merge 16 --squash` (probado solo mientras `ci` estaba en rojo) falló con:
+`X Pull request eduardogb04/seism-gestion#16 is not mergeable: the base branch policy prohibits
+the merge.`.
+
+**3. Arreglado, el mismo PR vuelve a poder fusionarse.**
+Commit `c65f96c`: revierte el anterior (test otra vez en `toBe(2)`). Con `ci` en verde de nuevo,
+`gh pr view 16 --json mergeStateStatus` devolvió `CLEAN`. (Después, `main` avanzó dos veces más
+con PRs de otros agentes en paralelo — #14 y #15 — y la rama de F0-06 se actualizó con
+`git merge origin/main`, como exige *strict*; `mergeStateStatus` volvió a `CLEAN` en cada
+actualización.)
+
+### Cómo verificar que sigue así
+
+- `gh api repos/eduardogb04/seism-gestion/rulesets --jq '.[] | {name,enforcement}'` muestra
+  `"Proteger rama principal"` en `"active"`.
+- `gh api repos/eduardogb04/seism-gestion/rulesets/<id>` muestra `bypass_actors: []` y las cuatro
+  reglas (`deletion`, `non_fast_forward`, `pull_request`, `required_status_checks` con contexto
+  `ci` y `strict_required_status_checks_policy: true`).
+- Un `git push origin main` directo, con cualquier commit, es rechazado.
+
+### Si hay que desactivarlo en una emergencia (y volver a activarlo)
+
+**Cuándo:** un incidente donde hay que fusionar o pushear a `main` sin pasar por PR/CI (por
+ejemplo, revertir algo roto en producción más rápido de lo que tarda el ciclo normal). Solo
+Eduardo decide esto; queda en el registro de auditoría de GitHub (*Settings → Audit log*) con
+quién y cuándo.
+
+1. `https://github.com/eduardogb04/seism-gestion/settings/rules` (o *Settings → Rules → Rulesets*
+   en la interfaz) → abrir **"Proteger rama principal"**.
+2. Cambiar **Enforcement status** de *Active* a *Disabled* (no borrar el ruleset: queda la
+   configuración lista para reactivar). Guardar.
+   Por API: `gh api repos/eduardogb04/seism-gestion/rulesets/<id> -X PUT -f enforcement=disabled`.
+3. Hacer el cambio de emergencia (push directo, force-push, lo que haga falta).
+4. **Reactivar de inmediato después:** mismo lugar, *Enforcement status* de vuelta a *Active*
+   (o `gh api .../rulesets/<id> -X PUT -f enforcement=active`).
+
+**Cómo verificar que quedó reactivado:**
+`gh api repos/eduardogb04/seism-gestion/rulesets/<id> --jq .enforcement` → `"active"`. Un push
+directo de prueba (commit vacío descartable) vuelve a ser rechazado.
 
 ## 14. Probar la imagen Docker en tu máquina
 

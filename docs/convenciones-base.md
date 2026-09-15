@@ -1,8 +1,9 @@
 # Convenciones de la base de datos
 
 > Primera versión en F0-08. F0-09 sumó el test que aplica y revierte la cadena entera y
-> `npm run db:migrate:down`. F0-11 suma el control de drift en CI. Decisiones y porqués: ADR 0008
-> (Prisma y `down.sql`) y ADR 0009 (reversión y test).
+> `npm run db:migrate:down`. F0-11 sumó el control de drift en CI y el test de migraciones
+> completas (`migration.sql` + `down.sql` en cada carpeta, sin Docker). Decisiones y porqués: ADR
+> 0008 (Prisma y `down.sql`), ADR 0009 (reversión y test) y ADR 0011 (drift en CI).
 
 ## La regla
 
@@ -143,6 +144,34 @@ Para revertir varias, se corre varias veces. Para mirar cómo quedó:
 ```
 docker compose exec -T postgres psql -U seism -d seism_gestion -c "\dt"
 ```
+
+## El control de drift en CI (F0-11)
+
+Además del test de arriba, `ci.yml` trae dos pasos propios dentro del check `ci`, contra un
+Postgres del `services:` del job (no el de Testcontainers del paso `test`, que no sobrevive a ese
+paso):
+
+1. **`Migrar (para el paso de drift)`**: `npm run db:migrate` contra ese Postgres, con
+   `APP_ENTORNO=ci`. Aplica exactamente las migraciones que están en `prisma/migrations/`.
+2. **`drift`**: `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma
+   --exit-code` entre esa base recién migrada y `schema.prisma`. Prisma 7.10 no tiene
+   `--from-migrations --to-schema-datamodel` (de Prisma 5/6); el equivalente que sigue existiendo,
+   `--from-migrations`, pide una shadow database nueva (`datasource.shadowDatabaseUrl`) que el
+   plan no habilita. Comparar contra la base ya migrada da el mismo resultado sin esa dependencia:
+   decisión completa en ADR 0011.
+
+Si el diff no da vacío (`--exit-code` sale `2`), el paso `drift` escribe
+`::error::hay un cambio en \`schema.prisma\` sin migración` y el check `ci` queda en rojo — es el
+criterio del cimiento 2 (*"un cambio de esquema sin su migración hace fallar la corrida"*). Si
+`prisma migrate diff` falla por otra razón (sale `1`: no llegó a la base, por ejemplo), el mensaje
+lo dice distinto, sin confundirlo con drift.
+
+`tests/casos-uso/migraciones-completas.test.ts` cubre el otro caso del mismo criterio, sin Docker:
+una carpeta de `prisma/migrations/` con `migration.sql` pero sin `down.sql` (comparte
+`listarMigraciones` con `scripts/lib/migraciones.ts`, la misma lista que usan `db:migrate:down` y
+`migraciones.test.ts`). `migraciones.test.ts` (F0-09) ya hace la misma verificación como parte de
+su corrida completa contra Testcontainers; este archivo es el que pide el plan para ese criterio en
+particular, y corre igual aunque no haya Docker.
 
 ### `_prisma_migrations` no es una tabla propia
 

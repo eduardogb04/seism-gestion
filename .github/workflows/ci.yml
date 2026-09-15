@@ -1,4 +1,5 @@
 # Portón de CI (F0-05). Decisiones y porqués: docs/adr/0006-porton-ci.md.
+# El control de migraciones y drift (F0-11) tiene el suyo: docs/adr/0011-drift-de-esquema-en-ci.md.
 #
 # Un solo job, `ci`: es el nombre del check que la protección de `main`
 # exige en verde (F0-06). Queda en rojo si falla cualquier control.
@@ -29,6 +30,25 @@ jobs:
     timeout-minutes: 10
     env:
       NEXT_TELEMETRY_DISABLED: "1"
+    # Postgres para el paso de `drift` (F0-11): un service container aparte
+    # del Testcontainers que crea y borra `tests/casos-uso/migraciones.test.ts`
+    # dentro del paso `test` (ese no deja nada vivo para los pasos
+    # siguientes). Mismo tag y digest que `docker-compose.yml`: si se sube la
+    # imagen de compose, actualizar acá también.
+    services:
+      postgres:
+        image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+        env:
+          POSTGRES_USER: seism
+          POSTGRES_PASSWORD: seism_local
+          POSTGRES_DB: seism_gestion
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready --username=seism --dbname=seism_gestion"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
     steps:
       # Historial completo: gitleaks recorre los commits nuevos, no solo el
       # último árbol. Sin credenciales guardadas en .git/config: ningún
@@ -79,6 +99,48 @@ jobs:
       - name: test
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
         run: npm test
+
+      # F0-11 (cimiento 2): "un cambio de esquema sin su migración pone la
+      # corrida en rojo". Aplica las migraciones existentes contra el
+      # Postgres del `services:` de arriba (nunca la base de compose ni la
+      # de Testcontainers del paso `test`), para poder comparar el estado
+      # resultante con `schema.prisma` en el paso `drift`.
+      - name: Migrar (para el paso de drift)
+        id: migrar-drift
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        env:
+          APP_ENTORNO: ci
+          DATABASE_URL: postgresql://seism:seism_local@localhost:5432/seism_gestion
+        run: npm run db:migrate
+
+      # `prisma migrate diff --exit-code` entre la base recién migrada y
+      # `schema.prisma`: sale 0 sin diferencia, 2 con diferencia, 1 si la
+      # propia herramienta falló (docs/adr/0011-drift-de-esquema-en-ci.md).
+      # Prisma 7.10 no tiene `--from-migrations --to-schema-datamodel` (eran
+      # de Prisma 5/6): `--from-migrations` sigue existiendo pero pide una
+      # shadow database (`datasource.shadowDatabaseUrl`), una dependencia
+      # nueva que el plan no habilita para esto. `--from-config-datasource`
+      # compara la base ya migrada de arriba con el esquema: mismo resultado,
+      # sin nada nuevo que instalar ni configurar.
+      - name: drift
+        if: ${{ !cancelled() && steps.migrar-drift.outcome == 'success' }}
+        env:
+          DATABASE_URL: postgresql://seism:seism_local@localhost:5432/seism_gestion
+        run: |
+          set +e
+          node node_modules/prisma/build/index.js migrate diff \
+            --from-config-datasource \
+            --to-schema prisma/schema.prisma \
+            --exit-code
+          codigo=$?
+          set -e
+          if [ "$codigo" -eq 2 ]; then
+            echo "::error::hay un cambio en \`schema.prisma\` sin migración"
+            exit 1
+          elif [ "$codigo" -ne 0 ]; then
+            echo "::error::prisma migrate diff falló (código $codigo); ver el log de arriba"
+            exit 1
+          fi
 
       # Sin .env: compilar no valida el entorno. La versión del latido sale
       # del SHA de git del checkout (ADR 0005).

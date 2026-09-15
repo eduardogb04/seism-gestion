@@ -262,18 +262,19 @@ commit vacío nunca llegó al remoto. Después, `git reset --hard origin/main` e
 idéntico a `origin/main`, sin el commit de prueba.
 
 **2. Un PR con `ci` en rojo bloquea la fusión.**
-Sobre el PR de esta misma tarea (F0-06), un commit que rompe a propósito
-`tests/dominio/humo.test.ts` (`expect(1 + 1).toBe(3)`). Resultado: el check `ci` quedó en rojo,
-`gh pr view <N> --json mergeStateStatus` devolvió `BLOCKED`, y `gh pr merge <N> --squash` (probado
-solo mientras `ci` estaba en rojo) falló con el mensaje de GitHub de que el PR no cumple los
-requisitos de fusión.
+Sobre el PR #16 de esta misma tarea (F0-06), commit `548c1ab`: rompe a propósito
+`tests/dominio/humo.test.ts` (`expect(1 + 1).toBe(3)`). Resultado: los dos checks `ci` (push y
+pull_request) quedaron en rojo, `gh pr view 16 --json mergeStateStatus` devolvió `BLOCKED`, y
+`gh pr merge 16 --squash` (probado solo mientras `ci` estaba en rojo) falló con:
+`X Pull request eduardogb04/seism-gestion#16 is not mergeable: the base branch policy prohibits
+the merge.`.
 
 **3. Arreglado, el mismo PR vuelve a poder fusionarse.**
-Se revirtió el commit de la prueba anterior (test otra vez en `toBe(2)`). Con `ci` en verde de
-nuevo, `gh pr view <N> --json mergeStateStatus` devolvió `CLEAN`.
-
-*(Los números de corrida y el PR exacto, en el cuerpo del PR #<N> de F0-06 y en el registro de
-sesiones de `ESTADO.md`.)*
+Commit `c65f96c`: revierte el anterior (test otra vez en `toBe(2)`). Con `ci` en verde de nuevo,
+`gh pr view 16 --json mergeStateStatus` devolvió `CLEAN`. (Después, `main` avanzó dos veces más
+con PRs de otros agentes en paralelo — #14 y #15 — y la rama de F0-06 se actualizó con
+`git merge origin/main`, como exige *strict*; `mergeStateStatus` volvió a `CLEAN` en cada
+actualización.)
 
 ### Cómo verificar que sigue así
 

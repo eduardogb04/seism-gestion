@@ -32,7 +32,8 @@
 ## 1. Prerrequisitos de la máquina
 
 **Qué hace falta:** Node 24 (ver `.nvmrc`), git, **WSL** (en Windows, antes de Docker Desktop),
-Docker Desktop corriendo (la base local desde F0-08 y la sección 14), GitHub CLI autenticado.
+Docker Desktop corriendo, GitHub CLI autenticado. Docker hace falta para la base local (desde F0-08),
+para la sección 14 y **para `npm test`** (desde F0-09, ver *Docker para los tests* más abajo).
 
 **Cómo verificar:**
 ```
@@ -64,6 +65,29 @@ en el firmware de la máquina (BIOS/UEFI: *Intel VT-x* o *AMD-V/SVM*) y repetir.
 sigue con el cartel después de reiniciar, `wsl --update` en PowerShell como administrador y abrirlo
 de nuevo.
 
+### Docker para los tests (desde F0-09)
+
+`npm test` corre el test de migraciones, que levanta su propio Postgres 16 en un contenedor
+(Testcontainers) y lo borra al terminar. No usa la base de compose ni `.env`, pero **necesita
+Docker Desktop corriendo**. En Windows, Testcontainers lo encuentra solo, sin configurar nada.
+
+1. Abrí Docker Desktop y esperá a que el ícono de la barra diga *running*.
+2. Parado en la carpeta del repo: `npm test`.
+
+**Cómo verificar que salió bien:**
+- `npm test` termina con `Test Files … passed` y ningún `failed`. La primera vez tarda más (baja la
+  imagen de Postgres y la de Ryuk, el recolector de Testcontainers).
+- Unos segundos después de terminar, `docker ps -a` no muestra contenedores `postgres:16…` de la
+  prueba ni `testcontainers-ryuk-…` (los de compose, si los levantaste, siguen ahí).
+
+**Si falla:**
+- `Could not find a working container runtime strategy` o un error de conexión con Docker al
+  empezar `tests/casos-uso/migraciones.test.ts` → Docker Desktop no está corriendo (o todavía está
+  arrancando). Abrilo y repetí.
+- El test de migraciones en rojo con Docker andando → no es la máquina: `schema.prisma` y las
+  migraciones no coinciden, o un `down.sql` no revierte bien. `docs/convenciones-base.md`, *El test
+  de migraciones*, explica cada mensaje.
+
 ### La base local (desde F0-08)
 
 Postgres 16 en un contenedor, definido en `docker-compose.yml`. No hace falta instalar Postgres.
@@ -84,6 +108,11 @@ Las credenciales son de desarrollo, ficticias, y ya están en `.env.example`.
   estaba al día, `No pending migrations to apply.`).
 - `docker compose exec postgres psql -U seism -d seism_gestion -c "\dt"` lista `configuracion` (y
   `_prisma_migrations`, el registro de Prisma).
+
+**Revertir la última migración** (desde F0-09): `npm run db:migrate:down`. Imprime
+`db:migrate:down: revertida <carpeta> …`. `npm run db:migrate` la vuelve a aplicar. Si dice que no
+hay migraciones aplicadas, no había nada que revertir. Nunca se cambia la base con SQL a mano
+(`docs/convenciones-base.md`).
 
 **Apagarla:** `docker compose down` (los datos quedan en el volumen `seism-gestion_postgres-datos`).
 `docker compose down -v` la apaga **y borra el volumen**: la próxima vez arranca vacía.

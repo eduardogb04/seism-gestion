@@ -14,9 +14,9 @@
 
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import path from "node:path";
 import process from "node:process";
 import { exigirEntornoValido } from "../src/infraestructura/entorno.ts";
+import { BIN_PRISMA } from "./lib/migraciones.ts";
 
 if (existsSync(".env")) {
   process.loadEnvFile(".env");
@@ -24,19 +24,9 @@ if (existsSync(".env")) {
 
 exigirEntornoValido("db:migrate");
 
-// El binario de la CLI por ruta, como hace `node_modules/.bin/prisma` (el
-// paquete no lo exporta): igual en Windows y en Linux, sin depender de un
-// shell.
-const binPrisma = path.join(
-  process.cwd(),
-  "node_modules",
-  "prisma",
-  "build",
-  "index.js",
-);
 const resultado = spawnSync(
   process.execPath,
-  [binPrisma, "migrate", "deploy"],
+  [BIN_PRISMA, "migrate", "deploy"],
   {
     stdio: "inherit",
   },

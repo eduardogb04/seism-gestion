@@ -21,10 +21,12 @@
     "imagen:prueba": "node scripts/imagen.ts probar",
     "postinstall": "prisma generate",
     "db:generar": "prisma generate",
-    "db:migrate": "node scripts/db-migrate.ts"
+    "db:migrate": "node scripts/db-migrate.ts",
+    "db:migrate:down": "node scripts/db-migrate-down.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
+    "@testcontainers/postgresql": "12.1.0",
     "@types/node": "^24.13.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

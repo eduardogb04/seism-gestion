@@ -1,6 +1,7 @@
 # tests/casos-uso
 
-Tests con Postgres real en contenedor (Testcontainers). Primer caso: el test
-de migraciones de F0-09.
+Tests con Postgres real en contenedor (Testcontainers). Necesitan Docker
+corriendo (RUNBOOK, sección 1).
 
-Vacío hasta el lote 2.
+- `migraciones.test.ts` (F0-09): aplica la cadena entera de
+  `prisma/migrations/`, compara con `schema.prisma` y la revierte entera.

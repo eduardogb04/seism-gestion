@@ -6,6 +6,6 @@ import { describe, expect, it } from "vitest";
  */
 describe("humo", () => {
   it("el arnés de tests de dominio corre", () => {
-    expect(1 + 1).toBe(2);
+    expect(1 + 1).toBe(3);
   });
 });

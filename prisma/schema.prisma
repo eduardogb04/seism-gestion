@@ -33,6 +33,10 @@ model Configuracion {
   // Quién la cambió por última vez. Nullable hasta que existan usuarios
   // (lote 8), que la va a ligar a `usuarios`.
   actualizadoPor String?  @map("actualizado_por") @db.Uuid
+  // PR de prueba F0-11: campo agregado sin migración, a propósito, para
+  // confirmar que el paso `drift` de ci.yml se pone en rojo. Este PR se
+  // cierra sin fusionar.
+  nota           String?  @map("nota")
 
   @@map("configuracion")
 }

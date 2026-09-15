@@ -16,14 +16,16 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-08):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
-límites de arquitectura, Next.js mínimo (una página, el latido `GET /api/salud` y el entorno
+**Estado (F0-08 + F0-06):** TypeScript severo, Biome como formato y lint, dependency-cruiser con
+los límites de arquitectura, Next.js mínimo (una página, el latido `GET /api/salud` y el entorno
 validado con Zod al arrancar), CI en GitHub Actions (el check `ci` corre todos los controles y
 gitleaks en cada push y cada PR — ver *CI*), imagen Docker (se construye y se prueba en cada
 corrida, y se publica en `ghcr.io/eduardogb04/seism-gestion` en cada push a `main` — ver *Imagen
-Docker*) y la base: Postgres 16 local en `docker-compose.yml`, Prisma 7 con la tabla
+Docker*), la base: Postgres 16 local en `docker-compose.yml`, Prisma 7 con la tabla
 `configuracion` y su primera migración (con `down.sql`), y `npm run db:migrate` real — ver *Base de
-datos*. La app todavía no se conecta a la base; CI todavía no tiene base (F0-11).
+datos* — y `main` protegida con un ruleset de GitHub (PR obligatorio, `ci` en verde, sin push
+directo — ver *Rama principal protegida*). La app todavía no se conecta a la base; CI todavía no
+tiene base (F0-11).
 
 ## Leer primero
 
@@ -101,6 +103,16 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   `gh api repos/<dueño>/<acción>/commits/<tag>`; nunca por tag. Dependabot propone las subidas de
   las acciones; gitleaks (versión y SHA-256 del binario en `ci.yml`) se sube a mano, con el
   procedimiento del ADR 0006. Biome no lee YAML: `ci.yml` no lo lintea nada, se revisa en el PR.
+
+## Rama principal protegida
+
+Desde F0-06, `main` tiene un *ruleset* de GitHub (D1: repo público → protección de rama gratis).
+**Todo cambio entra por PR. Ninguna tarea nueva arranca con CI en rojo en `main`.** El ruleset
+exige PR (0 aprobaciones, con resolución de conversaciones obligatoria) y el check `ci` en verde
+(*strict*: la rama tiene que estar al día con `main`), y prohíbe push directo, force-push y borrar
+la rama. Sin *bypass* para nadie, ni para el dueño del repo: si hay que saltarlo en una emergencia,
+se desactiva a mano y queda en el registro de GitHub (`RUNBOOK.md`, sección *Proteger la rama
+principal*, dice cómo).
 
 ## Next.js y entorno
 

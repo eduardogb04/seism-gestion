@@ -10,6 +10,7 @@
       "src/**",
       "tests/**",
       "scripts/**",
+      "prisma/**",
       "*.ts",
       "*.json",
       ".dependency-cruiser.cjs",

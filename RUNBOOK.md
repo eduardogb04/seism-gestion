@@ -114,6 +114,11 @@ Las credenciales son de desarrollo, ficticias, y ya están en `.env.example`.
 hay migraciones aplicadas, no había nada que revertir. Nunca se cambia la base con SQL a mano
 (`docs/convenciones-base.md`).
 
+**Sembrar datos mínimos** (desde F0-10): `npm run db:seed`, después de `npm run db:migrate`.
+Idempotente: correrlo dos veces (`npm run db:seed` otra vez) deja la base igual. Hoy carga una sola
+clave de `configuracion` (`ia.tope_mensual_usd` en `"0"`); en el servidor exige
+`SEED_PERMITIDO=si` además de `APP_ENTORNO=servidor`, para que no se corra ahí por accidente.
+
 **Apagarla:** `docker compose down` (los datos quedan en el volumen `seism-gestion_postgres-datos`).
 `docker compose down -v` la apaga **y borra el volumen**: la próxima vez arranca vacía.
 

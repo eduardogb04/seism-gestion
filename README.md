@@ -38,7 +38,9 @@ cambia el esquema: `docs/convenciones-base.md`.
 Los chequeos:
 
 ```
-npm test           # Vitest, nivel dominio
+npm test           # Vitest: niveles dominio y casos de uso (necesita Docker)
+npm run test:e2e   # Playwright: la app levantada con compose, en Chromium
+npm run test:todo  # los cuatro niveles (dominio, casos de uso, extracción, e2e)
 npm run typecheck  # tsc --noEmit + rechazo de 'any' explícito
 npm run lint       # Biome: lint + formato en modo verificación
 npm run limites    # dependency-cruiser: qué capa puede importar a cuál

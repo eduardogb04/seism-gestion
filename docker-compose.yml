@@ -40,5 +40,25 @@ services:
       retries: 10
       start_period: 5s
 
+  # La app, solo para el e2e (F0-14). Vive detrás del perfil `e2e`: no la
+  # levanta `docker compose up -d`, solo `npm run test:e2e` (que la levanta con
+  # `scripts/e2e-app.ts` y la apaga al terminar). Corre **la imagen que se
+  # publica** (`seism-gestion:local`, la que construye `npm run imagen`), no
+  # `next dev`: el e2e prueba lo que se despliega.
+  #
+  # `DATABASE_URL` es ficticia y nadie se conecta a ella: la app la valida al
+  # arrancar (F0-08) pero todavía no toca la base, igual que en
+  # `npm run imagen:prueba`. El día que se conecte de verdad, este servicio
+  # pasa a depender del `postgres` de arriba.
+  app:
+    profiles: ["e2e"]
+    image: seism-gestion:local
+    environment:
+      APP_ENTORNO: local
+      DATABASE_URL: postgresql://prueba:prueba@127.0.0.1:5432/prueba
+    ports:
+      # Solo en la máquina local, como el Postgres de arriba.
+      - "127.0.0.1:3000:3000"
+
 volumes:
   postgres-datos:

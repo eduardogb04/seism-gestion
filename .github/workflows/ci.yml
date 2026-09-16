@@ -96,9 +96,23 @@ jobs:
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
         run: npm run limites:fixtures
 
+      # F0-14: la tanda de dominio sola, con su reloj. `scripts/test-dominio.ts`
+      # sale 1 si tarda más de 10 s (criterio de F0-14): el nivel dominio no
+      # habla con nada, y si empieza a esperar es que se llevó algo que va en
+      # `tests/casos-uso/`. Corre antes que `test` porque es el más barato.
+      - name: test:dominio
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run test:dominio
+
       - name: test
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
         run: npm test
+
+      # El cuarto nivel que no entra en `npm test` (F0-14): golden files. Hoy
+      # es el test de humo del nivel; el arnés llega en F0-16.
+      - name: test:extraccion
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run test:extraccion
 
       # F0-11 (cimiento 2): "un cambio de esquema sin su migración pone la
       # corrida en rojo". Aplica las migraciones existentes contra el
@@ -163,6 +177,33 @@ jobs:
       - name: imagen:prueba
         if: ${{ !cancelled() && steps.imagen.outcome == 'success' }}
         run: npm run imagen:prueba
+
+      # El navegador del e2e (F0-14). Solo Chromium, y cacheado entre corridas:
+      # el paquete pesa unos 170 MB y bajarlo en cada corrida se come parte del
+      # tope de 10 minutos (P9). Con la caché tibia, el paso siguiente no
+      # descarga nada; las librerías del sistema (`--with-deps`) no se cachean,
+      # pero el runner ya trae casi todas. La clave lleva el hash del
+      # `package-lock.json`: subir la versión de Playwright trae una caché nueva.
+      - name: Caché del navegador del e2e
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Navegador del e2e (Chromium)
+        id: navegador
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npx playwright install --with-deps chromium
+
+      # F0-14: el camino de humo con navegador contra la app levantada con
+      # compose (`npm run e2e:app` reusa la imagen que acaba de construir el
+      # paso `imagen`, con la caché de capas de Docker). Va acá, adentro del
+      # job `ci` y no en un job aparte, porque `ci` es el único check que exige
+      # la protección de `main` (F0-06).
+      - name: test:e2e
+        if: ${{ !cancelled() && steps.navegador.outcome == 'success' && steps.imagen.outcome == 'success' }}
+        run: npm run test:e2e
 
       # gitleaks (P14): segunda red detrás de push protection. Binario de un
       # release fijo, verificado contra su SHA-256 antes de ejecutarlo.

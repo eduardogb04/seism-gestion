@@ -21,7 +21,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import {
@@ -29,6 +29,10 @@ import {
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  imagenPostgresDeArchivo,
+  RUTA_COMPOSE,
+} from "../../scripts/lib/imagen-postgres.ts";
 import {
   BIN_PRISMA,
   CARPETA_MIGRACIONES,
@@ -41,13 +45,9 @@ import {
 
 /** La imagen de Postgres de `docker-compose.yml`, con su tag y su digest. */
 function imagenDeCompose(): string {
-  const compose = readFileSync("docker-compose.yml", "utf8");
-  const coincidencia = /^\s*image:\s*(postgres:\S+)\s*$/m.exec(compose);
-  expect(
-    coincidencia?.[1],
-    "docker-compose.yml no tiene una imagen postgres:",
-  ).toBeDefined();
-  return coincidencia?.[1] ?? "";
+  const imagen = imagenPostgresDeArchivo(RUTA_COMPOSE);
+  expect(imagen, `${RUTA_COMPOSE} no tiene una imagen postgres:`).toBeDefined();
+  return imagen ?? "";
 }
 
 let contenedor: StartedPostgreSqlContainer | undefined;

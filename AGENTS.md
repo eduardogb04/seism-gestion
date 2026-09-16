@@ -57,6 +57,8 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre `tests/fixtures/lint/debe-fallar.ts`, que **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`. Sale 0 si Biome lo rechazó con las dos reglas, 1 si lo aceptó o si falta alguna |
 | `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
 | `npm run limites:fixtures` | Prueba negativa de `limites`: corre dependency-cruiser sobre cada carpeta de `tests/fixtures/limites/` (una por regla), por separado. Sale 0 si cada una fue rechazada por **su** regla y desde los archivos esperados; 1 si alguna pasó, la rechazó otra regla, o hay una regla sin fixture |
+| `npm run nombres-prohibidos` | Control de nombres reales (repo público): recorre los archivos que devuelve `git ls-files` (menos `package-lock.json` y `tests/fixtures/nombres-prohibidos/`) buscando clientes, proyectos o personas reales de SeisM, sin nunca leer la lista en claro (compara *hashes*: ver *Nombres prohibidos*). Sale 1 nombrando archivo y línea si encuentra alguno |
+| `npm run nombres-prohibidos:fixtures` | Prueba negativa (y positiva) de lo anterior: `tests/fixtures/nombres-prohibidos/debe-fallar.md` (con un término ficticio, no un nombre real) **tiene** que ser rechazado y `debe-pasar.md` (el mismo texto sin el término) **tiene** que ser aceptado. Sale 0 si los dos se comportaron así, 1 si no |
 | `npm run imagen` | Construye la imagen Docker: `docker build` multi-stage con `--build-arg APP_VERSION` (el SHA corto de git, o `APP_VERSION` si está definida). Sin etiqueta, `seism-gestion:local`; `-- <etiqueta>...` construye con las que le pases (es lo que hace CI al publicar). Necesita Docker corriendo, no necesita `npm ci` |
 | `npm run imagen:prueba` | Levanta esa imagen, espera el `HEALTHCHECK`, pide `/` y `/api/salud`, compara la versión con la del build, verifica que no lleve `.env` ni variables de más y que entre en el tope de tamaño. Informa **todas** las verificaciones que fallaron. `-- <etiqueta>` para probar otra |
 | `npm run db:migrate` | `scripts/db-migrate.ts`: lee `.env` si existe, **valida el entorno** (el mismo esquema que la app) y recién entonces corre `prisma migrate deploy`, que aplica las migraciones pendientes de `prisma/migrations/` (desde una base vacía o una ya migrada). Si `DATABASE_URL` falta o no es `postgresql://`/`postgres://`, **sale 1** nombrando la variable y Prisma ni se ejecuta. Necesita la base levantada |
@@ -64,9 +66,10 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run db:generar` | `prisma generate`: regenera el cliente en `src/adaptadores/prisma/generado/` después de cambiar `prisma/schema.prisma`. No se conecta a ninguna base |
 | `npm run db:seed` | `scripts/db-seed.ts`: valida el entorno igual que `db:migrate` y corre `prisma/seed.ts` (idempotente) con el cliente real de Prisma (`src/adaptadores/prisma/cliente.ts`, con `@prisma/adapter-pg`). Sale 1 sin sembrar nada si `APP_ENTORNO=servidor` y falta `SEED_PERMITIDO=si`. Necesita la base levantada |
 
-Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm test && npm run
-typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures && npm run build`. Es lo
-mismo que corre CI (menos gitleaks y la imagen); correrlo antes ahorra una vuelta. `npm test`
+Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm run
+nombres-prohibidos && npm test && npm run typecheck:fixtures && npm run lint:fixtures && npm run
+limites:fixtures && npm run nombres-prohibidos:fixtures && npm run build`. Es lo mismo que corre
+CI (menos gitleaks y la imagen); correrlo antes ahorra una vuelta. `npm test`
 necesita Docker corriendo (test de migraciones). Si tocaste el
 `Dockerfile`, el `.dockerignore` o `scripts/imagen.ts`, sumá `npm run imagen && npm run
 imagen:prueba` (hace falta Docker corriendo; si no lo tenés, lo corre CI igual).
@@ -80,7 +83,8 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   abierto corre dos veces por commit (en la página del PR, `ci / ci (push)` y
   `ci / ci (pull_request)`; en `gh pr checks`, dos filas `ci`); tienen que estar verdes las dos.
 - **Qué corre.** `npm ci` (nunca `npm install`) y después, en orden: `typecheck`,
-  `typecheck:fixtures`, `lint`, `lint:fixtures`, `limites`, `limites:fixtures`, `test` (con el test
+  `typecheck:fixtures`, `lint`, `lint:fixtures`, `limites`, `limites:fixtures`,
+  `nombres-prohibidos`, `nombres-prohibidos:fixtures`, `test` (con el test
   de migraciones: Testcontainers usa el Docker que trae el runner, sin pasos extra), **`Migrar
   (para el paso de drift)`** y **`drift`** (F0-11: aplica las migraciones contra el `services:
   postgres` del job y compara el resultado con `schema.prisma` — ver *Base de datos*), `build`
@@ -331,6 +335,49 @@ los ciclos que empiezan en el cliente generado de Prisma (`src/adaptadores/prism
 - **dependency-cruiser y TypeScript.** dependency-cruiser 18.2.0 parsea TypeScript `>=2 <7`. Es
   otro motivo para no aceptar un bump de TypeScript a 7.x sin decidirlo aparte (ADR 0002 y 0004).
 
+## Nombres prohibidos
+
+El repo es público (regla 1 de *Reglas no negociables*): antes ya se coló, en un PR, el nombre real
+de un cliente. `npm run nombres-prohibidos` lo hace cumplir con una máquina, no solo con la
+revisión: recorre los archivos **versionados** (`git ls-files`; ignora lo que ya ignora git, y
+además excluye `package-lock.json` y `tests/fixtures/nombres-prohibidos/`) buscando clientes,
+proyectos y personas reales de SeisM.
+
+- **El mecanismo: hashes, nunca la lista en claro.** Poner los nombres reales en un archivo de este
+  mismo repo (aunque sea "la lista de lo prohibido") sería filtrarlos igual: cualquiera que clone el
+  repo público los lee. En cambio, `scripts/lib/nombres-prohibidos-datos.ts` guarda, por cada
+  término, cuántas **palabras** tiene y el **SHA-256** de esas palabras ya normalizadas (minúsculas,
+  sin tildes, unidas con un espacio) — de un hash no se reconstruye el texto. Para revisar el
+  control corre al revés: se tokeniza cada archivo (letras, números y `_`; un guion bajo no separa
+  palabras, así un identificador como `Proyecto_Ejemplo` cae en una sola), se arman todas las frases
+  consecutivas de esa misma cantidad de palabras (una comparación "palabra por palabra", con
+  ventana deslizante, línea por línea — un término partido a mano entre dos líneas no se detecta,
+  compensado por no unir el final de una oración con el principio de la siguiente), se normalizan
+  igual y se compara el hash resultante contra la lista. El script nunca sabe qué nombre corresponde
+  a qué hash; solo dice `archivo:línea` y las primeras letras del hash, para que quien tenga la
+  lista en claro (fuera del repo) pueda identificarlo.
+- **Sumar un término.** Se calcula aparte (nunca pegándolo en un archivo del repo) con la misma
+  normalización: `node -e "console.log(require('node:crypto').createHash('sha256').update('el
+  término, en minúsculas y sin tildes').digest('hex'))"`, y se agrega la fila `{ palabras, hash }`
+  a `scripts/lib/nombres-prohibidos-datos.ts` (`palabras` es la cantidad de palabras del término,
+  ya tokenizado igual que el script).
+- **Falsos positivos.** Un término corto o una palabra común (un nombre de pila solo, una sigla de
+  tres letras) da falsos positivos: por eso la lista usa nombres y apellidos completos, razones
+  sociales y alias distintivos, no palabras sueltas comunes. `Eduardo` (el dueño del repo) aparece
+  sin apellido en varios archivos a propósito (`AGENTS.md`, `RUNBOOK.md`, `ci.yml`): no está en la
+  lista, ni tiene que estarlo.
+- **Prueba de que rechaza y de que acepta.** `tests/fixtures/nombres-prohibidos/debe-fallar.md`
+  trae un término **ficticio** (no un cliente real, para no filtrar uno de verdad en el propio
+  fixture) cuyo hash está en la lista, marcado como tal; `debe-pasar.md` es el mismo texto sin ese
+  término. `npm run nombres-prohibidos:fixtures` (`scripts/nombres-prohibidos-fixtures.ts`) corre
+  la misma detección sobre los dos e invierte el resultado esperado: 0 si `debe-fallar.md` fue
+  rechazado y `debe-pasar.md` fue aceptado, 1 si no.
+- **Alcance de la exclusión.** `.dependency-cruiser.cjs` no necesita excluir nada de esto:
+  `npm run limites` solo cruza `src/`, `tests/` y `scripts/` como argumentos explícitos, nunca la
+  raíz entera. `tsconfig.json` tampoco: su `include` nombra `src/**`, `tests/**`, `scripts/**` y
+  `prisma/**` de forma anclada a la raíz, así que un fixture de texto (`.md`, no `.ts`) no entra por
+  ahí de todos modos.
+
 ## Reglas no negociables
 
 Las hace cumplir la máquina donde se puede; donde no, la revisión.
@@ -338,6 +385,8 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
 1. **Nada real en el repo.** Ni datos de la empresa, de clientes, de personas, ni montos, ni
    documentos de negocio, ni secretos, ni `.env`. Las semillas y los tests usan datos
    **ficticios**. El repo es público: lo que entra queda indexado en minutos. Si dudás, no entra.
+   Los nombres (de cliente, proyecto o persona) además los hace cumplir una máquina: `npm run
+   nombres-prohibidos` (ver *Nombres prohibidos*).
 2. **El dominio no importa infraestructura.** `src/dominio` solo importa de `src/dominio`, y
    cada capa respeta sus límites (sección *Límites de arquitectura*). Lo hace cumplir `npm run
    limites` (dependency-cruiser).

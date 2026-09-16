@@ -96,6 +96,17 @@ jobs:
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
         run: npm run limites:fixtures
 
+      # Repo público: ningún archivo versionado puede nombrar un cliente,
+      # proyecto o persona real (mecanismo de hashes, sin nombres en claro
+      # en el repo: AGENTS.md, sección "Nombres prohibidos").
+      - name: nombres-prohibidos
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run nombres-prohibidos
+
+      - name: nombres-prohibidos:fixtures
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        run: npm run nombres-prohibidos:fixtures
+
       - name: test
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
         run: npm test

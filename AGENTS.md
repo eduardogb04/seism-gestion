@@ -54,7 +54,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm test` | Vitest sobre `tests/dominio/` (el test de humo, el esquema de entorno —`APP_ENTORNO` y `DATABASE_URL`— y la resolución de la versión) y `tests/casos-uso/` (F0-09: el test de migraciones; F0-10: el de la semilla — los dos con un Postgres 16 efímero de Testcontainers, cada uno el suyo; F0-11: migraciones completas —`migration.sql` + `down.sql`—, sin Docker). **Necesita Docker corriendo**; sin Docker, los de F0-09 y F0-10 fallan al levantar el contenedor, pero el de migraciones completas (F0-11) corre igual. No necesita `.env` ni la base de compose |
 | `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que generan Next, ADR 0005, y Prisma, ADR 0008) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
-| `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre `tests/fixtures/lint/debe-fallar.ts`, que **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`. Sale 0 si Biome lo rechazó con las dos reglas, 1 si lo aceptó o si falta alguna |
+| `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre cada fixture de `tests/fixtures/lint/`, por separado. `debe-fallar.ts` **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`; `reloj-inyectado/` por la regla del reloj (`noRestrictedGlobals` sobre `Date`), y solo desde `src/dominio/`. Sale 0 si cada uno fue rechazado por sus reglas y el caso permitido quedó limpio; 1 si alguno pasó, falta un diagnóstico o sobra uno |
 | `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
 | `npm run limites:fixtures` | Prueba negativa de `limites`: corre dependency-cruiser sobre cada carpeta de `tests/fixtures/limites/` (una por regla), por separado. Sale 0 si cada una fue rechazada por **su** regla y desde los archivos esperados; 1 si alguna pasó, la rechazó otra regla, o hay una regla sin fixture |
 | `npm run imagen` | Construye la imagen Docker: `docker build` multi-stage con `--build-arg APP_VERSION` (el SHA corto de git, o `APP_VERSION` si está definida). Sin etiqueta, `seism-gestion:local`; `-- <etiqueta>...` construye con las que le pases (es lo que hace CI al publicar). Necesita Docker corriendo, no necesita `npm ci` |
@@ -284,14 +284,26 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
   (`noExplicitAny`, `noUnusedVariables`, `noUnusedImports`, `noNonNullAssertion`, `useConst`).
   `a11y` y `security` ya vienen en `error` en `recommended`, sin overrides. Ver ADR 0003 (por qué
   no alcanza con `--error-on-warnings`, y qué revisar si Dependabot sube la versión de Biome).
-- **Prueba de que rechaza.** `tests/fixtures/lint/debe-fallar.ts` tiene un `any` explícito y una
-  variable sin usar (dos reglas independientes, para que el rechazo de una no tape que la otra
-  dejó de andar). Como el lint normal excluye `tests/fixtures/`, esa carpeta tiene su propio
-  `biome.json` (`"root": true`, no hereda nada de la raíz) solo con esas dos reglas. `npm run
-  lint:fixtures` (`scripts/lint-fixtures.ts`) invoca el binario de Biome con `cwd` en esa carpeta,
-  imprime su salida de error, e **invierte** el código de salida: sale 0 si Biome rechazó el
-  fixture y aparecen los diagnósticos de las dos reglas, 1 si lo aceptó o si falta alguno de los
-  dos.
+- **La regla del reloj (F0-18).** Un `override` sobre `**/src/dominio/**` pone
+  `style/noRestrictedGlobals` en `error` para la global `Date`: dentro del dominio la fecha del
+  sistema no se llama, se inyecta un `Reloj` (`src/dominio/compartido/reloj.ts`). Fuera del
+  dominio la regla no existe, porque traducir entre `FechaHora` y `Date` es trabajo de los
+  adaptadores. Ver ADR 0012.
+- **Prueba de que rechaza.** Dos fixtures, que `npm run lint:fixtures`
+  (`scripts/lint-fixtures.ts`) corre por separado invocando el binario de Biome con `cwd` en la
+  carpeta de cada uno, imprimiendo su salida de error e **invirtiendo** el código de salida: sale
+  0 si cada fixture fue rechazado por sus reglas, desde los archivos esperados y sin tocar los
+  archivos permitidos; 1 si alguno fue aceptado, si falta un diagnóstico o si aparece uno donde no
+  correspondía.
+  - `tests/fixtures/lint/debe-fallar.ts` (F0-02) tiene un `any` explícito y una variable sin usar
+    (dos reglas independientes, para que el rechazo de una no tape que la otra dejó de andar).
+    Como el lint normal excluye `tests/fixtures/`, esa carpeta tiene su propio `biome.json`
+    (`"root": true`, no hereda nada de la raíz) solo con esas dos reglas.
+  - `tests/fixtures/lint/reloj-inyectado/` (F0-18) replica la estructura `src/...` que la regla
+    por ruta necesita, y su `biome.json` sí **extiende** el de la raíz: así prueba la regla de
+    verdad y no una copia (si alguien la saca de `biome.json`, el fixture pasa el lint y este
+    comando se pone en rojo). Trae además el caso permitido, `src/adaptadores/reloj/usa-date.ts`:
+    el mismo código fuera del dominio, que **no** tiene que aparecer como violación.
 - **`// biome-ignore` exige motivo.** Ninguno sin explicar por qué en el mismo comentario. Si
   Biome choca con código real, se arregla el código, no la regla.
 
@@ -480,6 +492,15 @@ tamaño de la imagen se anota en el ADR 0007 si cambió de manera apreciable.
 negocio real en el valor por defecto no entra (regla 1); si hiciera falta uno, se decide en la
 tarea que lo necesita.
 
+**...una operación de fecha al dominio (F0-18).** A `src/dominio/compartido/reloj.ts`, con su test
+en `tests/dominio/reloj.test.ts`, escrita sobre `diasDesdeCivil` / `civilDesdeDias` (aritmética
+entera) y nunca sobre `Date`, `Temporal` ni `Intl`: el dominio no puede importar nada y la global
+`Date` está prohibida ahí por lint. Si la operación tiene un caso de borde con nombre (fin de mes,
+29 de febrero), se decide explícitamente, se documenta en el ADR 0012 y se prueba como caso **y**
+como propiedad. Para leer la hora, un `Reloj` inyectado: ningún módulo del dominio la averigua por
+su cuenta. Traducir entre `FechaHora` y `Date`/`Temporal` —y aplicar la zona horaria— se hace en
+los adaptadores, con `crearFechaHora` o `parsearISO` como puerta de entrada.
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -489,7 +510,7 @@ estimación; el orden real de creación manda).
 ## Estructura
 
 ```
-src/dominio          puro; solo importa de sí mismo (vacío hasta el lote 5)
+src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces (vacío hasta el lote 5)
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar) y prisma/cliente.ts (el cliente con el adaptador pg)

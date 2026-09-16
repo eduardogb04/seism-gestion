@@ -310,6 +310,215 @@ quién y cuándo.
 `gh api repos/eduardogb04/seism-gestion/rulesets/<id> --jq .enforcement` → `"active"`. Un push
 directo de prueba (commit vacío descartable) vuelve a ser rechazado.
 
+## 4. Oracle: cuenta, instancia, red y firewall
+
+**Cuándo hace falta:** una vez, para tener el servidor del ensayo (F0-12). Y de nuevo cada vez que
+haya que levantar otro: Oracle recupera las instancias con uso bajo sostenido, y la respuesta es
+volver a correr esto, no rescatar la máquina. Nada que no esté en git vive en ese servidor.
+**Quién:** Eduardo (es su cuenta y su tarjeta).
+**Necesitás antes:** una tarjeta de crédito (Oracle la pide para validar identidad; la capa Always
+Free no cobra — paso 1), un teléfono, y el repositorio clonado, que es de donde sale
+`infra/oracle/bootstrap.sh`.
+**Cuánto lleva:** la cuenta, unos 20 minutos. Conseguir la instancia, entre 5 minutos y varios días
+(paso 4). El script, unos 10 minutos la primera vez.
+
+> **Las pantallas de Oracle cambian de nombre seguido.** Si algo no está donde dice acá, buscalo
+> por el nombre parecido en el menú y **corregí este archivo en el mismo momento**: es lo único que
+> hace que dentro de tres meses siga sirviendo.
+
+### Pasos
+
+**1. Crear la cuenta, y dejarla sin upgrade automático a pago.**
+
+1. `https://www.oracle.com/cloud/free/` → *Start for free*. Mail, teléfono y tarjeta. Oracle hace
+   una retención temporal de alrededor de USD 1 para validar la tarjeta, y la libera.
+2. **La región de origen (*Home Region*) se elige una sola vez y no se cambia nunca más.** Elegí
+   **São Paulo (`sa-saopaulo-1`)**: los usuarios están en Argentina y el diseño pide que el
+   servidor y la base queden geográficamente cerca.
+3. Terminado el registro entrás a la consola. **No aprietes *Upgrade to Paid Account*.** La cuenta
+   arranca como prueba con crédito por 30 días; cuando ese crédito vence, si no la pasaste a paga,
+   **sigue funcionando solo lo Always Free y no se cobra nada**. Eso es exactamente lo que
+   queremos.
+4. Verificá el tipo de cuenta: menú ☰ → *Billing & Cost Management* → *Upgrade and Payment Method*.
+   Tiene que figurar como cuenta de prueba / Always Free, **no** como *Pay As You Go*.
+5. **Red de seguridad, en la misma sección:** *Billing & Cost Management* → *Budgets* → *Create
+   Budget* sobre el compartimento raíz, monto **USD 1**, alerta al **100 %** a tu mail. Si alguna
+   vez algo empieza a facturar en silencio, te enterás el primer día.
+
+**2. Generar la clave SSH ed25519, en tu máquina.**
+
+En Git Bash (no en PowerShell), una sola vez:
+
+```
+ssh-keygen -t ed25519 -f "$HOME/.ssh/seism-deploy" -C "deploy@seism"
+```
+
+- Te pide una *passphrase*: ponele una y anotala donde guardás las contraseñas. Te la va a pedir
+  cada vez que te conectes.
+- Quedan dos archivos en `C:\Users\<vos>\.ssh\`: `seism-deploy` (la **privada**, no sale nunca de
+  tu máquina y **nunca va al repositorio**) y `seism-deploy.pub` (la pública, que es la que se pega
+  en todos lados).
+- Para verla: `cat "$HOME/.ssh/seism-deploy.pub"`. Empieza con `ssh-ed25519 `.
+
+**3. Crear la instancia Always Free.**
+
+Menú ☰ → *Compute* → *Instances* → *Create instance*.
+
+| Campo | Qué poner |
+|---|---|
+| *Name* | `gestion-ensayo` |
+| *Image* | *Change image* → **Canonical Ubuntu 24.04**. El script **solo** corre en Ubuntu: si elegís Oracle Linux, se niega a arrancar y te lo dice |
+| *Shape* | *Change shape* → *Virtual machine* → *Specialty and previous generation* → **VM.Standard.E2.1.Micro** (AMD, 1 OCPU, 1 GB). Tiene que aparecer la etiqueta **Always Free eligible** |
+| *Primary VNIC / Networking* | Dejá que cree una VCN nueva con subred **pública**, y **Assign a public IPv4 address: Yes** |
+| *Add SSH keys* | *Paste public keys* → pegá el contenido entero de `seism-deploy.pub` |
+| *Boot volume* | No lo toques (los 47 GB por defecto entran en Always Free) |
+
+*Create*. Cuando el estado pase a **Running**, anotá la **Public IP address**: es la que vas a usar
+en todos los pasos siguientes, y la que va a ir a los secretos de CI en F0-13.
+
+**4. Si dice *Out of capacity* (primera aspereza conocida).**
+
+Es normal y no es un error tuyo: la capa gratuita no tiene capacidad reservada.
+
+- Volvé a intentar *Create instance* más tarde (temprano a la mañana suele haber más lugar), y
+  probá **otro *Availability Domain*** si tu región tiene más de uno.
+- **No** automatices reintentos cada pocos segundos: Oracle lo trata como abuso.
+- Si pasa más de una semana: está previsto probar la **ARM Ampere** (también Always Free), pero eso
+  obliga a construir la imagen para dos arquitecturas (F0-07) y **es otra decisión, con su ADR**.
+  Avisá antes de tomarla.
+
+**5. Abrir 22 y 80 en la lista de seguridad de la VCN, solo desde tu IP.**
+
+1. Averiguá tu IP pública: `curl -s https://ifconfig.me` (o abrí `https://ifconfig.me` en el
+   navegador).
+2. Menú ☰ → *Networking* → *Virtual Cloud Networks* → la VCN de la instancia → *Security Lists* →
+   *Default Security List*.
+3. En *Ingress Rules*, la regla que ya existe para el puerto 22 dice *Source* `0.0.0.0/0`
+   (cualquiera). Editala: *Source CIDR* = `TU.IP.PU.BLICA/32`.
+4. *Add Ingress Rule*: *Source CIDR* = `TU.IP.PU.BLICA/32`, *IP Protocol* = **TCP**, *Destination
+   Port Range* = `80`.
+5. Guardá. No hace falta reiniciar nada: es inmediato.
+
+**Cómo cambiarla cuando cambie tu IP:** tu conexión es residencial, así que la IP **va a cambiar**,
+y el día que cambie no vas a poder entrar por SSH ni abrir la página. Se arregla en esta misma
+pantalla: `curl -s https://ifconfig.me` para ver la nueva, y editás las dos reglas con el nuevo
+`/32`. **No te podés dejar afuera para siempre:** la lista de seguridad se edita desde la consola
+web, que no depende de poder entrar a la máquina.
+
+**6. Copiar el script y correrlo.**
+
+En Git Bash, parado en la carpeta del repositorio, con `<IP>` reemplazada por la Public IP:
+
+```
+scp -i "$HOME/.ssh/seism-deploy" infra/oracle/bootstrap.sh "$HOME/.ssh/seism-deploy.pub" ubuntu@<IP>:
+ssh -i "$HOME/.ssh/seism-deploy" ubuntu@<IP>
+```
+
+Ya adentro de la instancia (el prompt dice `ubuntu@gestion-ensayo`):
+
+```
+sudo bash bootstrap.sh --clave-publica ~/seism-deploy.pub 2>&1 | tee bootstrap.log
+```
+
+Tarda unos 10 minutos la primera vez (actualiza el sistema e instala Docker). `tee` deja la salida
+en `bootstrap.log` por si hay que mirarla después; ese archivo **no va al repositorio**.
+
+El script deja: el sistema al día, 2 GB de swap, el usuario `deploy` sin contraseña con `sudo` solo
+para docker, SSH sin contraseña, el puerto 80 abierto en el firewall local, journald con rotación,
+y Docker con su plugin `compose`.
+
+**7. Correrlo una segunda vez, a propósito.**
+
+```
+sudo bash bootstrap.sh --clave-publica ~/seism-deploy.pub
+```
+
+Tiene que terminar con **`Cambios aplicados: 0`**. Esa línea es la prueba de que el script es
+idempotente: correrlo de nuevo no rompe nada.
+
+**8. De acá en adelante se entra como `deploy`.**
+
+```
+ssh -i "$HOME/.ssh/seism-deploy" deploy@<IP>
+sudo docker run --rm hello-world
+```
+
+`deploy` **no** está en el grupo `docker`: sus comandos de contenedores van con `sudo docker …` (y
+`sudo docker compose …`). Es a propósito, para que cada uso quede registrado — ver
+`docs/adr/0012-bootstrap-de-la-instancia-oracle.md`. El usuario `ubuntu` sigue existiendo con la
+misma clave; el deploy automático de F0-13 usa `deploy`.
+
+**9. Reiniciar y ver que vuelve solo.**
+
+```
+sudo reboot
+```
+
+Esperá un minuto, volvé a entrar y comprobá que el swap sigue activo y Docker corriendo (los
+comandos están abajo).
+
+### Cómo verificar que salió bien
+
+Adentro de la instancia:
+
+- El script termina con el bloque *Resumen*, y la segunda corrida dice `Cambios aplicados: 0`.
+- `free -h` → la fila `Swap` muestra `2,0Gi`. `swapon --show` muestra `/swapfile`.
+- `sudo docker run --rm hello-world` → `Hello from Docker!`.
+- `docker compose version` → `Docker Compose version v2.x`.
+- `sudo -u deploy sudo docker ps` → la tabla vacía de contenedores, no un error de permisos.
+- `sudo -l -U deploy` → una sola línea: `(root) NOPASSWD: /usr/bin/docker`.
+- `sudo sshd -T | grep -E "^(passwordauthentication|permitrootlogin)"` → `no` en las dos.
+- `sudo iptables -L INPUT -n --line-numbers | grep "dpt:80"` → la regla `ACCEPT` con un número de
+  línea **menor** que el de la línea `REJECT`.
+- `sudo journalctl --disk-usage` → menos de 200 MB.
+- Después del `sudo reboot`: `swapon --show` sigue mostrando `/swapfile` y `systemctl is-active
+  docker` dice `active`.
+
+Desde tu máquina:
+
+- `ssh -i "$HOME/.ssh/seism-deploy" deploy@<IP>` entra.
+- `ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no deploy@<IP>` es rechazado con
+  `Permission denied (publickey)`: no hay contraseña que adivinar.
+
+### Si falla
+
+- ***Out of capacity*** al crear la instancia → paso 4. Es la aspereza conocida número uno.
+- **`ssh: connect to host <IP> port 22: Connection timed out`** → casi siempre **te cambió la IP de
+  tu casa** y la lista de seguridad apunta todavía a la vieja: paso 5. Si tu IP no cambió, mirá en
+  la consola que la instancia esté *Running*.
+- **`Permission denied (publickey)`** → estás usando otra clave u otro usuario. Probá con
+  `-i "$HOME/.ssh/seism-deploy"` y `ubuntu@` (antes del script) o `deploy@` (después).
+- **`http://<IP>/` no responde, pero adentro de la instancia `curl localhost` sí** → son **dos**
+  puertas y hay que abrir las dos: la lista de seguridad de la VCN (paso 5) **y** el firewall local
+  de la imagen (lo abre el script). Es la aspereza número tres, y la causa número uno de tardes
+  perdidas en OCI. La de adentro se comprueba con `sudo iptables -L INPUT -n | grep "dpt:80"`.
+  **Una sutileza que conviene saber:** un contenedor con el puerto publicado **no pasa por esa
+  regla** (Docker desvía ese tráfico por sus propias cadenas), así que quién puede llegar al puerto
+  80, en los hechos, lo decide la lista de seguridad de la VCN. Está explicado en el ADR 0012.
+- **El script dice `esta imagen es 'ol' y el script es para Ubuntu`** → la instancia se creó con
+  Oracle Linux. Se borra y se crea otra con Canonical Ubuntu (paso 3): es más rápido que adaptar la
+  máquina.
+- **El script dice `la clave pública tiene que ser ed25519`** → pasaste una clave RSA, o la privada
+  en vez de la `.pub`. Volvé al paso 2.
+- **La instancia desapareció o quedó apagada sin que la toques** → es la aspereza número dos:
+  **Oracle recupera las instancias Always Free con uso bajo sostenido**, y un entorno de prueba es
+  justo ese perfil. No se pierde nada (ahí no vive nada que no esté en git): creás otra instancia
+  (paso 3), corrés el script (paso 6) y volvés a desplegar. Si pasara seguido, la decisión a tomar
+  es otra y va con su ADR.
+- **`apt-get` falla por falta de espacio** → `df -h /`, y `sudo docker system prune -a` para sacar
+  imágenes viejas.
+
+### Secretos que quedan (solo nombres)
+
+- `seism-deploy` — la clave **privada** ed25519. Vive únicamente en `C:\Users\<vos>\.ssh\` de tu
+  máquina. No se copia al servidor, no se pega en GitHub, **no entra al repositorio**.
+- `seism-deploy.pub` — la pública. No es secreta, pero tampoco tiene por qué estar en el
+  repositorio.
+- La **IP pública de la instancia** y **tu IP de casa** no son secretos, pero no van al repositorio
+  (es público): viven en la consola de Oracle y en tu `.env` local.
+- Los secretos del deploy automático (`ENSAYO_SSH_KEY`, `ENSAYO_KNOWN_HOSTS`, `ENSAYO_HOST`,
+  `ENSAYO_USER`) los crea **F0-13**, con su propia clave exclusiva de CI. No son estos.
+
 ## 14. Probar la imagen Docker en tu máquina
 
 **Cuándo hace falta:** cuando abras Docker Desktop por primera vez, para ver con tus ojos lo que

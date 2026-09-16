@@ -21,7 +21,7 @@
 
 # Base fijada por digest, como las acciones de CI (ADR 0006): un tag se mueve,
 # un digest no. Dependabot (ecosistema `docker`) propone las subidas.
-FROM node:24.14.1-alpine3.22@sha256:4f33c7804fa7775b87875f512e25e515692210bfdeafd715eb8bc441c364e2f6 AS base
+FROM node:24.16.0-alpine3.22@sha256:191c9f0080fcbbc6547a85dc0ff7988072214a355aabdc1d2ec55a7dae5eea8a AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 

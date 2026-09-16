@@ -12,3 +12,8 @@ Desde F0-08: `prisma/generado/`, el cliente que escribe `prisma generate`
 nada escrito a mano va en esa carpeta. El código propio que use el cliente
 (repositorios, la semilla) llega en las tareas siguientes, en `prisma/` al lado
 de `generado/`. Ver `docs/convenciones-base.md` y ADR 0008.
+
+Desde F0-19: `memoria/`, con los primeros adaptadores de `src/puertos/`:
+`secuencias.ts` (contador en memoria, uno por prefijo y año) y
+`generador-id.ts` (UUIDs con `node:crypto` — no es un doble de test, es la
+implementación real; alcanza para lo que sigue).

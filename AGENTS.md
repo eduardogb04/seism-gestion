@@ -508,6 +508,14 @@ docs/                arquitectura.md (capas y límites) · convenciones-base.md 
 .github/             workflows/ci.yml (el check `ci` y el job `publicar`) · CODEOWNERS · dependabot.yml
 ```
 
+**`.claude/`** está en `.gitignore` (y excluido en `biome.json`): ahí arman su worktree los agentes
+que aíslan una tarea (`git worktree add .claude/worktrees/<rama> ...`), un checkout entero del
+repo con sus propios `node_modules/` y rutas de fixtures ya largas de por sí. Sin ignorarlo, ensucia
+el `git status` del clon principal y el recorrido de archivos de `biome check .` puede toparse con
+esas rutas. `npm run limites` (los argumentos son `src tests scripts`, nunca la raíz) y el
+`include` de `tsconfig.json` (anclado a la raíz: `src/**`, no `**/src/**`) ya no llegan ahí de
+todos modos, así que no necesitan una exclusión propia.
+
 Cada carpeta de `src/` y `tests/` tiene su propio `README.md` explicando qué va a vivir ahí y
 desde qué tarea.
 

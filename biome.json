@@ -18,7 +18,8 @@
       "!tests/fixtures",
       "!.next",
       "!next-env.d.ts",
-      "!src/adaptadores/prisma/generado"
+      "!src/adaptadores/prisma/generado",
+      "!.claude"
     ]
   },
   "formatter": {

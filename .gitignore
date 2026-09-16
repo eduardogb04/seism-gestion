@@ -8,3 +8,10 @@ coverage/
 *.log
 # Cliente de Prisma: lo genera `prisma generate` (postinstall), no se versiona (ADR 0008).
 /src/adaptadores/prisma/generado/
+# Worktrees que arman los agentes al aislar una tarea (`git worktree add
+# .claude/worktrees/...`): son un checkout entero del repo, con sus propios
+# `node_modules/` y las carpetas de fixtures (rutas largas, algunas cerca del
+# límite de Windows). Sin ignorar, ensucian `git status` del clon principal y
+# el recorrido de archivos de las herramientas (`biome check .` entre ellas)
+# puede toparse con esas rutas. Ver AGENTS.md.
+.claude/

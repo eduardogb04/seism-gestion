@@ -16,16 +16,19 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-09):** TypeScript severo, Biome como formato y lint, dependency-cruiser con los
-límites de arquitectura, Next.js mínimo (una página, el latido `GET /api/salud` y el entorno
-validado con Zod al arrancar), CI en GitHub Actions (el check `ci` corre todos los controles y
-gitleaks en cada push y cada PR — ver *CI*), imagen Docker (se construye y se prueba en cada
-corrida, y se publica en `ghcr.io/eduardogb04/seism-gestion` en cada push a `main` — ver *Imagen
-Docker*) y la base: Postgres 16 local en `docker-compose.yml`, Prisma 7 con la tabla
-`configuracion` y su primera migración (con `down.sql`), `npm run db:migrate` y
-`npm run db:migrate:down`, y el test que aplica y revierte la cadena entera contra un Postgres de
-Testcontainers (corre en `npm test` y en CI) — ver *Base de datos*. La app todavía no se conecta a
-la base; el control de migraciones y drift de CI es F0-11.
+**Estado (F0-10 + F0-06 + F0-11):** TypeScript severo, Biome como formato y lint,
+dependency-cruiser con los límites de arquitectura, Next.js mínimo (una página, el latido
+`GET /api/salud` y el entorno validado con Zod al arrancar), CI en GitHub Actions (el check `ci`
+corre todos los controles y gitleaks en cada push y cada PR — ver *CI*), imagen Docker (se
+construye y se prueba en cada corrida, y se publica en `ghcr.io/eduardogb04/seism-gestion` en cada
+push a `main` — ver *Imagen Docker*), la base: Postgres 16 local en `docker-compose.yml`, Prisma 7
+con la tabla `configuracion` y su primera migración (con `down.sql`), `npm run db:migrate` y
+`npm run db:migrate:down`, el test que aplica y revierte la cadena entera contra un Postgres de
+Testcontainers, el mecanismo de semilla (`npm run db:seed`, con el cliente de Prisma armado con
+`@prisma/adapter-pg`), y el control de drift en CI: un paso propio del check `ci` pone rojo un
+cambio en `schema.prisma` sin su migración — ver *Base de datos* — y `main` protegida con un
+ruleset de GitHub (PR obligatorio, `ci` en verde, sin push directo — ver *Rama principal
+protegida*). La app todavía no se conecta a la base.
 
 ## Leer primero
 
@@ -48,7 +51,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run build` | `next build` con `output: "standalone"`: compila, corre `tsc` y deja `.next/standalone/server.js`. **No necesita `.env`**; sí git o `APP_VERSION` (la versión del latido) |
 | `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
 | `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz. `-- --write` aplica los arreglos |
-| `npm test` | Vitest sobre `tests/dominio/` (el test de humo, el esquema de entorno —`APP_ENTORNO` y `DATABASE_URL`— y la resolución de la versión) y `tests/casos-uso/` (F0-09: el test de migraciones, con un Postgres 16 efímero de Testcontainers). **Necesita Docker corriendo**; sin Docker, el de migraciones falla al levantar el contenedor. No necesita `.env` ni la base de compose |
+| `npm test` | Vitest sobre `tests/dominio/` (el test de humo, el esquema de entorno —`APP_ENTORNO` y `DATABASE_URL`— y la resolución de la versión) y `tests/casos-uso/` (F0-09: el test de migraciones; F0-10: el de la semilla — los dos con un Postgres 16 efímero de Testcontainers, cada uno el suyo; F0-11: migraciones completas —`migration.sql` + `down.sql`—, sin Docker). **Necesita Docker corriendo**; sin Docker, los de F0-09 y F0-10 fallan al levantar el contenedor, pero el de migraciones completas (F0-11) corre igual. No necesita `.env` ni la base de compose |
 | `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que generan Next, ADR 0005, y Prisma, ADR 0008) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
 | `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre `tests/fixtures/lint/debe-fallar.ts`, que **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`. Sale 0 si Biome lo rechazó con las dos reglas, 1 si lo aceptó o si falta alguna |
@@ -59,6 +62,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run db:migrate` | `scripts/db-migrate.ts`: lee `.env` si existe, **valida el entorno** (el mismo esquema que la app) y recién entonces corre `prisma migrate deploy`, que aplica las migraciones pendientes de `prisma/migrations/` (desde una base vacía o una ya migrada). Si `DATABASE_URL` falta o no es `postgresql://`/`postgres://`, **sale 1** nombrando la variable y Prisma ni se ejecuta. Necesita la base levantada |
 | `npm run db:migrate:down` | `scripts/db-migrate-down.ts`: valida el entorno igual que `db:migrate` y revierte **la última migración aplicada** en la base local de compose: su `down.sql` y el borrado de su fila de `_prisma_migrations`, en una transacción (así `db:migrate` la vuelve a aplicar). Una por corrida. Sale 1 si `DATABASE_URL` no apunta a `localhost` (no ejecuta nada), si no hay migraciones aplicadas o si la reversión falla. Necesita el servicio `postgres` de compose levantado. Ver ADR 0009 |
 | `npm run db:generar` | `prisma generate`: regenera el cliente en `src/adaptadores/prisma/generado/` después de cambiar `prisma/schema.prisma`. No se conecta a ninguna base |
+| `npm run db:seed` | `scripts/db-seed.ts`: valida el entorno igual que `db:migrate` y corre `prisma/seed.ts` (idempotente) con el cliente real de Prisma (`src/adaptadores/prisma/cliente.ts`, con `@prisma/adapter-pg`). Sale 1 sin sembrar nada si `APP_ENTORNO=servidor` y falta `SEED_PERMITIDO=si`. Necesita la base levantada |
 
 Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm test && npm run
 typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures && npm run build`. Es lo
@@ -77,12 +81,18 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   `ci / ci (pull_request)`; en `gh pr checks`, dos filas `ci`); tienen que estar verdes las dos.
 - **Qué corre.** `npm ci` (nunca `npm install`) y después, en orden: `typecheck`,
   `typecheck:fixtures`, `lint`, `lint:fixtures`, `limites`, `limites:fixtures`, `test` (con el test
-  de migraciones: Testcontainers usa el Docker que trae el runner, sin pasos extra), `build`
+  de migraciones: Testcontainers usa el Docker que trae el runner, sin pasos extra), **`Migrar
+  (para el paso de drift)`** y **`drift`** (F0-11: aplica las migraciones contra el `services:
+  postgres` del job y compara el resultado con `schema.prisma` — ver *Base de datos*), `build`
   (sin `.env`), `imagen` e `imagen:prueba` (F0-07: construye la imagen Docker y la verifica
   levantada) y gitleaks sobre los commits nuevos (los del PR; en un push, los que trajo). Si
   `npm ci` anduvo, **corren todos aunque falle uno**, así el log muestra todos los rojos juntos; el
   check queda en rojo si falla cualquiera. Los de la imagen y el de gitleaks solo dependen del
   checkout: corren aunque `npm ci` falle.
+- **`drift` en rojo.** El mensaje `hay un cambio en \`schema.prisma\` sin migración` quiere decir
+  que alguien cambió el esquema y no creó la migración (`docs/convenciones-base.md`, sección *El
+  ciclo de una migración*). Si el mensaje es otro (`prisma migrate diff falló...`), la herramienta
+  no llegó a comparar — mirar el log de arriba de ese mismo paso.
 - **Hay un segundo job, `publicar`** (F0-07): publica la imagen en GHCR y **solo corre en `push` a
   `main`**, con `needs: ci`. En un PR ni aparece; el check que se mira sigue siendo `ci`, que cubre
   todo lo que corre en un PR.
@@ -106,6 +116,16 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   `gh api repos/<dueño>/<acción>/commits/<tag>`; nunca por tag. Dependabot propone las subidas de
   las acciones; gitleaks (versión y SHA-256 del binario en `ci.yml`) se sube a mano, con el
   procedimiento del ADR 0006. Biome no lee YAML: `ci.yml` no lo lintea nada, se revisa en el PR.
+
+## Rama principal protegida
+
+Desde F0-06, `main` tiene un *ruleset* de GitHub (D1: repo público → protección de rama gratis).
+**Todo cambio entra por PR. Ninguna tarea nueva arranca con CI en rojo en `main`.** El ruleset
+exige PR (0 aprobaciones, con resolución de conversaciones obligatoria) y el check `ci` en verde
+(*strict*: la rama tiene que estar al día con `main`), y prohíbe push directo, force-push y borrar
+la rama. Sin *bypass* para nadie, ni para el dueño del repo: si hay que saltarlo en una emergencia,
+se desactiva a mano y queda en el registro de GitHub (`RUNBOOK.md`, sección *Proteger la rama
+principal*, dice cómo).
 
 ## Next.js y entorno
 
@@ -218,8 +238,32 @@ porqués en el ADR 0008. En corto:
   tablas propias. Recorre la carpeta: **una migración nueva entra sola**, y si su `down.sql` no
   revierte exacto o `schema.prisma` no coincide, `npm test` queda en rojo. No deja contenedores
   (datos en `tmpfs`, `afterAll` y Ryuk).
-- **Todavía no hay** adaptador de driver (`@prisma/adapter-pg` llega con el primer código que
-  instancie el cliente, F0-10), ni seed (F0-10), ni control de migraciones y drift en CI (F0-11).
+- **El cliente con adaptador** (F0-10, `src/adaptadores/prisma/cliente.ts`): `crearClientePrisma`
+  arma un `PrismaClient` con `@prisma/adapter-pg` (Prisma 7 no trae driver por defecto) y el driver
+  `pg`, ambos fijados en versión exacta. Es el primer código que se conecta de verdad a Postgres
+  con el cliente generado (hasta acá, `db:migrate` y `db:migrate:down` corrían la CLI de Prisma o
+  `psql` por su cuenta).
+- **La semilla** (F0-10, `prisma/seed.ts` + `scripts/db-seed.ts`, en `npm run db:seed`): inserta las
+  claves de `configuracion` con sus valores por defecto (hoy, `ia.tope_mensual_usd` en `"0"`).
+  Idempotente por clave: si el valor no cambió, no escribe nada, así correrla dos veces deja la
+  base exactamente igual (`id`, `creado_en` y `actualizado_en` incluidos); un test de casos de uso
+  la corre dos veces contra un Postgres de Testcontainers y compara. `prisma/seed.ts` importa solo
+  de `adaptadores/prisma` (el tipo del cliente generado): la validación de entorno y el permiso
+  para correr en el servidor viven en `scripts/db-seed.ts`, que se niega si `APP_ENTORNO=servidor`
+  sin `SEED_PERMITIDO=si` (no es una variable del esquema de entorno; es un chequeo puntual de ese
+  script, como el de "solo local" de `db-migrate-down.ts`). **Las semillas de Fase 1 serán
+  ficticias**: clientes, sitios, personas y montos inventados que respeten la forma de los casos
+  reales de la empresa, sin nombrar ninguno — el repo es público (P14, regla 1).
+- **Control de drift en CI (F0-11, ADR 0011).** Dos pasos del check `ci`, contra un Postgres
+  descartable propio del job (`services: postgres`, no el de Testcontainers de arriba): `Migrar
+  (para el paso de drift)` aplica las migraciones existentes, y `drift` corre `prisma migrate diff
+  --from-config-datasource --to-schema prisma/schema.prisma --exit-code` contra esa base. Si no da
+  vacío, el paso escribe `::error::hay un cambio en \`schema.prisma\` sin migración` y el check
+  queda en rojo. Prisma 7.10 no tiene los flags que pedía el plan (`--from-migrations
+  --to-schema-datamodel`, de Prisma 5/6); el equivalente que queda, `--from-migrations`, pide una
+  shadow database nueva, así que se compara desde la base ya migrada. El otro caso del mismo
+  criterio (`prisma/migrations/` con una carpeta sin `down.sql`) lo cubre
+  `tests/casos-uso/migraciones-completas.test.ts`, sin Docker.
 
 ## Formato y lint
 
@@ -228,10 +272,11 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
 `-- --write` aplica formato y los arreglos seguros de lint.
 
 - **Alcance.** `src/` (`.ts` y `.tsx`), `tests/` (menos `tests/fixtures/`, que un lint normal no
-  puede tocar — es donde viven los fixtures que **tienen** que fallar), `scripts/` y los archivos
-  de config de la raíz (`*.ts` —`next.config.ts` incluido—, `*.json` menos `package-lock.json`, y
-  `.dependency-cruiser.cjs`). Lo que genera Next (`.next/` y `next-env.d.ts`) y el cliente de
-  Prisma (`src/adaptadores/prisma/generado/`, ADR 0008) quedan afuera: no es código nuestro.
+  puede tocar — es donde viven los fixtures que **tienen** que fallar), `scripts/`, `prisma/`
+  (F0-10: `seed.ts`) y los archivos de config de la raíz (`*.ts` —`next.config.ts` incluido—,
+  `*.json` menos `package-lock.json`, y `.dependency-cruiser.cjs`). Lo que genera Next (`.next/` y
+  `next-env.d.ts`) y el cliente de Prisma (`src/adaptadores/prisma/generado/`, ADR 0008) quedan
+  afuera: no es código nuestro.
 - **Reglas en `error`, ninguna en `warn`.** Biome trae reglas de `recommended` con severidad mixta
   (`warn` en varias, `error` en otras) — un lint que solo emite `warn` no hace fallar `biome
   check` y no cumple el criterio. `biome.json` fija en `"error"`, rule por rule, las que
@@ -429,6 +474,12 @@ a la lista en vez de cortar en el primero. Un paso del workflow que no necesita 
 de la imagen, gitleaks) se condiciona al checkout (`steps.codigo.outcome`), no a `npm ci`. Y el
 tamaño de la imagen se anota en el ADR 0007 si cambió de manera apreciable.
 
+**...una clave a `configuracion` (F0-10).** Una entrada más en
+`CONFIGURACION_POR_DEFECTO` de `prisma/seed.ts`, con su `clave` y su `valor` por defecto (los dos,
+`String`: quien la lee convierte). `sembrar` la toma sola: no hace falta tocar el test. Un dato de
+negocio real en el valor por defecto no entra (regla 1); si hiciera falta uno, se decide en la
+tarea que lo necesita.
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -441,15 +492,15 @@ estimación; el orden real de creación manda).
 src/dominio          puro; solo importa de sí mismo (vacío hasta el lote 5)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces (vacío hasta el lote 5)
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar)
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar) y prisma/cliente.ts (el cliente con el adaptador pg)
 src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
-tests/               dominio · casos-uso (Postgres en contenedor: migraciones) · extraccion · e2e · contratos · fixtures
-scripts/             utilidades de los comandos de package.json (sin-any.ts, db-migrate-down.ts; lib/migraciones.ts)
+tests/               dominio · casos-uso (Postgres en contenedor: migraciones, semilla) · extraccion · e2e · contratos · fixtures
+scripts/             utilidades de los comandos de package.json (sin-any.ts, db-migrate-down.ts, db-seed.ts; lib/migraciones.ts)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
-prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql}
+prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql} · seed.ts (el mecanismo, F0-10)
 prisma.config.ts     configuración de la CLI de Prisma: rutas y DATABASE_URL
 docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27)
 Dockerfile           imagen multi-stage de la app (y del worker desde F0-25) · .dockerignore

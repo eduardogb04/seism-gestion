@@ -22,7 +22,8 @@
     "postinstall": "prisma generate",
     "db:generar": "prisma generate",
     "db:migrate": "node scripts/db-migrate.ts",
-    "db:migrate:down": "node scripts/db-migrate-down.ts"
+    "db:migrate:down": "node scripts/db-migrate-down.ts",
+    "db:seed": "node scripts/db-seed.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
@@ -36,8 +37,10 @@
     "vitest": "^5.0.0"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "next": "16.3.5",
+    "pg": "8.23.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "zod": "4.6.2"

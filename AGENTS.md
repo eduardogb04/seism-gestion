@@ -480,6 +480,17 @@ tamaño de la imagen se anota en el ADR 0007 si cambió de manera apreciable.
 negocio real en el valor por defecto no entra (regla 1); si hiciera falta uno, se decide en la
 tarea que lo necesita.
 
+**...un ciclo de estados (F0-21).** El estado de una entidad no es un campo: es un
+`Historial` de eventos que solo se agrega. Se declara una vez, con su tabla de transiciones y la
+aritmética de fechas del reloj: `definirCiclo<Estado>({ transiciones, diferenciaEnDias })`
+(`src/dominio/compartido/historial.ts`). La tabla lista, por cada estado, a cuáles se puede pasar;
+un estado terminal lleva lista vacía. `crear` y `agregar` devuelven un historial nuevo y congelado,
+y `agregar` devuelve `Resultado`: una transición no declarada no lanza, se rechaza con
+`CODIGO_TRANSICION_INVALIDA` y la posición en que se cortó. **Ninguna operación modifica ni borra
+un evento pasado**, y no se agrega una que lo haga. La marca de tiempo entra por parámetro (el
+dominio no consulta la fecha del sistema) y los tipos de `en`, `actor` y `origen` son parámetros
+de tipo hasta que F0-18 y F0-22 los fijen (ADR 0010).
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -489,7 +500,7 @@ estimación; el orden real de creación manda).
 ## Estructura
 
 ```
-src/dominio          puro; solo importa de sí mismo (vacío hasta el lote 5)
+src/dominio          puro; solo importa de sí mismo. compartido/historial.ts (ciclos de estado, F0-21)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces (vacío hasta el lote 5)
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar) y prisma/cliente.ts (el cliente con el adaptador pg)

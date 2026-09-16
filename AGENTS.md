@@ -16,7 +16,7 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-10 + F0-06 + F0-11):** TypeScript severo, Biome como formato y lint,
+**Estado (F0-10 + F0-06 + F0-11 + F0-12):** TypeScript severo, Biome como formato y lint,
 dependency-cruiser con los límites de arquitectura, Next.js mínimo (una página, el latido
 `GET /api/salud` y el entorno validado con Zod al arrancar), CI en GitHub Actions (el check `ci`
 corre todos los controles y gitleaks en cada push y cada PR — ver *CI*), imagen Docker (se
@@ -28,7 +28,9 @@ Testcontainers, el mecanismo de semilla (`npm run db:seed`, con el cliente de Pr
 `@prisma/adapter-pg`), y el control de drift en CI: un paso propio del check `ci` pone rojo un
 cambio en `schema.prisma` sin su migración — ver *Base de datos* — y `main` protegida con un
 ruleset de GitHub (PR obligatorio, `ci` en verde, sin push directo — ver *Rama principal
-protegida*). La app todavía no se conecta a la base.
+protegida*). La app todavía no se conecta a la base. Y está escrito el script que levanta el
+servidor del ensayo (`infra/oracle/bootstrap.sh`), que todavía no corrió contra ninguna instancia
+— ver *El servidor del ensayo (Oracle)*.
 
 ## Leer primero
 
@@ -202,6 +204,38 @@ Decisiones y porqués en el ADR 0007. En corto:
 - **Si tocás el `Dockerfile`**, el `.dockerignore` o el script: corré los dos comandos antes del PR
   (o dejá que lo haga el check `ci`, que los corre igual), y si cambia algo de lo de arriba,
   actualizá esta sección y el ADR.
+
+## El servidor del ensayo (Oracle)
+
+F0-12. El deploy de Fase 0 va a una instancia **Oracle Always Free** (AMD micro, 1 GB de RAM). Es
+una **prueba de habitabilidad, no de carga**, y se rige por tres reglas del diseño:
+
+- **Nada que no esté en git o en un respaldo externo vive ahí.** Oracle recupera las instancias con
+  uso bajo sostenido; si un martes apaga la nuestra, se perdió una máquina, no información.
+- **La máquina nunca compila.** Con 1 GB de RAM el build se queda sin memoria: CI construye la
+  imagen y el servidor solo la corre.
+- **El servidor no se toca a mano.** Todo lo que hay ahí lo puso `infra/oracle/bootstrap.sh`. Si
+  hace falta algo nuevo en la instancia, se agrega **al script**, no por SSH.
+
+`infra/oracle/bootstrap.sh` deja una instancia recién creada lista para correr contenedores:
+sistema actualizado, 2 GB de swap, usuario `deploy` sin contraseña con `sudo` limitado a
+`/usr/bin/docker`, SSH solo por clave `ed25519`, el puerto 80 abierto en el firewall local de la
+imagen, journald con rotación, y Docker con su plugin `compose`. Corre **solo en Ubuntu** (en otra
+imagen se niega a arrancar) y es **idempotente**: termina imprimiendo `Cambios aplicados: N`, y la
+segunda corrida tiene que decir `0`. Decisiones y porqués: `docs/adr/0012-bootstrap-de-la-instancia-oracle.md`.
+Paso a paso para una persona: `RUNBOOK.md`, sección 4.
+
+Lo que hace falta saber si tu tarea toca el servidor:
+
+- **Allá los comandos van con `sudo docker …`** (y `sudo docker compose …`): `deploy` no está en el
+  grupo `docker`, a propósito (ADR 0012).
+- **Ni una IP, usuario, clave ni dato real en el script:** parámetros y valores de ejemplo. El repo
+  es público.
+- **La lista de seguridad de la VCN no la toca el script** (es la consola de Oracle): abre 22 y 80
+  **solo desde una IP**, y es un paso del RUNBOOK.
+- **Nada de esto lo prueba CI:** no hay instancia contra la cual correrlo. Se prueba a mano y se
+  registra en `docs/ensayos/`, con la plantilla `docs/ensayos/PLANTILLA-oracle-bootstrap.md`.
+  **El ensayo todavía no se hizo:** la instancia no existe.
 
 ## Base de datos
 
@@ -504,7 +538,8 @@ prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql
 prisma.config.ts     configuración de la CLI de Prisma: rutas y DATABASE_URL
 docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27)
 Dockerfile           imagen multi-stage de la app (y del worker desde F0-25) · .dockerignore
-docs/                arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/
+docs/                arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/ · ensayos/ (registro de cada ensayo de deploy)
+infra/               oracle/bootstrap.sh (levanta la instancia del ensayo, F0-12) · servidor/ (compose del servidor, F0-13)
 .github/             workflows/ci.yml (el check `ci` y el job `publicar`) · CODEOWNERS · dependabot.yml
 ```
 

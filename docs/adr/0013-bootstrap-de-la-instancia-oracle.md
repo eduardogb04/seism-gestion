@@ -1,6 +1,6 @@
-# ADR 0012 — Bootstrap de la instancia Oracle: Ubuntu, Docker oficial y `sudo` acotado
+# ADR 0013 — Bootstrap de la instancia Oracle: Ubuntu, Docker oficial y `sudo` acotado
 
-> Archivo: `docs/adr/0012-bootstrap-de-la-instancia-oracle.md`. Numeración correlativa, nunca se
+> Archivo: `docs/adr/0013-bootstrap-de-la-instancia-oracle.md`. Numeración correlativa, nunca se
 > reutiliza. Un ADR aprobado no se edita: si cambia la decisión, se escribe otro que lo reemplaza y
 > este se marca *Reemplazado por NNNN*.
 

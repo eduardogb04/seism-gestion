@@ -222,13 +222,13 @@ sistema actualizado, 2 GB de swap, usuario `deploy` sin contraseña con `sudo` l
 `/usr/bin/docker`, SSH solo por clave `ed25519`, el puerto 80 abierto en el firewall local de la
 imagen, journald con rotación, y Docker con su plugin `compose`. Corre **solo en Ubuntu** (en otra
 imagen se niega a arrancar) y es **idempotente**: termina imprimiendo `Cambios aplicados: N`, y la
-segunda corrida tiene que decir `0`. Decisiones y porqués: `docs/adr/0012-bootstrap-de-la-instancia-oracle.md`.
+segunda corrida tiene que decir `0`. Decisiones y porqués: `docs/adr/0013-bootstrap-de-la-instancia-oracle.md`.
 Paso a paso para una persona: `RUNBOOK.md`, sección 4.
 
 Lo que hace falta saber si tu tarea toca el servidor:
 
 - **Allá los comandos van con `sudo docker …`** (y `sudo docker compose …`): `deploy` no está en el
-  grupo `docker`, a propósito (ADR 0012).
+  grupo `docker`, a propósito (ADR 0013).
 - **Ni una IP, usuario, clave ni dato real en el script:** parámetros y valores de ejemplo. El repo
   es público.
 - **La lista de seguridad de la VCN no la toca el script** (es la consola de Oracle): abre 22 y 80

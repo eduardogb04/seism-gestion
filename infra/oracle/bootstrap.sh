@@ -20,7 +20,7 @@
 #   sudo bash bootstrap.sh --clave-publica /home/ubuntu/deploy.pub
 #   sudo CLAVE_PUBLICA=/home/ubuntu/deploy.pub bash bootstrap.sh
 #
-# Decisiones y porqués: docs/adr/0012-bootstrap-de-la-instancia-oracle.md.
+# Decisiones y porqués: docs/adr/0013-bootstrap-de-la-instancia-oracle.md.
 # Paso a paso para una persona: RUNBOOK.md, sección 4.
 #
 # Este archivo no lleva ninguna IP, usuario, clave ni dato real: todo es
@@ -122,7 +122,7 @@ verificar_entorno() {
 
   # El script instala Docker desde el repositorio de Docker para Ubuntu y toca
   # archivos propios de Ubuntu (sshd_config.d, iptables-persistent). En otra
-  # imagen no hace nada, en vez de hacer algo a medias (ADR 0012).
+  # imagen no hace nada, en vez de hacer algo a medias (ADR 0013).
   local id_distro='' version_distro=''
   if [[ -r /etc/os-release ]]; then
     # shellcheck disable=SC1091
@@ -268,7 +268,7 @@ crear_usuario_deploy() {
   # binario, así que con esta regla alcanza para los dos.
   #
   # Que quede dicho qué se está dando: poder correr docker es equivalente a
-  # ser root en la máquina (ADR 0012). La diferencia con meter al usuario en
+  # ser root en la máquina (ADR 0013). La diferencia con meter al usuario en
   # el grupo `docker` es que acá la puerta tiene nombre y cada invocación
   # queda en el log de sudo.
   local sudoers=/etc/sudoers.d/seism-deploy temporal
@@ -416,7 +416,7 @@ instalar_docker() {
   fi
 
   # Repositorio oficial de Docker: el `docker.io` de Ubuntu no trae el plugin
-  # `compose` v2 (ADR 0012). La clave y la lista se escriben solo si cambian.
+  # `compose` v2 (ADR 0013). La clave y la lista se escriben solo si cambian.
   local llavero=/etc/apt/keyrings/docker.asc
   local lista=/etc/apt/sources.list.d/docker.list
   local repo_nuevo=0

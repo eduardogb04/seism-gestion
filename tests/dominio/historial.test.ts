@@ -23,21 +23,32 @@ type Estado = "borrador" | "enviado" | "aceptado" | "rechazado" | "anulado";
 const TRANSICIONES: Transiciones<Estado> = {
   borrador: ["enviado", "anulado"],
   enviado: ["aceptado", "rechazado", "anulado"],
-  rechazado: ["borrador"],
+  rechazado: ["borrador", "anulado"],
   aceptado: [],
   anulado: [],
 };
 
-const ESTADOS: readonly Estado[] = ["borrador", "enviado", "aceptado", "rechazado", "anulado"];
+const ESTADOS: readonly Estado[] = [
+  "borrador",
+  "enviado",
+  "aceptado",
+  "rechazado",
+  "anulado",
+];
 
 const MILISEGUNDOS_POR_DIA = 86_400_000;
 
 /** Días enteros entre dos fechas ISO (`AAAA-MM-DD`), como los dará F0-18. */
 function diferenciaEnDias(desde: string, hasta: string): number {
-  return Math.round((Date.parse(hasta) - Date.parse(desde)) / MILISEGUNDOS_POR_DIA);
+  return Math.round(
+    (Date.parse(hasta) - Date.parse(desde)) / MILISEGUNDOS_POR_DIA,
+  );
 }
 
-const ciclo = definirCiclo<Estado>({ transiciones: TRANSICIONES, diferenciaEnDias });
+const ciclo = definirCiclo<Estado>({
+  transiciones: TRANSICIONES,
+  diferenciaEnDias,
+});
 
 function marcaEn(en: string) {
   return { en, actor: "usuario-ficticio", origen: "manual" };
@@ -50,7 +61,11 @@ function aplicar(secuencia: readonly Estado[]) {
   let historial = ciclo.crear("borrador", MARCA);
   for (const [indice, estado] of secuencia.entries()) {
     const dia = String(indice + 2).padStart(2, "0");
-    const resultado = ciclo.agregar(historial, estado, marcaEn(`2026-01-${dia}`));
+    const resultado = ciclo.agregar(
+      historial,
+      estado,
+      marcaEn(`2026-01-${dia}`),
+    );
     if (!resultado.ok) {
       return resultado;
     }
@@ -119,9 +134,22 @@ describe("historial de estados", () => {
     ]);
   });
 
+  it("un historial sin eventos no existe: leerlo o seguirlo corta", () => {
+    const vacio: Historial<Estado> = { eventos: [] };
+
+    expect(() => ciclo.estadoActual(vacio)).toThrow(/se arma con crear/);
+    expect(() => ciclo.agregar(vacio, "enviado", MARCA)).toThrow(
+      /se arma con crear/,
+    );
+  });
+
   it("rechaza una transición no declarada con el error del dominio", () => {
     const historial = ciclo.crear("borrador", MARCA);
-    const resultado = ciclo.agregar(historial, "aceptado", marcaEn("2026-01-02"));
+    const resultado = ciclo.agregar(
+      historial,
+      "aceptado",
+      marcaEn("2026-01-02"),
+    );
 
     expect(resultado.ok).toBe(false);
     if (resultado.ok) {
@@ -155,7 +183,9 @@ describe("historial de estados", () => {
       expect(secuencias.length).toBeGreaterThan(10);
       for (const secuencia of secuencias) {
         const resultado = aplicar(secuencia);
-        expect(resultado.ok, `debió aceptar ${JSON.stringify(secuencia)}`).toBe(true);
+        expect(resultado.ok, `debió aceptar ${JSON.stringify(secuencia)}`).toBe(
+          true,
+        );
         if (resultado.ok) {
           expect(resultado.valor.eventos).toHaveLength(secuencia.length + 1);
         }
@@ -165,7 +195,9 @@ describe("historial de estados", () => {
     it("rechaza en su posición cualquier secuencia con una transición no declarada", () => {
       for (const prefijo of secuencias) {
         const ultimo: Estado = prefijo.at(-1) ?? "borrador";
-        const invalidos = ESTADOS.filter((estado) => !TRANSICIONES[ultimo].includes(estado));
+        const invalidos = ESTADOS.filter(
+          (estado) => !TRANSICIONES[ultimo].includes(estado),
+        );
         for (const invalido of invalidos) {
           const resultado = aplicar([...prefijo, invalido]);
           const caso = JSON.stringify([...prefijo, invalido]);
@@ -207,11 +239,11 @@ describe("historial de estados", () => {
       const historial = armar([
         ["enviado", "2026-04-09"],
         ["rechazado", "2026-06-03"],
-        ["borrador", "2026-07-29"],
+        ["anulado", "2026-07-29"],
       ]);
 
       expect(ciclo.diasEntre(historial, "borrador", "enviado")).toBe(28);
-      expect(ciclo.diasEntre(historial, "rechazado", "borrador")).toBe(56);
+      expect(ciclo.diasEntre(historial, "rechazado", "anulado")).toBe(56);
       expect(ciclo.diasEntre(historial, "borrador", "aceptado")).toBeNull();
     });
 
@@ -250,7 +282,11 @@ describe("historial de estados", () => {
         transiciones: { activo: ["cerrado"], cerrado: [] },
         diferenciaEnDias,
       });
-      const resultado = otro.agregar(otro.crear("activo", MARCA), "cerrado", marcaEn("2026-01-02"));
+      const resultado = otro.agregar(
+        otro.crear("activo", MARCA),
+        "cerrado",
+        marcaEn("2026-01-02"),
+      );
 
       expect(resultado.ok).toBe(true);
     });
@@ -258,7 +294,9 @@ describe("historial de estados", () => {
 });
 
 /** Historial que arranca en `borrador` el 12/03 y sigue los pasos dados. */
-function armar(pasos: readonly (readonly [Estado, string])[]): Historial<Estado> {
+function armar(
+  pasos: readonly (readonly [Estado, string])[],
+): Historial<Estado> {
   let historial = ciclo.crear("borrador", marcaEn("2026-03-12"));
   for (const [estado, en] of pasos) {
     const resultado = ciclo.agregar(historial, estado, marcaEn(en));

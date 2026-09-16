@@ -138,5 +138,24 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/src/dominio/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "Date": "El dominio no llama a la fecha del sistema (F0-18): se inyecta un `Reloj` y se usa `FechaHora` (src/dominio/compartido/reloj.ts). Traducir entre `FechaHora` y `Date` es trabajo de los adaptadores. Ver docs/adr/0012-reloj-y-fechas.md."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

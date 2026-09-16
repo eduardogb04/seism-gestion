@@ -445,7 +445,7 @@ sudo docker run --rm hello-world
 
 `deploy` **no** está en el grupo `docker`: sus comandos de contenedores van con `sudo docker …` (y
 `sudo docker compose …`). Es a propósito, para que cada uso quede registrado — ver
-`docs/adr/0012-bootstrap-de-la-instancia-oracle.md`. El usuario `ubuntu` sigue existiendo con la
+`docs/adr/0013-bootstrap-de-la-instancia-oracle.md`. El usuario `ubuntu` sigue existiendo con la
 misma clave; el deploy automático de F0-13 usa `deploy`.
 
 **9. Reiniciar y ver que vuelve solo.**
@@ -494,7 +494,7 @@ Desde tu máquina:
   perdidas en OCI. La de adentro se comprueba con `sudo iptables -L INPUT -n | grep "dpt:80"`.
   **Una sutileza que conviene saber:** un contenedor con el puerto publicado **no pasa por esa
   regla** (Docker desvía ese tráfico por sus propias cadenas), así que quién puede llegar al puerto
-  80, en los hechos, lo decide la lista de seguridad de la VCN. Está explicado en el ADR 0012.
+  80, en los hechos, lo decide la lista de seguridad de la VCN. Está explicado en el ADR 0013.
 - **El script dice `esta imagen es 'ol' y el script es para Ubuntu`** → la instancia se creó con
   Oracle Linux. Se borra y se crea otra con Canonical Ubuntu (paso 3): es más rápido que adaptar la
   máquina.

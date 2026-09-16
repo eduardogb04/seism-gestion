@@ -9,4 +9,8 @@ Cero llamadas a la fecha del sistema (`Date`): el reloj se inyecta
 (`compartido/reloj.ts`, desde F0-18). TDD estricto: cada regla nace como test
 en `tests/dominio/`.
 
-Vacío hasta el lote 5 (F0-18 en adelante).
+Desde F0-19: `compartido/identificador.ts`, el identificador doble de toda
+entidad (`Identificador<Marca>` con marca de tipo, y `CodigoLegible` tipo
+`SRV-2026-014`, con `formatearCodigo`/`parsearCodigo`). No importa el reloj
+de F0-18: el año le llega ya resuelto, como parámetro numérico — el dominio
+no necesita saber de dónde salió.

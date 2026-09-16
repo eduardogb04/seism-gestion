@@ -134,15 +134,6 @@ describe("historial de estados", () => {
     ]);
   });
 
-  it("un historial sin eventos no existe: leerlo o seguirlo corta", () => {
-    const vacio: Historial<Estado> = { eventos: [] };
-
-    expect(() => ciclo.estadoActual(vacio)).toThrow(/se arma con crear/);
-    expect(() => ciclo.agregar(vacio, "enviado", MARCA)).toThrow(
-      /se arma con crear/,
-    );
-  });
-
   it("rechaza una transición no declarada con el error del dominio", () => {
     const historial = ciclo.crear("borrador", MARCA);
     const resultado = ciclo.agregar(

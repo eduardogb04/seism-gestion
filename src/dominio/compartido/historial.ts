@@ -15,7 +15,7 @@
  * - la aritmética de fechas (`diferenciaEnDias`), que da ese mismo reloj;
  * - los tipos de `en`, `actor` y `origen`, que son parámetros de tipo con
  *   valor por defecto `string` hasta que F0-18 (`FechaHora`) y F0-22 (`Actor`,
- *   `Origen`) los fijen. Ver `docs/adr/0012-historial-de-estados.md`.
+ *   `Origen`) los fijen. Ver `docs/adr/0010-historial-de-estados.md`.
  */
 
 /** Tabla de transiciones declaradas: de cada estado, a cuáles se puede pasar. */
@@ -30,6 +30,17 @@ export interface Evento<E extends string, F = string, A = string, O = string> {
   readonly origen: O;
 }
 
+/**
+ * Los eventos en orden de ocurrencia. **Nunca está vacía**: un historial nace
+ * con su primer evento, y eso lo dice el tipo, no un chequeo en ejecución.
+ */
+export type Eventos<
+  E extends string,
+  F = string,
+  A = string,
+  O = string,
+> = readonly [Evento<E, F, A, O>, ...Evento<E, F, A, O>[]];
+
 /** La lista de eventos, en orden de ocurrencia. Solo se agrega al final. */
 export interface Historial<
   E extends string,
@@ -37,7 +48,7 @@ export interface Historial<
   A = string,
   O = string,
 > {
-  readonly eventos: readonly Evento<E, F, A, O>[];
+  readonly eventos: Eventos<E, F, A, O>;
 }
 
 /** Quién, cuándo y por qué vía: lo que hay que dar para agregar un evento. */
@@ -94,9 +105,17 @@ export interface Ciclo<E extends string, F = string, A = string, O = string> {
 }
 
 function congelar<E extends string, F, A, O>(
-  eventos: readonly Evento<E, F, A, O>[],
+  eventos: Eventos<E, F, A, O>,
 ): Historial<E, F, A, O> {
   return Object.freeze({ eventos: Object.freeze(eventos) });
+}
+
+/** El evento más reciente. Siempre hay uno: la lista no puede estar vacía. */
+function ultimoEvento<E extends string, F, A, O>(
+  historial: Historial<E, F, A, O>,
+): Evento<E, F, A, O> {
+  const [primero, ...siguientes] = historial.eventos;
+  return siguientes.at(-1) ?? primero;
 }
 
 function nuevoEvento<E extends string, F, A, O>(
@@ -133,23 +152,13 @@ export function definirCiclo<
   A = string,
   O = string,
 >(definicion: DefinicionDeCiclo<E, F>): Ciclo<E, F, A, O> {
-  function estadoActual(historial: Historial<E, F, A, O>): E {
-    const ultimo = historial.eventos.at(-1);
-    if (ultimo === undefined) {
-      throw new Error(
-        "un historial sin eventos no existe: se arma con crear()",
-      );
-    }
-    return ultimo.a;
-  }
-
   return {
     crear(estadoInicial, marca) {
       return congelar([nuevoEvento(null, estadoInicial, marca)]);
     },
 
     agregar(historial, a, marca) {
-      const de = estadoActual(historial);
+      const de = ultimoEvento(historial).a;
       const permitidas = definicion.transiciones[de];
       if (!permitidas.includes(a)) {
         return {
@@ -169,7 +178,9 @@ export function definirCiclo<
       };
     },
 
-    estadoActual,
+    estadoActual(historial) {
+      return ultimoEvento(historial).a;
+    },
 
     fechaDe(historial, estado) {
       return primeraEntrada(historial, estado)?.en ?? null;

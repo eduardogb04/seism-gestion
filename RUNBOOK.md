@@ -26,6 +26,7 @@
 13. Si un secreto entró al repo
 14. Probar la imagen Docker en tu máquina
 15. La imagen publicada en GHCR: hacerla pública y la retención
+16. Correr el e2e (Playwright) en tu máquina
 
 ---
 
@@ -33,7 +34,8 @@
 
 **Qué hace falta:** Node 24 (ver `.nvmrc`), git, **WSL** (en Windows, antes de Docker Desktop),
 Docker Desktop corriendo, GitHub CLI autenticado. Docker hace falta para la base local (desde F0-08),
-para la sección 14 y **para `npm test`** (desde F0-09, ver *Docker para los tests* más abajo).
+para la sección 14, para el e2e de la sección 16 y **para `npm test`** (desde F0-09, ver *Docker para
+los tests* más abajo).
 
 **Cómo verificar:**
 ```
@@ -67,9 +69,10 @@ de nuevo.
 
 ### Docker para los tests (desde F0-09)
 
-`npm test` corre el test de migraciones, que levanta su propio Postgres 16 en un contenedor
-(Testcontainers) y lo borra al terminar. No usa la base de compose ni `.env`, pero **necesita
-Docker Desktop corriendo**. En Windows, Testcontainers lo encuentra solo, sin configurar nada.
+`npm test` corre el nivel de casos de uso, que levanta **un** Postgres 16 en un contenedor
+(Testcontainers) para toda la tanda y lo borra al terminar (desde F0-14; antes era uno por test).
+No usa la base de compose ni `.env`, pero **necesita Docker Desktop corriendo**. En Windows,
+Testcontainers lo encuentra solo, sin configurar nada.
 
 1. Abrí Docker Desktop y esperá a que el ícono de la barra diga *running*.
 2. Parado en la carpeta del repo: `npm test`.
@@ -624,6 +627,66 @@ repositorio sea público: hay que cambiarlo a mano una vez, y queda así para si
 
 Ninguno. La publicación usa el `GITHUB_TOKEN` que GitHub Actions le da a la corrida, con
 `packages: write` y solo en el job `publicar`.
+
+## 16. Correr el e2e (Playwright) en tu máquina
+
+**Cuándo hace falta:** en el cierre del lote 4, para ver el navegador recorrer la app; y cada vez
+que toques algo que se ve en la app y no quieras esperar a CI. En CI corre solo, en cada corrida.
+**Quién:** cualquiera con el repo clonado y Docker corriendo.
+**Necesitás antes:** Docker Desktop abierto (sección 1), Node 24, `npm ci` hecho, y **el navegador
+de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: construye la imagen
+`seism-gestion:local` (como la sección 14) y la corre detrás del perfil `e2e` de
+`docker-compose.yml`. No usa la base: la app todavía no se conecta a Postgres.
+
+### Pasos
+
+1. **Una sola vez por máquina**, instalá el navegador (unos 170 MB; se guarda fuera del repo):
+   ```
+   npx playwright install chromium
+   ```
+2. Con Docker Desktop corriendo, parado en la carpeta del repo:
+   ```
+   npm run test:e2e
+   ```
+   La primera vez tarda más: construye la imagen. Después son segundos.
+3. Si querés **ver** el navegador en vez de que corra invisible:
+   ```
+   npm run test:e2e -- --headed      # el navegador a la vista
+   npm run test:e2e -- --ui          # la interfaz de Playwright: correr, repetir, mirar paso a paso
+   ```
+
+### Cómo verificar que salió bien
+
+- La corrida termina con `1 passed` y, arriba, la línea
+  `ok 1 [chromium] › tests\e2e\humo.spec.ts … la app levantada muestra la página de inicio y
+  responde el latido`.
+- En el camino se ve `Levantando la app del perfil e2e (seism-gestion:local) con compose.` y, al
+  final, `Container seism-gestion-app-1 Removed`: la app se apagó sola.
+- `docker ps -a` no muestra ningún `seism-gestion-app-1`. Si tenías levantado el Postgres de
+  compose (`seism-gestion-postgres-1`), **sigue ahí y con sus datos**: el e2e no lo toca.
+
+### Si falla
+
+- `browserType.launch: Executable doesn't exist` → falta el paso 1 (`npx playwright install
+  chromium`).
+- `ERROR: no se pudo ejecutar 'docker …'` o `Could not find a working container runtime strategy`
+  → Docker Desktop no está corriendo (o está arrancando). Abrilo y repetí.
+- `ERROR: la app no respondió http://127.0.0.1:3000/api/salud en 120 s` → el script imprime abajo
+  el log del contenedor. Lo más común es que el puerto 3000 esté ocupado por otra cosa
+  (`npm run dev` en otra terminal, por ejemplo): cerrala y repetí.
+- El test en rojo con la app levantada → no es la máquina: cambió lo que la app muestra o el
+  latido. La traza de la corrida queda en `test-results/`; se abre con
+  `npx playwright show-trace test-results/<carpeta>/trace.zip`.
+- Si por un corte de luz o un `Ctrl+C` quedó la app levantada, se baja con:
+  ```
+  docker compose --profile e2e rm --stop --force app
+  ```
+  (Nunca `docker compose down -v`: eso borra el volumen de la base local.)
+
+### Secretos que quedan (solo nombres)
+
+Ninguno. La app del e2e arranca con `APP_ENTORNO=local` y una `DATABASE_URL` ficticia escrita en
+`docker-compose.yml`, a la que nadie se conecta.
 
 ---
 

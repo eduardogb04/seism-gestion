@@ -2,11 +2,13 @@
  * Test de migraciones (F0-09, cimiento 3, P1): la cadena entera se aplica y se
  * revierte entera contra un Postgres de verdad.
  *
- * - Postgres 16 efímero con Testcontainers, **la misma imagen** que
- *   `docker-compose.yml` (se lee de ahí: si se sube la de compose, el test la
- *   sigue). Datos en `tmpfs`: nada queda en disco. `afterAll` para y borra el
- *   contenedor; si el proceso muere antes, lo borra Ryuk (el recolector de
- *   Testcontainers). Sin estado entre corridas.
+ * - Corre contra el Postgres que comparte toda la tanda de casos de uso (el
+ *   arnés de F0-14, `tests/casos-uso/_arnes/`), en una base **recién creada y
+ *   sin migrar** adentro de ese mismo contenedor: este test necesita partir de
+ *   cero y la base compartida ya viene migrada. El contenedor usa la misma
+ *   imagen que `docker-compose.yml`, guarda los datos en `tmpfs` y se para al
+ *   terminar la corrida (si el proceso muriera antes, lo borra Ryuk, el
+ *   recolector de Testcontainers): no queda estado entre corridas.
  * - Recorre `prisma/migrations/`: no nombra ninguna migración. Una migración
  *   nueva entra sola al test.
  * - Aplica con `prisma migrate deploy` (lo mismo que `npm run db:migrate` y el
@@ -21,62 +23,28 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import {
-  PostgreSqlContainer,
-  type StartedPostgreSqlContainer,
-} from "@testcontainers/postgresql";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { beforeAll, describe, expect, test } from "vitest";
 import {
   BIN_PRISMA,
   CARPETA_MIGRACIONES,
   type EjecutarPsql,
   listarMigraciones,
-  OPCIONES_PSQL,
   revertirUltimaMigracion,
   ultimaMigracionAplicada,
 } from "../../scripts/lib/migraciones.ts";
+import { crearBaseVacia, psqlEn } from "./_arnes/base.ts";
 
-/** La imagen de Postgres de `docker-compose.yml`, con su tag y su digest. */
-function imagenDeCompose(): string {
-  const compose = readFileSync("docker-compose.yml", "utf8");
-  const coincidencia = /^\s*image:\s*(postgres:\S+)\s*$/m.exec(compose);
-  expect(
-    coincidencia?.[1],
-    "docker-compose.yml no tiene una imagen postgres:",
-  ).toBeDefined();
-  return coincidencia?.[1] ?? "";
-}
+/** La base de este test: vacía y sin migrar, adentro del contenedor compartido. */
+const BASE = "migraciones";
 
-let contenedor: StartedPostgreSqlContainer | undefined;
+/** `psql` contra esa base, adentro del contenedor (arnés de F0-14). */
+const psql: EjecutarPsql = (sql) => psqlEn(BASE)(sql);
 
-function base(): StartedPostgreSqlContainer {
-  expect(contenedor, "el contenedor de Postgres no arrancó").toBeDefined();
-  return contenedor as StartedPostgreSqlContainer;
-}
-
-/** `psql` adentro del contenedor, con las mismas opciones que el script. */
-const psql: EjecutarPsql = async (sql) => {
-  const c = base();
-  await c.copyContentToContainer([{ content: sql, target: "/tmp/script.sql" }]);
-  const resultado = await c.exec([
-    "psql",
-    ...OPCIONES_PSQL,
-    "-U",
-    c.getUsername(),
-    "-d",
-    c.getDatabase(),
-    "-f",
-    "/tmp/script.sql",
-  ]);
-  return {
-    codigo: resultado.exitCode,
-    salida: resultado.stdout,
-    error: resultado.stderr,
-  };
-};
+/** La URI de esa base; la resuelve `beforeAll`, cuando ya existe. */
+let uriBase = "";
 
 /** Filas de una consulta (una por línea), o el test falla con el error. */
 async function consultar(sql: string): Promise<string[]> {
@@ -86,14 +54,14 @@ async function consultar(sql: string): Promise<string[]> {
   return resultado.salida.split("\n").filter((fila) => fila !== "");
 }
 
-/** La CLI de Prisma contra el contenedor (y no contra la `DATABASE_URL` de `.env`). */
+/** La CLI de Prisma contra esa base (y no contra la `DATABASE_URL` de `.env`). */
 function prisma(...argumentos: string[]): {
   codigo: number | null;
   salida: string;
 } {
   const resultado = spawnSync(process.execPath, [BIN_PRISMA, ...argumentos], {
     encoding: "utf8",
-    env: { ...process.env, DATABASE_URL: base().getConnectionUri() },
+    env: { ...process.env, DATABASE_URL: uriBase },
   });
   return {
     codigo: resultado.status,
@@ -115,14 +83,8 @@ const SQL_MIGRACIONES_APLICADAS = `
 
 describe("migraciones", () => {
   beforeAll(async () => {
-    contenedor = await new PostgreSqlContainer(imagenDeCompose())
-      .withTmpFs({ "/var/lib/postgresql/data": "rw" })
-      .start();
-  }, 180_000);
-
-  afterAll(async () => {
-    await contenedor?.stop();
-  }, 60_000);
+    uriBase = await crearBaseVacia(BASE);
+  });
 
   test("aplica la cadena entera, coincide con schema.prisma y la revierte entera", async () => {
     const migraciones = listarMigraciones();

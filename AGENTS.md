@@ -53,7 +53,12 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run build` | `next build` con `output: "standalone"`: compila, corre `tsc` y deja `.next/standalone/server.js`. **No necesita `.env`**; sí git o `APP_VERSION` (la versión del latido) |
 | `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
 | `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz. `-- --write` aplica los arreglos |
-| `npm test` | Vitest sobre `tests/dominio/` (el test de humo, el esquema de entorno —`APP_ENTORNO` y `DATABASE_URL`— y la resolución de la versión) y `tests/casos-uso/` (F0-09: el test de migraciones; F0-10: el de la semilla — los dos con un Postgres 16 efímero de Testcontainers, cada uno el suyo; F0-11: migraciones completas —`migration.sql` + `down.sql`—, sin Docker). **Necesita Docker corriendo**; sin Docker, los de F0-09 y F0-10 fallan al levantar el contenedor, pero el de migraciones completas (F0-11) corre igual. No necesita `.env` ni la base de compose |
+| `npm test` | Vitest sobre los niveles `dominio` y `casos-uso` (ver *Testing: en qué nivel va cada cosa*): el ciclo de siempre. **Necesita Docker corriendo** (el nivel casos de uso levanta un Postgres); no necesita `.env` ni la base de compose |
+| `npm run test:dominio` | Solo el nivel `dominio`, con su reloj: `scripts/test-dominio.ts` mide la corrida entera y **sale 1 si tarda más de 10 s** (criterio de F0-14). No necesita nada: el nivel dominio no abre red ni base |
+| `npm run test:extraccion` | Solo el nivel `extraccion` (golden files). Hoy, el test de humo del nivel; el arnés llega en F0-16 |
+| `npm run test:e2e` | Playwright (Chromium) sobre `tests/e2e/`: levanta la app con compose —la imagen que se publica— y recorre el camino de humo. Necesita Docker corriendo y el navegador instalado una vez (`npx playwright install chromium`, RUNBOOK sección 16). `-- --ui` abre la interfaz de Playwright; `-- --headed`, el navegador a la vista |
+| `npm run test:todo` | Los cuatro niveles: `vitest run` (dominio, casos de uso, extracción) y después el e2e |
+| `npm run e2e:app` | No se llama a mano: es el `webServer` de `playwright.config.ts`. Construye la imagen (`npm run imagen`), levanta el servicio `app` del perfil `e2e` de compose y espera el latido. Lo apaga `tests/e2e/_arnes/apagar-app.ts` al terminar el e2e |
 | `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que generan Next, ADR 0005, y Prisma, ADR 0008) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
 | `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre cada fixture de `tests/fixtures/lint/`, por separado. `debe-fallar.ts` **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`; `reloj-inyectado/` por la regla del reloj (`noRestrictedGlobals` sobre `Date`), y solo desde `src/dominio/`. Sale 0 si cada uno fue rechazado por sus reglas y el caso permitido quedó limpio; 1 si alguno pasó, falta un diagnóstico o sobra uno |
@@ -66,12 +71,13 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run db:generar` | `prisma generate`: regenera el cliente en `src/adaptadores/prisma/generado/` después de cambiar `prisma/schema.prisma`. No se conecta a ninguna base |
 | `npm run db:seed` | `scripts/db-seed.ts`: valida el entorno igual que `db:migrate` y corre `prisma/seed.ts` (idempotente) con el cliente real de Prisma (`src/adaptadores/prisma/cliente.ts`, con `@prisma/adapter-pg`). Sale 1 sin sembrar nada si `APP_ENTORNO=servidor` y falta `SEED_PERMITIDO=si`. Necesita la base levantada |
 
-Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm test && npm run
-typecheck:fixtures && npm run lint:fixtures && npm run limites:fixtures && npm run build`. Es lo
-mismo que corre CI (menos gitleaks y la imagen); correrlo antes ahorra una vuelta. `npm test`
-necesita Docker corriendo (test de migraciones). Si tocaste el
-`Dockerfile`, el `.dockerignore` o `scripts/imagen.ts`, sumá `npm run imagen && npm run
-imagen:prueba` (hace falta Docker corriendo; si no lo tenés, lo corre CI igual).
+Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm run test:dominio
+&& npm test && npm run test:extraccion && npm run typecheck:fixtures && npm run lint:fixtures &&
+npm run limites:fixtures && npm run build`. Es lo mismo que corre CI (menos gitleaks, la imagen y
+el e2e); correrlo antes ahorra una vuelta. `npm test` necesita Docker corriendo (nivel casos de
+uso). Si tocaste el `Dockerfile`, el `.dockerignore`, `scripts/imagen.ts` o algo que se vea en la
+app, sumá `npm run imagen && npm run imagen:prueba && npm run test:e2e` (hace falta Docker
+corriendo y el navegador de Playwright instalado; si no los tenés, lo corre CI igual).
 
 ## CI
 
@@ -82,12 +88,15 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   abierto corre dos veces por commit (en la página del PR, `ci / ci (push)` y
   `ci / ci (pull_request)`; en `gh pr checks`, dos filas `ci`); tienen que estar verdes las dos.
 - **Qué corre.** `npm ci` (nunca `npm install`) y después, en orden: `typecheck`,
-  `typecheck:fixtures`, `lint`, `lint:fixtures`, `limites`, `limites:fixtures`, `test` (con el test
-  de migraciones: Testcontainers usa el Docker que trae el runner, sin pasos extra), **`Migrar
-  (para el paso de drift)`** y **`drift`** (F0-11: aplica las migraciones contra el `services:
-  postgres` del job y compara el resultado con `schema.prisma` — ver *Base de datos*), `build`
-  (sin `.env`), `imagen` e `imagen:prueba` (F0-07: construye la imagen Docker y la verifica
-  levantada) y gitleaks sobre los commits nuevos (los del PR; en un push, los que trajo). Si
+  `typecheck:fixtures`, `lint`, `lint:fixtures`, `limites`, `limites:fixtures`, **`test:dominio`**
+  (F0-14: el nivel dominio solo, con el tope de 10 s), `test` (dominio y casos de uso;
+  Testcontainers usa el Docker que trae el runner, sin pasos extra), **`test:extraccion`**,
+  **`Migrar (para el paso de drift)`** y **`drift`** (F0-11: aplica las migraciones contra el
+  `services: postgres` del job y compara el resultado con `schema.prisma` — ver *Base de datos*),
+  `build` (sin `.env`), `imagen` e `imagen:prueba` (F0-07: construye la imagen Docker y la verifica
+  levantada), **el navegador del e2e y `test:e2e`** (F0-14: Chromium cacheado entre corridas, y el
+  camino de humo contra la app levantada con compose) y gitleaks sobre los commits nuevos (los del
+  PR; en un push, los que trajo). Si
   `npm ci` anduvo, **corren todos aunque falle uno**, así el log muestra todos los rojos juntos; el
   check queda en rojo si falla cualquiera. Los de la imagen y el de gitleaks solo dependen del
   checkout: corren aunque `npm ci` falle.
@@ -265,13 +274,15 @@ porqués en el ADR 0008. En corto:
   en la base **local** (su `down.sql` y su fila de `_prisma_migrations`, en una transacción). Un
   `down.sql` no lleva `BEGIN`/`COMMIT`. La lógica está en `scripts/lib/migraciones.ts` y corre
   `psql` adentro del contenedor de Postgres: no hay driver de Postgres.
-- **Test de migraciones** (`tests/casos-uso/migraciones.test.ts`, en `npm test` y en CI): Postgres
-  16 efímero con Testcontainers (`@testcontainers/postgresql` 12.1.0, la misma imagen que
-  `docker-compose.yml`). Aplica toda la cadena de `prisma/migrations/`, exige `prisma migrate diff`
-  vacío contra `schema.prisma`, revierte todos los `down.sql` en orden inverso y exige la base sin
-  tablas propias. Recorre la carpeta: **una migración nueva entra sola**, y si su `down.sql` no
-  revierte exacto o `schema.prisma` no coincide, `npm test` queda en rojo. No deja contenedores
-  (datos en `tmpfs`, `afterAll` y Ryuk).
+- **Test de migraciones** (`tests/casos-uso/migraciones.test.ts`, en `npm test` y en CI): corre
+  contra el Postgres 16 efímero que el arnés del nivel casos de uso levanta una vez por corrida
+  (Testcontainers, `@testcontainers/postgresql` 12.1.0, la misma imagen que `docker-compose.yml`),
+  en una base recién creada y sin migrar (`crearBaseVacia`). Aplica toda la cadena de
+  `prisma/migrations/`, exige `prisma migrate diff` vacío contra `schema.prisma`, revierte todos
+  los `down.sql` en orden inverso y exige la base sin tablas propias. Recorre la carpeta: **una
+  migración nueva entra sola**, y si su `down.sql` no revierte exacto o `schema.prisma` no
+  coincide, `npm test` queda en rojo. No deja contenedores (datos en `tmpfs`, cierre del
+  `globalSetup` y Ryuk).
 - **El cliente con adaptador** (F0-10, `src/adaptadores/prisma/cliente.ts`): `crearClientePrisma`
   arma un `PrismaClient` con `@prisma/adapter-pg` (Prisma 7 no trae driver por defecto) y el driver
   `pg`, ambos fijados en versión exacta. Es el primer código que se conecta de verdad a Postgres
@@ -334,6 +345,56 @@ que existe en `src/dominio` y `src/puertos`.
   suma dependencias nuevas. Las dos propiedades de `tests/dominio/identificador.test.ts` usan un
   generador propio determinista por semilla (`mulberry32`, sin librería). Si F0-15 llega antes,
   puede convertirse a fast-check; no es parte de esta tarea.
+
+## Testing: en qué nivel va cada cosa
+
+Cuatro niveles desde F0-14, cada uno con su configuración. Tres son proyectos de Vitest
+(`vitest.config.ts`); el e2e lo corre Playwright (`playwright.config.ts`), porque un `.spec.ts` de
+Playwright Vitest no lo puede ejecutar (ADR 0014).
+
+| Nivel | Carpeta | Qué va acá | Qué necesita | Con qué se corre |
+|---|---|---|---|---|
+| **dominio** | `tests/dominio/` | Reglas de negocio y funciones puras. **Sin red, sin base, sin reloj del sistema**. La tanda entera tarda menos de 10 s | nada | `npm run test:dominio` · `npm test` |
+| **casos de uso** | `tests/casos-uso/` | Un caso de uso contra Postgres de verdad, o cualquier cosa que necesite la base | Docker | `npm test` |
+| **extracción** | `tests/extraccion/` | Golden files: una entrada fija produce una salida fija (arnés en F0-16) | nada | `npm run test:extraccion` |
+| **e2e** | `tests/e2e/` | Un camino completo en un navegador, contra la app levantada con compose | Docker y Chromium | `npm run test:e2e` |
+
+`npm run test:todo` corre los cuatro. También están `tests/contratos/` (suites que un puerto y su
+doble tienen que cumplir los dos, desde el lote 5) y `tests/fixtures/` (archivos que las
+herramientas TIENEN que rechazar: no son tests y no los corre nadie).
+
+**El nivel dominio no puede salir a la red, y no es un acuerdo: es el arnés.**
+`tests/dominio/_arnes/sin-red.ts` (cargado con `setupFiles`) reemplaza `Socket.prototype.connect`
+y `globalThis.fetch` por dos funciones que tiran `ErrorSinRed`. Un test de dominio que abra un
+socket —directo, o porque se trajo un cliente de base— falla con un mensaje que dice a qué nivel
+va. El propio arnés está probado en `tests/dominio/_arnes/sin-red.test.ts`.
+
+**El nivel casos de uso comparte un solo Postgres por corrida.** Un test de este nivel **no**
+levanta su contenedor: lo levanta una vez el `globalSetup` (`tests/casos-uso/_arnes/contenedor.ts`),
+que además deja migrada la base compartida. Desde el test:
+
+```ts
+import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
+
+beforeAll(() => { prisma = crearClientePrisma(uriBaseCompartida()); });
+beforeEach(async () => { await limpiarBase(); });   // TRUNCATE: base limpia por test
+```
+
+`crearBaseVacia(nombre)` da una base sin migrar (adentro del mismo contenedor) para lo que
+necesite partir de cero, y `psqlEn(base)` corre `psql` adentro del contenedor. Los archivos de este
+nivel corren de a uno (`fileParallelism: false`): comparten la base. Nada sobrevive a la corrida.
+
+**El e2e levanta la imagen que se publica, no `next dev`.** El `webServer` de Playwright corre
+`npm run e2e:app`: construye la imagen (`npm run imagen`) y levanta con compose el servicio `app`
+del perfil `e2e` (que no se levanta con `docker compose up -d`); el `globalTeardown` borra **solo**
+ese contenedor, sin tocar el Postgres de compose ni su volumen. Chromium únicamente, sin
+reintentos. La primera vez hay que instalar el navegador: `npx playwright install chromium`
+(RUNBOOK, sección 16).
+
+**Dónde poner un test nuevo.** Si no necesita nada de afuera, dominio (y si "no le alcanza", casi
+siempre es que falta inyectar algo, no que necesite otro nivel). Si necesita la base, casos de uso.
+Si es "esta entrada tiene que seguir dando esta salida", extracción. Si hace falta un navegador,
+e2e — y ahí se es tacaño: el e2e es el nivel más lento y el más frágil.
 
 ## Formato y lint
 
@@ -598,12 +659,14 @@ src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ 
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
-tests/               dominio · casos-uso (Postgres en contenedor: migraciones, semilla) · extraccion · e2e · contratos · fixtures
-scripts/             utilidades de los comandos de package.json (sin-any.ts, db-migrate-down.ts, db-seed.ts; lib/migraciones.ts)
+tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
+scripts/             utilidades de los comandos de package.json (sin-any.ts, db-migrate-down.ts, db-seed.ts, test-dominio.ts, e2e-app.ts; lib/migraciones.ts)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
+vitest.config.ts     los tres niveles que corren con Vitest (proyectos dominio, casos-uso, extraccion)
+playwright.config.ts el nivel e2e: Chromium y el webServer que levanta la app con compose
 prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql} · seed.ts (el mecanismo, F0-10)
 prisma.config.ts     configuración de la CLI de Prisma: rutas y DATABASE_URL
-docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27)
+docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27) y, detrás del perfil `e2e`, la app para el e2e
 Dockerfile           imagen multi-stage de la app (y del worker desde F0-25) · .dockerignore
 docs/                arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/ · ensayos/ (registro de cada ensayo de deploy)
 infra/               oracle/bootstrap.sh (levanta la instancia del ensayo, F0-12) · servidor/ (compose del servidor, F0-13)

@@ -5,6 +5,10 @@ next-env.d.ts
 *.tsbuildinfo
 dist/
 coverage/
+# Salidas de Playwright (F0-14): trazas e informes de una corrida del e2e.
+test-results/
+playwright-report/
+blob-report/
 *.log
 # Cliente de Prisma: lo genera `prisma generate` (postinstall), no se versiona (ADR 0008).
 /src/adaptadores/prisma/generado/

@@ -329,9 +329,12 @@ que existe en `src/dominio` y `src/puertos`.
   `Reloj` inyectado (`compartido/reloj.ts`, F0-18) y toma el año de `reloj.ahora().anio` — nunca de
   `Date` ni de un parámetro numérico que el llamador haya resuelto por su cuenta — y delega en
   `formatearCodigo` para el resto. Formato `PREFIJO-AAAA-NNN`: prefijo de 3 letras mayúsculas, año
-  de 4 dígitos, secuencia rellenada a 3 dígitos que se ensancha a 4 o más al pasar de 999, sin techo
-  y sin romper el parseo. `parsearCodigo` acepta exactamente lo que `formatearCodigo` produce
-  (mismos ceros de relleno, ni uno más ni uno menos) y rechaza todo lo demás.
+  de 4 dígitos (entre 1000 y 9999: `formatearCodigo` lo exige y `parsearCodigo` lo rechaza si no,
+  aunque el texto tenga 4 dígitos — bug encontrado por la propiedad de mutación de un carácter al
+  pasar a fast-check en F0-15, ver ADR 0015), secuencia rellenada a 3 dígitos que se ensancha a 4 o
+  más al pasar de 999, sin techo y sin romper el parseo. `parsearCodigo` acepta exactamente lo que
+  `formatearCodigo` produce (mismos ceros de relleno, ni uno más ni uno menos) y rechaza todo lo
+  demás.
 - **El UUID no lo genera el dominio.** El puerto `GeneradorId` (`src/puertos/generador-id.ts`) lo
   provee; su adaptador (`src/adaptadores/memoria/generador-id.ts`) usa `node:crypto` — no es un
   doble de test, es la implementación real (generar un UUID no depende de dónde se guarda).
@@ -340,12 +343,11 @@ que existe en `src/dominio` y `src/puertos`.
   (`src/adaptadores/memoria/secuencias.ts`) guarda un contador por combinación de prefijo y año,
   vivo solo mientras dura el proceso. El adaptador de Postgres (lote 7) resuelve la concurrencia de
   dos escritores con una fila bajo bloqueo — riesgo anotado, no resuelto en F0-19.
-- **Sin propiedades con librería.** El plan pide una propiedad de ida y vuelta y una de rechazo con
-  generadores de basura (fast-check, en la tabla de herramientas de DISENO), pero fast-check
-  todavía no entra al repo: lo instala y lo prueba F0-15 (con su propio meta-test), y esta tarea no
-  suma dependencias nuevas. Las dos propiedades de `tests/dominio/identificador.test.ts` usan un
-  generador propio determinista por semilla (`mulberry32`, sin librería). Si F0-15 llega antes,
-  puede convertirse a fast-check; no es parte de esta tarea.
+- **Propiedades con fast-check (F0-15).** Las tres propiedades de
+  `tests/dominio/identificador.test.ts` (ida y vuelta, rechazo de basura, mutación de un carácter)
+  usan el helper `propiedad()` de `tests/dominio/_arnes/propiedad.ts` en vez del generador propio
+  (`mulberry32`) con que nació F0-19: mismas propiedades y mismos casos borde, motor real de
+  búsqueda de contraejemplos. Ver *Propiedades (fast-check)*, en *Testing*.
 
 ## Testing: en qué nivel va cada cosa
 
@@ -396,6 +398,33 @@ reintentos. La primera vez hay que instalar el navegador: `npx playwright instal
 siempre es que falta inyectar algo, no que necesite otro nivel). Si necesita la base, casos de uso.
 Si es "esta entrada tiene que seguir dando esta salida", extracción. Si hace falta un navegador,
 e2e — y ahí se es tacaño: el e2e es el nivel más lento y el más frágil.
+
+**Propiedades (fast-check, F0-15, ADR 0015).** `fast-check` (versión exacta) es el motor de
+propiedades del nivel dominio. `tests/dominio/_arnes/propiedad.ts` fija la configuración
+compartida para no repetirla en cada archivo:
+
+- `numRuns`: 1000 en CI, 200 en local — CI se detecta igual que en el resto del repo, con la
+  variable de entorno `CI`.
+- **La semilla se anuncia una vez al empezar la tanda, pase o falle.** `tests/dominio/_arnes/semilla.ts`
+  (`globalSetup` del proyecto `dominio`) imprime `[fast-check] semilla=... numRuns=...` antes del
+  primer test. Sin `FC_SEED`, la semilla es al azar (`Date.now()`); con `FC_SEED=<número>`, es esa.
+  **Para reproducir cualquier corrida de la tanda de dominio, semilla incluida:**
+  `FC_SEED=<semilla impresa> npm run test:dominio`.
+- `propiedad(...arbitrarias, predicado)` — mismos argumentos que `fc.property` — corre
+  `fc.assert(fc.property(...), configuracion())`. `configuracion()` queda disponible para quien
+  necesite llamar a `fc.assert`/`fc.check` directo (como el meta-test de abajo); lee la semilla con
+  `inject("semillaFastCheck")` (el mismo mecanismo `provide`/`inject` que usa el arnés de casos de
+  uso para los datos del contenedor).
+
+`tests/dominio/_arnes/fast-check.test.ts` es un **meta-test permanente** (no una demostración de
+una sola vez): corre una propiedad deliberadamente falsa ("para todo par de enteros, `a + b` es
+mayor que `a`") con `fc.check` y afirma `failed === true` con contraejemplo. Si fast-check dejara
+de buscar contraejemplos de verdad, este test se pone en rojo — es la prueba de que el motor
+funciona, no de que el dominio es correcto.
+
+Las propiedades de negocio de `tests/dominio/reloj.test.ts` e
+`tests/dominio/identificador.test.ts` (ver *Identificadores*, más arriba, y
+`src/dominio/compartido/reloj.ts` en *Estructura*) usan este helper desde F0-15.
 
 ## Formato y lint
 

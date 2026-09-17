@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   crearFechaHora,
@@ -11,6 +12,7 @@ import {
   sumarDias,
   sumarMeses,
 } from "../../src/dominio/compartido/reloj.ts";
+import { propiedad } from "./_arnes/propiedad.ts";
 
 /**
  * F0-18: el reloj se inyecta y el dominio no llama nunca a la fecha del
@@ -18,9 +20,10 @@ import {
  * de Biome sobre `src/dominio/**` hace cumplir del lado del código; acá se
  * prueba el comportamiento).
  *
- * Las propiedades del final usan un generador determinista escrito en este
- * archivo: fast-check llega en F0-15 y esta tarea no suma dependencias.
- * Cuando esté, se reescriben con su helper sin que cambie lo que afirman.
+ * Las propiedades del final usan fast-check (F0-15, `docs/adr/0015-property-based.md`)
+ * a través del helper `propiedad()`: mismas propiedades y mismos casos borde
+ * (fecha bisiesta, 29 de febrero) que la versión anterior con generador
+ * propio, solo cambia el motor que produce las entradas.
  */
 
 /** Atajo de los tests: arma una fecha válida o rompe el test en el acto. */
@@ -276,29 +279,9 @@ describe("RelojFijo", () => {
   });
 });
 
-/**
- * Generador determinista, con semilla fija, para las propiedades de abajo.
- * No es azar de verdad: la misma semilla da siempre la misma serie, así que
- * un contraejemplo se reproduce corriendo el test de nuevo.
- */
-const SEMILLA = 0xf0_18_5e_ed;
-const CORRIDAS = 500;
-const ANIOS_BISIESTOS = [1904, 1996, 2000, 2004, 2020, 2024, 2096, 2104];
-
-function generador(semilla: number): () => number {
-  let estado = semilla >>> 0;
-  return () => {
-    estado = (estado + 0x6d_2b_79_f5) >>> 0;
-    let x = estado;
-    x = Math.imul(x ^ (x >>> 15), x | 1);
-    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
-    return ((x ^ (x >>> 14)) >>> 0) / 4_294_967_296;
-  };
-}
-
-function entero(azar: () => number, desde: number, hasta: number): number {
-  return desde + Math.floor(azar() * (hasta - desde + 1));
-}
+const ANIOS_BISIESTOS = [
+  1904, 1996, 2000, 2004, 2020, 2024, 2096, 2104,
+] as const;
 
 function ultimoDiaComun(mes: number): number {
   if (mes === 2) {
@@ -307,109 +290,112 @@ function ultimoDiaComun(mes: number): number {
   return mes === 4 || mes === 6 || mes === 9 || mes === 11 ? 30 : 31;
 }
 
-/** Una fecha válida cualquiera; el 29/02 se genera aparte, donde hace falta. */
-function fechaCualquiera(azar: () => number): FechaHora {
-  const mes = entero(azar, 1, 12);
-  return fecha(
-    entero(azar, 1900, 2200),
-    mes,
-    entero(azar, 1, ultimoDiaComun(mes)),
-    entero(azar, 0, 23),
-    entero(azar, 0, 59),
-    entero(azar, 0, 59),
-    entero(azar, 0, 999),
+/** Una fecha válida cualquiera; el 29/02 tiene su propia arbitraria abajo. */
+const fechaArbitraria: fc.Arbitrary<FechaHora> = fc
+  .integer({ min: 1, max: 12 })
+  .chain((mes) =>
+    fc.record({
+      anio: fc.integer({ min: 1900, max: 2200 }),
+      mes: fc.constant(mes),
+      dia: fc.integer({ min: 1, max: ultimoDiaComun(mes) }),
+      hora: fc.integer({ min: 0, max: 23 }),
+      minuto: fc.integer({ min: 0, max: 59 }),
+      segundo: fc.integer({ min: 0, max: 59 }),
+      milisegundo: fc.integer({ min: 0, max: 999 }),
+    }),
+  )
+  .map((partes) =>
+    fecha(
+      partes.anio,
+      partes.mes,
+      partes.dia,
+      partes.hora,
+      partes.minuto,
+      partes.segundo,
+      partes.milisegundo,
+    ),
   );
-}
 
-function veintinueveDeFebrero(azar: () => number): FechaHora {
-  const anio =
-    ANIOS_BISIESTOS[entero(azar, 0, ANIOS_BISIESTOS.length - 1)] ?? 2024;
-  return fecha(anio, 2, 29);
-}
+/** Un 29 de febrero de alguno de los años bisiestos de la lista. */
+const veintinueveDeFebreroArbitraria: fc.Arbitrary<FechaHora> = fc
+  .constantFrom(...ANIOS_BISIESTOS)
+  .map((anio) => fecha(anio, 2, 29));
+
+/** Cualquier fecha válida, incluido a veces el 29 de febrero. */
+const fechaOVeintinueveArbitraria = fc.oneof(
+  fechaArbitraria,
+  veintinueveDeFebreroArbitraria,
+);
+
+const diasArbitrarios = fc.integer({ min: -10_000, max: 10_000 });
+const aniosArbitrarios = fc.integer({ min: -100, max: 100 });
 
 describe("propiedades", () => {
   it("sumar y restar la misma cantidad de días devuelve la fecha original", () => {
-    const azar = generador(SEMILLA);
-    for (let corrida = 0; corrida < CORRIDAS; corrida += 1) {
-      const original = fechaCualquiera(azar);
-      const dias = entero(azar, -10_000, 10_000);
-
+    propiedad(fechaArbitraria, diasArbitrarios, (original, dias) => {
       expect(sumarDias(sumarDias(original, dias), -dias)).toEqual(original);
-    }
+    });
   });
 
   it("diferenciaEnDias cuenta exactamente los días que se sumaron", () => {
-    const azar = generador(SEMILLA + 1);
-    for (let corrida = 0; corrida < CORRIDAS; corrida += 1) {
-      const original = fechaCualquiera(azar);
-      const dias = entero(azar, -10_000, 10_000);
-
+    propiedad(fechaArbitraria, diasArbitrarios, (original, dias) => {
       expect(diferenciaEnDias(sumarDias(original, dias), original)).toBe(dias);
-    }
+    });
   });
 
   it("diferenciaEnDias es antisimétrica", () => {
-    const azar = generador(SEMILLA + 2);
-    for (let corrida = 0; corrida < CORRIDAS; corrida += 1) {
-      const una = fechaCualquiera(azar);
-      const otra = fechaCualquiera(azar);
-
+    propiedad(fechaArbitraria, fechaArbitraria, (una, otra) => {
       expect(diferenciaEnDias(una, otra)).toBe(-diferenciaEnDias(otra, una));
-    }
+    });
   });
 
   it("la suma de años nunca cambia el mes", () => {
-    const azar = generador(SEMILLA + 3);
-    for (let corrida = 0; corrida < CORRIDAS; corrida += 1) {
-      const original =
-        corrida % 2 === 0 ? fechaCualquiera(azar) : veintinueveDeFebrero(azar);
-      const anios = entero(azar, -100, 100);
-
-      expect(sumarAnios(original, anios).mes).toBe(original.mes);
-    }
+    propiedad(
+      fechaOVeintinueveArbitraria,
+      aniosArbitrarios,
+      (original, anios) => {
+        expect(sumarAnios(original, anios).mes).toBe(original.mes);
+      },
+    );
   });
 
   it("la suma de años solo cambia el día cuando se parte del 29 de febrero", () => {
-    const azar = generador(SEMILLA + 4);
-    for (let corrida = 0; corrida < CORRIDAS; corrida += 1) {
-      const original =
-        corrida % 2 === 0 ? fechaCualquiera(azar) : veintinueveDeFebrero(azar);
-      const resultado = sumarAnios(original, entero(azar, -100, 100));
+    propiedad(
+      fechaOVeintinueveArbitraria,
+      aniosArbitrarios,
+      (original, anios) => {
+        const resultado = sumarAnios(original, anios);
 
-      if (resultado.dia !== original.dia) {
-        expect({ mes: original.mes, dia: original.dia }).toEqual({
-          mes: 2,
-          dia: 29,
-        });
-        expect(resultado.dia).toBe(28);
-      }
-    }
+        if (resultado.dia !== original.dia) {
+          expect({ mes: original.mes, dia: original.dia }).toEqual({
+            mes: 2,
+            dia: 29,
+          });
+          expect(resultado.dia).toBe(28);
+        }
+      },
+    );
   });
 
   it("parsearISO acepta todo lo que formatearISO produce, y devuelve lo mismo", () => {
-    const azar = generador(SEMILLA + 5);
-    for (let corrida = 0; corrida < CORRIDAS; corrida += 1) {
-      const original = fechaCualquiera(azar);
+    propiedad(fechaArbitraria, (original) => {
       const resultado = parsearISO(formatearISO(original));
 
       expect(resultado.ok).toBe(true);
       if (resultado.ok) {
         expect(resultado.fechaHora).toEqual(original);
       }
-    }
+    });
   });
 
   it("esAnterior es coherente con el orden de los días", () => {
-    const azar = generador(SEMILLA + 6);
-    for (let corrida = 0; corrida < CORRIDAS; corrida += 1) {
-      const una = fechaCualquiera(azar);
-      const otra = fechaCualquiera(azar);
+    propiedad(fechaArbitraria, fechaArbitraria, (una, otra) => {
       const dias = diferenciaEnDias(otra, una);
 
       if (dias !== 0) {
         expect(esAnterior(una, otra)).toBe(dias > 0);
       }
       expect(esAnterior(una, una)).toBe(false);
-    }
+    });
   });
 });

@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearSecuenciasEnMemoria } from "../../src/adaptadores/memoria/secuencias.ts";
@@ -13,57 +14,36 @@ import {
   crearFechaHora,
   RelojFijo,
 } from "../../src/dominio/compartido/reloj.ts";
+import { propiedad } from "./_arnes/propiedad.ts";
 
 /**
  * F0-19: identificador doble (DISENO sección 2, decisión 6). Dos bloques:
  * `Identificador<Marca>` (marca de tipo, un `@ts-expect-error` de verdad) y
- * `CodigoLegible` (formatear/parsear, con propiedades). No se usa fast-check:
- * es la herramienta que F0-15 todavía no instala y esta tarea no suma
- * dependencias nuevas (decisión del orquestador). Las propiedades de ida y
- * vuelta y de rechazo se implementan con un generador propio, determinista
- * por semilla (sin librería): ver `generadorAleatorio` más abajo.
+ * `CodigoLegible` (formatear/parsear, con propiedades). Las propiedades de
+ * ida y vuelta y de rechazo usan fast-check (F0-15,
+ * `docs/adr/0015-property-based.md`) a través del helper `propiedad()`:
+ * mismas propiedades y mismos casos borde que la versión anterior con
+ * generador propio (`mulberry32`), solo cambia el motor.
  */
-
-/** PRNG determinista (mulberry32): mismos resultados en cada corrida de CI. */
-function generadorAleatorio(semilla: number): () => number {
-  let estado = semilla;
-  return () => {
-    estado = (estado + 0x6d2b79f5) | 0;
-    let t = Math.imul(estado ^ (estado >>> 15), 1 | estado);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function enteroEntre(
-  aleatorio: () => number,
-  minimo: number,
-  maximo: number,
-): number {
-  return minimo + Math.floor(aleatorio() * (maximo - minimo + 1));
-}
 
 const LETRAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-function prefijoAleatorio(aleatorio: () => number): string {
-  let prefijo = "";
-  for (let i = 0; i < 3; i++) {
-    prefijo += LETRAS.charAt(enteroEntre(aleatorio, 0, LETRAS.length - 1));
-  }
-  return prefijo;
-}
+/** Un prefijo de 3 letras mayúsculas cualquiera. */
+const prefijoArbitrario: fc.Arbitrary<string> = fc
+  .array(fc.constantFrom(...LETRAS.split("")), { minLength: 3, maxLength: 3 })
+  .map((letras) => letras.join(""));
 
-/** Genera texto "de basura": caracteres imprimibles al azar, largo variable. */
-function textoDeBasura(aleatorio: () => number): string {
-  const ALFABETO =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ .,:;/\\";
-  const largo = enteroEntre(aleatorio, 0, 20);
-  let texto = "";
-  for (let i = 0; i < largo; i++) {
-    texto += ALFABETO.charAt(enteroEntre(aleatorio, 0, ALFABETO.length - 1));
-  }
-  return texto;
-}
+const datosCodigoLegibleArbitrarios: fc.Arbitrary<DatosCodigoLegible> =
+  fc.record({
+    prefijo: prefijoArbitrario,
+    anio: fc.integer({ min: 1000, max: 9999 }),
+    secuencia: fc.integer({ min: 1, max: 50_000 }),
+  });
+
+/** Texto "de basura": caracteres imprimibles al azar, largo variable (incluido vacío). */
+const textoDeBasuraArbitrario: fc.Arbitrary<string> = fc.stringMatching(
+  /^[a-zA-Z0-9\-_ .,:;/\\]{0,20}$/,
+);
 
 describe("Identificador<Marca>: marca de tipo por entidad", () => {
   type IdServicio = Identificador<"Servicio">;
@@ -246,101 +226,89 @@ describe("parsearCodigo: rechazos puntuales (además de la propiedad de rechazo)
     "",
     "SRV-2026-014 ",
     " SRV-2026-014",
+    "SRV-0999-014",
+    "SRV-0000-014",
   ])("rechaza %j", (basura) => {
     expect(parsearCodigo(basura)).toBeNull();
   });
 });
 
+/** Igual que `datosCodigoLegibleArbitrarios`, pero con secuencia ≤ 999: código de largo fijo (12). */
+const datosCodigoLegibleCortosArbitrarios: fc.Arbitrary<DatosCodigoLegible> =
+  fc.record({
+    prefijo: prefijoArbitrario,
+    anio: fc.integer({ min: 1000, max: 9999 }),
+    secuencia: fc.integer({ min: 1, max: 999 }),
+  });
+
+const ALFABETO_MUTACION =
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
+
 describe("formatearCodigo / parsearCodigo: propiedades", () => {
-  it("ida y vuelta: parsearCodigo deshace lo que arma formatearCodigo, para 300 combinaciones al azar", () => {
-    const aleatorio = generadorAleatorio(20260915);
-
-    for (let i = 0; i < 300; i++) {
-      const datos: DatosCodigoLegible = {
-        prefijo: prefijoAleatorio(aleatorio),
-        anio: enteroEntre(aleatorio, 1000, 9999),
-        secuencia: enteroEntre(aleatorio, 1, 50_000),
-      };
-
+  it("ida y vuelta: parsearCodigo deshace lo que arma formatearCodigo", () => {
+    propiedad(datosCodigoLegibleArbitrarios, (datos) => {
       const formateado = formatearCodigo(datos);
+
       expect(formateado.ok).toBe(true);
       if (formateado.ok) {
         expect(parsearCodigo(formateado.codigo)).toEqual(datos);
       }
-    }
+    });
   });
 
-  it("rechazo: 500 cadenas de basura al azar, ninguna pasa el parseo", () => {
-    const aleatorio = generadorAleatorio(14022026);
-    let alMenosUnaNoVacia = false;
-
-    for (let i = 0; i < 500; i++) {
-      const basura = textoDeBasura(aleatorio);
-      if (basura.length > 0) {
-        alMenosUnaNoVacia = true;
-      }
-
+  it("rechazo: ninguna cadena de basura pasa el parseo, salvo que caiga (por chance) en un código válido", () => {
+    propiedad(textoDeBasuraArbitrario, (basura) => {
       // Un generador de basura puede, por pura chance combinatoria, producir
-      // un código válido (P-A-1..30 caracteres puede caer justo en
+      // un código válido (P-A-1..20 caracteres puede caer justo en
       // "ABC-1234-567"). Se descarta esa rareza en vez de forzar el test a
       // fallar: lo que importa es que TODO lo demás sea rechazado.
       if (parsearCodigo(basura) !== null) {
         expect(formatearCodigoValido(basura)).toBe(true);
-        continue;
+        return;
       }
 
       expect(parsearCodigo(basura)).toBeNull();
-    }
-
-    expect(alMenosUnaNoVacia).toBe(true);
+    });
   });
 
   it("rechazo: mutar un solo carácter de un código válido lo rechaza (o cae en otro código válido distinto)", () => {
-    const aleatorio = generadorAleatorio(7);
-    const ALFABETO =
-      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
+    propiedad(
+      datosCodigoLegibleCortosArbitrarios,
+      fc.integer({ min: 0, max: 11 }),
+      fc.constantFrom(...ALFABETO_MUTACION.split("")),
+      (original, posicion, nuevoCaracter) => {
+        const formateado = formatearCodigo(original);
+        expect(formateado.ok).toBe(true);
+        if (!formateado.ok) {
+          return;
+        }
 
-    for (let i = 0; i < 200; i++) {
-      const original: DatosCodigoLegible = {
-        prefijo: prefijoAleatorio(aleatorio),
-        anio: enteroEntre(aleatorio, 1000, 9999),
-        secuencia: enteroEntre(aleatorio, 1, 999),
-      };
-      const formateado = formatearCodigo(original);
-      expect(formateado.ok).toBe(true);
-      if (!formateado.ok) {
-        continue;
-      }
+        const mutado =
+          formateado.codigo.slice(0, posicion) +
+          nuevoCaracter +
+          formateado.codigo.slice(posicion + 1);
 
-      const posicion = enteroEntre(aleatorio, 0, formateado.codigo.length - 1);
-      const nuevoCaracter = ALFABETO.charAt(
-        enteroEntre(aleatorio, 0, ALFABETO.length - 1),
-      );
-      const mutado =
-        formateado.codigo.slice(0, posicion) +
-        nuevoCaracter +
-        formateado.codigo.slice(posicion + 1);
+        const resultado = parsearCodigo(mutado);
+        if (mutado === formateado.codigo) {
+          expect(resultado).toEqual(original);
+          return;
+        }
 
-      const resultado = parsearCodigo(mutado);
-      if (mutado === formateado.codigo) {
-        expect(resultado).toEqual(original);
-        continue;
-      }
+        // Cambiar un carácter nunca deja el código representando los mismos
+        // datos (cambiar un dígito cambia el número; cambiar una letra del
+        // prefijo cambia el prefijo).
+        expect(resultado).not.toEqual(original);
 
-      // Cambiar un carácter nunca deja el código representando los mismos
-      // datos (cambiar un dígito cambia el número; cambiar una letra del
-      // prefijo cambia el prefijo).
-      expect(resultado).not.toEqual(original);
-
-      // Y si el resultado sigue pareciendo válido, tiene que ser exactamente
-      // lo que dice: nunca "casi" parsea algo distinto de lo que dice.
-      if (resultado !== null) {
-        expect(formatearCodigo(resultado)).toEqual({
-          ok: true,
-          codigo: mutado,
-        });
-      }
-    }
+        // Y si el resultado sigue pareciendo válido, tiene que ser exactamente
+        // lo que dice: nunca "casi" parsea algo distinto de lo que dice.
+        if (resultado !== null) {
+          expect(formatearCodigo(resultado)).toEqual({
+            ok: true,
+            codigo: mutado,
+          });
+        }
+      },
+    );
   });
 });
 

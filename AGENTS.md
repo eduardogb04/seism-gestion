@@ -405,13 +405,16 @@ compartida para no repetirla en cada archivo:
 
 - `numRuns`: 1000 en CI, 200 en local — CI se detecta igual que en el resto del repo, con la
   variable de entorno `CI`.
-- La semilla queda en su valor por defecto de fast-check (`Date.now()`): no es una constante fija,
-  así que cada corrida explora una serie distinta de entradas. Si una propiedad falla, `fc.assert`
-  imprime el `seed` y el `path` del contraejemplo en el mensaje del error; correrla de nuevo con
-  esos valores (`{ seed, path }`) reproduce exactamente el mismo caso.
+- **La semilla se anuncia una vez al empezar la tanda, pase o falle.** `tests/dominio/_arnes/semilla.ts`
+  (`globalSetup` del proyecto `dominio`) imprime `[fast-check] semilla=... numRuns=...` antes del
+  primer test. Sin `FC_SEED`, la semilla es al azar (`Date.now()`); con `FC_SEED=<número>`, es esa.
+  **Para reproducir cualquier corrida de la tanda de dominio, semilla incluida:**
+  `FC_SEED=<semilla impresa> npm run test:dominio`.
 - `propiedad(...arbitrarias, predicado)` — mismos argumentos que `fc.property` — corre
   `fc.assert(fc.property(...), configuracion())`. `configuracion()` queda disponible para quien
-  necesite llamar a `fc.assert`/`fc.check` directo (como el meta-test de abajo).
+  necesite llamar a `fc.assert`/`fc.check` directo (como el meta-test de abajo); lee la semilla con
+  `inject("semillaFastCheck")` (el mismo mecanismo `provide`/`inject` que usa el arnés de casos de
+  uso para los datos del contenedor).
 
 `tests/dominio/_arnes/fast-check.test.ts` es un **meta-test permanente** (no una demostración de
 una sola vez): corre una propiedad deliberadamente falsa ("para todo par de enteros, `a + b` es

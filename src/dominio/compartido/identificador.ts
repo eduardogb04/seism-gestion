@@ -162,6 +162,14 @@ export function parsearCodigo(valor: string): DatosCodigoLegible | null {
 
   const anio = Number(anioTexto);
   const secuencia = Number(secuenciaTexto);
+  if (anio < 1000) {
+    // El regex de arriba solo exige 4 dígitos: "0000".."0999" también
+    // calzan, pero formatearCodigo nunca los produce ni los acepta (exige
+    // 1000-9999). Sin este rechazo, parsearCodigo aceptaría códigos que
+    // formatearCodigo no puede reconstruir (encontrado por la propiedad de
+    // mutación de un carácter, F0-15, con fast-check).
+    return null;
+  }
   if (!Number.isSafeInteger(secuencia) || secuencia < 1) {
     return null;
   }

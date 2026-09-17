@@ -1,19 +1,19 @@
 /**
  * Configuración compartida de fast-check (F0-15, `docs/adr/0015-property-based.md`):
- * el número de corridas por entorno, para que cada archivo de propiedades no
- * lo repita. CI se detecta como en el resto del repo: la variable de entorno
- * `CI` (la misma que usan, por ejemplo, `scripts/db-migrate.ts` o el propio
- * workflow de GitHub Actions).
+ * el número de corridas por entorno y la semilla, para que cada archivo de
+ * propiedades no los repita. CI se detecta como en el resto del repo: la
+ * variable de entorno `CI` (la misma que usan, por ejemplo,
+ * `scripts/db-migrate.ts` o el propio workflow de GitHub Actions).
  *
- * La semilla queda en su valor por defecto de fast-check (`Date.now()`, no
- * una constante fija): cada corrida explora una serie distinta. Si una
- * propiedad falla, `fc.assert` la imprime en el mensaje del error junto con
- * el `counterexamplePath`, y correrla nuevamente con
- * `propiedad(..., { seed, path })` reproduce exactamente el mismo
- * contraejemplo — es el mecanismo de fast-check, no algo que este helper
- * agregue.
+ * La semilla la resuelve y la anuncia `./semilla.ts` (`globalSetup` del
+ * proyecto `dominio`, una vez por tanda) y llega acá por `inject`: fija con
+ * `FC_SEED` si se definió esa variable al correr `npm run test:dominio`, al
+ * azar (`Date.now()`) si no. Cualquiera de las dos queda impresa al empezar
+ * la tanda —pase o falle— con el comando exacto para reproducirla.
  */
+
 import fc from "fast-check";
+import { inject } from "vitest";
 
 const NUM_RUNS_LOCAL = 200;
 const NUM_RUNS_CI = 1000;
@@ -25,7 +25,7 @@ export function numRuns(): number {
 
 /** La configuración compartida, para quien necesite llamar a `fc.assert` o `fc.check` directo. */
 export function configuracion<Ts = void>(): fc.Parameters<Ts> {
-  return { numRuns: numRuns() };
+  return { numRuns: numRuns(), seed: inject("semillaFastCheck") };
 }
 
 /**

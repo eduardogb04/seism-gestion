@@ -32,6 +32,9 @@ export default defineConfig({
           // El arnés que corta la red: un test de dominio que abre un socket
           // falla (tests/dominio/_arnes/sin-red.ts).
           setupFiles: ["tests/dominio/_arnes/sin-red.ts"],
+          // Anuncia una vez, antes de la tanda, la semilla y el numRuns de
+          // fast-check (F0-15: tests/dominio/_arnes/semilla.ts).
+          globalSetup: ["tests/dominio/_arnes/semilla.ts"],
         },
       },
       {

@@ -4,10 +4,15 @@ import { crearSecuenciasEnMemoria } from "../../src/adaptadores/memoria/secuenci
 import {
   type DatosCodigoLegible,
   formatearCodigo,
+  generarCodigoLegible,
   type Identificador,
   identificadorDesde,
   parsearCodigo,
 } from "../../src/dominio/compartido/identificador.ts";
+import {
+  crearFechaHora,
+  RelojFijo,
+} from "../../src/dominio/compartido/reloj.ts";
 
 /**
  * F0-19: identificador doble (DISENO sección 2, decisión 6). Dos bloques:
@@ -170,6 +175,60 @@ describe("formatearCodigo", () => {
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
       expect(resultado.mensaje).toContain("secuencia");
+    }
+  });
+});
+
+describe("generarCodigoLegible: el año sale del reloj inyectado", () => {
+  function fechaHoraDe(anio: number, mes: number, dia: number) {
+    const resultado = crearFechaHora({
+      anio,
+      mes,
+      dia,
+      hora: 0,
+      minuto: 0,
+      segundo: 0,
+      milisegundo: 0,
+    });
+    if (!resultado.ok) {
+      throw new Error(resultado.mensaje);
+    }
+    return resultado.fechaHora;
+  }
+
+  it("toma el año de reloj.ahora(), no de un parámetro numérico", () => {
+    const reloj = RelojFijo(fechaHoraDe(2026, 9, 15));
+
+    const resultado = generarCodigoLegible(reloj, {
+      prefijo: "SRV",
+      secuencia: 14,
+    });
+
+    expect(resultado).toEqual({ ok: true, codigo: "SRV-2026-014" });
+  });
+
+  it("un reloj con otro año arma un código de ese otro año (cambio de año)", () => {
+    const reloj = RelojFijo(fechaHoraDe(2027, 1, 1));
+
+    const resultado = generarCodigoLegible(reloj, {
+      prefijo: "SRV",
+      secuencia: 1,
+    });
+
+    expect(resultado).toEqual({ ok: true, codigo: "SRV-2027-001" });
+  });
+
+  it("delega en formatearCodigo para el resto de las reglas (prefijo inválido, acá con el año del reloj)", () => {
+    const reloj = RelojFijo(fechaHoraDe(2026, 12, 31));
+
+    const resultado = generarCodigoLegible(reloj, {
+      prefijo: "srv",
+      secuencia: 1,
+    });
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.mensaje).toContain("prefijo");
     }
   });
 });

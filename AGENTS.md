@@ -310,13 +310,16 @@ que existe en `src/dominio` y `src/puertos`.
   aunque el valor de los dos sea el mismo string en ejecución. `identificadorDesde<Marca>(valor)`
   le da esa forma a un UUID ya generado; no genera nada ni valida formato de UUID. Los prefijos
   concretos por entidad (`SRV`, `FAC`...) no existen todavía: los define Fase 1.
-- **`CodigoLegible`** (`formatearCodigo`/`parsearCodigo`) es puro: no llama a `Date` ni importa el
-  reloj de F0-18 (`compartido/reloj.ts`). El año le llega **ya resuelto**, como parámetro numérico
-  — "si necesitás la hora, recibila como parámetro" (regla de dominio puro, no solo para el reloj).
-  Formato `PREFIJO-AAAA-NNN`: prefijo de 3 letras mayúsculas, año de 4 dígitos, secuencia rellenada
-  a 3 dígitos que se ensancha a 4 o más al pasar de 999, sin techo y sin romper el parseo.
-  `parsearCodigo` acepta exactamente lo que `formatearCodigo` produce (mismos ceros de relleno, ni
-  uno más ni uno menos) y rechaza todo lo demás.
+- **`CodigoLegible`** (`formatearCodigo`/`generarCodigoLegible`/`parsearCodigo`). `formatearCodigo`
+  es pura: no llama a `Date` ni importa ningún puerto, y recibe `anio` como dato — la necesita
+  `parsearCodigo` para reconstruir y reformatear un código ya existente, de un año que no es
+  "ahora". `generarCodigoLegible` es la puerta de entrada para un código **nuevo**: recibe el
+  `Reloj` inyectado (`compartido/reloj.ts`, F0-18) y toma el año de `reloj.ahora().anio` — nunca de
+  `Date` ni de un parámetro numérico que el llamador haya resuelto por su cuenta — y delega en
+  `formatearCodigo` para el resto. Formato `PREFIJO-AAAA-NNN`: prefijo de 3 letras mayúsculas, año
+  de 4 dígitos, secuencia rellenada a 3 dígitos que se ensancha a 4 o más al pasar de 999, sin techo
+  y sin romper el parseo. `parsearCodigo` acepta exactamente lo que `formatearCodigo` produce
+  (mismos ceros de relleno, ni uno más ni uno menos) y rechaza todo lo demás.
 - **El UUID no lo genera el dominio.** El puerto `GeneradorId` (`src/puertos/generador-id.ts`) lo
   provee; su adaptador (`src/adaptadores/memoria/generador-id.ts`) usa `node:crypto` — no es un
   doble de test, es la implementación real (generar un UUID no depende de dónde se guarda).

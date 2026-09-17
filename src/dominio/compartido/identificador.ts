@@ -7,11 +7,13 @@
  * Puro, como todo `src/dominio` (dependency-cruiser, regla `dominio-puro`):
  * no genera UUIDs (eso lo hace el puerto `GeneradorId`, en
  * `src/puertos/generador-id.ts`, con un adaptador fuera del dominio) y no
- * pide la fecha del sistema. El año de `CodigoLegible` no sale de `Date`
- * acá adentro: quien arma el código ya lo resolvió con el reloj inyectado
- * (`src/dominio/compartido/reloj.ts`, F0-18) y lo pasa como parámetro
- * numérico — este archivo no importa ese puerto porque no le hace falta
- * saber de dónde salió el año, solo validarlo.
+ * pide la fecha del sistema. El año de `CodigoLegible` nunca sale de `Date`
+ * acá adentro: `generarCodigoLegible` lo toma del `Reloj` inyectado
+ * (`src/dominio/compartido/reloj.ts`, F0-18), vía `reloj.ahora().anio`.
+ * `formatearCodigo` en sí sigue siendo pura y sin puerto, porque también la
+ * usa `generarCodigoLegible` para el resto de las reglas (prefijo,
+ * secuencia, ensanche) y `parsearCodigo` necesita poder reconstruir y
+ * reformatear un código ya existente, de un año que no es "ahora".
  */
 
 /**
@@ -21,6 +23,8 @@
  * en runtime los dos sean el mismo string (un UUID). Ver
  * `tests/dominio/identificador.test.ts` para la prueba con `@ts-expect-error`.
  */
+import type { Reloj } from "./reloj.ts";
+
 declare const marcaIdentificador: unique symbol;
 
 /** Un identificador interno (UUID) marcado por tipo de entidad. */
@@ -105,6 +109,24 @@ export function formatearCodigo(
     ok: true,
     codigo: `${prefijo}-${anio}-${numeroSecuencia}` as CodigoLegible,
   };
+}
+
+/** Los datos que hacen falta para armar un `CodigoLegible` nuevo: todo salvo el año, que sale del reloj. */
+export type DatosCodigoLegibleNuevo = Omit<DatosCodigoLegible, "anio">;
+
+/**
+ * Arma un `CodigoLegible` para un caso que se crea "ahora": el año sale del
+ * `Reloj` inyectado (`reloj.ahora().anio`), nunca de `Date` ni de un
+ * parámetro numérico que el llamador haya resuelto por su cuenta. Es la
+ * única puerta de entrada para generar un código nuevo; delega en
+ * `formatearCodigo` para el resto de las reglas (prefijo, secuencia,
+ * ensanche) una vez resuelto el año.
+ */
+export function generarCodigoLegible(
+  reloj: Reloj,
+  datos: DatosCodigoLegibleNuevo,
+): ResultadoFormatearCodigo {
+  return formatearCodigo({ ...datos, anio: reloj.ahora().anio });
 }
 
 /**

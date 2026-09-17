@@ -11,14 +11,20 @@ Cero llamadas a la fecha del sistema (`Date`): el reloj se inyecta
 (`npm run lint`, probado por `npm run lint:fixtures`; ver ADR 0012). TDD
 estricto: cada regla nace como test en `tests/dominio/`.
 
-Hoy: `compartido/reloj.ts` — `Reloj { ahora(): FechaHora }`, el tipo
-`FechaHora` (fecha civil argentina, sin zona horaria) con sus operaciones, y
-`RelojFijo` para los tests.
+Lo que ya vive acá:
 
-Desde F0-19: `compartido/identificador.ts`, el identificador doble de toda
-entidad (`Identificador<Marca>` con marca de tipo, y `CodigoLegible` tipo
-`SRV-2026-014`, con `formatearCodigo`/`parsearCodigo`). `formatearCodigo` es
-pura y sigue tomando el año como dato (lo necesita para reconstruir desde
-`parsearCodigo`, sin reloj de por medio); `generarCodigoLegible` es la que
-arma un código nuevo para "ahora" y sí recibe el `Reloj` inyectado
-(`compartido/reloj.ts`, F0-18), tomando el año de `reloj.ahora()`.
+- `compartido/reloj.ts` (F0-18) — `Reloj { ahora(): FechaHora }`, el tipo
+  `FechaHora` (fecha civil argentina, sin zona horaria) con sus operaciones, y
+  `RelojFijo` para los tests.
+- `compartido/identificador.ts` (F0-19) — el identificador doble de toda
+  entidad (`Identificador<Marca>` con marca de tipo, y `CodigoLegible` tipo
+  `SRV-2026-014`, con `formatearCodigo`/`parsearCodigo`). `formatearCodigo` es
+  pura y toma el año como dato (lo necesita para reconstruir desde
+  `parsearCodigo`); `generarCodigoLegible` arma un código nuevo y toma el año
+  del `Reloj` inyectado.
+- `compartido/historial.ts` (F0-21) — el historial de estados solo-agregar:
+  `definirCiclo` ata una tabla de transiciones y la aritmética de fechas a
+  `crear`, `agregar`, `estadoActual`, `fechaDe` y `diasEntre`. Genérico: no
+  sabe qué entidad lo usa. Ver `docs/adr/0010-historial-de-estados.md`.
+
+El resto del lote 5 (F0-20, F0-22) llega después.

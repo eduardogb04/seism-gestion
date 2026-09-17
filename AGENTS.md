@@ -642,6 +642,17 @@ como propiedad. Para leer la hora, un `Reloj` inyectado: ningún módulo del dom
 su cuenta. Traducir entre `FechaHora` y `Date`/`Temporal` —y aplicar la zona horaria— se hace en
 los adaptadores, con `crearFechaHora` o `parsearISO` como puerta de entrada.
 
+**...un ciclo de estados (F0-21).** El estado de una entidad no es un campo: es un
+`Historial` de eventos que solo se agrega. Se declara una vez, con su tabla de transiciones y la
+aritmética de fechas del reloj: `definirCiclo<Estado>({ transiciones, diferenciaEnDias })`
+(`src/dominio/compartido/historial.ts`). La tabla lista, por cada estado, a cuáles se puede pasar;
+un estado terminal lleva lista vacía. `crear` y `agregar` devuelven un historial nuevo y congelado,
+y `agregar` devuelve `Resultado`: una transición no declarada no lanza, se rechaza con
+`CODIGO_TRANSICION_INVALIDA` y la posición en que se cortó. **Ninguna operación modifica ni borra
+un evento pasado**, y no se agrega una que lo haga. La marca de tiempo entra por parámetro (el
+dominio no consulta la fecha del sistema) y los tipos de `en`, `actor` y `origen` son parámetros
+de tipo hasta que F0-22 los fije (ADR 0010).
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -651,7 +662,7 @@ estimación; el orden real de creación manda).
 ## Estructura
 
 ```
-src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año)
+src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts)

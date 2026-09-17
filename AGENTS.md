@@ -350,7 +350,7 @@ que existe en `src/dominio` y `src/puertos`.
 
 Cuatro niveles desde F0-14, cada uno con su configuración. Tres son proyectos de Vitest
 (`vitest.config.ts`); el e2e lo corre Playwright (`playwright.config.ts`), porque un `.spec.ts` de
-Playwright Vitest no lo puede ejecutar (ADR 0010).
+Playwright Vitest no lo puede ejecutar (ADR 0014).
 
 | Nivel | Carpeta | Qué va acá | Qué necesita | Con qué se corre |
 |---|---|---|---|---|

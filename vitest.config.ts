@@ -2,7 +2,7 @@
  * Los niveles de test (F0-14). Tres de los cuatro son proyectos de Vitest,
  * cada uno con su configuración; el cuarto, el e2e, lo corre Playwright con su
  * propio archivo (`playwright.config.ts`), porque un `.spec.ts` de Playwright
- * no lo puede ejecutar Vitest. El porqué, en docs/adr/0010-niveles-de-test.md.
+ * no lo puede ejecutar Vitest. El porqué, en docs/adr/0014-niveles-de-test.md.
  *
  * | Proyecto     | Qué corre                        | Qué necesita        |
  * |--------------|----------------------------------|---------------------|

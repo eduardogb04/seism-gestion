@@ -1,6 +1,6 @@
-# ADR 0010 — Los cuatro niveles de test: tres proyectos de Vitest y un Playwright
+# ADR 0014 — Los cuatro niveles de test: tres proyectos de Vitest y un Playwright
 
-> Archivo: `docs/adr/0010-niveles-de-test.md`. Numeración correlativa, nunca se reutiliza.
+> Archivo: `docs/adr/0014-niveles-de-test.md`. Numeración correlativa, nunca se reutiliza.
 > Un ADR aprobado no se edita: si cambia la decisión, se escribe otro que lo reemplaza y este se
 > marca *Reemplazado por NNNN*.
 

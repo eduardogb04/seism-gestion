@@ -2,7 +2,7 @@
  * El nivel **e2e** (F0-14): un navegador de verdad contra la app levantada con
  * compose. Es el cuarto nivel de test; los otros tres son proyectos de Vitest
  * (`vitest.config.ts`). Por qué el e2e no es un proyecto de Vitest:
- * docs/adr/0010-niveles-de-test.md.
+ * docs/adr/0014-niveles-de-test.md.
  *
  *   npm run test:e2e            → esta configuración, Chromium
  *   npm run test:e2e -- --ui    → con la interfaz de Playwright (local)

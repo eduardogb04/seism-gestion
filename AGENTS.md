@@ -299,6 +299,42 @@ porqués en el ADR 0008. En corto:
   criterio (`prisma/migrations/` con una carpeta sin `down.sql`) lo cubre
   `tests/casos-uso/migraciones-completas.test.ts`, sin Docker.
 
+## Identificadores
+
+`src/dominio/compartido/identificador.ts` (F0-19, DISENO sección 2 decisión 6): el identificador
+doble de toda entidad — un UUID interno y un código legible tipo `SRV-2026-014` — es lo primero
+que existe en `src/dominio` y `src/puertos`.
+
+- **`Identificador<Marca>`** es un `string` marcado por tipo con una marca fantasma (`unique
+  symbol`, no existe en runtime): dos identificadores con `Marca` distinta no se asignan entre sí,
+  aunque el valor de los dos sea el mismo string en ejecución. `identificadorDesde<Marca>(valor)`
+  le da esa forma a un UUID ya generado; no genera nada ni valida formato de UUID. Los prefijos
+  concretos por entidad (`SRV`, `FAC`...) no existen todavía: los define Fase 1.
+- **`CodigoLegible`** (`formatearCodigo`/`generarCodigoLegible`/`parsearCodigo`). `formatearCodigo`
+  es pura: no llama a `Date` ni importa ningún puerto, y recibe `anio` como dato — la necesita
+  `parsearCodigo` para reconstruir y reformatear un código ya existente, de un año que no es
+  "ahora". `generarCodigoLegible` es la puerta de entrada para un código **nuevo**: recibe el
+  `Reloj` inyectado (`compartido/reloj.ts`, F0-18) y toma el año de `reloj.ahora().anio` — nunca de
+  `Date` ni de un parámetro numérico que el llamador haya resuelto por su cuenta — y delega en
+  `formatearCodigo` para el resto. Formato `PREFIJO-AAAA-NNN`: prefijo de 3 letras mayúsculas, año
+  de 4 dígitos, secuencia rellenada a 3 dígitos que se ensancha a 4 o más al pasar de 999, sin techo
+  y sin romper el parseo. `parsearCodigo` acepta exactamente lo que `formatearCodigo` produce
+  (mismos ceros de relleno, ni uno más ni uno menos) y rechaza todo lo demás.
+- **El UUID no lo genera el dominio.** El puerto `GeneradorId` (`src/puertos/generador-id.ts`) lo
+  provee; su adaptador (`src/adaptadores/memoria/generador-id.ts`) usa `node:crypto` — no es un
+  doble de test, es la implementación real (generar un UUID no depende de dónde se guarda).
+- **La secuencia tampoco la calcula el dominio.** El puerto `Secuencias`
+  (`src/puertos/secuencias.ts`, `siguiente(prefijo, anio)`) la provee; su doble en memoria
+  (`src/adaptadores/memoria/secuencias.ts`) guarda un contador por combinación de prefijo y año,
+  vivo solo mientras dura el proceso. El adaptador de Postgres (lote 7) resuelve la concurrencia de
+  dos escritores con una fila bajo bloqueo — riesgo anotado, no resuelto en F0-19.
+- **Sin propiedades con librería.** El plan pide una propiedad de ida y vuelta y una de rechazo con
+  generadores de basura (fast-check, en la tabla de herramientas de DISENO), pero fast-check
+  todavía no entra al repo: lo instala y lo prueba F0-15 (con su propio meta-test), y esta tarea no
+  suma dependencias nuevas. Las dos propiedades de `tests/dominio/identificador.test.ts` usan un
+  generador propio determinista por semilla (`mulberry32`, sin librería). Si F0-15 llega antes,
+  puede convertirse a fast-check; no es parte de esta tarea.
+
 ## Formato y lint
 
 Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta: formato y lint.
@@ -520,6 +556,16 @@ a la lista en vez de cortar en el primero. Un paso del workflow que no necesita 
 de la imagen, gitleaks) se condiciona al checkout (`steps.codigo.outcome`), no a `npm ci`. Y el
 tamaño de la imagen se anota en el ADR 0007 si cambió de manera apreciable.
 
+**...un puerto nuevo (F0-19).** La interfaz en `src/puertos/<nombre>.ts`: `type`, no `interface`
+(estilo del repo), solo puede nombrar tipos de `src/dominio` (o de otros puertos) — nada de
+paquetes npm ni `node:*`, aunque el doble los vaya a necesitar (`puertos-solo-dominio`). Su doble
+en `src/adaptadores/memoria/<nombre>.ts` (o el adaptador real si no hace falta doble, como
+`generador-id.ts` con `node:crypto`): una función `crear<Nombre>()` que devuelve un objeto que
+implementa la interfaz, no una clase (estilo del repo, ver `crearClientePrisma`). Si el puerto
+tiene más de una implementación, su suite de contrato entra a `tests/contratos/` (vacío hasta
+entonces, `tests/contratos/README.md`); con una sola, alcanza con probarlo desde el test de
+dominio que lo usa.
+
 **...una clave a `configuracion` (F0-10).** Una entrada más en
 `CONFIGURACION_POR_DEFECTO` de `prisma/seed.ts`, con su `clave` y su `valor` por defecto (los dos,
 `String`: quien la lee convierte). `sembrar` la toma sola: no hace falta tocar el test. Un dato de
@@ -544,10 +590,10 @@ estimación; el orden real de creación manda).
 ## Estructura
 
 ```
-src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18)
+src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
-src/puertos          interfaces (vacío hasta el lote 5)
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar) y prisma/cliente.ts (el cliente con el adaptador pg)
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts)
 src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app

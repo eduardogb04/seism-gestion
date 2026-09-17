@@ -13,4 +13,12 @@ estricto: cada regla nace como test en `tests/dominio/`.
 
 Hoy: `compartido/reloj.ts` — `Reloj { ahora(): FechaHora }`, el tipo
 `FechaHora` (fecha civil argentina, sin zona horaria) con sus operaciones, y
-`RelojFijo` para los tests. El resto del lote 5 llega en F0-19 y siguientes.
+`RelojFijo` para los tests.
+
+Desde F0-19: `compartido/identificador.ts`, el identificador doble de toda
+entidad (`Identificador<Marca>` con marca de tipo, y `CodigoLegible` tipo
+`SRV-2026-014`, con `formatearCodigo`/`parsearCodigo`). `formatearCodigo` es
+pura y sigue tomando el año como dato (lo necesita para reconstruir desde
+`parsearCodigo`, sin reloj de por medio); `generarCodigoLegible` es la que
+arma un código nuevo para "ahora" y sí recibe el `Reloj` inyectado
+(`compartido/reloj.ts`, F0-18), tomando el año de `reloj.ahora()`.

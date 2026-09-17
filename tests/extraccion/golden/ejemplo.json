@@ -1,0 +1,13 @@
+{
+  "cliente": {
+    "nombre": "Cliente de Ejemplo SA",
+    "pais": "Argentina"
+  },
+  "pasos": [
+    "relevamiento",
+    "trabajo-de-campo",
+    "informe"
+  ],
+  "servicio": "auditoria-anual",
+  "version": 1
+}

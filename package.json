@@ -14,6 +14,7 @@
     "test": "vitest run --project dominio --project casos-uso",
     "test:dominio": "node scripts/test-dominio.ts",
     "test:extraccion": "vitest run --project extraccion",
+    "test:golden:update": "node scripts/test-golden-update.ts",
     "test:e2e": "playwright test",
     "test:todo": "vitest run && npm run test:e2e",
     "e2e:app": "node scripts/e2e-app.ts",

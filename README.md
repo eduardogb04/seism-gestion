@@ -75,7 +75,8 @@ src/      dominio · casos-uso · puertos · adaptadores · infraestructura · a
 tests/    dominio · casos-uso · extraccion · e2e · contratos · fixtures
 scripts/  utilidades de los comandos de package.json
 prisma/   schema.prisma · migrations/ (cada una con migration.sql y down.sql)
-docs/     arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/ (decisiones)
+docs/     arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/ · ensayos/
+infra/    oracle/bootstrap.sh (levanta la instancia del ensayo, F0-12)
 .github/  workflows/ci.yml (CI y publicación) · CODEOWNERS · dependabot.yml
 Dockerfile · .dockerignore   la imagen de la app
 docker-compose.yml           Postgres 16 local

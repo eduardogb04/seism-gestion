@@ -55,7 +55,8 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz. `-- --write` aplica los arreglos |
 | `npm test` | Vitest sobre los niveles `dominio` y `casos-uso` (ver *Testing: en qué nivel va cada cosa*): el ciclo de siempre. **Necesita Docker corriendo** (el nivel casos de uso levanta un Postgres); no necesita `.env` ni la base de compose |
 | `npm run test:dominio` | Solo el nivel `dominio`, con su reloj: `scripts/test-dominio.ts` mide la corrida entera y **sale 1 si tarda más de 10 s** (criterio de F0-14). No necesita nada: el nivel dominio no abre red ni base |
-| `npm run test:extraccion` | Solo el nivel `extraccion` (golden files). Hoy, el test de humo del nivel; el arnés llega en F0-16 |
+| `npm run test:extraccion` | Solo el nivel `extraccion` (golden files): el arnés `compararConGolden` (F0-16) y su caso de ejemplo |
+| `npm run test:golden:update` | Regenera **a propósito** los goldens de `tests/extraccion/golden/` (`ACTUALIZAR_GOLDEN=si`) y lo avisa en pantalla. CI nunca lo corre; revisá el diff a mano antes de commitear (F0-16) |
 | `npm run test:e2e` | Playwright (Chromium) sobre `tests/e2e/`: levanta la app con compose —la imagen que se publica— y recorre el camino de humo. Necesita Docker corriendo y el navegador instalado una vez (`npx playwright install chromium`, RUNBOOK sección 16). `-- --ui` abre la interfaz de Playwright; `-- --headed`, el navegador a la vista |
 | `npm run test:todo` | Los cuatro niveles: `vitest run` (dominio, casos de uso, extracción) y después el e2e |
 | `npm run e2e:app` | No se llama a mano: es el `webServer` de `playwright.config.ts`. Construye la imagen (`npm run imagen`), levanta el servicio `app` del perfil `e2e` de compose y espera el latido. Lo apaga `tests/e2e/_arnes/apagar-app.ts` al terminar el e2e |
@@ -356,7 +357,7 @@ Playwright Vitest no lo puede ejecutar (ADR 0014).
 |---|---|---|---|---|
 | **dominio** | `tests/dominio/` | Reglas de negocio y funciones puras. **Sin red, sin base, sin reloj del sistema**. La tanda entera tarda menos de 10 s | nada | `npm run test:dominio` · `npm test` |
 | **casos de uso** | `tests/casos-uso/` | Un caso de uso contra Postgres de verdad, o cualquier cosa que necesite la base | Docker | `npm test` |
-| **extracción** | `tests/extraccion/` | Golden files: una entrada fija produce una salida fija (arnés en F0-16) | nada | `npm run test:extraccion` |
+| **extracción** | `tests/extraccion/` | Golden files: una entrada fija produce una salida fija (arnés `compararConGolden`, F0-16) | nada | `npm run test:extraccion` |
 | **e2e** | `tests/e2e/` | Un camino completo en un navegador, contra la app levantada con compose | Docker y Chromium | `npm run test:e2e` |
 
 `npm run test:todo` corre los cuatro. También están `tests/contratos/` (suites que un puerto y su
@@ -406,8 +407,11 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
   puede tocar — es donde viven los fixtures que **tienen** que fallar), `scripts/`, `prisma/`
   (F0-10: `seed.ts`) y los archivos de config de la raíz (`*.ts` —`next.config.ts` incluido—,
   `*.json` menos `package-lock.json`, y `.dependency-cruiser.cjs`). Lo que genera Next (`.next/` y
-  `next-env.d.ts`) y el cliente de Prisma (`src/adaptadores/prisma/generado/`, ADR 0008) quedan
-  afuera: no es código nuestro.
+  `next-env.d.ts`), el cliente de Prisma (`src/adaptadores/prisma/generado/`, ADR 0008) y los
+  golden files (`tests/extraccion/golden/`, F0-16) quedan afuera: no es código nuestro, lo escribe
+  una herramienta (`prisma generate` uno, `npm run test:golden:update` el otro) y el formato de
+  Biome para JSON (colapsa arrays cortos en una línea) pelearía con el `JSON.stringify` legible y
+  determinístico de `compararConGolden`.
 - **Reglas en `error`, ninguna en `warn`.** Biome trae reglas de `recommended` con severidad mixta
   (`warn` en varias, `error` en otras) — un lint que solo emite `warn` no hace fallar `biome
   check` y no cumple el criterio. `biome.json` fija en `"error"`, rule por rule, las que
@@ -633,6 +637,15 @@ dominio que lo usa.
 negocio real en el valor por defecto no entra (regla 1); si hiciera falta uno, se decide en la
 tarea que lo necesita.
 
+**...un golden nuevo (F0-16).** Escribí el test con `compararConGolden("<nombre>", valorFijo)`
+(`tests/extraccion/_arnes/golden.ts`) contra un valor fijo, **sin fechas del sistema** (`Date`
+tira error a propósito) ni datos reales (regla 1): va a fallar porque el golden todavía no existe.
+Corré `npm run test:golden:update` una vez para que lo escriba (lo avisa en pantalla), revisá a
+mano el diff de `tests/extraccion/golden/<nombre>.json` y commiteá los dos juntos. CI nunca corre
+`test:golden:update`: si falta un golden, `npm run test:extraccion` queda en rojo, no lo crea. Para
+cambiar un golden existente a propósito, mismo camino: cambiás qué produce el valor, corrés
+`test:golden:update`, revisás el diff.
+
 **...una operación de fecha al dominio (F0-18).** A `src/dominio/compartido/reloj.ts`, con su test
 en `tests/dominio/reloj.test.ts`, escrita sobre `diasDesdeCivil` / `civilDesdeDias` (aritmética
 entera) y nunca sobre `Date`, `Temporal` ni `Intl`: el dominio no puede importar nada y la global
@@ -670,7 +683,7 @@ src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ 
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
-tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
+tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
 scripts/             utilidades de los comandos de package.json (sin-any.ts, db-migrate-down.ts, db-seed.ts, test-dominio.ts, e2e-app.ts; lib/migraciones.ts)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
 vitest.config.ts     los tres niveles que corren con Vitest (proyectos dominio, casos-uso, extraccion)

@@ -8,7 +8,7 @@
  * |--------------|----------------------------------|---------------------|
  * | `dominio`    | `tests/dominio/**`               | nada: sin red ni base |
  * | `casos-uso`  | `tests/casos-uso/**`             | Docker (un Postgres para toda la tanda) |
- * | `extraccion` | `tests/extraccion/**`            | nada (golden files: F0-16) |
+ * | `extraccion` | `tests/extraccion/**`            | nada (golden files, F0-16) |
  *
  *   npm test                → `dominio` y `casos-uso` (el ciclo de siempre)
  *   npm run test:dominio    → solo `dominio`, con el tope de 10 s de F0-14

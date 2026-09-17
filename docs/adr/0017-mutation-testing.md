@@ -12,7 +12,11 @@ aparte que no bloquea merges, con el umbral inicial anotado a partir de una corr
 orquestador resolvió antes de esta tarea que la corrida semanal va los lunes, a mano, en su propio
 `mutacion.yml`, fuera del check `ci`, y que el umbral definitivo (no el de esta tarea) se fija en
 el cierre del lote 5; el dev resuelve acá un problema que ninguno de los dos podía prever sin
-correr la herramienta: `@stryker-mutator/vitest-runner` no detecta mutantes con `vitest` 5.x.
+correr la herramienta: `@stryker-mutator/vitest-runner` no detecta mutantes con `vitest` 5.x. El
+orquestador aprobó fijar `vitest` en `4.1.11` para todo el repo y pidió sumar el `ignore` de
+majors en `dependabot.yml` (mismo patrón que `typescript`/`@types/node`) y rebasar sobre F0-15/F0-16
+una vez fusionados, actualizando el umbral si el puntaje cambiaba con las propiedades nuevas de
+F0-15 (cambió: subió).
 
 ## Contexto
 
@@ -59,13 +63,21 @@ como `devDependency`, mutando solo `src/dominio/**` (P2), con Vitest como motor 
   verificó que los cuatro niveles de test, `typecheck`, `lint`, `limites`, los tres scripts
   `*:fixtures` y `npm run build` siguen en verde con `vitest` en `4.1.11` (misma sintaxis de
   `test.projects` que ya usaba `vitest.config.ts` desde F0-14).
-- **Umbral provisorio (`thresholds.break`): 87.** Puntaje real de la corrida del 2026-09-16 sobre
+- **Umbral provisorio (`thresholds.break`): 88.** Puntaje real de la corrida del 2026-09-16 sobre
   el dominio tal como está hoy (F0-18 reloj, F0-19 identificador, F0-21 historial; faltan F0-20
-  importe y F0-22 origen/auditoría), redondeado hacia abajo — **87.73 % → 87**, como pide el
-  criterio de aceptación. `high: 90`, `low: 70` son los umbrales de color del informe HTML, sin
-  pedido explícito del plan; se fijan cerca del puntaje real para que el informe sea legible desde
-  ya. El umbral inicial **definitivo** (no este) se fija en el cierre del lote 5, sobre el dominio
-  completo, y desde ahí solo sube: nunca baja (resuelto por el orquestador, no por este ADR).
+  importe y F0-22 origen/auditoría), redondeado hacia abajo. La primera corrida, antes de que
+  F0-15 (fast-check) fusionara, dio 87.73 % → 87. Al rebasar sobre `main` con F0-15 y F0-16 ya
+  fusionados, las propiedades nuevas de fast-check sobre `identificador.ts` matan cuatro mutantes
+  más que las propiedades con generador propio que reemplazan: el puntaje subió a **88.92 % → 88**
+  (repetido dos veces, mismo número las dos). `high: 90`, `low: 70` son los umbrales de color del
+  informe HTML, sin pedido explícito del plan; se fijan cerca del puntaje real para que el informe
+  sea legible desde ya. El umbral inicial **definitivo** (no este) se fija en el cierre del lote 5,
+  sobre el dominio completo, y desde ahí solo sube: nunca baja (resuelto por el orquestador, no por
+  este ADR).
+- **`dependabot.yml` ignora majors de `vitest`**, mismo patrón que `typescript` y `@types/node`:
+  mientras `@stryker-mutator/vitest-runner` no declare soporte para `vitest` 5.x, un PR de
+  Dependabot proponiendo subirlo repetiría el problema de este ADR sin que nadie lo pida a
+  propósito.
 
 ## Alternativas descartadas
 
@@ -84,11 +96,13 @@ como `devDependency`, mutando solo `src/dominio/**` (P2), con Vitest como motor 
   puede romperlo en silencio. Subir `vitest` de mayor en el futuro exige repetir la comprobación
   de este ADR (una corrida de `test:mutacion` con una mutación conocida) antes de confiar el
   puntaje otra vez.
-- F0-14, F0-15 y F0-16 corrieron o están corriendo en paralelo asumiendo `vitest` `^5.0.0`
-  (heredado de F0-14). Este PR baja esa versión: el conflicto en `package.json`/`package-lock.json`
-  se resuelve al fusionar, como los demás de este lote, pero acá además hay que decidir **qué
-  versión de `vitest` queda** — no es un conflicto de texto, es una decisión técnica (se
-  documentó para que el orquestador la tenga al fusionar).
+- F0-14, F0-15 y F0-16 corrieron en paralelo asumiendo `vitest` `^5.0.0` (heredado de F0-14) y
+  fusionaron antes que esta tarea. Al rebasar `f0-17-mutacion` sobre `main` con F0-15 y F0-16 ya
+  adentro, el único conflicto real fue `package-lock.json` (se resolvió regenerándolo con
+  `npm install`, no a mano); `package.json`, `biome.json` y `AGENTS.md` mezclaron los dos lados sin
+  intervención o con un conflicto de una sola sección (dos apartados nuevos en el mismo lugar de
+  `AGENTS.md`: se conservaron los dos). Se repitieron los cuatro niveles de test y la corrida de
+  mutación después del rebase (ver más arriba): todo sigue en verde con `vitest` en `4.1.11`.
 - El mecanismo se hace cumplir con la propia corrida de `test:mutacion`: si alguien sube `vitest`
   de mayor sin revisar esto, el puntaje puede volver a desplomarse en silencio (nada en `ci` lo
   nota, porque `mutacion.yml` corre aparte y semanal) hasta la próxima corrida de los lunes.

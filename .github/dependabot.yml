@@ -6,12 +6,17 @@ updates:
       interval: "weekly"
     # TypeScript queda fijado en 6.0.3: la 7.x no expone la API clásica del
     # compilador que usa scripts/sin-any.ts (ADR 0002). @types/node sigue la
-    # versión de Node que fija el proyecto (24, ver .nvmrc). Subir de major
-    # en cualquiera de los dos es una decisión aparte.
+    # versión de Node que fija el proyecto (24, ver .nvmrc). vitest queda
+    # fijado en 4.1.11: @stryker-mutator/vitest-runner (F0-17) no activa los
+    # mutantes bajo vitest 5.x (ADR 0017); subirlo exige repetir la
+    # comprobación manual del ADR antes de sacar este ignore. Subir de major
+    # en cualquiera de los tres es una decisión aparte.
     ignore:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "vitest"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"

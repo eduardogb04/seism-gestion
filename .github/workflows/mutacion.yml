@@ -1,0 +1,66 @@
+# Mutation testing sobre el dominio (F0-17). Decisiones y porqués:
+# docs/adr/0017-mutation-testing.md.
+#
+# Workflow aparte, fuera del check `ci` (F0-05/F0-06): el ruleset de `main`
+# solo exige `ci` en verde, así que esta corrida **no bloquea ningún merge**.
+# Informa. Si el puntaje cae debajo de `thresholds.break` de
+# `stryker.config.mjs`, Stryker sale con código distinto de cero y el
+# workflow queda en rojo — visible en Actions, sin frenar ningún PR — para
+# que alguien lo note y lo revise.
+#
+# Corre los lunes (planificado; el disparo real puede demorar unos minutos,
+# como cualquier `schedule` de GitHub Actions) y a mano (`workflow_dispatch`).
+# No corre en cada push ni en cada PR: es semanal, no en cada cambio (P2).
+
+name: mutacion
+
+on:
+  schedule:
+    # 13:00 UTC del lunes = 10:00 en Argentina (UTC-3).
+    - cron: "0 13 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  mutacion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Código
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Dependencias (npm ci)
+        run: npm ci
+
+      # Stryker (`stryker.config.mjs`) muta solo `src/dominio/**` (P2) y usa
+      # Vitest como motor de test, con su propio proyecto acotado
+      # (`stryker.vitest.config.ts`): no necesita Docker ni el resto de los
+      # niveles de test. Si el puntaje cae debajo del umbral, este paso sale
+      # 1 y el workflow queda en rojo (no hay `continue-on-error`: es la
+      # señal que tiene que verse).
+      - name: test:mutacion
+        id: mutacion
+        run: npm run test:mutacion
+
+      # El informe HTML queda como artefacto aunque el paso de arriba haya
+      # fallado (el umbral cayó): es lo primero que hay que mirar para saber
+      # qué mutante sobrevivió.
+      - name: Informe de mutación (artefacto)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: informe-mutacion
+          path: reports/mutacion/
+          retention-days: 30

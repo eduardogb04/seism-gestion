@@ -23,6 +23,8 @@
  * en runtime los dos sean el mismo string (un UUID). Ver
  * `tests/dominio/identificador.test.ts` para la prueba con `@ts-expect-error`.
  */
+import { catalogo } from "./errores/catalogo.ts";
+import type { Resultado } from "./historial.ts";
 import type { Reloj } from "./reloj.ts";
 
 declare const marcaIdentificador: unique symbol;
@@ -185,4 +187,29 @@ export function parsearCodigo(valor: string): DatosCodigoLegible | null {
   }
 
   return { prefijo, anio, secuencia };
+}
+
+/** El texto no es un `CodigoLegible` que `formatearCodigo` pueda haber producido. */
+export interface CodigoIlegible {
+  readonly codigo: typeof catalogo.DOM_0002.codigo;
+  readonly valor: string;
+}
+
+/**
+ * `parsearCodigo` con el error del catálogo: para el borde que lee un código
+ * que escribió una persona y tiene que decirle por qué no sirve (DOM-0002).
+ * `parsearCodigo` conserva su firma (`null`) porque sus llamadores y sus
+ * propiedades (F0-15) se apoyan en ella.
+ */
+export function leerCodigo(
+  valor: string,
+): Resultado<DatosCodigoLegible, CodigoIlegible> {
+  const datos = parsearCodigo(valor);
+  if (datos === null) {
+    return {
+      ok: false,
+      error: Object.freeze({ codigo: catalogo.DOM_0002.codigo, valor }),
+    };
+  }
+  return { ok: true, valor: datos };
 }

@@ -20,6 +20,7 @@
  * reglas de negocio (devuelve `Resultado`).
  */
 
+import { catalogo } from "./errores/catalogo.ts";
 import type { Resultado } from "./historial.ts";
 import type { FechaHora } from "./reloj.ts";
 
@@ -86,12 +87,9 @@ export function multiplicar<M extends Moneda>(
   return crearImporte(importe.centavos * cantidad, importe.moneda);
 }
 
-export const CODIGO_PARTES_INVALIDAS =
-  "DOMINIO.IMPORTE.PARTES_INVALIDAS" as const;
-
 /** Se pidió repartir en una cantidad de partes que no es un entero positivo. */
 export interface PartesInvalidas {
-  readonly codigo: typeof CODIGO_PARTES_INVALIDAS;
+  readonly codigo: typeof catalogo.DOM_0003.codigo;
   readonly partes: number;
 }
 
@@ -107,7 +105,7 @@ export function repartir<M extends Moneda>(
   if (!Number.isSafeInteger(partes) || partes < 1) {
     return {
       ok: false,
-      error: Object.freeze({ codigo: CODIGO_PARTES_INVALIDAS, partes }),
+      error: Object.freeze({ codigo: catalogo.DOM_0003.codigo, partes }),
     };
   }
 
@@ -169,12 +167,9 @@ export type TipoDeCambio<
   A extends Exclude<Moneda, De>,
 > = DatosTipoDeCambio<De, A> & { readonly [marcaTipoDeCambio]: true };
 
-export const CODIGO_TIPO_DE_CAMBIO_INVALIDO =
-  "DOMINIO.TIPO_DE_CAMBIO.INVALIDO" as const;
-
 /** Un dato del tipo de cambio no cumple su regla. */
 export interface TipoDeCambioInvalido {
-  readonly codigo: typeof CODIGO_TIPO_DE_CAMBIO_INVALIDO;
+  readonly codigo: typeof catalogo.DOM_0004.codigo;
   /**
    * `valor`: no es positivo o su texto no es un decimal válido · `fuente` y
    * `cargadoPor`: vacíos · `a`: igual a `de`.
@@ -193,7 +188,7 @@ export function crearTipoDeCambio<
     return {
       ok: false,
       error: Object.freeze({
-        codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO,
+        codigo: catalogo.DOM_0004.codigo,
         campo: campoInvalido,
       }),
     };
@@ -260,11 +255,9 @@ function redondearMitadLejosDelCero(
   return dividendo < 0n ? -cociente : cociente;
 }
 
-export const CODIGO_TEXTO_INVALIDO = "DOMINIO.IMPORTE.TEXTO_INVALIDO" as const;
-
 /** El texto no es un monto según la regla de `parsearImporte`. */
 export interface TextoInvalido {
-  readonly codigo: typeof CODIGO_TEXTO_INVALIDO;
+  readonly codigo: typeof catalogo.DOM_0005.codigo;
   readonly texto: string;
 }
 
@@ -304,7 +297,7 @@ export function parsearImporte<M extends Moneda>(
   if (coincidencia === null || enteros === undefined) {
     return {
       ok: false,
-      error: Object.freeze({ codigo: CODIGO_TEXTO_INVALIDO, texto }),
+      error: Object.freeze({ codigo: catalogo.DOM_0005.codigo, texto }),
     };
   }
 
@@ -355,7 +348,7 @@ function valorInvalido(): Resultado<ValorTipoDeCambio, TipoDeCambioInvalido> {
   return {
     ok: false,
     error: Object.freeze({
-      codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO,
+      codigo: catalogo.DOM_0004.codigo,
       campo: "valor",
     }),
   };

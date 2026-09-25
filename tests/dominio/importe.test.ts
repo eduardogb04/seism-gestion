@@ -1,7 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { formatearMonto } from "../../src/app/formato/importe.ts";
-import { identificadorDesde } from "../../src/dominio/compartido/identificador.ts";
 import {
   CODIGO_PARTES_INVALIDAS,
   CODIGO_TEXTO_INVALIDO,
@@ -15,6 +14,7 @@ import {
   type Moneda,
   multiplicar,
   parsearImporte,
+  parsearValorTipoDeCambio,
   repartir,
   restar,
   sumar,
@@ -41,6 +41,17 @@ const centavosArbitrarios: fc.Arbitrary<bigint> = fc.bigInt({
   max: CENTAVOS_MAXIMOS,
 });
 
+/**
+ * Totales con los tres casos a la vista (R5/R8 de la ficha): el cero, negativos
+ * y positivos, además de los que fast-check elija en todo el rango.
+ */
+const centavosConBordes: fc.Arbitrary<bigint> = fc.oneof(
+  fc.constant(0n),
+  fc.bigInt({ min: -CENTAVOS_MAXIMOS, max: -1n }),
+  fc.bigInt({ min: 1n, max: CENTAVOS_MAXIMOS }),
+  centavosArbitrarios,
+);
+
 const monedaArbitraria: fc.Arbitrary<Moneda> = fc.constantFrom(...MONEDAS);
 
 function fechaDePrueba(): FechaHora {
@@ -59,9 +70,7 @@ function fechaDePrueba(): FechaHora {
   return resultado.fechaHora;
 }
 
-const USUARIO_FICTICIO = identificadorDesde<"Usuario">(
-  "33333333-3333-4333-8333-333333333333",
-);
+const USUARIO_FICTICIO = "usuaria-de-prueba";
 
 function datosTipoDeCambio<De extends Moneda, A extends Exclude<Moneda, De>>(
   de: De,
@@ -194,7 +203,7 @@ describe("aritmética en centavos", () => {
 
   it("propiedad: repartir no pierde ni inventa centavos, y ninguna parte difiere de otra en más de un centavo", () => {
     propiedad(
-      centavosArbitrarios,
+      centavosConBordes,
       fc.integer({ min: 1, max: 500 }),
       monedaArbitraria,
       (centavos, partes, moneda) => {
@@ -237,6 +246,12 @@ describe("TipoDeCambio y convertir", () => {
     [-1n, 1n, 2n, -1n], // -0,5 → -1 (simétrico: la mitad se aleja del cero)
     [-3n, 1n, 2n, -2n], // -1,5 → -2
     [-1n, 49n, 100n, 0n], // -0,49 → 0
+    [1n, 4_999n, 10_000n, 0n], // 0,4999 → 0
+    [1n, 5_001n, 10_000n, 1n], // 0,5001 → 1
+    [-1n, 4_999n, 10_000n, 0n], // -0,4999 → 0
+    [-1n, 5_001n, 10_000n, -1n], // -0,5001 → -1
+    [5n, 3n, 10n, 2n], // 1,5 → 2 con otro denominador
+    [-5n, 3n, 10n, -2n], // -1,5 → -2
   ])(
     "%s centavos × %s/%s = %s (half-up)",
     (centavos, numerador, denominador, esperado) => {
@@ -272,6 +287,13 @@ describe("TipoDeCambio y convertir", () => {
     );
 
     expect(aMano.de).toBe("USD");
+  });
+
+  it("no existe un TC de una moneda a sí misma, así que convertir ARS a ARS no compila (tipos)", () => {
+    // @ts-expect-error TipoDeCambio<'ARS', 'ARS'> no es un tipo válido.
+    const aSiMisma: TipoDeCambio<"ARS", "ARS"> | null = null;
+
+    expect(aSiMisma).toBeNull();
   });
 
   it("guarda de, a, valor, fecha, fuente y quién lo cargó, y queda congelado", () => {
@@ -323,6 +345,71 @@ describe("TipoDeCambio y convertir", () => {
     }
   });
 
+  it("rechaza un TC sin quién lo cargó", () => {
+    const resultado = crearTipoDeCambio({
+      ...datosTipoDeCambio("USD", "ARS", 1_370n, 1n),
+      cargadoPor: " ",
+    });
+
+    expect(resultado).toEqual({
+      ok: false,
+      error: { codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO, campo: "cargadoPor" },
+    });
+  });
+
+  it.each([
+    ["1372,50", 137_250n, 100n],
+    ["1.372,5", 13_725n, 10n],
+    ["1372", 1_372n, 1n],
+    ["0,0001", 1n, 10_000n],
+    ["1.234.567,123456", 1_234_567_123_456n, 1_000_000n],
+  ])(
+    "el valor se carga desde el texto decimal %j, exacto",
+    (texto, numerador, denominador) => {
+      expect(parsearValorTipoDeCambio(texto)).toEqual({
+        ok: true,
+        valor: { numerador, denominador },
+      });
+    },
+  );
+
+  it.each([
+    "0",
+    "0,00",
+    "-1372,50",
+    "",
+    "   ",
+    "1,372.50",
+    "13.72",
+    "1372,",
+    "1 372",
+    "abc",
+    "1e3",
+  ])("rechaza el valor de TC %j (texto inválido, cero o negativo)", (texto) => {
+    expect(parsearValorTipoDeCambio(texto)).toEqual({
+      ok: false,
+      error: { codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO, campo: "valor" },
+    });
+  });
+
+  it("un TC cargado desde texto convierte igual que la fracción", () => {
+    const valor = parsearValorTipoDeCambio("1.370,50");
+    expect(valor.ok).toBe(true);
+    if (!valor.ok) {
+      return;
+    }
+    const resultado = crearTipoDeCambio({
+      ...datosTipoDeCambio("USD", "ARS", 1n, 1n),
+      valor: valor.valor,
+    });
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) {
+      expect(
+        convertir(crearImporte(1_372_000n, "USD"), resultado.valor),
+      ).toEqual({ centavos: 1_880_326_000n, moneda: "ARS" });
+    }
+  });
+
   it("rechaza un TC de una moneda a sí misma (en tipos y en ejecución)", () => {
     const mismaMoneda = {
       ...datosTipoDeCambio("ARS", "USD", 1n, 1n),
@@ -338,52 +425,43 @@ describe("TipoDeCambio y convertir", () => {
     });
   });
 
-  const valorArbitrario = fc.record({
-    numerador: fc.bigInt({ min: 1n, max: 10n ** 9n }),
-    denominador: fc.bigInt({ min: 1n, max: 10n ** 6n }),
+  /**
+   * TC realistas (R8): de 1 a 5000 con hasta cuatro decimales, como se cargan
+   * a mano. El valor es `numerador / 10000`.
+   */
+  const DIEZ_MIL = 10_000n;
+  const numeradorRealista = fc.bigInt({
+    min: DIEZ_MIL,
+    max: 5_000n * DIEZ_MIL,
   });
 
-  it("propiedad: convertir y volver con el TC inverso difiere del original en a lo sumo un centavo por operación", () => {
-    // Desde la moneda que vale más (valor >= 1: USD → ARS, el caso de uso),
-    // un centavo de redondeo por operación: a lo sumo 2 en la vuelta.
-    propiedad(
-      centavosArbitrarios,
-      valorArbitrario.filter(
-        ({ numerador, denominador }) => numerador >= denominador,
-      ),
-      (centavos, { numerador, denominador }) => {
-        const ida = tipoDeCambio("USD", "ARS", numerador, denominador);
-        const vuelta = tipoDeCambio("ARS", "USD", denominador, numerador);
-        const original = crearImporte(centavos, "USD");
+  it("propiedad: USD → ARS → USD con el TC inverso difiere del original en a lo sumo un centavo", () => {
+    propiedad(centavosConBordes, numeradorRealista, (centavos, numerador) => {
+      const ida = tipoDeCambio("USD", "ARS", numerador, DIEZ_MIL);
+      const vuelta = tipoDeCambio("ARS", "USD", DIEZ_MIL, numerador);
+      const original = crearImporte(centavos, "USD");
 
-        const redondeado = convertir(convertir(original, ida), vuelta);
+      const redondeado = convertir(convertir(original, ida), vuelta);
 
-        expect(absoluto(redondeado.centavos - centavos) <= 2n).toBe(true);
-      },
-    );
+      expect(absoluto(redondeado.centavos - centavos) <= 1n).toBe(true);
+    });
   });
 
-  it("propiedad: con cualquier TC, el error de la vuelta es a lo sumo medio centavo de cada moneda", () => {
-    // Si el TC achica (ARS → USD), un centavo de la moneda intermedia vale
-    // muchos de la original: el error se mide en la moneda de cada
-    // operación. |error| ≤ ½·den/num (centavo de destino llevado al origen)
-    // + ½ (centavo de origen), o sea 2·num·|error| ≤ den + num.
-    propiedad(
-      centavosArbitrarios,
-      valorArbitrario,
-      (centavos, { numerador, denominador }) => {
-        const ida = tipoDeCambio("ARS", "USD", numerador, denominador);
-        const vuelta = tipoDeCambio("USD", "ARS", denominador, numerador);
-        const original = crearImporte(centavos, "ARS");
+  it("propiedad: ARS → USD → ARS difiere en a lo sumo ceil(valor/2) + 1 centavos de ARS", () => {
+    // El redondeo de la ida es en centavos de USD, y cada uno vale `valor`
+    // centavos de ARS a la vuelta: la cota crece con el TC (ADR 0018).
+    propiedad(centavosConBordes, numeradorRealista, (centavos, numerador) => {
+      const ida = tipoDeCambio("ARS", "USD", DIEZ_MIL, numerador);
+      const vuelta = tipoDeCambio("USD", "ARS", numerador, DIEZ_MIL);
+      const original = crearImporte(centavos, "ARS");
 
-        const error =
-          convertir(convertir(original, ida), vuelta).centavos - centavos;
+      const error =
+        convertir(convertir(original, ida), vuelta).centavos - centavos;
+      const mitadDelValorHaciaArriba =
+        (numerador + 2n * DIEZ_MIL - 1n) / (2n * DIEZ_MIL);
 
-        expect(
-          2n * numerador * absoluto(error) <= denominador + numerador,
-        ).toBe(true);
-      },
-    );
+      expect(absoluto(error) <= mitadDelValorHaciaArriba + 1n).toBe(true);
+    });
   });
 });
 
@@ -411,6 +489,7 @@ describe("parsearImporte: texto del usuario (regla del ADR 0018)", () => {
     "13,720.00", // formato en inglés: la coma es decimal y el punto, de miles
     "13.72", // un punto de miles con dos dígitos
     "1,500.5",
+    "1,234", // tres decimales
     "13720,001", // más de dos decimales: no se redondea lo que escribió el usuario
     "13720,",
     "13.7200",
@@ -434,7 +513,7 @@ describe("parsearImporte: texto del usuario (regla del ADR 0018)", () => {
   });
 
   it("propiedad de ida y vuelta: lo que muestra la pantalla se vuelve a parsear al mismo importe", () => {
-    propiedad(centavosArbitrarios, monedaArbitraria, (centavos, moneda) => {
+    propiedad(centavosConBordes, monedaArbitraria, (centavos, moneda) => {
       const importe = crearImporte(centavos, moneda);
 
       expect(parsearImporte(formatearMonto(importe), moneda)).toEqual({

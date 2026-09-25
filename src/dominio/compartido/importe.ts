@@ -8,8 +8,10 @@
  *   centavo.
  * - La moneda es un **tipo literal**: `sumar` de `Importe<'ARS'>` con
  *   `Importe<'USD'>` no compila.
- * - El tipo de cambio es una **fracción exacta** de enteros, y `convertir` es
- *   el **único** lugar del dominio que redondea (half-up al centavo).
+ * - El tipo de cambio es una **fracción exacta** de enteros (se carga desde
+ *   texto con `parsearValorTipoDeCambio`), y `convertir` es el **único**
+ *   lugar del dominio que redondea, con una sola función de redondeo
+ *   (`redondearMitadLejosDelCero`, half-up al centavo).
  * - `parsearImporte` lee el texto que escribe el usuario con una regla
  *   explícita (la de `docs/adr/0018-importes.md`). El formato para pantalla
  *   no vive acá: es presentación (`src/app/formato/importe.ts`).
@@ -19,7 +21,6 @@
  */
 
 import type { Resultado } from "./historial.ts";
-import type { Identificador } from "./identificador.ts";
 import type { FechaHora } from "./reloj.ts";
 
 /** Las monedas que conoce el sistema. Agregar una es sumarla acá. */
@@ -152,9 +153,10 @@ export interface DatosTipoDeCambio<
   readonly a: A;
   readonly valor: ValorTipoDeCambio;
   readonly fecha: FechaHora;
+  /** De dónde salió el valor (texto libre, no vacío). */
   readonly fuente: string;
-  /** Quién lo cargó. F0-22 puede cambiarlo por `Actor`. */
-  readonly cargadoPor: Identificador<"Usuario">;
+  /** Quién lo cargó (texto no vacío). F0-22 puede cambiarlo por `Actor`. */
+  readonly cargadoPor: string;
 }
 
 /**
@@ -173,8 +175,11 @@ export const CODIGO_TIPO_DE_CAMBIO_INVALIDO =
 /** Un dato del tipo de cambio no cumple su regla. */
 export interface TipoDeCambioInvalido {
   readonly codigo: typeof CODIGO_TIPO_DE_CAMBIO_INVALIDO;
-  /** `valor`: no es positivo · `fuente`: vacía · `a`: igual a `de`. */
-  readonly campo: "valor" | "fuente" | "a";
+  /**
+   * `valor`: no es positivo o su texto no es un decimal válido · `fuente` y
+   * `cargadoPor`: vacíos · `a`: igual a `de`.
+   */
+  readonly campo: "valor" | "fuente" | "cargadoPor" | "a";
 }
 
 export function crearTipoDeCambio<
@@ -214,6 +219,9 @@ function validarTipoDeCambio<De extends Moneda, A extends Exclude<Moneda, De>>(
   if (datos.fuente.trim() === "") {
     return "fuente";
   }
+  if (datos.cargadoPor.trim() === "") {
+    return "cargadoPor";
+  }
   return null;
 }
 
@@ -228,16 +236,28 @@ export function convertir<De extends Moneda, A extends Exclude<Moneda, De>>(
   importe: Importe<NoInfer<De>>,
   tipoDeCambio: TipoDeCambio<De, A>,
 ): Importe<A> {
-  const producto = importe.centavos * tipoDeCambio.valor.numerador;
-  const { denominador } = tipoDeCambio.valor;
-  const absoluto = producto < 0n ? -producto : producto;
+  const { numerador, denominador } = tipoDeCambio.valor;
+  return crearImporte(
+    redondearMitadLejosDelCero(importe.centavos * numerador, denominador),
+    tipoDeCambio.a,
+  );
+}
 
-  let cociente = absoluto / denominador;
-  if (2n * (absoluto % denominador) >= denominador) {
+/**
+ * La **única** función de redondeo del dominio (P5, ADR 0018): `dividendo /
+ * divisor` (divisor positivo) al entero más cercano; en la mitad exacta se
+ * aleja del cero (`1,5 → 2`, `-1,5 → -2`). Todo en `bigint`.
+ */
+function redondearMitadLejosDelCero(
+  dividendo: bigint,
+  divisor: bigint,
+): bigint {
+  const absoluto = dividendo < 0n ? -dividendo : dividendo;
+  let cociente = absoluto / divisor;
+  if (2n * (absoluto % divisor) >= divisor) {
     cociente += 1n;
   }
-
-  return crearImporte(producto < 0n ? -cociente : cociente, tipoDeCambio.a);
+  return dividendo < 0n ? -cociente : cociente;
 }
 
 export const CODIGO_TEXTO_INVALIDO = "DOMINIO.IMPORTE.TEXTO_INVALIDO" as const;
@@ -249,20 +269,31 @@ export interface TextoInvalido {
 }
 
 /**
- * La regla de lectura (ADR 0018): formato argentino, sin ambigüedad.
- * - `-` opcional adelante; nada de `+`, ni código de moneda, ni espacios en el medio.
- * - Parte entera obligatoria: dígitos corridos (`13720`), o agrupados de a
- *   tres con punto (`13.720`), y en ese caso sin cero adelante.
- * - Coma decimal opcional seguida de uno o dos dígitos (`13720,5`).
- * - El punto es **solo** de miles y la coma **solo** decimal: `13,720.00` se
- *   rechaza, no se adivina.
+ * Parte entera de un número escrito en formato argentino: dígitos corridos
+ * (`13720`), o agrupados de a tres exactos con punto de miles (`13.720`), y
+ * en ese caso sin cero adelante.
  */
-const PATRON_MONTO =
-  /^(-)?([0-9]+|[1-9][0-9]{0,2}(?:\.[0-9]{3})+)(?:,([0-9]{1,2}))?$/;
+const PARTE_ENTERA = String.raw`([0-9]+|[1-9][0-9]{0,2}(?:\.[0-9]{3})+)`;
+
+const PATRON_MONTO = new RegExp(`^(-)?${PARTE_ENTERA}(?:,([0-9]{1,2}))?$`);
 
 /**
- * Lee el monto que escribió el usuario, en la moneda que ya eligió. No
- * redondea: más de dos decimales es un error, no un monto.
+ * Lee el monto que escribió el usuario, en la moneda que ya eligió.
+ *
+ * **Regla** (ADR 0018), formato argentino y sin adivinar:
+ * - Separador decimal: **coma**. Separador de miles: **punto**, opcional, y
+ *   si está, en grupos de tres exactos (`13.720`; `13.72` se rechaza).
+ * - Hasta **dos** decimales (`13720,5` es 13.720,50). Más de dos es un error:
+ *   no se redondea lo que escribió el usuario (`1,234` se rechaza).
+ * - Signo `-` opcional adelante; nada de `+`.
+ * - Parte entera obligatoria (`,50` se rechaza).
+ * - Los espacios de las puntas se ignoran; en el medio se rechazan
+ *   (`13 720`), igual que letras, códigos de moneda y notación científica.
+ * - El formato en inglés (`13,720.00`) se **rechaza**, no se adivina.
+ *
+ * Se aceptan `13.720,00`, `13720`, `13720,5` y `-13.720,00`. Lo que escribe
+ * `formatearMonto` (`src/app/formato/importe.ts`) se vuelve a leer igual
+ * (propiedad de ida y vuelta en `tests/dominio/importe.test.ts`).
  */
 export function parsearImporte<M extends Moneda>(
   texto: string,
@@ -283,4 +314,49 @@ export function parsearImporte<M extends Moneda>(
   const centavos = coincidencia[1] === undefined ? positivo : -positivo;
 
   return { ok: true, valor: crearImporte(centavos, moneda) };
+}
+
+const PATRON_VALOR_TIPO_DE_CAMBIO = new RegExp(
+  `^${PARTE_ENTERA}(?:,([0-9]+))?$`,
+);
+
+/**
+ * Lee el valor de un tipo de cambio cargado a mano (`1.370,50`) como fracción
+ * exacta: `137050/100`. Misma regla que `parsearImporte` (coma decimal,
+ * punto de miles opcional en grupos de tres, espacios de las puntas
+ * ignorados), sin signo y con cualquier cantidad de decimales, porque un TC
+ * no es un monto. Cero, negativo o texto inválido → `TipoDeCambioInvalido`
+ * en `valor`.
+ */
+export function parsearValorTipoDeCambio(
+  texto: string,
+): Resultado<ValorTipoDeCambio, TipoDeCambioInvalido> {
+  const coincidencia = PATRON_VALOR_TIPO_DE_CAMBIO.exec(texto.trim());
+  const enteros = coincidencia?.[1];
+  if (coincidencia === null || enteros === undefined) {
+    return valorInvalido();
+  }
+
+  const decimales = coincidencia[2] ?? "";
+  const numerador = BigInt(`${enteros.replaceAll(".", "")}${decimales}`);
+  if (numerador === 0n) {
+    return valorInvalido();
+  }
+  return {
+    ok: true,
+    valor: Object.freeze({
+      numerador,
+      denominador: 10n ** BigInt(decimales.length),
+    }),
+  };
+}
+
+function valorInvalido(): Resultado<ValorTipoDeCambio, TipoDeCambioInvalido> {
+  return {
+    ok: false,
+    error: Object.freeze({
+      codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO,
+      campo: "valor",
+    }),
+  };
 }

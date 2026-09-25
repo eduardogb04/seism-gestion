@@ -1,0 +1,44 @@
+{
+  "ALM_0001": {
+    "codigo": "ALM-0001",
+    "descripcion": "El documento que se pidió no está en el almacén de documentos.",
+    "queHacer": "Avisá con este código. Quien mantiene el sistema busca en el log la clave del documento y revisa si el almacén lo perdió o si la referencia apunta a otro lado.",
+    "tipo": "externo"
+  },
+  "DOM_0001": {
+    "codigo": "DOM-0001",
+    "descripcion": "No se puede pasar a ese estado desde el estado actual: el cambio no está permitido.",
+    "queHacer": "Revisá en qué estado está y a cuáles se puede pasar desde ahí. Si el cambio tendría que estar permitido, avisá con este código.",
+    "tipo": "persona"
+  },
+  "DOM_0002": {
+    "codigo": "DOM-0002",
+    "descripcion": "El código no se puede leer: no tiene la forma PREFIJO-AÑO-NÚMERO (por ejemplo, SRV-2026-014).",
+    "queHacer": "Copiá el código tal cual aparece en el sistema, sin ceros de más ni de menos y con los guiones.",
+    "tipo": "persona"
+  },
+  "DOM_0003": {
+    "codigo": "DOM-0003",
+    "descripcion": "Se pidió repartir un importe en una cantidad de partes que no es un entero positivo.",
+    "queHacer": "Es un error del sistema, no de lo que cargaste: avisá con este código. En el log, el detalle dice cuántas partes se pidieron.",
+    "tipo": "sistema"
+  },
+  "DOM_0004": {
+    "codigo": "DOM-0004",
+    "descripcion": "El tipo de cambio no es válido: el valor tiene que ser mayor que cero, las dos monedas distintas, y la fuente y quién lo cargó no pueden quedar vacíos.",
+    "queHacer": "Revisá el dato que marca el error (valor, monedas, fuente o quién lo cargó) y volvé a cargarlo. El valor va con coma decimal, por ejemplo 1.234,56.",
+    "tipo": "persona"
+  },
+  "DOM_0005": {
+    "codigo": "DOM-0005",
+    "descripcion": "El monto no se puede leer: tiene que ser un número con coma decimal y hasta dos decimales, por ejemplo 12.345,67.",
+    "queHacer": "Escribí el monto sin la moneda, sin espacios en el medio y con coma para los decimales. El punto de miles es opcional.",
+    "tipo": "persona"
+  },
+  "INF_0001": {
+    "codigo": "INF-0001",
+    "descripcion": "Ocurrió un error inesperado en el sistema y la operación no se completó.",
+    "queHacer": "Volvé a intentar en unos minutos. Si se repite, avisá con este código: en el log está la causa y dónde ocurrió.",
+    "tipo": "sistema"
+  }
+}

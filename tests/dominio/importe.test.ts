@@ -1,10 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { formatearMonto } from "../../src/app/formato/importe.ts";
+import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
 import {
-  CODIGO_PARTES_INVALIDAS,
-  CODIGO_TEXTO_INVALIDO,
-  CODIGO_TIPO_DE_CAMBIO_INVALIDO,
   convertir,
   crearImporte,
   crearTipoDeCambio,
@@ -187,7 +185,7 @@ describe("aritmética en centavos", () => {
 
       expect(resultado).toEqual({
         ok: false,
-        error: { codigo: CODIGO_PARTES_INVALIDAS, partes },
+        error: { codigo: catalogo.DOM_0003.codigo, partes },
       });
     },
   );
@@ -323,7 +321,7 @@ describe("TipoDeCambio y convertir", () => {
       expect(resultado.ok).toBe(false);
       if (!resultado.ok) {
         expect(resultado.error).toEqual({
-          codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO,
+          codigo: catalogo.DOM_0004.codigo,
           campo: "valor",
         });
       }
@@ -339,7 +337,7 @@ describe("TipoDeCambio y convertir", () => {
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
       expect(resultado.error).toEqual({
-        codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO,
+        codigo: catalogo.DOM_0004.codigo,
         campo: "fuente",
       });
     }
@@ -353,7 +351,7 @@ describe("TipoDeCambio y convertir", () => {
 
     expect(resultado).toEqual({
       ok: false,
-      error: { codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO, campo: "cargadoPor" },
+      error: { codigo: catalogo.DOM_0004.codigo, campo: "cargadoPor" },
     });
   });
 
@@ -388,7 +386,7 @@ describe("TipoDeCambio y convertir", () => {
   ])("rechaza el valor de TC %j (texto inválido, cero o negativo)", (texto) => {
     expect(parsearValorTipoDeCambio(texto)).toEqual({
       ok: false,
-      error: { codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO, campo: "valor" },
+      error: { codigo: catalogo.DOM_0004.codigo, campo: "valor" },
     });
   });
 
@@ -421,7 +419,7 @@ describe("TipoDeCambio y convertir", () => {
 
     expect(resultado).toEqual({
       ok: false,
-      error: { codigo: CODIGO_TIPO_DE_CAMBIO_INVALIDO, campo: "a" },
+      error: { codigo: catalogo.DOM_0004.codigo, campo: "a" },
     });
   });
 
@@ -508,7 +506,7 @@ describe("parsearImporte: texto del usuario (regla del ADR 0018)", () => {
   ])("rechaza %j", (texto) => {
     expect(parsearImporte(texto, "ARS")).toEqual({
       ok: false,
-      error: { codigo: CODIGO_TEXTO_INVALIDO, texto },
+      error: { codigo: catalogo.DOM_0005.codigo, texto },
     });
   });
 

@@ -98,6 +98,14 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Escribí el monto sin la moneda, sin espacios en el medio y con coma para los decimales. El punto de miles es opcional.",
   },
+  DOM_0006: {
+    codigo: "DOM-0006",
+    tipo: "sistema",
+    descripcion:
+      "No se pudo armar el código legible: el prefijo, el año o el número de secuencia no son válidos.",
+    queHacer:
+      "Es un error del sistema, no de lo que cargaste: avisá con este código. En el log, el detalle dice qué dato no sirvió.",
+  },
   INF_0001: {
     codigo: "INF-0001",
     tipo: "sistema",

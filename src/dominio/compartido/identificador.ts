@@ -66,7 +66,12 @@ export type DatosCodigoLegible = {
 
 export type ResultadoFormatearCodigo =
   | { readonly ok: true; readonly codigo: CodigoLegible }
-  | { readonly ok: false; readonly mensaje: string };
+  | {
+      readonly ok: false;
+      readonly codigo: typeof catalogo.DOM_0006.codigo;
+      /** Qué dato no sirvió y por qué (para el log, no para pantalla). */
+      readonly mensaje: string;
+    };
 
 /** Prefijo: exactamente 3 letras mayúsculas. Los prefijos concretos por entidad (`SRV`, `FAC`...) los define Fase 1 — acá no se conoce ninguno. */
 const PATRON_PREFIJO = /^[A-Z]{3}$/;
@@ -87,18 +92,21 @@ export function formatearCodigo(
   if (!PATRON_PREFIJO.test(prefijo)) {
     return {
       ok: false,
+      codigo: catalogo.DOM_0006.codigo,
       mensaje: `prefijo inválido: "${prefijo}" (tiene que ser exactamente 3 letras mayúsculas).`,
     };
   }
   if (!Number.isInteger(anio) || anio < 1000 || anio > 9999) {
     return {
       ok: false,
+      codigo: catalogo.DOM_0006.codigo,
       mensaje: `año inválido: ${anio} (tiene que ser un entero de 4 dígitos, entre 1000 y 9999).`,
     };
   }
   if (!Number.isInteger(secuencia) || secuencia < 1) {
     return {
       ok: false,
+      codigo: catalogo.DOM_0006.codigo,
       mensaje: `secuencia inválida: ${secuencia} (tiene que ser un entero positivo, arrancando en 1).`,
     };
   }

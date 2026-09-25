@@ -35,6 +35,12 @@
     "queHacer": "Escribí el monto sin la moneda, sin espacios en el medio y con coma para los decimales. El punto de miles es opcional.",
     "tipo": "persona"
   },
+  "DOM_0006": {
+    "codigo": "DOM-0006",
+    "descripcion": "No se pudo armar el código legible: el prefijo, el año o el número de secuencia no son válidos.",
+    "queHacer": "Es un error del sistema, no de lo que cargaste: avisá con este código. En el log, el detalle dice qué dato no sirvió.",
+    "tipo": "sistema"
+  },
   "INF_0001": {
     "codigo": "INF-0001",
     "descripcion": "Ocurrió un error inesperado en el sistema y la operación no se completó.",

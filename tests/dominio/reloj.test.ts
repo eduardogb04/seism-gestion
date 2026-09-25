@@ -261,6 +261,12 @@ describe("diferenciaEnDias", () => {
   it("cuenta el 29 de febrero", () => {
     expect(diferenciaEnDias(fecha(2024, 3, 1), fecha(2024, 2, 28))).toBe(2);
   });
+
+  it("la misma fecha contra sí misma da +0, nunca -0", () => {
+    const misma = fecha(2026, 9, 25);
+
+    expect(Object.is(diferenciaEnDias(misma, misma), 0)).toBe(true);
+  });
 });
 
 describe("RelojFijo", () => {
@@ -344,8 +350,12 @@ describe("propiedades", () => {
   });
 
   it("diferenciaEnDias es antisimétrica", () => {
+    // Sin negación: `-diferenciaEnDias(...)` puede dar `-0` cuando el
+    // resultado es `+0` (mismo día), y `toBe`/`Object.is` distingue `-0` de
+    // `0`. Sumar las dos llamadas tiene el mismo significado y no depende
+    // del signo del cero (M-02).
     propiedad(fechaArbitraria, fechaArbitraria, (una, otra) => {
-      expect(diferenciaEnDias(una, otra)).toBe(-diferenciaEnDias(otra, una));
+      expect(diferenciaEnDias(una, otra) + diferenciaEnDias(otra, una)).toBe(0);
     });
   });
 

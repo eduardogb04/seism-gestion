@@ -27,4 +27,10 @@ Lo que ya vive acá:
   `crear`, `agregar`, `estadoActual`, `fechaDe` y `diasEntre`. Genérico: no
   sabe qué entidad lo usa. Ver `docs/adr/0010-historial-de-estados.md`.
 
-El resto del lote 5 (F0-20, F0-22) llega después.
+- `compartido/importe.ts` (F0-20) — `Importe<M>` en centavos `bigint` con la moneda
+  como tipo literal (`MONEDAS`: sumar ARS con USD no compila), aritmética entera y `repartir`,
+  `TipoDeCambio` con valor exacto (fracción de `bigint`, cargado desde texto) y `convertir`,
+  único lugar que redondea (half-up), y `parsearImporte`. El formato para pantalla vive en
+  `src/app/formato/importe.ts`. Ver `docs/adr/0018-importes.md`.
+
+El resto del lote 5 (F0-22) llega después.

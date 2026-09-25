@@ -12,3 +12,12 @@ Desde F0-19, los dos primeros: `secuencias.ts` (el número de
 `CodigoLegible`, con doble en memoria) y `generador-id.ts` (el UUID de
 `Identificador<Marca>`, con adaptador de `node:crypto` — no hace falta un
 doble de test distinto: generar un UUID no depende de dónde se guarda).
+
+Desde F0-22: `auditoria.ts` (`Auditoria { registrar(r: RegistroAuditoria):
+Promise<void> }`, con doble en memoria en
+`src/adaptadores/memoria/auditoria.ts` con `registrados()` para
+inspección; el adaptador de Prisma llega en F0-30). Ningún puerto de acá
+declara un método de borrado físico (`eliminar`, `borrar`, `delete`,
+`remove`, `destroy`, `purgar`): lo prueba
+`tests/dominio/puertos-sin-borrado.test.ts` (regla no negociable 16 de
+`AGENTS.md`).

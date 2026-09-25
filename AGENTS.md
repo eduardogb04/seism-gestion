@@ -58,6 +58,7 @@ Este archivo entero y todo `docs/adr/` es demasiado para leer en cada tarea (M-0
 | `prisma/`, `schema.prisma`, una migración, `docker-compose.yml` (Postgres) | *Base de datos* |
 | `Identificador<Marca>`, `CodigoLegible` | *Identificadores* |
 | Un test nuevo, o dónde va | *Testing: en qué nivel va cada cosa* |
+| El dominio (`src/dominio/`), sus tests o el umbral de mutación | *Testing: en qué nivel va cada cosa*, *Mutation testing* |
 | `biome.json`, una regla de lint o de formato | *Formato y lint* |
 | `.dependency-cruiser.cjs`, qué carpeta puede importar a cuál | *Límites de arquitectura* |
 | El flujo de trabajo: ramas, PR, quién aprueba | *Cómo se trabaja* |

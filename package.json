@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "lint": "biome check .",
+    "lint": "biome check . && node scripts/sin-error-crudo.ts",
     "test": "vitest run --project dominio --project casos-uso",
     "test:dominio": "node scripts/test-dominio.ts",
     "test:extraccion": "vitest run --project extraccion",

@@ -12,7 +12,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
-import { CARPETA_GOLDEN_EXTRACCION, compararConGolden } from "./_arnes/golden.ts";
+import {
+  CARPETA_GOLDEN_EXTRACCION,
+  compararConGolden,
+} from "./_arnes/golden.ts";
 
 const NOMBRE = "catalogo-errores";
 

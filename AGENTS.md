@@ -34,12 +34,38 @@ servidor del ensayo (`infra/oracle/bootstrap.sh`), que todavía no corrió contr
 
 ## Leer primero
 
-1. Este archivo, entero.
-2. `README.md` — cómo se levanta.
-3. `docs/arquitectura.md` — capas, carpetas y qué puede importar cada una.
-4. `docs/adr/` — las decisiones y por qué. No se reabren sin un ADR nuevo.
-5. La spec de la tarea que te toca (`docs/specs/` o la que te pasaron).
-6. `RUNBOOK.md` solo si tu tarea toca infraestructura o deja un paso manual.
+Este archivo entero y todo `docs/adr/` es demasiado para leer en cada tarea (M-01). En vez de eso:
+
+1. La spec de la tarea que te toca (`docs/specs/` o la que te pasaron) — siempre.
+2. De este archivo, solo las secciones que la tabla de abajo dice para lo que tu tarea toca.
+3. Un ADR de `docs/adr/` — solo cuando una sección de la tabla o la spec lo cita puntualmente. No
+   se reabren sin un ADR nuevo.
+4. `RUNBOOK.md` solo si tu tarea toca infraestructura o deja un paso manual.
+
+**Si tu tarea toca… → leé estas secciones.**
+
+| Si tu tarea toca… | Leé estas secciones |
+|---|---|
+| Llegás sin spec ni contexto | *Qué es este repo* · `README.md` · `docs/arquitectura.md` · *Cómo se trabaja* · *Formato de una tarea (spec)* · *Definición de terminado* · *Comandos* |
+| Cualquier tarea, sin excepción | *Reglas no negociables* · *Nunca* · *Definición de terminado* |
+| Entender qué es este repo antes de arrancar | *Qué es este repo* |
+| Un comando de `npm run ...`, `package.json` o `scripts/` | *Comandos* |
+| `.github/workflows/ci.yml`, un check del PR o gitleaks | *CI* |
+| `main`, ramas, el ruleset de GitHub | *Rama principal protegida* |
+| Next.js, variables de entorno, `src/app`, `src/instrumentation.ts` | *Next.js y entorno* |
+| `Dockerfile`, `.dockerignore`, `scripts/imagen.ts` | *Imagen Docker* |
+| `infra/`, el servidor del ensayo, Oracle | *El servidor del ensayo (Oracle)* |
+| `prisma/`, `schema.prisma`, una migración, `docker-compose.yml` (Postgres) | *Base de datos* |
+| `Identificador<Marca>`, `CodigoLegible` | *Identificadores* |
+| Un test nuevo, o dónde va | *Testing: en qué nivel va cada cosa* |
+| `biome.json`, una regla de lint o de formato | *Formato y lint* |
+| `.dependency-cruiser.cjs`, qué carpeta puede importar a cuál | *Límites de arquitectura* |
+| El flujo de trabajo: ramas, PR, quién aprueba | *Cómo se trabaja* |
+| Escribir o leer la spec de una tarea | *Formato de una tarea (spec)* |
+| Cerrar una tarea (el checklist final) | *Definición de terminado* |
+| Agregar un comando, migración, fixture, límite, paso de CI, algo a la imagen o un ADR nuevos | *Cómo se agrega...* |
+| Dónde va un archivo nuevo, la estructura de carpetas | *Estructura* |
+| Qué no se hace nunca en este repo | *Nunca* |
 
 ## Comandos
 

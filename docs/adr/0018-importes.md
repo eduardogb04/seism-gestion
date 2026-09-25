@@ -38,7 +38,7 @@ la única operación que redondea es `convertir`, a través de una sola función
   y negativos.
 - **Tipo de cambio.** `TipoDeCambio { de, a, valor, fecha, fuente, cargadoPor }`. `valor` es una
   fracción exacta de `bigint` (`numerador / denominador`): se carga desde texto decimal con
-  `parsearValorTipoDeCambio("1.370,50")` → `137050/100`, y su inverso (`100/137050`) sigue siendo
+  `parsearValorTipoDeCambio("1.370,50")` → `137050/100` (misma regla que los montos, pero sin signo y con cualquier cantidad de decimales), y su inverso (`100/137050`) sigue siendo
   exacto. Cero, negativo o texto inválido → `DOMINIO.TIPO_DE_CAMBIO.INVALIDO` en `valor`. `fecha`
   es `FechaHora` (ADR 0012); `fuente` y `cargadoPor`, texto no vacío. `de` y `a` no pueden ser la
   misma moneda (por tipos, `A extends Exclude<Moneda, De>`, y en ejecución). Solo

@@ -20,7 +20,8 @@
       "!.next",
       "!next-env.d.ts",
       "!src/adaptadores/prisma/generado",
-      "!tests/extraccion/golden"
+      "!tests/extraccion/golden",
+      "!.claude"
     ]
   },
   "formatter": {

@@ -59,6 +59,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run test:golden:update` | Regenera **a propósito** los goldens de `tests/extraccion/golden/` (`ACTUALIZAR_GOLDEN=si`) y lo avisa en pantalla. CI nunca lo corre; revisá el diff a mano antes de commitear (F0-16) |
 | `npm run test:e2e` | Playwright (Chromium) sobre `tests/e2e/`: levanta la app con compose —la imagen que se publica— y recorre el camino de humo. Necesita Docker corriendo y el navegador instalado una vez (`npx playwright install chromium`, RUNBOOK sección 16). `-- --ui` abre la interfaz de Playwright; `-- --headed`, el navegador a la vista |
 | `npm run test:todo` | Los cuatro niveles: `vitest run` (dominio, casos de uso, extracción) y después el e2e |
+| `npm run test:mutacion` | Mutation testing (F0-17): `stryker run` muta `src/dominio/**` y corre el nivel `dominio` (`stryker.vitest.config.ts`, no `vitest.config.ts`: no necesita Docker) por cada mutante. No es parte del ciclo de un PR (tarda más y no lo exige el check `ci`): corre a mano o los lunes en `.github/workflows/mutacion.yml`. Ver *Mutation testing* y ADR 0017 |
 | `npm run e2e:app` | No se llama a mano: es el `webServer` de `playwright.config.ts`. Construye la imagen (`npm run imagen`), levanta el servicio `app` del perfil `e2e` de compose y espera el latido. Lo apaga `tests/e2e/_arnes/apagar-app.ts` al terminar el e2e |
 | `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que generan Next, ADR 0005, y Prisma, ADR 0008) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
@@ -425,6 +426,36 @@ funciona, no de que el dominio es correcto.
 Las propiedades de negocio de `tests/dominio/reloj.test.ts` e
 `tests/dominio/identificador.test.ts` (ver *Identificadores*, más arriba, y
 `src/dominio/compartido/reloj.ts` en *Estructura*) usan este helper desde F0-15.
+
+## Mutation testing
+
+*"Es la única forma de saber si los tests sirven o solo dan verde"* (F0-17, plan P2). Stryker
+(`@stryker-mutator/core` + `@stryker-mutator/vitest-runner`, `10.0.0` exacto) muta **solo**
+`src/dominio/**` y corre el nivel `dominio` contra cada mutante. Decisiones y porqués en el
+ADR 0017.
+
+- **`npm run test:mutacion`** (`stryker run`) corre a mano. `.github/workflows/mutacion.yml` la
+  corre además **los lunes** y a pedido (`workflow_dispatch`), **fuera** del job `ci`: el ruleset
+  de `main` (F0-06) solo exige `ci`, así que esta corrida **nunca bloquea un merge**. Si el
+  puntaje cae debajo del umbral, el workflow queda en rojo (visible en *Actions*) y el informe
+  HTML queda de artefacto (`reports/mutacion/`, no versionado — ver `.gitignore`).
+- **`stryker.config.mjs`** apunta a `stryker.vitest.config.ts`, no a `vitest.config.ts`: un
+  archivo aparte con un solo proyecto de Vitest (el nivel `dominio`, mismo `include` y mismo
+  arnés sin red), para que mutar el dominio nunca necesite Docker ni toque `casos-uso` ni
+  `extraccion`. Si el proyecto `dominio` de `vitest.config.ts` cambia, replicar el cambio ahí.
+- **`vitest` está fijado en `4.1.11` exacto, no en `5.x`.** `@stryker-mutator/vitest-runner@10.0.0`
+  no activa los mutantes con `vitest` 5.0.0/5.0.1 (puntaje incorrecto, verificado a mano: ver ADR
+  0017); salió antes de que `vitest` 5 existiera. No hay forma de darle a Stryker una copia propia
+  de `vitest` sin dársela a todo el repo (`vitest` es su *peerDependency*, y npm no arma una copia
+  anidada cuando la raíz ya declara la suya). **Antes de subir `vitest` de mayor:** aplicar a mano
+  una mutación conocida (por ejemplo, cambiar `dia ?? ""` por `dia && ""` en
+  `src/dominio/compartido/reloj.ts`), confirmar que rompe `npm run test:dominio`, y confirmar que
+  `npm run test:mutacion` la marca *"Killed"* — si aparece *"Survived"*, el puntaje que informe no
+  vale y no hay que confiar en él.
+- **El umbral (`thresholds.break`) es provisorio.** F0-17 lo fija en el puntaje real de la primera
+  corrida sobre el dominio tal como estaba ese día, redondeado hacia abajo. El umbral inicial
+  **definitivo** se fija en el cierre del lote 5 (esqueleto del dominio completo) y desde ahí solo
+  sube: nunca baja.
 
 ## Formato y lint
 

@@ -12,3 +12,6 @@ blob-report/
 *.log
 # Cliente de Prisma: lo genera `prisma generate` (postinstall), no se versiona (ADR 0008).
 /src/adaptadores/prisma/generado/
+# Mutation testing (F0-17): sandbox y reporte HTML de una corrida de Stryker.
+/.stryker-tmp/
+/reports/mutacion/

@@ -13,6 +13,7 @@
       "prisma/**",
       "*.ts",
       "*.json",
+      "*.mjs",
       ".dependency-cruiser.cjs",
       "!package-lock.json",
       "!tests/fixtures",

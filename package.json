@@ -17,6 +17,7 @@
     "test:golden:update": "node scripts/test-golden-update.ts",
     "test:e2e": "playwright test",
     "test:todo": "vitest run && npm run test:e2e",
+    "test:mutacion": "stryker run",
     "e2e:app": "node scripts/e2e-app.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && node scripts/sin-any.ts",
     "typecheck:fixtures": "node scripts/typecheck-fixtures.ts",
@@ -34,6 +35,8 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.13",
     "@playwright/test": "1.63.0",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
     "@testcontainers/postgresql": "12.1.0",
     "@types/node": "^24.13.4",
     "@types/react": "19.3.0",
@@ -43,7 +46,7 @@
     "prisma": "7.10.0",
     "testcontainers": "12.1.0",
     "typescript": "6.0.3",
-    "vitest": "^5.0.0"
+    "vitest": "4.1.11"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

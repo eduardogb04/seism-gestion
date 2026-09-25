@@ -44,4 +44,8 @@ Lo que ya vive acá:
   auditoría que persiste F0-30 a través del puerto `Auditoria`
   (`src/puertos/auditoria.ts`).
 
-El resto del lote 5 (F0-20) llega después.
+- `compartido/importe.ts` (F0-20) — `Importe<M>` en centavos `bigint` con la moneda
+  como tipo literal (`MONEDAS`: sumar ARS con USD no compila), aritmética entera y `repartir`,
+  `TipoDeCambio` con valor exacto (fracción de `bigint`, cargado desde texto) y `convertir`,
+  único lugar que redondea (half-up), y `parsearImporte`. El formato para pantalla vive en
+  `src/app/formato/importe.ts`. Ver `docs/adr/0018-importes.md`.

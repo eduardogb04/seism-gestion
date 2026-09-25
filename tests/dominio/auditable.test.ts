@@ -165,18 +165,23 @@ describe("crearRegistroAuditoria", () => {
   const id = identificadorDesde<string>("33333333-3333-4333-8333-333333333333");
   const en = fechaHoraDePrueba(9);
 
-  it("un registro de crear, con antes en null, se acepta", () => {
-    const resultado = crearRegistroAuditoria({
+  it("un registro de crear, con antes en null, se acepta y conserva sus datos", () => {
+    const datos = {
       entidad,
       id,
-      accion: "crear",
+      accion: "crear" as const,
       antes: null,
       despues: { estado: "borrador" },
       actor: actorCreador,
       en,
-    });
+    };
+
+    const resultado = crearRegistroAuditoria(datos);
 
     expect(resultado.ok).toBe(true);
+    if (resultado.ok) {
+      expect(resultado.valor).toEqual(datos);
+    }
   });
 
   it("un registro de crear con un antes rechaza: no existía nada previo", () => {
@@ -193,18 +198,23 @@ describe("crearRegistroAuditoria", () => {
     expect(resultado.ok).toBe(false);
   });
 
-  it("un registro de eliminar con el después marcado eliminadoEn se acepta (borrado lógico)", () => {
-    const resultado = crearRegistroAuditoria({
+  it("un registro de eliminar con el después marcado eliminadoEn se acepta (borrado lógico) y conserva sus datos", () => {
+    const datos = {
       entidad,
       id,
-      accion: "eliminar",
+      accion: "eliminar" as const,
       antes: { estado: "activo" },
       despues: { estado: "activo", eliminadoEn: en },
       actor: actorCreador,
       en,
-    });
+    };
+
+    const resultado = crearRegistroAuditoria(datos);
 
     expect(resultado.ok).toBe(true);
+    if (resultado.ok) {
+      expect(resultado.valor).toEqual(datos);
+    }
   });
 
   it("un registro de eliminar sin eliminadoEn en el después rechaza: acá tampoco hay borrado físico", () => {

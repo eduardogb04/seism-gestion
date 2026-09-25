@@ -64,4 +64,9 @@ describe("Actor", () => {
     expect(crearNombreProceso("1-proceso").ok).toBe(false);
     expect(crearNombreProceso("-proceso").ok).toBe(false);
   });
+
+  it("un nombre de proceso con un carácter inválido al final se rechaza, no solo se recorta", () => {
+    const resultado = crearNombreProceso("proceso-valido!");
+    expect(resultado.ok).toBe(false);
+  });
 });

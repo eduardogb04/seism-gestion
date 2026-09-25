@@ -34,12 +34,39 @@ servidor del ensayo (`infra/oracle/bootstrap.sh`), que todavía no corrió contr
 
 ## Leer primero
 
-1. Este archivo, entero.
-2. `README.md` — cómo se levanta.
-3. `docs/arquitectura.md` — capas, carpetas y qué puede importar cada una.
-4. `docs/adr/` — las decisiones y por qué. No se reabren sin un ADR nuevo.
-5. La spec de la tarea que te toca (`docs/specs/` o la que te pasaron).
-6. `RUNBOOK.md` solo si tu tarea toca infraestructura o deja un paso manual.
+Este archivo entero y todo `docs/adr/` es demasiado para leer en cada tarea (M-01). En vez de eso:
+
+1. La spec de la tarea que te toca (`docs/specs/` o la que te pasaron) — siempre.
+2. De este archivo, solo las secciones que la tabla de abajo dice para lo que tu tarea toca.
+3. Un ADR de `docs/adr/` — solo cuando una sección de la tabla o la spec lo cita puntualmente. No
+   se reabren sin un ADR nuevo.
+4. `RUNBOOK.md` solo si tu tarea toca infraestructura o deja un paso manual.
+
+**Si tu tarea toca… → leé estas secciones.**
+
+| Si tu tarea toca… | Leé estas secciones |
+|---|---|
+| Llegás sin spec ni contexto | *Qué es este repo* · `README.md` · `docs/arquitectura.md` · *Cómo se trabaja* · *Formato de una tarea (spec)* · *Definición de terminado* · *Comandos* |
+| Cualquier tarea, sin excepción | *Reglas no negociables* · *Nunca* · *Definición de terminado* |
+| Entender qué es este repo antes de arrancar | *Qué es este repo* |
+| Un comando de `npm run ...`, `package.json` o `scripts/` | *Comandos* |
+| `.github/workflows/ci.yml`, un check del PR o gitleaks | *CI* |
+| `main`, ramas, el ruleset de GitHub | *Rama principal protegida* |
+| Next.js, variables de entorno, `src/app`, `src/instrumentation.ts` | *Next.js y entorno* |
+| `Dockerfile`, `.dockerignore`, `scripts/imagen.ts` | *Imagen Docker* |
+| `infra/`, el servidor del ensayo, Oracle | *El servidor del ensayo (Oracle)* |
+| `prisma/`, `schema.prisma`, una migración, `docker-compose.yml` (Postgres) | *Base de datos* |
+| `Identificador<Marca>`, `CodigoLegible` | *Identificadores* |
+| Un test nuevo, o dónde va | *Testing: en qué nivel va cada cosa* |
+| El dominio (`src/dominio/`), sus tests o el umbral de mutación | *Testing: en qué nivel va cada cosa*, *Mutation testing* |
+| `biome.json`, una regla de lint o de formato | *Formato y lint* |
+| `.dependency-cruiser.cjs`, qué carpeta puede importar a cuál | *Límites de arquitectura* |
+| El flujo de trabajo: ramas, PR, quién aprueba | *Cómo se trabaja* |
+| Escribir o leer la spec de una tarea | *Formato de una tarea (spec)* |
+| Cerrar una tarea (el checklist final) | *Definición de terminado* |
+| Agregar un comando, migración, fixture, límite, paso de CI, algo a la imagen o un ADR nuevos | *Cómo se agrega...* |
+| Dónde va un archivo nuevo, la estructura de carpetas | *Estructura* |
+| Qué no se hace nunca en este repo | *Nunca* |
 
 ## Comandos
 
@@ -66,6 +93,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre cada fixture de `tests/fixtures/lint/`, por separado. `debe-fallar.ts` **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`; `reloj-inyectado/` por la regla del reloj (`noRestrictedGlobals` sobre `Date`), y solo desde `src/dominio/`. Sale 0 si cada uno fue rechazado por sus reglas y el caso permitido quedó limpio; 1 si alguno pasó, falta un diagnóstico o sobra uno |
 | `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
 | `npm run limites:fixtures` | Prueba negativa de `limites`: corre dependency-cruiser sobre cada carpeta de `tests/fixtures/limites/` (una por regla), por separado. Sale 0 si cada una fue rechazada por **su** regla y desde los archivos esperados; 1 si alguna pasó, la rechazó otra regla, o hay una regla sin fixture |
+| `npm run verificar` | `scripts/verificar.ts` (M-01): corre `typecheck`, `lint`, `limites`, `test` y los `*:fixtures` que haya en `package.json`, en ese orden, una línea `✔`/`✘ <paso> (<segundos> s)` por paso; si uno falla, muestra sus últimas 60 líneas y para (sale ≠ 0). La salida completa de cada paso queda en `.verificar/<paso>.log`. `-- --seguir` corre todos igual y suma cuántos fallaron. Usalo durante el desarrollo en vez de los cuatro comandos sueltos |
 | `npm run imagen` | Construye la imagen Docker: `docker build` multi-stage con `--build-arg APP_VERSION` (el SHA corto de git, o `APP_VERSION` si está definida). Sin etiqueta, `seism-gestion:local`; `-- <etiqueta>...` construye con las que le pases (es lo que hace CI al publicar). Necesita Docker corriendo, no necesita `npm ci` |
 | `npm run imagen:prueba` | Levanta esa imagen, espera el `HEALTHCHECK`, pide `/` y `/api/salud`, compara la versión con la del build, verifica que no lleve `.env` ni variables de más y que entre en el tope de tamaño. Informa **todas** las verificaciones que fallaron. `-- <etiqueta>` para probar otra |
 | `npm run db:migrate` | `scripts/db-migrate.ts`: lee `.env` si existe, **valida el entorno** (el mismo esquema que la app) y recién entonces corre `prisma migrate deploy`, que aplica las migraciones pendientes de `prisma/migrations/` (desde una base vacía o una ya migrada). Si `DATABASE_URL` falta o no es `postgresql://`/`postgres://`, **sale 1** nombrando la variable y Prisma ni se ejecuta. Necesita la base levantada |

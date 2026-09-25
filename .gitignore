@@ -15,3 +15,7 @@ blob-report/
 # Mutation testing (F0-17): sandbox y reporte HTML de una corrida de Stryker.
 /.stryker-tmp/
 /reports/mutacion/
+# Worktrees de agentes (M-01): no son código del repo, rompían `npm run lint` en el clon principal.
+/.claude/
+# Salida completa de cada paso de `npm run verificar` (M-01).
+/.verificar/

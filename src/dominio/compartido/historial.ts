@@ -18,6 +18,8 @@
  *   `Origen`) los fijen. Ver `docs/adr/0010-historial-de-estados.md`.
  */
 
+import { catalogo } from "./errores/catalogo.ts";
+
 /** Tabla de transiciones declaradas: de cada estado, a cuáles se puede pasar. */
 export type Transiciones<E extends string> = Readonly<Record<E, readonly E[]>>;
 
@@ -58,16 +60,9 @@ export interface Marca<F = string, A = string, O = string> {
   readonly origen: O;
 }
 
-/**
- * Código estable del único modo de fallar de este módulo. F0-23 lo pasa al
- * catálogo de errores; hasta entonces vive acá, ya con su código.
- */
-export const CODIGO_TRANSICION_INVALIDA =
-  "DOMINIO.HISTORIAL.TRANSICION_INVALIDA" as const;
-
 /** Se intentó un cambio de estado que la tabla no declara. */
 export interface TransicionInvalida<E extends string> {
-  readonly codigo: typeof CODIGO_TRANSICION_INVALIDA;
+  readonly codigo: typeof catalogo.DOM_0001.codigo;
   readonly de: E | null;
   readonly a: E;
   readonly permitidas: readonly E[];
@@ -164,7 +159,7 @@ export function definirCiclo<
         return {
           ok: false,
           error: Object.freeze({
-            codigo: CODIGO_TRANSICION_INVALIDA,
+            codigo: catalogo.DOM_0001.codigo,
             de,
             a,
             permitidas,

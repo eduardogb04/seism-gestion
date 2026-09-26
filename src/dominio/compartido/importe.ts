@@ -286,7 +286,9 @@ const PATRON_MONTO = new RegExp(`^(-)?${PARTE_ENTERA}(?:,([0-9]{1,2}))?$`);
  * - Hasta **dos** decimales (`24315,5` es 24.315,50). Más de dos es un error:
  *   no se redondea lo que escribió el usuario (`1,234` se rechaza).
  * - Signo `-` opcional adelante; nada de `+`.
- * - Parte entera obligatoria (`,50` se rechaza).
+ * - Parte entera obligatoria (`,50` se rechaza). Sin punto de miles se
+ *   aceptan ceros a la izquierda (`007` es 7,00); con punto de miles, no
+ *   (`024.315` se rechaza).
  * - Los espacios de las puntas se ignoran; en el medio se rechazan
  *   (`24 315`), igual que letras, códigos de moneda y notación científica.
  * - El formato en inglés (`24,315.00`) se **rechaza**, no se adivina.

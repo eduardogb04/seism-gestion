@@ -25,3 +25,8 @@ al terminar).
 - `migraciones-completas.test.ts` (F0-11): cada migración tiene su `down.sql`
   (sin Docker).
 - `seed.test.ts` (F0-10): `sembrar` dos veces deja la base igual.
+- `almacen-disco.test.ts` y `almacen-s3.test.ts` (F0-27): la suite de contrato
+  del almacén de documentos (`tests/contratos/almacen-documentos.ts`) contra
+  disco (carpeta temporal) y contra MinIO (`_arnes/minio.ts`: Testcontainers y
+  los servicios de `docker-compose.yml`, con puertos al azar), más lo propio de
+  cada adaptador.

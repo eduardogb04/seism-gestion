@@ -9,4 +9,5 @@ adaptadores (dependency-cruiser, `npm run limites`; ver
 
 Desde F0-04: `entorno.ts` (el esquema de variables de entorno y su
 validación al arrancar) y `version.ts` (cómo se resuelve la versión del
-build). El log llega en F0-24 y `arranque/` cuando haya adaptadores.
+build). El log llega en F0-24. Desde F0-27, `arranque/almacen.ts`: elige el
+almacén de documentos (disco o s3) según `ALMACEN` (ADR 0022).

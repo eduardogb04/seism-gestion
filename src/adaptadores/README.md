@@ -17,3 +17,7 @@ Desde F0-19: `memoria/`, con los primeros adaptadores de `src/puertos/`:
 `secuencias.ts` (contador en memoria, uno por prefijo y año) y
 `generador-id.ts` (UUIDs con `node:crypto` — no es un doble de test, es la
 implementación real; alcanza para lo que sigue).
+
+Desde F0-27: `disco/` y `s3/`, las dos implementaciones del almacén de
+documentos (`src/puertos/almacen-documentos.ts`, ADR 0022). Las elige
+`src/infraestructura/arranque/almacen.ts` según `ALMACEN`.

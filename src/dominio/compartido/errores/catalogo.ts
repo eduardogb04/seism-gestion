@@ -125,8 +125,7 @@ export const catalogo = definirCatalogo({
   AUT_0002: {
     codigo: "AUT-0002",
     tipo: "persona",
-    descripcion:
-      "Tu sesión no es válida o ya venció: hay que volver a entrar.",
+    descripcion: "Tu sesión no es válida o ya venció: hay que volver a entrar.",
     queHacer:
       "Volvé a iniciar sesión. Si te pasa seguido sin haber estado inactivo, avisá con este código.",
   },

@@ -114,6 +114,60 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Revisá que estés trabajando sobre el registro correcto. Si hay que recuperarlo, avisá con este código: el borrado es lógico y el registro sigue guardado.",
   },
+  AUT_0001: {
+    codigo: "AUT-0001",
+    tipo: "persona",
+    descripcion:
+      "No tenés acceso al sistema: tu email no está en la lista de usuarios habilitados o tu acceso fue revocado.",
+    queHacer:
+      "Revisá que entraste con el email correcto. Si tendrías que tener acceso, pedile a un administrador que te dé de alta o que revise tu usuario.",
+  },
+  AUT_0002: {
+    codigo: "AUT-0002",
+    tipo: "persona",
+    descripcion:
+      "Tu sesión no es válida o ya venció: hay que volver a entrar.",
+    queHacer:
+      "Volvé a iniciar sesión. Si te pasa seguido sin haber estado inactivo, avisá con este código.",
+  },
+  AUT_0003: {
+    codigo: "AUT-0003",
+    tipo: "persona",
+    descripcion:
+      "Esta acción solo la puede hacer un administrador activo: dar de alta, revocar o cambiar el rol de un usuario.",
+    queHacer:
+      "Pedile a un administrador que la haga por vos. Si tendrías que ser administrador, avisale para que revise tu rol.",
+  },
+  AUT_0004: {
+    codigo: "AUT-0004",
+    tipo: "persona",
+    descripcion:
+      "No se puede revocar ni pasar a operador al último administrador activo: el sistema se quedaría sin nadie que administre los usuarios.",
+    queHacer:
+      "Primero sumá otro administrador (dándolo de alta, o pasando a administrador a otro usuario activo) y después repetí el cambio.",
+  },
+  AUT_0005: {
+    codigo: "AUT-0005",
+    tipo: "persona",
+    descripcion:
+      "Ya hay un usuario con ese email: no se puede dar de alta dos veces (el email no distingue mayúsculas de minúsculas).",
+    queHacer:
+      "Buscá el usuario en la lista. Si está revocado y tiene que volver a entrar, avisá con este código: el alta de un revocado no se hace creando otro usuario.",
+  },
+  AUT_0006: {
+    codigo: "AUT-0006",
+    tipo: "persona",
+    descripcion: "El usuario que se quiere modificar no existe.",
+    queHacer:
+      "Actualizá la lista de usuarios y volvé a elegirlo. Si sigue apareciendo y da este error, avisá con este código.",
+  },
+  AUT_0007: {
+    codigo: "AUT-0007",
+    tipo: "persona",
+    descripcion:
+      "El email no es válido: tiene que tener la forma nombre@dominio, sin espacios.",
+    queHacer: "Revisá el email, corregilo y volvé a intentar.",
+  },
   INF_0001: {
     codigo: "INF-0001",
     tipo: "sistema",

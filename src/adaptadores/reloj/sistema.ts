@@ -6,8 +6,8 @@
  * prohíbe la global `Date` dentro de `**\/src/dominio/**`, y este archivo
  * vive en `src/adaptadores/`.
  *
- * Todavía no hay punto de armado (`src/infraestructura/arranque/`): nadie
- * lo inyecta en nada más. Queda para la tarea que lo cree.
+ * Lo inyecta el punto de armado: desde F0-27,
+ * `src/infraestructura/arranque/almacen.ts` (la clave de un documento nuevo).
  */
 import {
   crearFechaHora,

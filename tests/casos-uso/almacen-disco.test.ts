@@ -4,7 +4,10 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { crearAlmacenDisco } from "../../src/adaptadores/disco/almacen-documentos.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
-import { crearAlmacenDocumentos } from "../../src/infraestructura/arranque/almacen.ts";
+import {
+  crearAlmacenDocumentos,
+  nuevaClaveDocumento,
+} from "../../src/infraestructura/arranque/almacen.ts";
 import type { Entorno } from "../../src/infraestructura/entorno.ts";
 import { referenciaDesde } from "../../src/puertos/almacen-documentos.ts";
 import { suiteAlmacenDocumentos } from "../contratos/almacen-documentos.ts";
@@ -140,5 +143,20 @@ describe("arranque: ALMACEN=disco", () => {
       path.join(directorio, "documentos", "2031", "arranque"),
     );
     expect(archivo.size).toBe(2);
+  });
+});
+
+describe("arranque: la clave de un documento nuevo, con el reloj real", () => {
+  it("nuevaClaveDocumento arma documentos/<año del reloj del sistema>/<uuid v4>", () => {
+    const antes = new Date().getFullYear();
+    const clave = nuevaClaveDocumento();
+    const despues = new Date().getFullYear();
+    const coincidencia =
+      /^documentos\/(\d{4})\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.exec(
+        clave,
+      );
+    expect(coincidencia).not.toBeNull();
+    expect([antes, despues]).toContain(Number(coincidencia?.[1]));
+    expect(nuevaClaveDocumento()).not.toBe(clave);
   });
 });

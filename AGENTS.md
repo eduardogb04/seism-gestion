@@ -816,7 +816,7 @@ src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-27: almacen-documentos.ts (con la validación de claves)
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) memoria/ (F0-19: secuencias.ts, generador-id.ts), disco/ y s3/ (F0-27: el almacén de documentos)
-src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado (desde F0-27: almacen.ts, que elige disco o s3 según ALMACEN)
+src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado (desde F0-27: almacen.ts, que elige disco o s3 según ALMACEN y arma nuevaClaveDocumento con el reloj real)
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)

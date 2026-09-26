@@ -29,7 +29,9 @@ Un puerto `AlmacenDocumentos` (`src/puertos/almacen-documentos.ts`) con dos adap
   operación (también al leer: la referencia puede venir de la base): `^[a-z0-9-]+(/[a-z0-9-]+)*$`,
   de 1 a 512 caracteres. Rechaza `..`, barras en los bordes o dobles, barra invertida, espacios,
   mayúsculas, acentos, no-ASCII y `%` con `ALM-0002`. Las claves nuevas las arma
-  `claveDocumento(reloj, generadorId)`: `documentos/<año del reloj>/<uuid>`.
+  `claveDocumento(reloj, generadorId)`: `documentos/<año del reloj>/<uuid>`. En la app, las arma
+  `nuevaClaveDocumento()` del punto de armado, con el reloj real (`crearRelojSistema`, F0-22) y
+  los UUID de `node:crypto`: es el primer lugar donde se inyecta el reloj real.
 - **Errores.** Leer lo que no existe: `ALM-0001`. Vigencia de `urlTemporal` fuera de 1..10080
   minutos (una semana, el máximo que firma S3): `ALM-0003`. Cualquier otra falla del disco o de
   S3 (permisos, bucket inexistente, credenciales): `INF-0001`, con la causa adentro.

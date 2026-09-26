@@ -736,6 +736,15 @@ tiene más de una implementación, su suite de contrato entra a `tests/contratos
 entonces, `tests/contratos/README.md`); con una sola, alcanza con probarlo desde el test de
 dominio que lo usa.
 
+**...un adaptador real de un puerto con suite de contrato (F0-29).** Todo adaptador real de un
+puerto con suite en `tests/contratos/` (Gmail, WhatsApp, Telegram, SMTP: Fase 1, para `Correo` y
+`Notificaciones`) **tiene que pasar la misma suite** que su doble en memoria. La fábrica que le
+pasás a `suiteCorreo`/`suiteNotificaciones` no llama a `sembrar()`/`enviados()` del doble (eso no
+existe en un adaptador real): devuelve el puerto y una forma propia de preparar o leer estado
+(`preparar`/`leerEnviados`), que en un adaptador real habla con la API real (o su sandbox de test),
+no con una lista en memoria. Un archivo de test nuevo en el proyecto de Vitest que corresponda (sin
+red ni base: `dominio`; si necesita Docker o red: `casos-uso`) invoca la suite con esa fábrica.
+
 **...una clave a `configuracion` (F0-10).** Una entrada más en
 `CONFIGURACION_POR_DEFECTO` de `prisma/seed.ts`, con su `clave` y su `valor` por defecto (los dos,
 `String`: quien la lee convierte). `sembrar` la toma sola: no hace falta tocar el test. Un dato de
@@ -798,8 +807,8 @@ estimación; el orden real de creación manda).
 ```
 src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts)
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/)
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts)
 src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app

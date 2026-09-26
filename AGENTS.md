@@ -760,6 +760,12 @@ un evento pasado**, y no se agrega una que lo haga. La marca de tiempo entra por
 dominio no consulta la fecha del sistema) y los tipos de `en`, `actor` y `origen` son parámetros
 de tipo hasta que F0-22 los fije (ADR 0010).
 
+**...una moneda (F0-20).** Las monedas viven en **un** solo lugar: la constante `MONEDAS` de
+`src/dominio/compartido/importe.ts` (hoy `"ARS"` y `"USD"`); el tipo `Moneda` sale de ella.
+Sumar una es agregarla ahí y sumar un caso a `tests/dominio/importe.test.ts` y
+`tests/dominio/formato-importe.test.ts`: la aritmética, `convertir`, el parseo y el formato
+no nombran monedas. Los montos son centavos `bigint`; nunca `number` (ADR 0018).
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -769,12 +775,12 @@ estimación; el orden real de creación manda).
 ## Estructura
 
 ```
-src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21)
+src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts)
 src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
-src/app              Next.js (App Router): página de inicio, layout raíz, api/salud
+src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
 tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures

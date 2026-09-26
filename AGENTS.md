@@ -75,12 +75,12 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | Comando | Qué hace hoy |
 |---|---|
 | `npm install` / `npm ci` | Instala y, en `postinstall`, corre `prisma generate`: escribe el cliente de Prisma en `src/adaptadores/prisma/generado/` (no se versiona). No necesita base ni `.env`. Ver *Base de datos* |
-| `docker compose up -d --wait` | Levanta el Postgres 16 local (`docker-compose.yml`) y espera a que esté sano. `docker compose ps` → `(healthy)`; `docker compose down` lo apaga (`-v` borra el volumen). Necesita Docker corriendo |
+| `docker compose up -d --wait` | Levanta el Postgres 16 local y MinIO (el almacén de documentos S3, con su bucket creado por `minio-init`; F0-27) de `docker-compose.yml` y espera a que estén sanos. `docker compose ps` → `(healthy)`; `docker compose down` lo apaga (`-v` borra el volumen). Necesita Docker corriendo |
 | `npm run dev` | `next dev`: la app en `http://localhost:3000`. Necesita `.env` (copiá `.env.example`); si falta una variable o es inválida, **no arranca** (sale 1 y dice cuál). Ver *Next.js y entorno* |
 | `npm run build` | `next build` con `output: "standalone"`: compila, corre `tsc` y deja `.next/standalone/server.js`. **No necesita `.env`**; sí git o `APP_VERSION` (la versión del latido) |
 | `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
 | `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz — y después `scripts/sin-error-crudo.ts`, que rechaza `throw new Error` y `new ErrorSistema(` en `src/dominio/` y `src/casos-uso/` (F0-23, ADR 0020). `-- --write` aplica los arreglos de Biome |
-| `npm test` | Vitest sobre los niveles `dominio` y `casos-uso` (ver *Testing: en qué nivel va cada cosa*): el ciclo de siempre. **Necesita Docker corriendo** (el nivel casos de uso levanta un Postgres); no necesita `.env` ni la base de compose |
+| `npm test` | Vitest sobre los niveles `dominio` y `casos-uso` (ver *Testing: en qué nivel va cada cosa*): el ciclo de siempre. **Necesita Docker corriendo** (el nivel casos de uso levanta un Postgres y, para el almacén S3, MinIO: en Testcontainers y con los servicios de `docker-compose.yml` en un proyecto y un puerto al azar); no necesita `.env` ni tener compose levantado |
 | `npm run test:dominio` | Solo el nivel `dominio`, con su reloj: `scripts/test-dominio.ts` mide la corrida entera y **sale 1 si tarda más de 10 s** (criterio de F0-14). No necesita nada: el nivel dominio no abre red ni base |
 | `npm run test:extraccion` | Solo el nivel `extraccion` (golden files): el arnés `compararConGolden` (F0-16) y su caso de ejemplo |
 | `npm run test:golden:update` | Regenera **a propósito** los goldens de `tests/extraccion/golden/` (`ACTUALIZAR_GOLDEN=si`) y lo avisa en pantalla. CI nunca lo corre; revisá el diff a mano antes de commitear (F0-16) |
@@ -177,9 +177,12 @@ modelos:** antes de escribir código de Next, leé la guía que corresponda en
 archivo (ADR 0005).
 
 - **Levantar en local.** Copiá `.env.example` a `.env` (`.env` está en `.gitignore`: nunca entra
-  al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO` y
-  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`). La app
-  todavía no se conecta a la base, pero sin `DATABASE_URL` válida no arranca.
+  al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO`,
+  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`) y el
+  almacén de documentos (F0-27, ADR 0022): `ALMACEN` (`disco` | `s3`, obligatoria); con `disco`,
+  `ALMACEN_DIRECTORIO`; con `s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` y
+  `S3_REGION` (opcional, por defecto `auto`). Las `S3_*` de `.env.example` son las del MinIO de
+  compose. La app todavía no se conecta a la base, pero sin `DATABASE_URL` válida no arranca.
 - **`.env` y `standalone`.** Si al compilar existe un `.env`, `next build` lo **copia** a
   `.next/standalone/.env` y `server.js` lo lee. Sin `.env` al compilar, las variables van en el
   entorno del proceso. Para la imagen Docker (F0-07): el `.env` no puede entrar al contexto del
@@ -671,7 +674,10 @@ valor si es secreta** (`NOMBRE=`), con su único valor válido en local si no lo
 Si la app la exige al arrancar, también a la lista de `--env` con que `scripts/imagen.ts` levanta
 el contenedor de prueba (con un valor ficticio) y a los `docker run` del `RUNBOOK.md` (secciones 14
 y 15). Excepción decidida (F0-08): la `DATABASE_URL` de `.env.example` lleva valor aunque en el
-servidor sea secreta, porque apunta al Postgres local de compose, con credenciales ficticias.
+servidor sea secreta, porque apunta al Postgres local de compose, con credenciales ficticias; lo
+mismo `S3_ACCESS_KEY` y `S3_SECRET_KEY` (F0-27), que son las del MinIO local de compose. Una
+variable que solo hace falta según el valor de otra (las `S3_*` con `ALMACEN=s3`) va en una rama
+de `z.discriminatedUnion` del esquema, no como opcional: así el mensaje nombra la que falta.
 
 **...una migración (F0-08, F0-09).** Siguiendo `docs/convenciones-base.md`, *El ciclo de una
 migración*: `schema.prisma` → `npx prisma migrate dev --create-only --name <nombre>` → `down.sql`
@@ -732,9 +738,19 @@ paquetes npm ni `node:*`, aunque el doble los vaya a necesitar (`puertos-solo-do
 en `src/adaptadores/memoria/<nombre>.ts` (o el adaptador real si no hace falta doble, como
 `generador-id.ts` con `node:crypto`): una función `crear<Nombre>()` que devuelve un objeto que
 implementa la interfaz, no una clase (estilo del repo, ver `crearClientePrisma`). Si el puerto
-tiene más de una implementación, su suite de contrato entra a `tests/contratos/` (vacío hasta
-entonces, `tests/contratos/README.md`); con una sola, alcanza con probarlo desde el test de
-dominio que lo usa.
+tiene más de una implementación, su suite de contrato entra a `tests/contratos/`; con una sola,
+alcanza con probarlo desde el test de dominio que lo usa.
+
+**...un adaptador que tiene que pasar una suite de contrato (F0-27).** La suite es una función
+exportada de `tests/contratos/<puerto>.ts` que recibe un nombre, una **fábrica**
+(`() => Promise<Puerto>`, que se llama en un `beforeAll`, así puede esperar a un contenedor) y las
+opciones que dependan del adaptador (como `numRuns`, con el porqué al lado); adentro declara sus
+`describe`/`it`. Cada adaptador la llama desde **su** archivo de test del nivel que necesite
+(disco en `tests/casos-uso/almacen-disco.test.ts`, S3 contra MinIO en
+`tests/casos-uso/almacen-s3.test.ts`), y ahí mismo prueba lo que es solo suyo. Nunca una copia de
+la suite por adaptador. Ejemplo: `suiteAlmacenDocumentos` (ADR 0022). Si el adaptador necesita un
+contenedor, va en `tests/casos-uso/_arnes/` con la imagen leída de `docker-compose.yml` (una sola
+fuente, como `imagenMinioDeCompose()`) y puertos al azar.
 
 **...una clave a `configuracion` (F0-10).** Una entrada más en
 `CONFIGURACION_POR_DEFECTO` de `prisma/seed.ts`, con su `clave` y su `valor` por defecto (los dos,
@@ -798,20 +814,20 @@ estimación; el orden real de creación manda).
 ```
 src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts)
-src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-27: almacen-documentos.ts (con la validación de claves)
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) memoria/ (F0-19: secuencias.ts, generador-id.ts), disco/ y s3/ (F0-27: el almacén de documentos)
+src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado (desde F0-27: almacen.ts, que elige disco o s3 según ALMACEN y arma nuevaClaveDocumento con el reloj real)
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
-tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
+tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda; minio.ts, MinIO para el almacén S3) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
 scripts/             utilidades de los comandos de package.json (sin-any.ts, sin-error-crudo.ts, db-migrate-down.ts, db-seed.ts, test-dominio.ts, e2e-app.ts; lib/migraciones.ts)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
 vitest.config.ts     los tres niveles que corren con Vitest (proyectos dominio, casos-uso, extraccion)
 playwright.config.ts el nivel e2e: Chromium y el webServer que levanta la app con compose
 prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql} · seed.ts (el mecanismo, F0-10)
 prisma.config.ts     configuración de la CLI de Prisma: rutas y DATABASE_URL
-docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27) y, detrás del perfil `e2e`, la app para el e2e
+docker-compose.yml   servicios locales: Postgres 16, MinIO y minio-init (el bucket; F0-27) y, detrás del perfil `e2e`, la app para el e2e
 Dockerfile           imagen multi-stage de la app (y del worker desde F0-25) · .dockerignore
 docs/                arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/ · ensayos/ (registro de cada ensayo de deploy)
 infra/               oracle/bootstrap.sh (levanta la instancia del ensayo, F0-12) · servidor/ (compose del servidor, F0-13)

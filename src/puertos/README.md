@@ -21,3 +21,7 @@ declara un método de borrado físico (`eliminar`, `borrar`, `delete`,
 `remove`, `destroy`, `purgar`): lo prueba
 `tests/dominio/puertos-sin-borrado.test.ts` (regla no negociable 16 de
 `AGENTS.md`).
+
+Desde F0-27: `almacen-documentos.ts` (el almacén de documentos, con la única
+validación de claves y `claveDocumento`), con dos adaptadores reales, disco y
+s3, que pasan la suite `tests/contratos/almacen-documentos.ts` (ADR 0022).

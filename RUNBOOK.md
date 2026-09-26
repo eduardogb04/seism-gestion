@@ -127,13 +127,42 @@ clave de `configuracion` (`ia.tope_mensual_usd` en `"0"`); en el servidor exige
 
 **Si falla:**
 - `Entorno inválido: db:migrate no arranca.` y una lista → falta `.env` o le falta la variable que
-  nombra (`DATABASE_URL`, `APP_ENTORNO`): copiá `.env.example` a `.env`. Es a propósito: sin
+  nombra (`DATABASE_URL`, `APP_ENTORNO`, `ALMACEN`...): copiá `.env.example` a `.env`. Es a propósito: sin
   `DATABASE_URL` válida no arranca ni la app ni ningún script de base.
 - `Can't reach database server at localhost:5432` → la base no está levantada o todavía no está
   sana: `docker compose up -d --wait` y `docker compose ps`.
 - `docker compose up` dice que el puerto `5432` está ocupado → hay otro Postgres escuchando en esta
   máquina (uno instalado aparte u otro contenedor). Apagalo y repetí.
 - `unhealthy` en `docker compose ps` → `docker compose logs postgres` dice por qué.
+
+### El almacén de documentos local: MinIO (desde F0-27)
+
+Los documentos se guardan en una carpeta (`ALMACEN=disco`, lo que trae `.env.example`) o en un
+servicio compatible con S3 (`ALMACEN=s3`). En local, el S3 es MinIO, en `docker-compose.yml`: el
+mismo `docker compose up -d --wait` de arriba lo levanta junto con Postgres, y el servicio de un
+solo uso `minio-init` crea el bucket `seism-documentos` y termina. Credenciales de desarrollo,
+ficticias, las mismas que las `S3_*` de `.env.example`. Nada que instalar ni que dar de alta.
+
+1. `docker compose up -d --wait` (si ya estaba levantado, no hace falta).
+2. Para que la app use MinIO en vez de la carpeta: en `.env`, `ALMACEN=s3` (las `S3_*` ya están).
+
+**Cómo verificar que salió bien:**
+- `docker compose ps` muestra `minio` con `Up … (healthy)` y los puertos `127.0.0.1:9000` y
+  `127.0.0.1:9001`. `minio-init` no aparece (terminó); `docker compose ps -a` lo muestra
+  `Exited (0)`.
+- `http://localhost:9001` abre la consola de MinIO; con el usuario y la clave de `.env.example`
+  (`S3_ACCESS_KEY`, `S3_SECRET_KEY`) se ve el bucket `seism-documentos`.
+- Con `ALMACEN=disco`, los documentos quedan en `.almacen/` (en `.gitignore`).
+
+**Si falla:**
+- `minio-init` en `Exited (1)` → `docker compose logs minio-init` dice por qué; casi siempre MinIO
+  no llegó a estar sano: `docker compose logs minio`.
+- El puerto `9000` o `9001` ocupado → otro servicio escucha ahí. Apagalo, o levantá con otro puerto
+  (`MINIO_PUERTO=9100 docker compose up -d --wait`) y cambiá el puerto de `S3_ENDPOINT` en `.env`.
+- `pull access denied` o `not found` al bajar la imagen de MinIO → la imagen fijada en
+  `docker-compose.yml` dejó de publicarse; ver ADR 0022, *Cómo se revierte*.
+- `Entorno inválido` nombrando `ALMACEN`, `ALMACEN_DIRECTORIO` o alguna `S3_*` → a tu `.env` le
+  falta esa variable: copiala de `.env.example`.
 
 ## 2. Repositorio y GitHub
 
@@ -542,7 +571,7 @@ adentro de la imagen.
    ```
 3. Si querés verla con el navegador, en vez del paso 2:
    ```
-   docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba seism-gestion:local
+   docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ALMACEN=disco -e ALMACEN_DIRECTORIO=/tmp/almacen seism-gestion:local
    ```
    y abrí `http://localhost:3000` y `http://localhost:3000/api/salud`. Se corta con `Ctrl+C`.
    La app todavía no se conecta a la base: alcanza con una `DATABASE_URL` de Postgres válida, como
@@ -606,7 +635,7 @@ repositorio sea público: hay que cambiarlo a mano una vez, y queda así para si
 - Desde cualquier máquina con Docker, **sin `docker login`**:
   ```
   docker pull ghcr.io/eduardogb04/seism-gestion:latest
-  docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba ghcr.io/eduardogb04/seism-gestion:latest
+  docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ALMACEN=disco -e ALMACEN_DIRECTORIO=/tmp/almacen ghcr.io/eduardogb04/seism-gestion:latest
   ```
   (desde F0-08 la imagen exige `DATABASE_URL`; la app todavía no se conecta, alcanza con esa URL
   ficticia)

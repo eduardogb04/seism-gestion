@@ -1,17 +1,19 @@
 # Servicios locales de desarrollo (F0-08). Decisiones y porqués:
 # docs/adr/0008-prisma-y-reversion.md y docs/convenciones-base.md.
 #
-# Hoy solo Postgres. MinIO (almacenamiento de documentos) llega en F0-27.
+# Postgres y, desde F0-27, MinIO (el almacén de documentos compatible con S3,
+# ADR 0022) con su bucket, que crea el servicio de un solo uso `minio-init`.
 #
-#   docker compose up -d      levanta la base (espera al healthcheck con --wait)
+#   docker compose up -d      levanta la base y MinIO (espera a los healthchecks con --wait)
 #   docker compose ps         tiene que decir "healthy"
 #   docker compose down       la apaga; los datos quedan en el volumen
 #   docker compose down -v    la apaga y BORRA el volumen (base vacía)
 #
 # Las credenciales de acá son de desarrollo local, ficticias y descartables:
 # el contenedor solo escucha en 127.0.0.1 y no guarda nada real. Son las
-# mismas que trae DATABASE_URL en .env.example. No son secretos (ver
-# .gitleaks.toml si gitleaks las marcara).
+# mismas que trae DATABASE_URL en .env.example (y las de MinIO, las mismas
+# que las S3_* de .env.example). No son secretos (ver .gitleaks.toml si
+# gitleaks las marcara).
 
 name: seism-gestion
 
@@ -40,6 +42,53 @@ services:
       retries: 10
       start_period: 5s
 
+  # MinIO (F0-27): el almacén de documentos en local, compatible con S3 (en el
+  # servidor es R2). Consola web en http://localhost:9001 con el usuario y la
+  # clave de abajo.
+  #
+  # La imagen oficial `minio/minio` ya no se puede descargar (Docker Hub la
+  # retiró y quay.io pide login): se usa la de Bitnami, que empaqueta el mismo
+  # servidor de MinIO y trae `mc` adentro, fijada por tag y digest como la de
+  # Postgres. El arnés de tests (tests/casos-uso/_arnes/minio.ts) lee **esta**
+  # línea: hay una sola fuente de la imagen. Detalle en el ADR 0022.
+  # Se corre `minio server` directo, sin los scripts de arranque de Bitnami.
+  minio:
+    image: bitnamilegacy/minio:2025.7.23-debian-12-r5@sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20
+    entrypoint: ["minio"]
+    command: ["server", "/bitnami/minio/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: seism_local
+      MINIO_ROOT_PASSWORD: seism_local_clave
+    ports:
+      # Solo en la máquina local. `MINIO_PUERTO` existe para que el test de
+      # compose (tests/casos-uso/almacen-s3.test.ts) lo levante en un puerto
+      # libre sin chocar con el de todos los días.
+      - "127.0.0.1:${MINIO_PUERTO:-9000}:9000"
+      - "127.0.0.1:${MINIO_PUERTO_CONSOLA:-9001}:9001"
+    volumes:
+      - minio-datos:/bitnami/minio/data
+    healthcheck:
+      # Sano = responde el latido de MinIO, no solo "el proceso existe".
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # Crea el bucket de .env.example (S3_BUCKET) si no existe y termina: un
+  # servicio de un solo uso. `--ignore-existing` lo hace idempotente.
+  minio-init:
+    image: bitnamilegacy/minio:2025.7.23-debian-12-r5@sha256:6dabb4a2088c9a79908de3bc05f4586c23ad2182c8908e7e3acbf61c1467fb20
+    entrypoint: ["mc"]
+    command: ["mb", "--ignore-existing", "local/seism-documentos"]
+    environment:
+      MC_CONFIG_DIR: /tmp/mc
+      MC_HOST_local: http://seism_local:seism_local_clave@minio:9000
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+
   # La app, solo para el e2e (F0-14). Vive detrás del perfil `e2e`: no la
   # levanta `docker compose up -d`, solo `npm run test:e2e` (que la levanta con
   # `scripts/e2e-app.ts` y la apaga al terminar). Corre **la imagen que se
@@ -56,9 +105,14 @@ services:
     environment:
       APP_ENTORNO: local
       DATABASE_URL: postgresql://prueba:prueba@127.0.0.1:5432/prueba
+      # El almacén de documentos (F0-27) en una carpeta del contenedor: la app
+      # lo exige al arrancar, y el e2e todavía no guarda documentos.
+      ALMACEN: disco
+      ALMACEN_DIRECTORIO: /tmp/almacen
     ports:
       # Solo en la máquina local, como el Postgres de arriba.
       - "127.0.0.1:3000:3000"
 
 volumes:
   postgres-datos:
+  minio-datos:

@@ -58,7 +58,7 @@ Requiere Docker corriendo. No hace falta `npm install`: la app se compila adentr
 ```
 npm run imagen          # construye seism-gestion:local (multi-stage, no root)
 npm run imagen:prueba   # la levanta y verifica /, /api/salud, que no lleve .env y el tamaño
-docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba seism-gestion:local
+docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ALMACEN=disco -e ALMACEN_DIRECTORIO=/tmp/almacen seism-gestion:local
 ```
 
 La imagen de cada commit de `main` se publica sola en

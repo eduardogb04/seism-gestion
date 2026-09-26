@@ -1,0 +1,3 @@
+# Falsos positivos de gitleaks: un fingerprint por línea (regla y motivo en el PR que lo agrega).
+# F0-24 (#48): token inventado de tests/casos-uso/log.test.ts, que después se arma en ejecución.
+933b0e267ba237f8558aad707fb30a3778beb63e:tests/casos-uso/log.test.ts:generic-api-key:45

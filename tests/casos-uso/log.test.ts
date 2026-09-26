@@ -44,7 +44,9 @@ function registros(lineas: readonly string[]): Record<string, unknown>[] {
   return lineas.map((linea) => JSON.parse(linea) as Record<string, unknown>);
 }
 
-const TOKEN = "tok-ficticio-0123456789abcdef";
+// Armado en ejecución, como los CUIT: gitleaks marca como clave de API
+// cualquier literal con aspecto de token asignado a una variable `TOKEN`.
+const TOKEN = ["tok", "ficticio", "0123456789abcdef"].join("-");
 const EMAIL_EN_CAMPO = "persona.inventada@ejemplo.test";
 const EMAIL_EN_MENSAJE = "otra.persona@ejemplo.test";
 const CUIT_CON_GUIONES = ["20", "00000000", "1"].join("-");

@@ -17,6 +17,18 @@ import { z } from "zod";
 
 const VALORES_APP_ENTORNO = ["local", "ci", "servidor"] as const;
 
+/** Los niveles de log que acepta `LOG_NIVEL` (F0-24), del más grave al más detallado. */
+export const NIVELES_LOG = [
+  "fatal",
+  "error",
+  "warn",
+  "info",
+  "debug",
+  "trace",
+] as const;
+
+export type NivelLog = (typeof NIVELES_LOG)[number];
+
 export const esquemaEntorno = z.object({
   /** Dónde corre la app. No es secreto: `.env.example` trae `local`. */
   APP_ENTORNO: z.enum(VALORES_APP_ENTORNO),
@@ -27,6 +39,15 @@ export const esquemaEntorno = z.object({
    * (ficticia, ADR 0008).
    */
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  /**
+   * Nivel del log (F0-24). Opcional: sin ella, `debug` en `local` e `info`
+   * en `ci` y `servidor` (lo resuelve `src/infraestructura/log.ts`). Vacía
+   * cuenta como no definida: así viene en `.env.example`.
+   */
+  LOG_NIVEL: z.preprocess(
+    (valor) => (valor === "" ? undefined : valor),
+    z.enum(NIVELES_LOG).optional(),
+  ),
 });
 
 export type Entorno = z.infer<typeof esquemaEntorno>;
@@ -90,7 +111,8 @@ export function validarEntorno(
 /**
  * Lo que corre al arrancar el servidor (solo en Node) o un script de base:
  * valida `process.env` y, si falla, escribe el mensaje en stderr y termina el
- * proceso con código 1. Sin `console`: los logs estructurados llegan en F0-24.
+ * proceso con código 1. Sin `console` ni el log estructurado (F0-24): el log
+ * todavía no sabe su formato ni su nivel si el entorno es inválido.
  */
 export function exigirEntornoValido(proceso = "la app"): Entorno {
   const resultado = validarEntorno(process.env, proceso);

@@ -431,10 +431,46 @@ describe("casos de uso de usuarios", () => {
       const dos = await existente("dos@ejemplo.test", "administrador");
       // Dos clientes: dos conexiones, dos transacciones de verdad en paralelo.
       const otroCliente = crearClientePrisma(uriBaseCompartida());
+      // Para que se crucen de verdad: cada una, apenas lee a los
+      // administradores activos, espera a que la otra también los haya leído
+      // (o un segundo, si la otra quedó bloqueada esperando el lock). Sin el
+      // bloqueo, las dos leen "hay dos", las dos revocan y no queda ninguno.
+      let leyeron = 0;
+      let avisarQueLeyeronLasDos = (): void => {};
+      const leyeronLasDos = new Promise<void>((resolver) => {
+        avisarQueLeyeronLasDos = resolver;
+      });
+      const cruzada = (real: Transaccional): Transaccional => ({
+        ejecutar: (trabajo) =>
+          real.ejecutar((repos) =>
+            trabajo({
+              ...repos,
+              usuarios: {
+                ...repos.usuarios,
+                async bloquearAdministradoresActivos() {
+                  const ids =
+                    await repos.usuarios.bloquearAdministradoresActivos();
+                  leyeron += 1;
+                  if (leyeron === 2) {
+                    avisarQueLeyeronLasDos();
+                  }
+                  await Promise.race([
+                    leyeronLasDos,
+                    new Promise((resolver) => setTimeout(resolver, 1000)),
+                  ]);
+                  return ids;
+                },
+              },
+            }),
+          ),
+      });
       try {
         const resultados = await Promise.allSettled([
-          casosDeUso().revocar(persona(uno), dos),
-          casosDeUso(crearTransaccionalPrisma(otroCliente)).revocar(
+          casosDeUso(cruzada(crearTransaccionalPrisma(cliente()))).revocar(
+            persona(uno),
+            dos,
+          ),
+          casosDeUso(cruzada(crearTransaccionalPrisma(otroCliente))).revocar(
             persona(dos),
             uno,
           ),

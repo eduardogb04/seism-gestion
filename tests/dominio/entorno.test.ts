@@ -13,8 +13,15 @@ import { validarEntorno } from "../../src/infraestructura/entorno.ts";
 /** Una URL de Postgres válida y ficticia: nada se conecta a ella en estos tests. */
 const URL_POSTGRES = "postgresql://usuario:clave@localhost:5432/base";
 
+/** El almacén de documentos en disco (F0-27): lo que trae .env.example. */
+const ALMACEN_DISCO = { ALMACEN: "disco", ALMACEN_DIRECTORIO: ".almacen" };
+
 /** Un entorno completo y válido, para variar una sola variable por test. */
-const VALIDO = { APP_ENTORNO: "local", DATABASE_URL: URL_POSTGRES };
+const VALIDO = {
+  APP_ENTORNO: "local",
+  DATABASE_URL: URL_POSTGRES,
+  ...ALMACEN_DISCO,
+};
 
 describe("validarEntorno: APP_ENTORNO", () => {
   it.each(["local", "ci", "servidor"])(
@@ -24,13 +31,20 @@ describe("validarEntorno: APP_ENTORNO", () => {
 
       expect(resultado).toEqual({
         ok: true,
-        entorno: { APP_ENTORNO: valor, DATABASE_URL: URL_POSTGRES },
+        entorno: {
+          APP_ENTORNO: valor,
+          DATABASE_URL: URL_POSTGRES,
+          ...ALMACEN_DISCO,
+        },
       });
     },
   );
 
   it("rechaza APP_ENTORNO ausente y el mensaje nombra la variable", () => {
-    const resultado = validarEntorno({ DATABASE_URL: URL_POSTGRES });
+    const resultado = validarEntorno({
+      DATABASE_URL: URL_POSTGRES,
+      ...ALMACEN_DISCO,
+    });
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
@@ -86,12 +100,15 @@ describe("validarEntorno: DATABASE_URL (F0-08)", () => {
 
     expect(resultado).toEqual({
       ok: true,
-      entorno: { APP_ENTORNO: "local", DATABASE_URL: valor },
+      entorno: { APP_ENTORNO: "local", DATABASE_URL: valor, ...ALMACEN_DISCO },
     });
   });
 
   it("rechaza DATABASE_URL ausente y el mensaje nombra la variable", () => {
-    const resultado = validarEntorno({ APP_ENTORNO: "local" });
+    const resultado = validarEntorno({
+      APP_ENTORNO: "local",
+      ...ALMACEN_DISCO,
+    });
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
@@ -170,7 +187,138 @@ describe("validarEntorno: en general", () => {
 
     expect(resultado).toEqual({
       ok: true,
-      entorno: { APP_ENTORNO: "local", DATABASE_URL: URL_POSTGRES },
+      entorno: {
+        APP_ENTORNO: "local",
+        DATABASE_URL: URL_POSTGRES,
+        ...ALMACEN_DISCO,
+      },
     });
+  });
+});
+
+describe("validarEntorno: ALMACEN y sus variables (F0-27)", () => {
+  const BASE = { APP_ENTORNO: "local", DATABASE_URL: URL_POSTGRES };
+  const S3 = {
+    ALMACEN: "s3",
+    S3_ENDPOINT: "http://localhost:9000",
+    S3_BUCKET: "documentos-ficticios",
+    S3_ACCESS_KEY: "acceso-ficticio",
+    S3_SECRET_KEY: "clave-ficticia",
+  };
+
+  /** El mensaje de un entorno que tiene que fallar. */
+  function mensajeDe(variables: Record<string, string | undefined>): string {
+    const resultado = validarEntorno(variables);
+    expect(resultado.ok).toBe(false);
+    return resultado.ok ? "" : resultado.mensaje;
+  }
+
+  it("acepta ALMACEN=disco con ALMACEN_DIRECTORIO", () => {
+    expect(validarEntorno({ ...BASE, ...ALMACEN_DISCO })).toEqual({
+      ok: true,
+      entorno: { ...BASE, ...ALMACEN_DISCO },
+    });
+  });
+
+  it("acepta ALMACEN=s3 con las cuatro S3_* y la región por defecto es auto (la de R2)", () => {
+    expect(validarEntorno({ ...BASE, ...S3 })).toEqual({
+      ok: true,
+      entorno: { ...BASE, ...S3, S3_REGION: "auto" },
+    });
+  });
+
+  it("acepta S3_REGION si viene", () => {
+    expect(validarEntorno({ ...BASE, ...S3, S3_REGION: "us-east-1" })).toEqual({
+      ok: true,
+      entorno: { ...BASE, ...S3, S3_REGION: "us-east-1" },
+    });
+  });
+
+  it.each([undefined, ""])(
+    "rechaza ALMACEN=%j (ausente o vacía) y el mensaje la nombra",
+    (valor) => {
+      const mensaje = mensajeDe({
+        ...BASE,
+        ALMACEN_DIRECTORIO: ".almacen",
+        ALMACEN: valor,
+      });
+      expect(mensaje).toContain("ALMACEN: falta");
+    },
+  );
+
+  it.each(["r2", "DISCO", "memoria"])(
+    "rechaza ALMACEN=%j y el mensaje dice los valores válidos",
+    (valor) => {
+      const mensaje = mensajeDe({ ...BASE, ...ALMACEN_DISCO, ALMACEN: valor });
+      expect(mensaje).toContain("ALMACEN: tiene un valor inválido");
+      expect(mensaje).toContain("disco, s3");
+      expect(mensaje).not.toContain(valor);
+    },
+  );
+
+  it.each([undefined, ""])(
+    "con ALMACEN=disco exige ALMACEN_DIRECTORIO (%j)",
+    (valor) => {
+      const mensaje = mensajeDe({
+        ...BASE,
+        ALMACEN: "disco",
+        ALMACEN_DIRECTORIO: valor,
+      });
+      expect(mensaje).toContain("ALMACEN_DIRECTORIO: falta");
+    },
+  );
+
+  it.each(["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY", "S3_SECRET_KEY"])(
+    "con ALMACEN=s3 no arranca sin %s y el mensaje nombra esa variable",
+    (variable) => {
+      const mensaje = mensajeDe({ ...BASE, ...S3, [variable]: undefined });
+      expect(mensaje).toContain(`${variable}: falta`);
+      for (const otra of Object.keys(S3).filter((v) => v !== variable)) {
+        expect(mensaje).not.toContain(`${otra}:`);
+      }
+    },
+  );
+
+  it("con ALMACEN=s3 y ninguna S3_*, nombra las cuatro", () => {
+    const mensaje = mensajeDe({ ...BASE, ALMACEN: "s3" });
+    for (const variable of [
+      "S3_ENDPOINT",
+      "S3_BUCKET",
+      "S3_ACCESS_KEY",
+      "S3_SECRET_KEY",
+    ]) {
+      expect(mensaje).toContain(`${variable}: falta`);
+    }
+  });
+
+  it("con ALMACEN=s3 no hace falta ALMACEN_DIRECTORIO, y con disco no hacen falta las S3_*", () => {
+    expect(validarEntorno({ ...BASE, ...S3 }).ok).toBe(true);
+    expect(validarEntorno({ ...BASE, ...ALMACEN_DISCO }).ok).toBe(true);
+  });
+
+  it.each(["localhost:9000", "ftp://localhost:9000", "no es una url"])(
+    "rechaza S3_ENDPOINT=%j (no es http/https) y dice qué se espera",
+    (valor) => {
+      const mensaje = mensajeDe({ ...BASE, ...S3, S3_ENDPOINT: valor });
+      expect(mensaje).toContain("S3_ENDPOINT: tiene un valor inválido");
+      expect(mensaje).toContain("https://");
+    },
+  );
+
+  it("no repite la clave secreta ni la de acceso en el mensaje", () => {
+    const mensaje = mensajeDe({
+      ...BASE,
+      ...S3,
+      S3_ACCESS_KEY: "acceso-que-no-debe-salir",
+      S3_SECRET_KEY: "secreto-que-no-debe-salir",
+      S3_ENDPOINT: "no es una url",
+    });
+    expect(mensaje).not.toContain("que-no-debe-salir");
+  });
+
+  it("junto con otra variable rota, nombra las dos (la de la app y la del almacén)", () => {
+    const mensaje = mensajeDe({ DATABASE_URL: URL_POSTGRES, ALMACEN: "s3" });
+    expect(mensaje).toContain("APP_ENTORNO");
+    expect(mensaje).toContain("S3_BUCKET");
   });
 });

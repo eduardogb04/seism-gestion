@@ -202,20 +202,22 @@ export function crearLog(opciones: OpcionesLog): Log {
     },
     destino,
   );
-  // Pino 10.3.1 guarda los serializadores y los "stringifiers" en objetos con
-  // prototipo y busca uno por cada clave logueada: con una clave como
-  // `valueOf` o `toString` encuentra el método de `Object.prototype`, lo llama
-  // y tira TypeError o escribe JSON roto (lo encontró la propiedad de emails
-  // de tests/casos-uso/log.test.ts). Van los mismos, en objetos sin
-  // prototipo; los hijos (`log.child`) los heredan.
-  sinPrototipo(logger, pino.symbols.serializersSym);
-  sinPrototipo(logger, pino.symbols.stringifiersSym);
+  // Pino 10.3.1 guarda sus "stringifiers" (los de `redact`, uno por clave) en
+  // un objeto con prototipo y busca uno por cada clave logueada: con una
+  // clave como `valueOf` o `toString` encuentra el método de
+  // `Object.prototype`, lo llama y tira TypeError o escribe JSON roto (lo
+  // encontró la propiedad de emails de tests/casos-uso/log.test.ts). Van los
+  // mismos, en un objeto sin prototipo; los hijos (`log.child`) lo heredan.
+  const stringifiers: unknown = Reflect.get(
+    logger,
+    pino.symbols.stringifiersSym,
+  );
+  Reflect.set(
+    logger,
+    pino.symbols.stringifiersSym,
+    Object.assign(Object.create(null), stringifiers),
+  );
   return logger;
-}
-
-function sinPrototipo(logger: Log, simbolo: symbol): void {
-  const actual: unknown = Reflect.get(logger, simbolo);
-  Reflect.set(logger, simbolo, Object.assign(Object.create(null), actual));
 }
 
 const esquemaLog = esquemaEntorno.pick({

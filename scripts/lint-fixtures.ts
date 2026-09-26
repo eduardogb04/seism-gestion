@@ -8,7 +8,7 @@
  * **sin** tocar los archivos permitidos; 1 si alguno fue aceptado, si falta
  * un diagnóstico o si aparece uno donde no correspondía.
  *
- * Son tres fixtures, y prueban cosas distintas:
+ * Son cuatro fixtures, y prueban cosas distintas:
  *
  * - `debe-fallar.ts` (F0-02): dos reglas independientes (`noExplicitAny` y
  *   `noUnusedVariables`), para que el rechazo de una no tape que la otra dejó
@@ -24,6 +24,11 @@
  *   este script se pone en rojo. Trae además el caso permitido
  *   (`src/adaptadores/`), que prueba que la regla no se pasó de alcance:
  *   traducir entre la fecha del sistema y el dominio es trabajo del borde.
+ * - `sin-console/` (F0-24): la regla `noConsole`, que marca `console.*`
+ *   **solo** dentro de `src/**` (ahí se usa el log de
+ *   `src/infraestructura/log.ts`). Igual que `reloj-inyectado/`, su
+ *   `biome.json` extiende el de la raíz, y trae el caso permitido
+ *   (`scripts/`): fuera de `src/`, `console` sigue valiendo.
  * - `error-crudo/` (F0-23): no lo mira Biome sino `scripts/sin-error-crudo.ts`
  *   (la segunda mitad de `npm run lint`), que rechaza `throw new Error` y
  *   `new ErrorSistema(` en `src/dominio/` y `src/casos-uso/`. Replica esa
@@ -88,6 +93,14 @@ const FIXTURES: readonly Fixture[] = [
     reglasEsperadas: ["lint/style/noRestrictedGlobals"],
     archivosQueViolan: ["src/dominio/usa-date.ts"],
     archivosPermitidos: ["src/adaptadores/reloj/usa-date.ts"],
+  },
+  {
+    herramienta: "biome",
+    carpeta: "sin-console",
+    objetivo: ".",
+    reglasEsperadas: ["lint/suspicious/noConsole"],
+    archivosQueViolan: ["src/infraestructura/usa-console.ts"],
+    archivosPermitidos: ["scripts/usa-console.ts"],
   },
   {
     herramienta: "sin-error-crudo",

@@ -602,6 +602,12 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
 15. **No hay configuración atada a ningún editor ni a ningún CLI de agente**, con una única
     excepción documentada: `CLAUDE.md` (ver ADR 0001). Ningún otro archivo de ese tipo entra al
     repo.
+16. **No existe borrado físico.** `marcarEliminado` (`src/dominio/compartido/auditable.ts`,
+    F0-22) es la única forma de "borrar": marca `eliminadoEn`/`eliminadoPor`, nunca quita la fila.
+    Ningún puerto de `src/puertos/**` (incluidos los de `repositorios/` cuando existan) declara un
+    método `eliminar`/`borrar`/`delete`/`remove`/`destroy`/`purgar`; lo hace cumplir
+    `tests/dominio/puertos-sin-borrado.test.ts`, que recorre las interfaces/tipos exportados con
+    la API del compilador de TypeScript.
 
 ## Cómo se trabaja
 

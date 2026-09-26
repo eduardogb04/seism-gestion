@@ -177,8 +177,9 @@ modelos:** antes de escribir código de Next, leé la guía que corresponda en
 archivo (ADR 0005).
 
 - **Levantar en local.** Copiá `.env.example` a `.env` (`.env` está en `.gitignore`: nunca entra
-  al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO` y
-  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`). La app
+  al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO`,
+  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`) y
+  `LOG_NIVEL`, opcional (F0-24; vacía o sin definir, `debug` en local e `info` en `ci`/`servidor`). La app
   todavía no se conecta a la base, pero sin `DATABASE_URL` válida no arranca.
 - **`.env` y `standalone`.** Si al compilar existe un `.env`, `next build` lo **copia** a
   `.next/standalone/.env` y `server.js` lo lee. Sin `.env` al compilar, las variables van en el
@@ -188,7 +189,9 @@ archivo (ADR 0005).
   una vez, antes de atender pedidos) llama a `exigirEntornoValido` de
   `src/infraestructura/entorno.ts`. Si una variable falta o es inválida, escribe en stderr cuál
   (sin repetir el valor) y el proceso sale con código 1, en `next dev` y en `server.js`. `npm
-  run build` no valida el entorno ni necesita `.env`.
+  run build` no valida el entorno ni necesita `.env`. Con el entorno válido, instala los
+  manejadores de `src/infraestructura/proceso.ts` (F0-24): una excepción o un rechazo que nadie
+  capturó se loguea en `fatal` con `INF-0001` y el proceso sale con código 1 (lo reinicia Docker).
 - **La versión del latido** (`GET /api/salud` → `{ ok: true, version }`) se fija al compilar:
   `next.config.ts` usa `APP_VERSION` si está definida (la pasa el build de Docker desde F0-07) o,
   si no, el SHA corto de git; sin ninguna, el build falla. Next reemplaza
@@ -517,7 +520,11 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
   segunda mitad de `npm run lint`: con la API del compilador de TypeScript rechaza `throw new
   Error(...)`, `throw Error(...)` (y los demás errores nativos) y `new ErrorSistema(` en
   `src/dominio/` y `src/casos-uso/`. Ver ADR 0020 y *Cómo se agrega... un error*.
-- **Prueba de que rechaza.** Tres fixtures, que `npm run lint:fixtures`
+- **Sin `console.*` en `src/` (F0-24).** Un `override` sobre `**/src/**` pone
+  `suspicious/noConsole` en `error`: en `src/` se loguea con el log de
+  `src/infraestructura/log.ts` (ver *Cómo se agrega... un log*). En `scripts/` y `tests/`
+  `console` sigue valiendo: son herramientas de consola.
+- **Prueba de que rechaza.** Cuatro fixtures, que `npm run lint:fixtures`
   (`scripts/lint-fixtures.ts`) corre por separado invocando el binario de Biome (o
   `sin-error-crudo`) con `cwd` en la carpeta de cada uno, imprimiendo su salida de error e **invirtiendo** el código de salida: sale
   0 si cada fixture fue rechazado por sus reglas, desde los archivos esperados y sin tocar los
@@ -532,6 +539,9 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
     verdad y no una copia (si alguien la saca de `biome.json`, el fixture pasa el lint y este
     comando se pone en rojo). Trae además el caso permitido, `src/adaptadores/reloj/usa-date.ts`:
     el mismo código fuera del dominio, que **no** tiene que aparecer como violación.
+  - `tests/fixtures/lint/sin-console/` (F0-24), misma forma que el anterior: `console.log` en
+    `src/infraestructura/` tiene que ser rechazado por `noConsole`; el mismo código en `scripts/`
+    es el caso permitido.
   - `tests/fixtures/lint/error-crudo/` (F0-23) lo rechaza `sin-error-crudo`, no Biome: un
     `throw new Error` y un `new ErrorSistema(` en `src/dominio/`, y `throw Error`/`throw new
     RangeError` en `src/casos-uso/`. Casos permitidos: un adaptador que lanza `Error` y el archivo
@@ -596,7 +606,8 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
    `src/dominio/compartido/errores/catalogo.ts`) y **un código nunca se reutiliza**. No existe
    `throw new Error` en `src/dominio` ni en `src/casos-uso`: lo frena `npm run lint`
    (`sin-error-crudo`). Ver *Cómo se agrega... un error* y ADR 0020.
-7. **Ningún log con secretos ni datos personales.** Hay un test dedicado. (Llega en F0-24.)
+7. **Ningún log con secretos ni datos personales.** Hay un test dedicado
+   (`tests/casos-uso/log.test.ts`, F0-24) y en `src/` no se usa `console.*` (Biome, `noConsole`).
 8. **La IA nunca escribe en el dominio.** Crea borradores o propone; un humano confirma.
 9. **Un archivo que crece demasiado se parte.**
 10. **Todo cambio de esquema es una migración con su `down.sql`.** Nadie toca la base a mano.
@@ -787,6 +798,15 @@ código**: una entrada no se borra ni cambia de tipo, aunque ya no se use (el te
 rechaza aun regenerando). El dominio devuelve `Resultado` con `codigo: catalogo.<CLAVE>.codigo`;
 en un borde se lanza `nuevoError(catalogo.<CLAVE>, detalles, causa?)`, nunca `new Error` (ADR 0020).
 
+**...un log (F0-24).** En `src/`, con el `log` de `src/infraestructura/log.ts` (nunca `console.*`):
+`log.info({ campos }, "mensaje")`. Lo que corre dentro de `conReferencia("SRV-2026-014", fn)`
+lleva `referencia` sola, también después de cada `await`: no se pasa a mano. Todo lo que sale se
+redacta: el valor entero de cualquier clave que contenga `authorization`, `cookie`, `token`,
+`secret`, `password` o `clave`, y en cualquier texto (mensaje, pila, valores) lo que parezca email o
+CUIT. Los casos de uso no importan infraestructura: si necesitan loguear, reciben el log por
+parámetro. Un campo sensible nuevo que no entre en esas reglas: a `CLAVES_SENSIBLES`, con su caso en
+el test (ADR 0021).
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -800,7 +820,7 @@ src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts)
-src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
+src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · arranque/ = punto de armado
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)

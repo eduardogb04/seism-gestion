@@ -32,5 +32,10 @@ Lo que ya vive acá:
   `TipoDeCambio` con valor exacto (fracción de `bigint`, cargado desde texto) y `convertir`,
   único lugar que redondea (half-up), y `parsearImporte`. El formato para pantalla vive en
   `src/app/formato/importe.ts`. Ver `docs/adr/0018-importes.md`.
+- `compartido/errores/` (F0-23) — el catálogo de errores con código estable
+  (`catalogo.ts`: `DOM-0001`..., un código nunca se reutiliza, lo cuida un golden), `ErrorSistema`
+  (constructor privado: solo `nuevoError(entrada, detalles, causa?)`, para lanzar en los bordes) y
+  `paraPantalla`/`paraLog`, con el mismo código en las dos. Los errores del dominio siguen yendo
+  en un `Resultado`, con el código del catálogo. Ver `docs/adr/0020-catalogo-errores.md`.
 
 El resto del lote 5 (F0-22) llega después.

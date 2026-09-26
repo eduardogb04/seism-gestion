@@ -2,6 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearSecuenciasEnMemoria } from "../../src/adaptadores/memoria/secuencias.ts";
+import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
 import {
   type DatosCodigoLegible,
   formatearCodigo,
@@ -132,6 +133,7 @@ describe("formatearCodigo", () => {
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
+      expect(resultado.codigo).toBe(catalogo.DOM_0006.codigo);
       expect(resultado.mensaje).toContain("prefijo");
     }
   });
@@ -141,6 +143,7 @@ describe("formatearCodigo", () => {
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
+      expect(resultado.codigo).toBe(catalogo.DOM_0006.codigo);
       expect(resultado.mensaje).toContain("año");
     }
   });
@@ -154,6 +157,7 @@ describe("formatearCodigo", () => {
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
+      expect(resultado.codigo).toBe(catalogo.DOM_0006.codigo);
       expect(resultado.mensaje).toContain("secuencia");
     }
   });
@@ -208,6 +212,7 @@ describe("generarCodigoLegible: el año sale del reloj inyectado", () => {
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
+      expect(resultado.codigo).toBe(catalogo.DOM_0006.codigo);
       expect(resultado.mensaje).toContain("prefijo");
     }
   });

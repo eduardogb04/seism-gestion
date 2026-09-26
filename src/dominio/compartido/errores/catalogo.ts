@@ -106,6 +106,14 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Es un error del sistema, no de lo que cargaste: avisá con este código. En el log, el detalle dice qué dato no sirvió.",
   },
+  DOM_0007: {
+    codigo: "DOM-0007",
+    tipo: "persona",
+    descripcion:
+      "El registro ya está eliminado: no se puede modificar ni volver a eliminar.",
+    queHacer:
+      "Revisá que estés trabajando sobre el registro correcto. Si hay que recuperarlo, avisá con este código: el borrado es lógico y el registro sigue guardado.",
+  },
   INF_0001: {
     codigo: "INF-0001",
     tipo: "sistema",

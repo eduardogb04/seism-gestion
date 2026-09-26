@@ -218,6 +218,7 @@ describe("errores del dominio que migraron al catálogo", () => {
     expect(catalogo.DOM_0004.descripcion).toMatch(/tipo de cambio/i);
     expect(catalogo.DOM_0005.descripcion).toMatch(/monto/i);
     expect(catalogo.DOM_0006.descripcion).toMatch(/código/i);
+    expect(catalogo.DOM_0007.descripcion).toMatch(/eliminado/i);
   });
 
   it("leerCodigo da los datos de un código legible bien escrito", () => {

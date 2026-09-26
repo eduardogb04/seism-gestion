@@ -7,11 +7,13 @@
  * un puerto con suite de contrato*).
  *
  * No usa el arnés de propiedades de `tests/dominio/_arnes/propiedad.ts`
- * (pensado para el proyecto `dominio`) a propósito: esta suite tiene que
- * poder correr también en `casos-uso` el día que un adaptador real la
- * necesite ahí, y ese proyecto no provee la semilla de fast-check por
- * `inject`. Fija su propia configuración, más chica: el volumen (hasta 250
- * mensajes) ya hace cada corrida cara.
+ * (pensado para el proyecto `dominio`, con su semilla por `inject`) a
+ * propósito: esta suite tiene que poder correr también en `casos-uso` el
+ * día que un adaptador real la necesite ahí, y ese proyecto no provee la
+ * semilla de fast-check por ese mecanismo. En cambio (R14 de la ficha),
+ * respeta lo mismo que ese arnés a través de `tests/_arnes/semilla-fast-check.ts`:
+ * semilla al azar por defecto, fijable con `FC_SEED`, anunciada al empezar
+ * el test, y el mismo `numRuns` (nunca menor).
  */
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
@@ -23,6 +25,10 @@ import {
 } from "../../src/dominio/compartido/reloj.ts";
 import type { Correo, MensajeCorreo } from "../../src/puertos/correo.ts";
 import { cursorInicial } from "../../src/puertos/correo.ts";
+import {
+  numRunsFastCheck,
+  resolverSemillaFastCheck,
+} from "../_arnes/semilla-fast-check.ts";
 
 /** Lo que una fábrica de `Correo` le da a la suite: el puerto y cómo prepararlo. */
 export type FabricaCorreo = () => {
@@ -30,8 +36,6 @@ export type FabricaCorreo = () => {
   /** Deja el buzón con exactamente estos mensajes disponibles para listar. */
   preparar(mensajes: readonly MensajeCorreo[]): Promise<void> | void;
 };
-
-const NUM_RUNS = process.env.CI ? 200 : 30;
 
 const FECHA_BASE: FechaHora = (() => {
   const resultado = crearFechaHora({
@@ -95,6 +99,10 @@ async function listarTodo(
     if (pagina.mensajes.length === 0) {
       return recolectados;
     }
+    // Como mucho `limite` mensajes por página (R2, primer párrafo del
+    // criterio de aceptación): se verifica página por página, no solo en el
+    // conjunto acumulado al final.
+    expect(pagina.mensajes.length).toBeLessThanOrEqual(limite);
     recolectados.push(...pagina.mensajes);
     cursor = pagina.cursor;
   }
@@ -171,7 +179,31 @@ export function suiteCorreo(nombre: string, fabrica: FabricaCorreo): void {
       expect(conElNuevo.mensajes.map((m) => m.idExterno)).toEqual(["m-3"]);
     });
 
+    it("listarNuevos nunca devuelve más mensajes que `limite` en una página", async () => {
+      const { puerto, preparar } = fabrica();
+      const mensajes = [
+        mensajeFicticio("m-1", 0),
+        mensajeFicticio("m-2", 1),
+        mensajeFicticio("m-3", 2),
+        mensajeFicticio("m-4", 3),
+        mensajeFicticio("m-5", 4),
+      ];
+      await preparar(mensajes);
+
+      const primera = await puerto.listarNuevos(cursorInicial, 2);
+      expect(primera.mensajes.map((m) => m.idExterno)).toEqual(["m-1", "m-2"]);
+
+      const segunda = await puerto.listarNuevos(primera.cursor, 2);
+      expect(segunda.mensajes.map((m) => m.idExterno)).toEqual(["m-3", "m-4"]);
+    });
+
     it("para cualquier conjunto sembrado, recorrer desde cursorInicial entrega cada mensaje exactamente una vez y en orden", async () => {
+      const semilla = resolverSemillaFastCheck();
+      const numRuns = numRunsFastCheck();
+      console.log(
+        `[fast-check] tests/contratos/correo.ts semilla=${semilla} numRuns=${numRuns} — para reproducir: FC_SEED=${semilla} npm run test:dominio`,
+      );
+
       await fc.assert(
         fc.asyncProperty(
           // Pares (idExterno, posición de fecha) únicos por idExterno: la
@@ -207,7 +239,7 @@ export function suiteCorreo(nombre: string, fabrica: FabricaCorreo): void {
             );
           },
         ),
-        { numRuns: NUM_RUNS },
+        { numRuns, seed: semilla },
       );
     });
   });

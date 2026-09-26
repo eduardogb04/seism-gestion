@@ -30,9 +30,89 @@ model Configuracion {
   valor          String
   creadoEn       DateTime @default(now()) @map("creado_en") @db.Timestamptz(3)
   actualizadoEn  DateTime @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(3)
-  // Quién la cambió por última vez. Nullable hasta que existan usuarios
-  // (lote 8), que la va a ligar a `usuarios`.
+  // Quién la cambió por última vez: un usuario (F0-30). Nullable: la semilla
+  // escribe los valores por defecto sin que los cambie ninguna persona.
   actualizadoPor String?  @map("actualizado_por") @db.Uuid
+  actualizador   Usuario? @relation(fields: [actualizadoPor], references: [id], onDelete: Restrict, onUpdate: Restrict)
 
   @@map("configuracion")
+}
+
+// Usuarios, sesiones y auditoría (F0-30, ADR 0024).
+
+enum RolUsuario {
+  administrador
+  operador
+
+  @@map("rol_usuario")
+}
+
+enum EstadoUsuario {
+  activo
+  revocado
+
+  @@map("estado_usuario")
+}
+
+// La lista blanca (P4): solo entra quien tiene una fila `activo` acá. Un
+// usuario nunca se borra: revocarlo es `estado = revocado`.
+//
+// `email` se guarda **siempre en minúsculas** (lo normalizan los casos de
+// uso y el adaptador): así el índice único no distingue mayúsculas.
+// `creado_por`, `actualizado_por` y `eliminado_por` guardan un `Actor`
+// (persona o proceso del sistema) como `jsonb`: el primer administrador lo
+// crea la semilla, que no es una persona. Las fechas las pone el reloj
+// inyectado, no la base (por eso no hay `@updatedAt`).
+model Usuario {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email          String        @unique
+  // Se completa al primer ingreso (F0-31); el alta solo pide email y rol.
+  nombre         String?
+  rol            RolUsuario
+  estado         EstadoUsuario @default(activo)
+  creadoEn       DateTime      @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json          @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime      @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json          @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime?     @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?         @map("eliminado_por") @db.JsonB
+
+  sesiones               Sesion[]
+  configuracionesTocadas Configuracion[]
+
+  @@map("usuarios")
+}
+
+// Una sesión abierta. El `id` es el token: 256 bits aleatorios de
+// `node:crypto` en base64url (43 caracteres), nunca un UUID. Una sesión no es
+// un dato de negocio: cerrarla borra la fila (ADR 0024).
+model Sesion {
+  id        String   @id
+  usuarioId String   @map("usuario_id") @db.Uuid
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creadaEn  DateTime @map("creada_en") @db.Timestamptz(3)
+  expiraEn  DateTime @map("expira_en") @db.Timestamptz(3)
+  ultimoUso DateTime @map("ultimo_uso") @db.Timestamptz(3)
+  // El agente de usuario del navegador, si vino.
+  agente    String?
+
+  @@index([usuarioId])
+  @@map("sesiones")
+}
+
+// El historial de auditoría: una fila por `RegistroAuditoria`
+// (src/dominio/compartido/auditable.ts). Solo crece: el adaptador no tiene
+// UPDATE ni DELETE.
+model Auditoria {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entidad   String
+  entidadId String   @map("entidad_id")
+  accion    String
+  antes     Json?    @db.JsonB
+  despues   Json?    @db.JsonB
+  actor     Json     @db.JsonB
+  en        DateTime @db.Timestamptz(3)
+
+  @@index([entidad, entidadId])
+  @@map("auditoria")
 }

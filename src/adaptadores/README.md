@@ -17,3 +17,13 @@ Desde F0-19: `memoria/`, con los primeros adaptadores de `src/puertos/`:
 `secuencias.ts` (contador en memoria, uno por prefijo y año) y
 `generador-id.ts` (UUIDs con `node:crypto` — no es un doble de test, es la
 implementación real; alcanza para lo que sigue).
+
+Desde F0-22: `memoria/auditoria.ts`, doble en memoria de `Auditoria` con
+`registrados()` para inspección.
+
+Desde F0-29: `memoria/correo.ts` (doble de `Correo`, con `sembrar()` y
+`procesados()`) y `memoria/notificaciones.ts` (doble de `Notificaciones`,
+con `enviados()`). Los dos pasan la suite de contrato de
+`tests/contratos/`, la misma que va a exigir a Gmail/WhatsApp/Telegram/SMTP
+en Fase 1 (`AGENTS.md`, *Cómo se agrega...un adaptador real de un puerto con
+suite de contrato*).

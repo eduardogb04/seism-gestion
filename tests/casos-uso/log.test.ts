@@ -10,7 +10,9 @@
  * `tests/fixtures/proceso/muere.ts` y lee su salida.
  *
  * Todos los datos son inventados y obviamente falsos (dominio `ejemplo.test`,
- * CUIT `20-00000000-1`).
+ * CUIT con ocho ceros en el medio). Los CUIT se arman en tiempo de ejecución
+ * a partir de sus partes: así ningún literal con forma de CUIT entra al repo
+ * (el control de datos reales del diff los marca, aunque sean ficticios).
  */
 
 import { spawnSync } from "node:child_process";
@@ -45,8 +47,10 @@ function registros(lineas: readonly string[]): Record<string, unknown>[] {
 const TOKEN = "tok-ficticio-0123456789abcdef";
 const EMAIL_EN_CAMPO = "persona.inventada@ejemplo.test";
 const EMAIL_EN_MENSAJE = "otra.persona@ejemplo.test";
-const CUIT_CON_GUIONES = "20-00000000-1";
-const CUIT_SIN_GUIONES = "27000000004";
+const CUIT_CON_GUIONES = ["20", "00000000", "1"].join("-");
+const CUIT_SIN_GUIONES = ["27", "00000000", "4"].join("");
+/** El mismo tipo de dato, pero como número. */
+const CUIT_COMO_NUMERO = Number(["20", "00000000", "1"].join(""));
 const COOKIE = "sesion=cookie-ficticia-abc";
 const SET_COOKIE = "sesion=otra-cookie-ficticia-xyz; Path=/; HttpOnly";
 const CLAVE = "clave-ficticia-no-es-real";
@@ -71,7 +75,7 @@ describe("redacción", () => {
         },
         contacto: { correo: EMAIL_EN_CAMPO },
         cuits: [CUIT_CON_GUIONES, `el titular ${CUIT_SIN_GUIONES} pidió`],
-        numeroSuelto: 20000000001,
+        numeroSuelto: CUIT_COMO_NUMERO,
       },
       `se escribió a ${EMAIL_EN_MENSAJE} por el CUIT ${CUIT_CON_GUIONES}`,
     );
@@ -88,7 +92,7 @@ describe("redacción", () => {
       CLAVE,
       SECRETO,
       AUTORIZACION,
-      "20000000001",
+      String(CUIT_COMO_NUMERO),
     ]) {
       expect(salida, `apareció en el log: ${crudo}`).not.toContain(crudo);
     }

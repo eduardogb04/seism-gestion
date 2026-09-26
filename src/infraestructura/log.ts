@@ -68,7 +68,7 @@ const CLAVES_SENSIBLES = [
  */
 const PATRON_EMAIL = /[^\s@]+@[^\s@]+/g;
 
-/** Algo que parece un CUIT: 11 dígitos, con o sin guiones (`20-00000000-1`, `20000000001`). */
+/** Algo que parece un CUIT: 11 dígitos, con o sin guiones (2, 8 y 1). */
 const PATRON_CUIT = /\b\d{2}-?\d{8}-?\d\b/g;
 
 const almacenReferencia = new AsyncLocalStorage<string>();

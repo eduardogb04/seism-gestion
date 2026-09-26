@@ -130,4 +130,20 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Avisá con este código. Quien mantiene el sistema busca en el log la clave del documento y revisa si el almacén lo perdió o si la referencia apunta a otro lado.",
   },
+  ALM_0002: {
+    codigo: "ALM-0002",
+    tipo: "sistema",
+    descripcion:
+      "La clave del documento no es válida: solo se aceptan minúsculas sin acentos, números y guiones, en tramos separados por barras.",
+    queHacer:
+      "Es un error del sistema, no de lo que cargaste: avisá con este código. En el log, el detalle dice qué clave se rechazó.",
+  },
+  ALM_0003: {
+    codigo: "ALM-0003",
+    tipo: "sistema",
+    descripcion:
+      "Se pidió un enlace temporal a un documento con una vigencia fuera de rango: tiene que ser de 1 a 10080 minutos (una semana).",
+    queHacer:
+      "Es un error del sistema, no de lo que cargaste: avisá con este código. En el log, el detalle dice cuántos minutos se pidieron.",
+  },
 } as const);

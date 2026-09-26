@@ -23,6 +23,8 @@
  * en runtime los dos sean el mismo string (un UUID). Ver
  * `tests/dominio/identificador.test.ts` para la prueba con `@ts-expect-error`.
  */
+import { catalogo } from "./errores/catalogo.ts";
+import type { Resultado } from "./historial.ts";
 import type { Reloj } from "./reloj.ts";
 
 declare const marcaIdentificador: unique symbol;
@@ -64,7 +66,12 @@ export type DatosCodigoLegible = {
 
 export type ResultadoFormatearCodigo =
   | { readonly ok: true; readonly codigo: CodigoLegible }
-  | { readonly ok: false; readonly mensaje: string };
+  | {
+      readonly ok: false;
+      readonly codigo: typeof catalogo.DOM_0006.codigo;
+      /** Qué dato no sirvió y por qué (para el log, no para pantalla). */
+      readonly mensaje: string;
+    };
 
 /** Prefijo: exactamente 3 letras mayúsculas. Los prefijos concretos por entidad (`SRV`, `FAC`...) los define Fase 1 — acá no se conoce ninguno. */
 const PATRON_PREFIJO = /^[A-Z]{3}$/;
@@ -85,18 +92,21 @@ export function formatearCodigo(
   if (!PATRON_PREFIJO.test(prefijo)) {
     return {
       ok: false,
+      codigo: catalogo.DOM_0006.codigo,
       mensaje: `prefijo inválido: "${prefijo}" (tiene que ser exactamente 3 letras mayúsculas).`,
     };
   }
   if (!Number.isInteger(anio) || anio < 1000 || anio > 9999) {
     return {
       ok: false,
+      codigo: catalogo.DOM_0006.codigo,
       mensaje: `año inválido: ${anio} (tiene que ser un entero de 4 dígitos, entre 1000 y 9999).`,
     };
   }
   if (!Number.isInteger(secuencia) || secuencia < 1) {
     return {
       ok: false,
+      codigo: catalogo.DOM_0006.codigo,
       mensaje: `secuencia inválida: ${secuencia} (tiene que ser un entero positivo, arrancando en 1).`,
     };
   }
@@ -185,4 +195,29 @@ export function parsearCodigo(valor: string): DatosCodigoLegible | null {
   }
 
   return { prefijo, anio, secuencia };
+}
+
+/** El texto no es un `CodigoLegible` que `formatearCodigo` pueda haber producido. */
+export interface CodigoIlegible {
+  readonly codigo: typeof catalogo.DOM_0002.codigo;
+  readonly valor: string;
+}
+
+/**
+ * `parsearCodigo` con el error del catálogo: para el borde que lee un código
+ * que escribió una persona y tiene que decirle por qué no sirve (DOM-0002).
+ * `parsearCodigo` conserva su firma (`null`) porque sus llamadores y sus
+ * propiedades (F0-15) se apoyan en ella.
+ */
+export function leerCodigo(
+  valor: string,
+): Resultado<DatosCodigoLegible, CodigoIlegible> {
+  const datos = parsearCodigo(valor);
+  if (datos === null) {
+    return {
+      ok: false,
+      error: Object.freeze({ codigo: catalogo.DOM_0002.codigo, valor }),
+    };
+  }
+  return { ok: true, valor: datos };
 }

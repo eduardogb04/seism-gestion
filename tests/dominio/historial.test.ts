@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
 import {
-  CODIGO_TRANSICION_INVALIDA,
   definirCiclo,
   type Historial,
   type Transiciones,
@@ -147,7 +147,7 @@ describe("historial de estados", () => {
       return;
     }
     expect(resultado.error).toEqual({
-      codigo: CODIGO_TRANSICION_INVALIDA,
+      codigo: catalogo.DOM_0001.codigo,
       de: "borrador",
       a: "aceptado",
       permitidas: ["enviado", "anulado"],

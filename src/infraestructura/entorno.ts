@@ -27,6 +27,14 @@ export const esquemaEntorno = z.object({
    * (ficticia, ADR 0008).
    */
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  /**
+   * El email del primer administrador (F0-30): `npm run db:seed` lo da de
+   * alta si no existe (ADR 0024). Obligatoria: sin ella no hay forma de
+   * entrar a administrar usuarios. No es secreta, pero es un dato personal:
+   * el de `.env.example` es inventado (`admin@ejemplo.test`) y el real
+   * nunca se escribe en el repo.
+   */
+  ADMIN_INICIAL_EMAIL: z.email(),
 });
 
 export type Entorno = z.infer<typeof esquemaEntorno>;
@@ -45,6 +53,7 @@ const FORMATO_ESPERADO = new Map<string, string>([
     "DATABASE_URL",
     " Tiene que ser una URL de Postgres: postgresql://usuario:clave@servidor:puerto/base (o postgres://).",
   ],
+  ["ADMIN_INICIAL_EMAIL", " Tiene que ser un email: nombre@dominio."],
 ]);
 
 /**

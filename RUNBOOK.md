@@ -542,7 +542,7 @@ adentro de la imagen.
    ```
 3. Si querés verla con el navegador, en vez del paso 2:
    ```
-   docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba seism-gestion:local
+   docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ADMIN_INICIAL_EMAIL=admin@ejemplo.test seism-gestion:local
    ```
    y abrí `http://localhost:3000` y `http://localhost:3000/api/salud`. Se corta con `Ctrl+C`.
    La app todavía no se conecta a la base: alcanza con una `DATABASE_URL` de Postgres válida, como
@@ -606,7 +606,7 @@ repositorio sea público: hay que cambiarlo a mano una vez, y queda así para si
 - Desde cualquier máquina con Docker, **sin `docker login`**:
   ```
   docker pull ghcr.io/eduardogb04/seism-gestion:latest
-  docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba ghcr.io/eduardogb04/seism-gestion:latest
+  docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ADMIN_INICIAL_EMAIL=admin@ejemplo.test ghcr.io/eduardogb04/seism-gestion:latest
   ```
   (desde F0-08 la imagen exige `DATABASE_URL`; la app todavía no se conecta, alcanza con esa URL
   ficticia)

@@ -9,12 +9,16 @@
  * variable del esquema de entorno (no hace falta para arrancar la app ni
  * ningún otro script de base): es un chequeo puntual de este script, igual
  * que `db-migrate-down.ts` exige `DATABASE_URL` local antes de revertir.
+ *
+ * Desde F0-30 le pasa a la semilla `ADMIN_INICIAL_EMAIL` (el primer
+ * administrador, ya validado por el esquema) y el reloj del sistema.
  */
 
 import { existsSync } from "node:fs";
 import process from "node:process";
 import { sembrar } from "../prisma/seed.ts";
 import { crearClientePrisma } from "../src/adaptadores/prisma/cliente.ts";
+import { crearRelojSistema } from "../src/adaptadores/reloj/sistema.ts";
 import { exigirEntornoValido } from "../src/infraestructura/entorno.ts";
 
 const PROCESO = "db:seed";
@@ -34,7 +38,10 @@ if (entorno.APP_ENTORNO === "servidor" && process.env.SEED_PERMITIDO !== "si") {
 
 const prisma = crearClientePrisma(entorno.DATABASE_URL);
 try {
-  await sembrar(prisma);
+  await sembrar(prisma, {
+    adminInicialEmail: entorno.ADMIN_INICIAL_EMAIL,
+    reloj: crearRelojSistema(),
+  });
   process.stdout.write(`${PROCESO}: listo.\n`);
 } finally {
   await prisma.$disconnect();

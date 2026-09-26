@@ -11,6 +11,7 @@ import {
   marcarActualizado,
   marcarEliminado,
 } from "../../src/dominio/compartido/auditable.ts";
+import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
 import { identificadorDesde } from "../../src/dominio/compartido/identificador.ts";
 import {
   crearFechaHora,
@@ -98,7 +99,7 @@ describe("marcarActualizado", () => {
     expect(original.valor).toBe("v1");
   });
 
-  it("sobre un Auditable ya eliminado, rechaza con DOMINIO.AUDITABLE.YA_ELIMINADO", () => {
+  it("sobre un Auditable ya eliminado, rechaza con DOM-0007", () => {
     const reloj = RelojFijo(fechaHoraDePrueba(10));
     const creado = crearAuditable("v1", actorCreador, reloj);
     const eliminado = marcarEliminado(creado, actorCreador, reloj);
@@ -115,7 +116,7 @@ describe("marcarActualizado", () => {
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
-      expect(resultado.error.codigo).toBe("DOMINIO.AUDITABLE.YA_ELIMINADO");
+      expect(resultado.error.codigo).toBe(catalogo.DOM_0007.codigo);
     }
   });
 });
@@ -143,7 +144,7 @@ describe("marcarEliminado", () => {
     expect(() => marcarEliminado(creado, actorCreador, reloj)).not.toThrow();
   });
 
-  it("borrar dos veces el mismo Auditable rechaza la segunda con DOMINIO.AUDITABLE.YA_ELIMINADO", () => {
+  it("borrar dos veces el mismo Auditable rechaza la segunda con DOM-0007", () => {
     const reloj = RelojFijo(fechaHoraDePrueba(10));
     const creado = crearAuditable("v1", actorCreador, reloj);
     const primeraVez = marcarEliminado(creado, actorCreador, reloj);
@@ -155,7 +156,7 @@ describe("marcarEliminado", () => {
 
     expect(segundaVez.ok).toBe(false);
     if (!segundaVez.ok) {
-      expect(segundaVez.error.codigo).toBe("DOMINIO.AUDITABLE.YA_ELIMINADO");
+      expect(segundaVez.error.codigo).toBe(catalogo.DOM_0007.codigo);
     }
   });
 });

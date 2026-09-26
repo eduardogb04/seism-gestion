@@ -435,6 +435,38 @@ describe("TipoDeCambio y convertir", () => {
     max: 5_000n * DIEZ_MIL,
   });
 
+  it("propiedad: convertir da el entero más cercano a x·n/d, calculado exacto en bigint, y en la mitad se aleja del cero", () => {
+    // Referencia exacta, sin redondeo intermedio: r es el más cercano a
+    // x·n/d si |2·(r·d − x·n)| ≤ d; en el empate (= d), r se aleja del cero.
+    // Montos de hasta 10^15 centavos: con `number` en el medio, el producto
+    // pasa 2^53 y esta propiedad se pone en rojo.
+    propiedad(
+      centavosConBordes,
+      fc.bigInt({ min: 1n, max: 10n ** 9n }),
+      fc.bigInt({ min: 1n, max: 10n ** 6n }),
+      (centavos, numerador, denominador) => {
+        const tc = tipoDeCambio("USD", "ARS", numerador, denominador);
+        const r = convertir(crearImporte(centavos, "USD"), tc).centavos;
+        const desvio = 2n * (r * denominador - centavos * numerador);
+
+        expect(absoluto(desvio) <= denominador).toBe(true);
+        if (absoluto(desvio) === denominador) {
+          expect(desvio > 0n).toBe(centavos > 0n);
+        }
+      },
+    );
+  });
+
+  it("convertir un monto grande es exacto (no pasa por number)", () => {
+    // 98_765_432_198_765_432 × 11_842_537 / 10_000 = ...098_278,0984 exacto:
+    // se redondea hacia abajo. Con number daría ...110_000 (sin precisión).
+    const tc = tipoDeCambio("USD", "ARS", 11_842_537n, 10_000n);
+
+    expect(
+      convertir(crearImporte(98_765_432_198_765_432n, "USD"), tc).centavos,
+    ).toBe(116_963_328_513_487_098_278n);
+  });
+
   it("propiedad: USD → ARS → USD con el TC inverso difiere del original en a lo sumo un centavo", () => {
     propiedad(centavosConBordes, numeradorRealista, (centavos, numerador) => {
       const ida = tipoDeCambio("USD", "ARS", numerador, DIEZ_MIL);

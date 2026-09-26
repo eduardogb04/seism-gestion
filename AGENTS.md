@@ -79,7 +79,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run dev` | `next dev`: la app en `http://localhost:3000`. Necesita `.env` (copiá `.env.example`); si falta una variable o es inválida, **no arranca** (sale 1 y dice cuál). Ver *Next.js y entorno* |
 | `npm run build` | `next build` con `output: "standalone"`: compila, corre `tsc` y deja `.next/standalone/server.js`. **No necesita `.env`**; sí git o `APP_VERSION` (la versión del latido) |
 | `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
-| `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz. `-- --write` aplica los arreglos |
+| `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz — y después `scripts/sin-error-crudo.ts`, que rechaza `throw new Error` y `new ErrorSistema(` en `src/dominio/` y `src/casos-uso/` (F0-23, ADR 0020). `-- --write` aplica los arreglos de Biome |
 | `npm test` | Vitest sobre los niveles `dominio` y `casos-uso` (ver *Testing: en qué nivel va cada cosa*): el ciclo de siempre. **Necesita Docker corriendo** (el nivel casos de uso levanta un Postgres); no necesita `.env` ni la base de compose |
 | `npm run test:dominio` | Solo el nivel `dominio`, con su reloj: `scripts/test-dominio.ts` mide la corrida entera y **sale 1 si tarda más de 10 s** (criterio de F0-14). No necesita nada: el nivel dominio no abre red ni base |
 | `npm run test:extraccion` | Solo el nivel `extraccion` (golden files): el arnés `compararConGolden` (F0-16) y su caso de ejemplo |
@@ -90,7 +90,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run e2e:app` | No se llama a mano: es el `webServer` de `playwright.config.ts`. Construye la imagen (`npm run imagen`), levanta el servicio `app` del perfil `e2e` de compose y espera el latido. Lo apaga `tests/e2e/_arnes/apagar-app.ts` al terminar el e2e |
 | `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que generan Next, ADR 0005, y Prisma, ADR 0008) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
-| `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre cada fixture de `tests/fixtures/lint/`, por separado. `debe-fallar.ts` **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`; `reloj-inyectado/` por la regla del reloj (`noRestrictedGlobals` sobre `Date`), y solo desde `src/dominio/`. Sale 0 si cada uno fue rechazado por sus reglas y el caso permitido quedó limpio; 1 si alguno pasó, falta un diagnóstico o sobra uno |
+| `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre cada fixture de `tests/fixtures/lint/`, por separado. `debe-fallar.ts` **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`; `reloj-inyectado/` por la regla del reloj (`noRestrictedGlobals` sobre `Date`), y solo desde `src/dominio/`; `error-crudo/` por `scripts/sin-error-crudo.ts` (`throw new Error` y `new ErrorSistema(`), y solo desde `src/dominio/` y `src/casos-uso/`. Sale 0 si cada uno fue rechazado por sus reglas y el caso permitido quedó limpio; 1 si alguno pasó, falta un diagnóstico o sobra uno |
 | `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
 | `npm run limites:fixtures` | Prueba negativa de `limites`: corre dependency-cruiser sobre cada carpeta de `tests/fixtures/limites/` (una por regla), por separado. Sale 0 si cada una fue rechazada por **su** regla y desde los archivos esperados; 1 si alguna pasó, la rechazó otra regla, o hay una regla sin fixture |
 | `npm run verificar` | `scripts/verificar.ts` (M-01): corre `typecheck`, `lint`, `limites`, `test` y los `*:fixtures` que haya en `package.json`, en ese orden, una línea `✔`/`✘ <paso> (<segundos> s)` por paso; si uno falla, muestra sus últimas 60 líneas y para (sale ≠ 0). La salida completa de cada paso queda en `.verificar/<paso>.log`. `-- --seguir` corre todos igual y suma cuántos fallaron. Usalo durante el desarrollo en vez de los cuatro comandos sueltos |
@@ -177,8 +177,9 @@ modelos:** antes de escribir código de Next, leé la guía que corresponda en
 archivo (ADR 0005).
 
 - **Levantar en local.** Copiá `.env.example` a `.env` (`.env` está en `.gitignore`: nunca entra
-  al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO` y
-  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`). La app
+  al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO`,
+  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`) y
+  `LOG_NIVEL`, opcional (F0-24; vacía o sin definir, `debug` en local e `info` en `ci`/`servidor`). La app
   todavía no se conecta a la base, pero sin `DATABASE_URL` válida no arranca.
 - **`.env` y `standalone`.** Si al compilar existe un `.env`, `next build` lo **copia** a
   `.next/standalone/.env` y `server.js` lo lee. Sin `.env` al compilar, las variables van en el
@@ -188,7 +189,9 @@ archivo (ADR 0005).
   una vez, antes de atender pedidos) llama a `exigirEntornoValido` de
   `src/infraestructura/entorno.ts`. Si una variable falta o es inválida, escribe en stderr cuál
   (sin repetir el valor) y el proceso sale con código 1, en `next dev` y en `server.js`. `npm
-  run build` no valida el entorno ni necesita `.env`.
+  run build` no valida el entorno ni necesita `.env`. Con el entorno válido, instala los
+  manejadores de `src/infraestructura/proceso.ts` (F0-24): una excepción o un rechazo que nadie
+  capturó se loguea en `fatal` con `INF-0001` y el proceso sale con código 1 (lo reinicia Docker).
 - **La versión del latido** (`GET /api/salud` → `{ ok: true, version }`) se fija al compilar:
   `next.config.ts` usa `APP_VERSION` si está definida (la pasa el build de Docker desde F0-07) o,
   si no, el SHA corto de git; sin ninguna, el build falla. Next reemplaza
@@ -512,9 +515,18 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
   sistema no se llama, se inyecta un `Reloj` (`src/dominio/compartido/reloj.ts`). Fuera del
   dominio la regla no existe, porque traducir entre `FechaHora` y `Date` es trabajo de los
   adaptadores. Ver ADR 0012.
-- **Prueba de que rechaza.** Dos fixtures, que `npm run lint:fixtures`
-  (`scripts/lint-fixtures.ts`) corre por separado invocando el binario de Biome con `cwd` en la
-  carpeta de cada uno, imprimiendo su salida de error e **invirtiendo** el código de salida: sale
+- **Sin errores crudos (F0-23).** Biome no tiene regla para `throw new Error` (`useThrowOnlyError`,
+  en `error`, solo frena lanzar lo que no es un `Error`). Lo hace `scripts/sin-error-crudo.ts`, la
+  segunda mitad de `npm run lint`: con la API del compilador de TypeScript rechaza `throw new
+  Error(...)`, `throw Error(...)` (y los demás errores nativos) y `new ErrorSistema(` en
+  `src/dominio/` y `src/casos-uso/`. Ver ADR 0020 y *Cómo se agrega... un error*.
+- **Sin `console.*` en `src/` (F0-24).** Un `override` sobre `**/src/**` pone
+  `suspicious/noConsole` en `error`: en `src/` se loguea con el log de
+  `src/infraestructura/log.ts` (ver *Cómo se agrega... un log*). En `scripts/` y `tests/`
+  `console` sigue valiendo: son herramientas de consola.
+- **Prueba de que rechaza.** Cuatro fixtures, que `npm run lint:fixtures`
+  (`scripts/lint-fixtures.ts`) corre por separado invocando el binario de Biome (o
+  `sin-error-crudo`) con `cwd` en la carpeta de cada uno, imprimiendo su salida de error e **invirtiendo** el código de salida: sale
   0 si cada fixture fue rechazado por sus reglas, desde los archivos esperados y sin tocar los
   archivos permitidos; 1 si alguno fue aceptado, si falta un diagnóstico o si aparece uno donde no
   correspondía.
@@ -527,6 +539,13 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
     verdad y no una copia (si alguien la saca de `biome.json`, el fixture pasa el lint y este
     comando se pone en rojo). Trae además el caso permitido, `src/adaptadores/reloj/usa-date.ts`:
     el mismo código fuera del dominio, que **no** tiene que aparecer como violación.
+  - `tests/fixtures/lint/sin-console/` (F0-24), misma forma que el anterior: `console.log` en
+    `src/infraestructura/` tiene que ser rechazado por `noConsole`; el mismo código en `scripts/`
+    es el caso permitido.
+  - `tests/fixtures/lint/error-crudo/` (F0-23) lo rechaza `sin-error-crudo`, no Biome: un
+    `throw new Error` y un `new ErrorSistema(` en `src/dominio/`, y `throw Error`/`throw new
+    RangeError` en `src/casos-uso/`. Casos permitidos: un adaptador que lanza `Error` y el archivo
+    que define `ErrorSistema`.
 - **`// biome-ignore` exige motivo.** Ninguno sin explicar por qué en el mismo comentario. Si
   Biome choca con código real, se arregla el código, no la regla.
 
@@ -583,9 +602,12 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
    `npm run lint`) es la segunda red.
 5. **Todo borde externo se valida con Zod**, incluidas las variables de entorno al arrancar: si
    falta una, la app no arranca (`src/infraestructura/entorno.ts`, ver *Next.js y entorno*).
-6. **Todo error tiene código estable** del catálogo (`DOM-0001`). No existe `throw new Error`.
-   (El catálogo llega en el lote 6.)
-7. **Ningún log con secretos ni datos personales.** Hay un test dedicado. (Llega en F0-24.)
+6. **Todo error tiene código estable** del catálogo (`DOM-0001`,
+   `src/dominio/compartido/errores/catalogo.ts`) y **un código nunca se reutiliza**. No existe
+   `throw new Error` en `src/dominio` ni en `src/casos-uso`: lo frena `npm run lint`
+   (`sin-error-crudo`). Ver *Cómo se agrega... un error* y ADR 0020.
+7. **Ningún log con secretos ni datos personales.** Hay un test dedicado
+   (`tests/casos-uso/log.test.ts`, F0-24) y en `src/` no se usa `console.*` (Biome, `noConsole`).
 8. **La IA nunca escribe en el dominio.** Crea borradores o propone; un humano confirma.
 9. **Un archivo que crece demasiado se parte.**
 10. **Todo cambio de esquema es una migración con su `down.sql`.** Nadie toca la base a mano.
@@ -755,7 +777,7 @@ aritmética de fechas del reloj: `definirCiclo<Estado>({ transiciones, diferenci
 (`src/dominio/compartido/historial.ts`). La tabla lista, por cada estado, a cuáles se puede pasar;
 un estado terminal lleva lista vacía. `crear` y `agregar` devuelven un historial nuevo y congelado,
 y `agregar` devuelve `Resultado`: una transición no declarada no lanza, se rechaza con
-`CODIGO_TRANSICION_INVALIDA` y la posición en que se cortó. **Ninguna operación modifica ni borra
+el código `DOM-0001` del catálogo (`catalogo.DOM_0001.codigo`) y la posición en que se cortó. **Ninguna operación modifica ni borra
 un evento pasado**, y no se agrega una que lo haga. La marca de tiempo entra por parámetro (el
 dominio no consulta la fecha del sistema) y los tipos de `en`, `actor` y `origen` son parámetros
 de tipo hasta que F0-22 los fije (ADR 0010).
@@ -766,6 +788,25 @@ Sumar una es agregarla ahí y sumar un caso a `tests/dominio/importe.test.ts` y
 `tests/dominio/formato-importe.test.ts`: la aritmética, `convertir`, el parseo y el formato
 no nombran monedas. Los montos son centavos `bigint`; nunca `number` (ADR 0018).
 
+**...un error (F0-23).** Una entrada en `src/dominio/compartido/errores/catalogo.ts`: clave
+`<PREFIJO>_NNNN` y `codigo: '<PREFIJO>-NNNN'` (tienen que coincidir, si no no compila), con el
+prefijo del módulo (`DOM`, `AUT`, `ING`, `INF`, `IA`, `ALM`) y el **número siguiente al más alto
+de ese prefijo**. `tipo` (`persona` · `sistema` · `externo`), `descripcion` (la ve la persona en
+pantalla: sin datos del caso) y `queHacer`, completos. Después `npm run test:golden:update` y
+revisá el diff de `tests/extraccion/golden/catalogo-errores.json`. **Nunca se reutiliza un
+código**: una entrada no se borra ni cambia de tipo, aunque ya no se use (el test del golden lo
+rechaza aun regenerando). El dominio devuelve `Resultado` con `codigo: catalogo.<CLAVE>.codigo`;
+en un borde se lanza `nuevoError(catalogo.<CLAVE>, detalles, causa?)`, nunca `new Error` (ADR 0020).
+
+**...un log (F0-24).** En `src/`, con el `log` de `src/infraestructura/log.ts` (nunca `console.*`):
+`log.info({ campos }, "mensaje")`. Lo que corre dentro de `conReferencia("SRV-2026-014", fn)`
+lleva `referencia` sola, también después de cada `await`: no se pasa a mano. Todo lo que sale se
+redacta: el valor entero de cualquier clave que contenga `authorization`, `cookie`, `token`,
+`secret`, `password` o `clave`, y en cualquier texto (mensaje, pila, valores) lo que parezca email o
+CUIT. Los casos de uso no importan infraestructura: si necesitan loguear, reciben el log por
+parámetro. Un campo sensible nuevo que no entre en esas reglas: a `CLAVES_SENSIBLES`, con su caso en
+el test (ADR 0021).
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -775,16 +816,16 @@ estimación; el orden real de creación manda).
 ## Estructura
 
 ```
-src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20)
+src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23)
 src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
 src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts)
-src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
+src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · arranque/ = punto de armado
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
 tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
-scripts/             utilidades de los comandos de package.json (sin-any.ts, db-migrate-down.ts, db-seed.ts, test-dominio.ts, e2e-app.ts; lib/migraciones.ts)
+scripts/             utilidades de los comandos de package.json (sin-any.ts, sin-error-crudo.ts, db-migrate-down.ts, db-seed.ts, test-dominio.ts, e2e-app.ts; lib/migraciones.ts)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
 vitest.config.ts     los tres niveles que corren con Vitest (proyectos dominio, casos-uso, extraccion)
 playwright.config.ts el nivel e2e: Chromium y el webServer que levanta la app con compose

@@ -93,7 +93,8 @@
         "useLiteralEnumMembers": "error",
         "useNodejsImportProtocol": "error",
         "useShorthandFunctionType": "error",
-        "useTemplate": "error"
+        "useTemplate": "error",
+        "useThrowOnlyError": "error"
       },
       "suspicious": {
         "noApproximativeNumericConstant": "error",
@@ -143,6 +144,16 @@
     }
   },
   "overrides": [
+    {
+      "includes": ["**/src/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "error"
+          }
+        }
+      }
+    },
     {
       "includes": ["**/src/dominio/**"],
       "linter": {

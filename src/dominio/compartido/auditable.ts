@@ -12,6 +12,7 @@
  * reciben — siempre devuelven un valor nuevo, congelado.
  */
 import type { Actor } from "./actor.ts";
+import { catalogo } from "./errores/catalogo.ts";
 import type { Resultado } from "./historial.ts";
 import type { Identificador } from "./identificador.ts";
 import type { FechaHora, Reloj } from "./reloj.ts";
@@ -27,13 +28,9 @@ export interface Auditable<T> {
   readonly eliminadoPor?: Actor;
 }
 
-/** Código estable del único modo de fallar de este módulo (F0-23 lo migra al catálogo). */
-export const CODIGO_AUDITABLE_YA_ELIMINADO =
-  "DOMINIO.AUDITABLE.YA_ELIMINADO" as const;
-
 /** Se intentó actualizar o volver a eliminar un `Auditable` ya eliminado. */
 export interface AuditableYaEliminado {
-  readonly codigo: typeof CODIGO_AUDITABLE_YA_ELIMINADO;
+  readonly codigo: typeof catalogo.DOM_0007.codigo;
 }
 
 /** Envuelve `valor` recién creado: creado y actualizado son el mismo instante y el mismo actor. */
@@ -64,7 +61,7 @@ export function marcarActualizado<T>(
   reloj: Reloj,
 ): Resultado<Auditable<T>, AuditableYaEliminado> {
   if (auditable.eliminadoEn !== undefined) {
-    return { ok: false, error: { codigo: CODIGO_AUDITABLE_YA_ELIMINADO } };
+    return { ok: false, error: { codigo: catalogo.DOM_0007.codigo } };
   }
   return {
     ok: true,
@@ -88,7 +85,7 @@ export function marcarEliminado<T>(
   reloj: Reloj,
 ): Resultado<Auditable<T>, AuditableYaEliminado> {
   if (auditable.eliminadoEn !== undefined) {
-    return { ok: false, error: { codigo: CODIGO_AUDITABLE_YA_ELIMINADO } };
+    return { ok: false, error: { codigo: catalogo.DOM_0007.codigo } };
   }
   return {
     ok: true,

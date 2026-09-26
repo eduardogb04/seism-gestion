@@ -174,3 +174,48 @@ describe("validarEntorno: en general", () => {
     });
   });
 });
+
+describe("validarEntorno: LOG_NIVEL (F0-24)", () => {
+  it("es opcional: sin ella el entorno es válido y no aparece", () => {
+    const resultado = validarEntorno(VALIDO);
+
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) {
+      expect(Object.hasOwn(resultado.entorno, "LOG_NIVEL")).toBe(false);
+    }
+  });
+
+  it("vacía cuenta como no definida (así viene en .env.example)", () => {
+    const resultado = validarEntorno({ ...VALIDO, LOG_NIVEL: "" });
+
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) {
+      expect(resultado.entorno.LOG_NIVEL).toBeUndefined();
+    }
+  });
+
+  it.each(["fatal", "error", "warn", "info", "debug", "trace"])(
+    "acepta LOG_NIVEL=%s",
+    (valor) => {
+      const resultado = validarEntorno({ ...VALIDO, LOG_NIVEL: valor });
+
+      expect(resultado).toEqual({
+        ok: true,
+        entorno: { ...VALIDO, LOG_NIVEL: valor },
+      });
+    },
+  );
+
+  it.each(["verbose", "INFO", "5"])(
+    "rechaza LOG_NIVEL=%j y el mensaje nombra la variable y los valores válidos",
+    (valor) => {
+      const resultado = validarEntorno({ ...VALIDO, LOG_NIVEL: valor });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("LOG_NIVEL");
+        expect(resultado.mensaje).toContain("debug");
+      }
+    },
+  );
+});

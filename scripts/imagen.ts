@@ -310,6 +310,12 @@ async function probar(etiqueta: string): Promise<void> {
     "APP_ENTORNO=ci",
     "--env",
     `DATABASE_URL=${DATABASE_URL_PRUEBA}`,
+    // El almacén de documentos (F0-27): la app lo exige al arrancar. En una
+    // carpeta del contenedor; la prueba no guarda documentos.
+    "--env",
+    "ALMACEN=disco",
+    "--env",
+    "ALMACEN_DIRECTORIO=/tmp/almacen",
     etiqueta,
   ]);
 

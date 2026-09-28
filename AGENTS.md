@@ -744,6 +744,8 @@ existe en un adaptador real): devuelve el puerto y una forma propia de preparar 
 (`preparar`/`leerEnviados`), que en un adaptador real habla con la API real (o su sandbox de test),
 no con una lista en memoria. Un archivo de test nuevo en el proyecto de Vitest que corresponda (sin
 red ni base: `dominio`; si necesita Docker o red: `casos-uso`) invoca la suite con esa fábrica.
+Los avisos al administrador (F0-25: cola de fallidos y corridas de worker; F0-28: tope de gasto de
+IA) se mandan por `src/puertos/notificaciones.ts`, aunque esas tareas todavía no existan.
 
 **...una clave a `configuracion` (F0-10).** Una entrada más en
 `CONFIGURACION_POR_DEFECTO` de `prisma/seed.ts`, con su `clave` y su `valor` por defecto (los dos,

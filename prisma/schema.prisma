@@ -15,6 +15,8 @@ generator client {
   output              = "../src/adaptadores/prisma/generado"
   moduleFormat        = "esm"
   importFileExtension = "ts"
+  // El índice parcial de los fallidos pendientes (F0-25, ADR 0025).
+  previewFeatures     = ["partialIndexes"]
 }
 
 // La URL no va acá: la da `prisma.config.ts` desde `DATABASE_URL`.
@@ -35,4 +37,52 @@ model Configuracion {
   actualizadoPor String?  @map("actualizado_por") @db.Uuid
 
   @@map("configuracion")
+}
+
+// Cómo terminó una corrida de un job del worker (F0-25).
+enum ResultadoCorrida {
+  ok
+  error
+
+  @@map("resultado_corrida")
+}
+
+// Una fila por corrida de cada job del worker (F0-25, ADR 0025). Se inserta
+// con `inicio` antes de correr el job; `fin` y `resultado` se ponen al
+// terminar, pase lo que pase. Una fila sin `fin` es una corrida en curso (o un
+// proceso que murió a mitad). `inicio` hace de `creado_en`.
+model CorridaWorker {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job       String
+  inicio    DateTime          @db.Timestamptz(3)
+  fin       DateTime?         @db.Timestamptz(3)
+  resultado ResultadoCorrida?
+  // Con error: el código del catálogo y el mensaje, redactado.
+  detalle   String?
+
+  // La última corrida de cada job (lo que lee `listarSalud`).
+  @@index([job, inicio(sort: Desc)])
+  @@map("corridas_worker")
+}
+
+// Lo que falló después de agotar los reintentos (F0-25, ADR 0025): "nada
+// falla en silencio". Queda hasta que alguien lo resuelve (`resuelto_en`).
+model Fallido {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Quién falló: la integración o la operación (por ejemplo, `ingesta.correo`).
+  origen         String
+  // El código del catálogo del último error.
+  codigoError    String    @map("codigo_error")
+  // Lo necesario para volver a intentarlo. Nunca un secreto.
+  carga          Json      @db.JsonB
+  intentos       Int
+  // Cuándo volver a intentarlo. Nulo: nadie lo reintenta solo (Fase 0).
+  proximoIntento DateTime? @map("proximo_intento") @db.Timestamptz(3)
+  resueltoEn     DateTime? @map("resuelto_en") @db.Timestamptz(3)
+  creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(3)
+  actualizadoEn  DateTime  @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(3)
+
+  // Los pendientes (los que cuenta `listarSalud`), sin recorrer los resueltos.
+  @@index([resueltoEn], map: "fallidos_pendientes_idx", where: raw("resuelto_en IS NULL"))
+  @@map("fallidos")
 }

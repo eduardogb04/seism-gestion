@@ -21,3 +21,9 @@ declara un método de borrado físico (`eliminar`, `borrar`, `delete`,
 `remove`, `destroy`, `purgar`): lo prueba
 `tests/dominio/puertos-sin-borrado.test.ts` (regla no negociable 16 de
 `AGENTS.md`).
+
+Desde F0-25: `cola-fallidos.ts` (`ColaFallidos { encolar, contarPendientes }`),
+`repositorios/corridas-worker.ts` (`RegistroCorridas`) y
+`sonda-integracion.ts` (`SondaIntegracion { nombre, probar }`), con
+adaptadores de Prisma en `src/adaptadores/prisma/` (una sola implementación
+cada uno: sin doble ni suite de contrato todavía).

@@ -17,3 +17,7 @@ Desde F0-19: `memoria/`, con los primeros adaptadores de `src/puertos/`:
 `secuencias.ts` (contador en memoria, uno por prefijo y año) y
 `generador-id.ts` (UUIDs con `node:crypto` — no es un doble de test, es la
 implementación real; alcanza para lo que sigue).
+
+Desde F0-25, en `prisma/`: `cola-fallidos.ts` (tabla `fallidos`),
+`corridas-worker.ts` (tabla `corridas_worker`) y `sonda-base.ts` (`SELECT 1`,
+la integración `base` de `listarSalud`).

@@ -126,6 +126,7 @@ jobs:
           APP_ENTORNO: ci
           DATABASE_URL: postgresql://seism:seism_local@localhost:5432/seism_gestion
           ADMIN_INICIAL_EMAIL: admin@ejemplo.test
+          IDENTIDAD: falsa
         run: npm run db:migrate
 
       # `prisma migrate diff --exit-code` entre la base recién migrada y

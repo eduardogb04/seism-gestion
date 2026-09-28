@@ -38,6 +38,7 @@ function arrancar(variables: Readonly<Record<string, string>>) {
     cwd: process.cwd(),
     encoding: "utf8",
     env: {
+      NODE_ENV: "production",
       PATH: process.env.PATH ?? "",
       SystemRoot: process.env.SystemRoot ?? "",
       ...variables,

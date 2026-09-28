@@ -17,3 +17,9 @@ Desde F0-19: `memoria/`, con los primeros adaptadores de `src/puertos/`:
 `secuencias.ts` (contador en memoria, uno por prefijo y año) y
 `generador-id.ts` (UUIDs con `node:crypto` — no es un doble de test, es la
 implementación real; alcanza para lo que sigue).
+
+Desde F0-30, en `prisma/`: `usuarios.ts`, `sesiones.ts` y `auditoria.ts` (los
+repositorios y el puerto `Auditoria` de F0-22, que solo agrega filas),
+`transaccion.ts` (`Transaccional` con `$transaction` interactiva) y
+`conversiones.ts` (`FechaHora` ↔ `timestamptz` y `Actor` ↔ `jsonb`). Ver ADR
+0024.

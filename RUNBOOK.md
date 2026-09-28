@@ -109,7 +109,7 @@ Las credenciales son de desarrollo, ficticias, y ya están en `.env.example`.
   `127.0.0.1:5432->5432/tcp`.
 - `npm run db:migrate` termina con `All migrations have been successfully applied.` (o, si ya
   estaba al día, `No pending migrations to apply.`).
-- `docker compose exec postgres psql -U seism -d seism_gestion -c "\dt"` lista `configuracion` (y
+- `docker compose exec postgres psql -U seism -d seism_gestion -c "\dt"` lista `configuracion`, `usuarios`, `sesiones` y `auditoria` (y
   `_prisma_migrations`, el registro de Prisma).
 
 **Revertir la última migración** (desde F0-09): `npm run db:migrate:down`. Imprime
@@ -119,15 +119,27 @@ hay migraciones aplicadas, no había nada que revertir. Nunca se cambia la base 
 
 **Sembrar datos mínimos** (desde F0-10): `npm run db:seed`, después de `npm run db:migrate`.
 Idempotente: correrlo dos veces (`npm run db:seed` otra vez) deja la base igual. Hoy carga una sola
-clave de `configuracion` (`ia.tope_mensual_usd` en `"0"`); en el servidor exige
-`SEED_PERMITIDO=si` además de `APP_ENTORNO=servidor`, para que no se corra ahí por accidente.
+clave de `configuracion` (`ia.tope_mensual_usd` en `"0"`) y, desde F0-30, da de alta al **primer
+administrador** con el email de `ADMIN_INICIAL_EMAIL`, si no hay ya un usuario con ese email. En el
+servidor exige `SEED_PERMITIDO=si` además de `APP_ENTORNO=servidor`, para que no se corra ahí por
+accidente.
+
+**Antes del primer `db:seed`, poné `ADMIN_INICIAL_EMAIL`** (desde F0-30). Es obligatoria: sin ella
+no arranca ni la app ni ningún script de base (`Entorno inválido …` nombrando
+`ADMIN_INICIAL_EMAIL`). En local, el `.env` copiado de `.env.example` trae `admin@ejemplo.test`
+(inventado): alcanza para probar. En el servidor va el email **real** de quien va a administrar los
+usuarios, en el `.env` del servidor y **nunca** en el repo. Si la semilla ya corrió con otro email,
+cambiar la variable y volver a correrla da de alta al nuevo administrador y no toca al anterior
+(revocarlo no es tarea de la semilla). Para verificar:
+`docker compose exec postgres psql -U seism -d seism_gestion -c "select email, rol, estado from usuarios"`
+muestra el email en minúsculas, `administrador` y `activo`.
 
 **Apagarla:** `docker compose down` (los datos quedan en el volumen `seism-gestion_postgres-datos`).
 `docker compose down -v` la apaga **y borra el volumen**: la próxima vez arranca vacía.
 
 **Si falla:**
 - `Entorno inválido: db:migrate no arranca.` y una lista → falta `.env` o le falta la variable que
-  nombra (`DATABASE_URL`, `APP_ENTORNO`): copiá `.env.example` a `.env`. Es a propósito: sin
+  nombra (`DATABASE_URL`, `APP_ENTORNO`, `ADMIN_INICIAL_EMAIL`): copiá `.env.example` a `.env`. Es a propósito: sin
   `DATABASE_URL` válida no arranca ni la app ni ningún script de base.
 - `Can't reach database server at localhost:5432` → la base no está levantada o todavía no está
   sana: `docker compose up -d --wait` y `docker compose ps`.

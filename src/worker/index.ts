@@ -15,6 +15,7 @@
 
 import { armarWorker } from "../infraestructura/arranque/worker.ts";
 import { exigirEntornoValido } from "../infraestructura/entorno.ts";
+import { registrarFalla } from "../infraestructura/fallas.ts";
 import { log } from "../infraestructura/log.ts";
 import { instalarManejadoresDeProceso } from "../infraestructura/proceso.ts";
 import { JOBS } from "./jobs.ts";
@@ -44,7 +45,7 @@ function apagar(senal: NodeJS.Signals): void {
   armado.cerrar().then(
     () => process.exit(0),
     (causa: unknown) => {
-      log.error({ causa: String(causa) }, "el worker no pudo cerrar la base");
+      registrarFalla(log, causa, { al: "cerrar la base" });
       process.exit(1);
     },
   );

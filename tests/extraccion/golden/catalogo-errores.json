@@ -47,6 +47,18 @@
     "queHacer": "Revisá que estés trabajando sobre el registro correcto. Si hay que recuperarlo, avisá con este código: el borrado es lógico y el registro sigue guardado.",
     "tipo": "persona"
   },
+  "IA_0001": {
+    "codigo": "IA-0001",
+    "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",
+    "queHacer": "Seguí cargando a mano, como se hace sin IA. Si hace falta más tope este mes, avisá con este código: el tope se cambia en la configuración, sin tocar el sistema.",
+    "tipo": "sistema"
+  },
+  "IA_0002": {
+    "codigo": "IA-0002",
+    "descripcion": "La IA respondió algo que no tiene la forma esperada: su propuesta se descartó y no se usó para nada.",
+    "queHacer": "Seguí cargando a mano. Si se repite, avisá con este código: en el log está qué parte de la respuesta no cerró y en el registro de uso de IA, la respuesta tal cual llegó.",
+    "tipo": "externo"
+  },
   "INF_0001": {
     "codigo": "INF-0001",
     "descripcion": "Ocurrió un error inesperado en el sistema y la operación no se completó.",

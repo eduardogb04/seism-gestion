@@ -17,13 +17,19 @@
 
 import type { PrismaClient } from "../src/adaptadores/prisma/generado/client.ts";
 
-/** Claves de `configuracion` con su valor por defecto. Hoy, una sola. */
+/** Claves de `configuracion` con su valor por defecto. */
 const CONFIGURACION_POR_DEFECTO: ReadonlyArray<{
   readonly clave: string;
   readonly valor: string;
 }> = [
-  // El tope de gasto mensual de IA (lote 7): sin tope hasta que exista.
-  { clave: "ia.tope_mensual_usd", valor: "0" },
+  // IA (F0-28, ADR 0026): dólares con punto decimal, hasta seis decimales.
+  // Valores inventados de arranque.
+  // El tope de gasto del mes: si el gasto del mes más el costo estimado de
+  // la llamada lo supera, `interpretar` no llama y lanza IA-0001.
+  { clave: "ia.tope_mensual_usd", valor: "10.00" },
+  // Costo estimado de una llamada, para el perfil que no tenga su propia
+  // clave `ia.costo_estimado_usd.<perfil>`.
+  { clave: "ia.costo_estimado_usd.defecto", valor: "0.01" },
 ];
 
 /**

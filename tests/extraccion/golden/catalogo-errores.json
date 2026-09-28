@@ -50,7 +50,7 @@
   "IA_0001": {
     "codigo": "IA-0001",
     "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",
-    "queHacer": "Seguí cargando a mano, como se hace sin IA. Si hace falta más tope este mes, avisá con este código: el tope se cambia en la configuración, sin tocar el sistema.",
+    "queHacer": "Seguí cargando a mano, como se hace sin IA. Si hace falta más tope este mes, avisá con este código: el tope es un parámetro de la configuración y se puede subir.",
     "tipo": "sistema"
   },
   "IA_0002": {

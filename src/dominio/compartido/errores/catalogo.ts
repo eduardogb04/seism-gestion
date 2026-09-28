@@ -128,7 +128,7 @@ export const catalogo = definirCatalogo({
     descripcion:
       "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",
     queHacer:
-      "Seguí cargando a mano, como se hace sin IA. Si hace falta más tope este mes, avisá con este código: el tope se cambia en la configuración, sin tocar el sistema.",
+      "Seguí cargando a mano, como se hace sin IA. Si hace falta más tope este mes, avisá con este código: el tope es un parámetro de la configuración y se puede subir.",
   },
   IA_0002: {
     codigo: "IA-0002",

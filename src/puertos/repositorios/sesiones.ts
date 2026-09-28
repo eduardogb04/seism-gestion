@@ -5,7 +5,7 @@
  * UUID ni algo derivable.
  *
  * Una sesión no es un dato de negocio: es una credencial. Cerrarla la quita
- * de verdad (`cerrarTodasDe`), porque una credencial que "sigue guardada pero
+ * de verdad (`cerrar`, `cerrarTodasDe`), porque una credencial que "sigue guardada pero
  * marcada" es una credencial que alguien puede volver a usar por error. Por
  * eso el método no se llama `eliminar`: la regla 16 de `AGENTS.md` (sin
  * borrado físico) es para los datos de negocio, y la excepción está
@@ -34,6 +34,8 @@ export type RepositorioSesiones = {
   /** Abre una sesión nueva con un token recién generado. `ultimoUso` arranca en `creadaEn`. */
   abrir(datos: DatosSesionNueva): Promise<Sesion>;
   buscarPorId(id: string): Promise<Sesion | null>;
+  /** Cierra una sesión (cerrar sesión, F0-31). Si no existe, no hace nada. */
+  cerrar(id: string): Promise<void>;
   /** Cierra todas las sesiones del usuario y dice cuántas cerró. */
   cerrarTodasDe(usuarioId: Identificador<"Usuario">): Promise<number>;
 };

@@ -17,3 +17,9 @@ Desde F0-19: `memoria/`, con los primeros adaptadores de `src/puertos/`:
 `secuencias.ts` (contador en memoria, uno por prefijo y año) y
 `generador-id.ts` (UUIDs con `node:crypto` — no es un doble de test, es la
 implementación real; alcanza para lo que sigue).
+
+Desde F0-28: `ia-doble/` (doble determinista del puerto de IA: responde por una tabla de casos
+fijada al construirse, error explícito si la pregunta no está), `prisma/uso-ia.ts` y
+`prisma/configuracion.ts` (los repositorios de `src/puertos/repositorios/`), `prisma/fecha-hora.ts`
+(`FechaHora` civil argentina → instante `timestamptz`) y `log/avisos-ia.ts` (el aviso de tope de IA
+por el log, hasta que el puerto de notificaciones esté en `main`). ADR 0026.

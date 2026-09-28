@@ -322,7 +322,8 @@ porqués en el ADR 0008. En corto:
   con el cliente generado (hasta acá, `db:migrate` y `db:migrate:down` corrían la CLI de Prisma o
   `psql` por su cuenta).
 - **La semilla** (F0-10, `prisma/seed.ts` + `scripts/db-seed.ts`, en `npm run db:seed`): inserta las
-  claves de `configuracion` con sus valores por defecto (hoy, `ia.tope_mensual_usd` en `"0"`).
+  claves de `configuracion` con sus valores por defecto (hoy, `ia.tope_mensual_usd` en `"10.00"` e
+  `ia.costo_estimado_usd.defecto` en `"0.01"`, F0-28).
   Idempotente por clave: si el valor no cambió, no escribe nada, así correrla dos veces deja la
   base exactamente igual (`id`, `creado_en` y `actualizado_en` incluidos); un test de casos de uso
   la corre dos veces contra un Postgres de Testcontainers y compara. `prisma/seed.ts` importa solo
@@ -608,7 +609,11 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
    (`sin-error-crudo`). Ver *Cómo se agrega... un error* y ADR 0020.
 7. **Ningún log con secretos ni datos personales.** Hay un test dedicado
    (`tests/casos-uso/log.test.ts`, F0-24) y en `src/` no se usa `console.*` (Biome, `noConsole`).
-8. **La IA nunca escribe en el dominio.** Crea borradores o propone; un humano confirma.
+8. **La IA nunca escribe en el dominio.** Crea borradores o propone; un humano confirma. **Nadie
+   le habla a un proveedor de IA fuera de `src/puertos/ia.ts`**, y a ese puerto solo le habla el
+   caso de uso `interpretar` (`src/casos-uso/ia/`), que controla el tope de gasto, valida la
+   salida con Zod y la registra en `uso_ia` antes de devolverla (F0-28, ADR 0026). Ningún SDK de
+   proveedor se importa fuera de su adaptador.
 9. **Un archivo que crece demasiado se parte.**
 10. **Todo cambio de esquema es una migración con su `down.sql`.** Nadie toca la base a mano.
     Cómo se hace: `docs/convenciones-base.md` (sección *Base de datos*).
@@ -753,6 +758,16 @@ dominio que lo usa.
 negocio real en el valor por defecto no entra (regla 1); si hiciera falta uno, se decide en la
 tarea que lo necesita.
 
+**...un perfil de IA (F0-28).** Un perfil es un nombre (`"remito"`, por ejemplo) que el que llama
+pasa a `interpretar({ perfil, entrada, esquemaSalida })`. Hace falta: (1) el esquema Zod de la
+salida, en el caso de uso que lo usa (nunca se acepta una salida sin validar: si no valida, `IA-0002`);
+(2) si su costo estimado no es el de `ia.costo_estimado_usd.defecto`, la clave
+`ia.costo_estimado_usd.<perfil>` en `prisma/seed.ts` (dólares con punto, hasta seis decimales);
+(3) en los tests, las filas de la tabla del doble (`crearIaDoble`, `src/adaptadores/ia-doble/`) con
+entradas y salidas **inventadas**, incluida una salida que no valida; (4) quien llama atrapa
+`IA-0001` (tope superado) por su código y sigue por reglas. El prompt y el adaptador real son de
+Fase 1: el perfil no se lo pide a ningún proveedor directo (regla 8). Ver ADR 0026.
+
 **...un golden nuevo (F0-16).** Escribí el test con `compararConGolden("<nombre>", valorFijo)`
 (`tests/extraccion/_arnes/golden.ts`) contra un valor fijo, **sin fechas del sistema** (`Date`
 tira error a propósito) ni datos reales (regla 1): va a fallar porque el golden todavía no existe.
@@ -816,10 +831,10 @@ estimación; el orden real de creación manda).
 ## Estructura
 
 ```
-src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23)
-src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts)
+src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23); compartido/micro-usd.ts (costos de IA en micro-dólares, F0-28)
+src/casos-uso        orquesta dominio contra puertos. Desde F0-28: ia/ (interpretar: tope, validación y registro de uso de IA; gastoDelMes)
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa) y repositorios/ (uso-ia.ts, configuracion.ts)
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), memoria/ (F0-19: secuencias.ts, generador-id.ts), ia-doble/ (doble determinista del puerto de IA, F0-28) y log/avisos-ia.ts (aviso de tope de IA por log, F0-28)
 src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · arranque/ = punto de armado
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app

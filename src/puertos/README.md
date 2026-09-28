@@ -21,3 +21,8 @@ declara un método de borrado físico (`eliminar`, `borrar`, `delete`,
 `remove`, `destroy`, `purgar`): lo prueba
 `tests/dominio/puertos-sin-borrado.test.ts` (regla no negociable 16 de
 `AGENTS.md`).
+
+Desde F0-28: `ia.ts` (`AdaptadorIa`, que devuelve la salida **sin validar**, y `AvisosIa`, el
+aviso de tope superado) y `repositorios/` (`uso-ia.ts`, el registro de uso de IA, y
+`configuracion.ts`, la lectura de `configuracion`). El doble de IA está en
+`src/adaptadores/ia-doble/`; los repositorios, con Prisma en `src/adaptadores/prisma/`. ADR 0026.

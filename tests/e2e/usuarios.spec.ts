@@ -18,7 +18,13 @@
  * (`@ejemplo.test`).
  */
 
-import { type BrowserContext, expect, type Page, test } from "@playwright/test";
+import {
+  type Browser,
+  type BrowserContext,
+  expect,
+  type Page,
+  test,
+} from "@playwright/test";
 
 const ADMIN = "admin@ejemplo.test";
 const OPERADORA = "operador@ejemplo.test";
@@ -36,6 +42,14 @@ async function entrarComo(page: Page, email: string): Promise<void> {
   await expect(page.locator("[data-email-sesion]")).toHaveText(email);
 }
 
+/** Un contexto aparte (otro navegador, otras cookies) contra la misma app. */
+function contextoNuevo(
+  browser: Browser,
+  baseURL: string | undefined,
+): Promise<BrowserContext> {
+  return browser.newContext(baseURL === undefined ? {} : { baseURL });
+}
+
 async function salir(page: Page): Promise<void> {
   await page.goto("/sesion");
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
@@ -46,8 +60,8 @@ test("el administrador da de alta y revoca; la operadora rebota con AUT-0003 y, 
   browser,
   baseURL,
 }) => {
-  const contextoAdmin = await browser.newContext({ baseURL });
-  const contextoOperadora = await browser.newContext({ baseURL });
+  const contextoAdmin = await contextoNuevo(browser, baseURL);
+  const contextoOperadora = await contextoNuevo(browser, baseURL);
   const admin = await contextoAdmin.newPage();
   const operadora = await contextoOperadora.newPage();
 
@@ -56,7 +70,7 @@ test("el administrador da de alta y revoca; la operadora rebota con AUT-0003 y, 
   await admin.goto("/administracion/usuarios");
   await expect(admin.getByRole("heading", { name: "Usuarios" })).toBeVisible();
   const selectorDeRol = admin.getByLabel("Rol", { exact: true });
-  expect(await selectorDeRol.evaluate((nodo) => nodo.tagName)).toBe("SELECT");
+  await expect(selectorDeRol).toHaveJSProperty("tagName", "SELECT");
   await expect(selectorDeRol.locator("option")).toHaveText([
     "Administrador",
     "Operador",
@@ -103,7 +117,7 @@ test("el administrador da de alta y revoca; la operadora rebota con AUT-0003 y, 
   expect(await cookieDeSesion(contextoOperadora)).toEqual(cookieAntes);
 
   // El latido del deploy sigue abierto, sin sesión.
-  const sinSesion = await browser.newContext({ baseURL });
+  const sinSesion = await contextoNuevo(browser, baseURL);
   const latido = await sinSesion.request.get("/api/salud");
   expect(latido.status()).toBe(200);
   expect(await latido.json()).toMatchObject({ ok: true });

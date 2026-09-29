@@ -4,6 +4,9 @@
  *
  * - `listar(actor)`: todos los usuarios (también los revocados), por email;
  *   solo un administrador activo (`AUT-0003` si no).
+ * - Un email que no está en la lista, al intentar entrar, recibe `AUT-0001`
+ *   y no se crea ningún registro (criterio 5; F0-31 ya lo probaba para las
+ *   sesiones, acá se cuentan también usuarios y auditoría).
  * - R3: revocar o cambiar el rol **invalida en el mismo proceso** la caché de
  *   sesiones de ese usuario. Con el reloj fijo (sin avanzar los 30 s de la
  *   caché), la sesión de una persona revocada deja de validar enseguida
@@ -188,6 +191,25 @@ describe("casos de uso de usuarios de la pantalla de administración", () => {
           codigo: "AUT-0003",
         });
       }
+    });
+  });
+
+  describe("un email que no está en la lista", () => {
+    test("al intentar entrar recibe AUT-0001 y no se crea ningún registro: ni usuario, ni sesión, ni auditoría", async () => {
+      await existente("admin@ejemplo.test", "administrador");
+      const { sesion } = armar();
+      const contar = async () => ({
+        usuarios: await cliente().usuario.count(),
+        sesiones: await cliente().sesion.count(),
+        auditoria: await cliente().auditoria.count(),
+      });
+      const antes = await contar();
+
+      await expect(
+        sesion.completarSesion(identidad("nadie@ejemplo.test"), null),
+      ).rejects.toMatchObject({ codigo: "AUT-0001" });
+
+      expect(await contar()).toEqual(antes);
     });
   });
 

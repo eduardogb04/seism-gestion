@@ -16,3 +16,11 @@ formularios, con Zod: `AUT-0008`) y `roles.ts`; `revocar` y `cambiarRol`
 invalidan la caché de sesiones de ese usuario (`invalidarUsuario`). `sesion/`
 suma `acceso.ts`: la decisión de acceso de administrador y el `Actor` que sale
 de la sesión. Ver ADR 0028.
+
+Desde F0-33: toda escritura recibe `Actor` como **primer parámetro obligatorio**
+y su nombre empieza con `crear`, `guardar`, `dar`, `revocar`, `cambiar`,
+`marcar` o `registrar`; `tests/dominio/tipos/` lo rechaza si no (llamar sin
+actor no compila, y `firmas-de-escritura.test.ts` lista las firmas de esta
+carpeta). Los casos de uso ya no llaman a `auditoria.registrar` para usuarios:
+el repositorio lo hace con el actor que reciben. Ver ADR 0029 y *Cómo se
+agrega...un caso de uso que escribe* en `AGENTS.md`.

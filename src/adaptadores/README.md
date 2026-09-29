@@ -23,3 +23,7 @@ repositorios y el puerto `Auditoria` de F0-22, que solo agrega filas),
 `transaccion.ts` (`Transaccional` con `$transaction` interactiva) y
 `conversiones.ts` (`FechaHora` ↔ `timestamptz` y `Actor` ↔ `jsonb`). Ver ADR
 0024.
+
+Desde F0-33, `prisma/usuarios.ts` escribe la fila de `auditoria` de cada `crear`
+y `actualizar` (con el `Actor` recibido, en la misma transacción): el `antes` es
+lo que la base tenía justo antes de escribir. Ver ADR 0029.

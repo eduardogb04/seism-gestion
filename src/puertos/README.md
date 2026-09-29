@@ -32,3 +32,9 @@ Prisma en `src/adaptadores/prisma/`. Ver ADR 0024.
 
 Desde F0-32: `RepositorioUsuarios.listar()` (todos, también los revocados, por
 email), para la pantalla de usuarios.
+
+Desde F0-33: `RepositorioUsuarios.crear(actor, usuario)` y
+`.actualizar(actor, usuario, accion)` reciben el `Actor` primero y el adaptador
+deja la auditoría en la misma transacción; `RepositoriosEnTransaccion` ya no
+trae `auditoria`. `RepositorioSesiones` queda sin actor: una sesión es una
+credencial (ADR 0024 y 0029).

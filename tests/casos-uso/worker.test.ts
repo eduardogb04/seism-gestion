@@ -253,6 +253,8 @@ describe("worker", () => {
         DATABASE_URL: uriBaseCompartida(),
         // Obligatoria desde F0-30 (inventada, dominio reservado `.test`).
         ADMIN_INICIAL_EMAIL: "admin@ejemplo.test",
+        // Obligatoria desde F0-31.
+        IDENTIDAD: "falsa",
         LOG_NIVEL: "info",
       },
     });

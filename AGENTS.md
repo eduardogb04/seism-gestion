@@ -181,9 +181,10 @@ archivo (ADR 0005).
   al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO`,
   `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`) y
   `ADMIN_INICIAL_EMAIL` (F0-30: el primer administrador que crea `db:seed`; la de `.env.example`
-  es inventada, `admin@ejemplo.test`, y la real nunca entra al repo) y `LOG_NIVEL`, opcional (F0-24;
-  vacía o sin definir, `debug` en local e `info` en `ci`/`servidor`). La app
-  todavía no se conecta a la base, pero sin `DATABASE_URL` válida no arranca.
+  es inventada, `admin@ejemplo.test`, y la real nunca entra al repo), `LOG_NIVEL`, opcional (F0-24;
+  vacía o sin definir, `debug` en local e `info` en `ci`/`servidor`) e `IDENTIDAD` (F0-31: `falsa`
+  o `google`; con `APP_ENTORNO=servidor` la falsa se rechaza y la app no arranca; con `google` exige
+  `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `APP_URL_PUBLICA`. Ver *Identidad y sesión*).
 - **`.env` y `standalone`.** Si al compilar existe un `.env`, `next build` lo **copia** a
   `.next/standalone/.env` y `server.js` lo lee. Sin `.env` al compilar, las variables van en el
   entorno del proceso. Para la imagen Docker (F0-07): el `.env` no puede entrar al contexto del
@@ -434,7 +435,8 @@ nivel corren de a uno (`fileParallelism: false`): comparten la base. Nada sobrev
 **El e2e levanta la imagen que se publica, no `next dev`.** El `webServer` de Playwright corre
 `npm run e2e:app`: construye la imagen (`npm run imagen`) y levanta con compose el servicio `app`
 del perfil `e2e` (que no se levanta con `docker compose up -d`); el `globalTeardown` borra **solo**
-ese contenedor, sin tocar el Postgres de compose ni su volumen. Chromium únicamente, sin
+esos contenedores (la app y su `postgres-e2e`, descartable, con puerto elegido por Docker, que
+`scripts/e2e-app.ts` migra y siembra), sin tocar el Postgres de compose ni su volumen. Chromium únicamente, sin
 reintentos. La primera vez hay que instalar el navegador: `npx playwright install chromium`
 (RUNBOOK, sección 16).
 
@@ -560,6 +562,18 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
     que define `ErrorSistema`.
 - **`// biome-ignore` exige motivo.** Ninguno sin explicar por qué en el mismo comentario. Si
   Biome choca con código real, se arregla el código, no la regla.
+
+## Identidad y sesión (F0-31, ADR 0027).
+
+Quién es una persona lo dice Google (o la identidad falsa fuera del servidor); quién entra lo decide
+la tabla `usuarios`. El puerto es `src/puertos/identidad.ts`; los adaptadores, `identidad-falsa` e
+`identidad-google` (`arctic` + verificación del `id_token` con `node:crypto`); el flujo, `src/casos-uso/sesion/`;
+las rutas, `src/app/(auth)/` (`/ingresar`, `/ingresar/callback`, `/salir`, `/sesion`). La cookie
+`seism_sesion` es `httpOnly; SameSite=Lax; Path=/` y `Secure` salvo con `APP_ENTORNO=local`; la sesión dura
+12 horas y **cada request se valida contra la base**, con caché de 30 s como máximo (revocar corta la
+sesión en ese plazo). El helper para saber quién es la sesión actual es `sesionActual()`
+(`src/app/(auth)/sesion-actual.ts`). La protección del panel es de F0-32. Cómo entrar con Google en
+local: RUNBOOK, sección 17.
 
 ## Límites de arquitectura
 
@@ -884,11 +898,11 @@ estimación; el orden real de creación manda).
 
 ```
 src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23); compartido/micro-usd.ts (costos de IA en micro-dólares, F0-28)
-src/casos-uso        orquesta dominio contra puertos. Desde F0-25: salud/listar-salud.ts (listarSalud: última corrida por job, fallidos pendientes, integraciones; nunca lanza) · F0-30: usuarios/ (darDeAlta, revocar, cambiarRol) · F0-28: ia/ (interpretar: tope, validación y registro de uso de IA; gastoDelMes)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa) y repositorios/ (uso-ia.ts, configuracion.ts)
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), ia-doble/ (doble determinista del puerto de IA, F0-28), log/avisos-ia.ts (aviso de tope de IA por log, F0-28) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts)
-src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · fallas.ts y reintento.ts (conReintento, F0-25) · arranque/ = punto de armado (worker.ts desde F0-25)
-src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
+src/casos-uso        orquesta dominio contra puertos. Desde F0-25: salud/listar-salud.ts (listarSalud: última corrida por job, fallidos pendientes, integraciones; nunca lanza) · F0-30: usuarios/ (darDeAlta, revocar, cambiarRol) · F0-28: ia/ (interpretar: tope, validación y registro de uso de IA; gastoDelMes) · F0-31: sesion/ (completarSesion, validarSesion con caché de 30 s, cerrarSesion, errores de pantalla)
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa) y repositorios/ (uso-ia.ts, configuracion.ts); F0-31: identidad.ts
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), ia-doble/ (doble determinista del puerto de IA, F0-28), log/avisos-ia.ts (aviso de tope de IA por log, F0-28), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts)
+src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · fallas.ts y reintento.ts (conReintento, F0-25) · arranque/ = punto de armado (worker.ts desde F0-25; armado.ts e identidad.ts, que elige el adaptador según `IDENTIDAD`, desde F0-31)
+src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión) · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte (F0-25): index.ts (entrada, `npm run worker`) · planificador.ts (croner) · registrar-corrida.ts · jobs.ts (latido)
 tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures

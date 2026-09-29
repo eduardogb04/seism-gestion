@@ -40,6 +40,11 @@ const PUERTO = 3000;
 const DATABASE_URL_PRUEBA = "postgresql://prueba:prueba@127.0.0.1:5432/prueba";
 /** Obligatoria desde F0-30 (el primer administrador): inventada, nadie la usa acá. */
 const ADMIN_INICIAL_EMAIL_PRUEBA = "admin@ejemplo.test";
+/**
+ * Obligatoria desde F0-31: la identidad falsa (en `APP_ENTORNO=ci` se acepta;
+ * en `servidor`, no). La prueba no entra a la app: no hace falta Google.
+ */
+const IDENTIDAD_PRUEBA = "falsa";
 /** Objetivo de tamaño de la imagen final (criterio de F0-07). */
 const TOPE_MB = 250;
 const ESPERA_MAXIMA_MS = 120_000;
@@ -308,6 +313,8 @@ async function verificarWorker(etiqueta: string): Promise<string[]> {
       "APP_ENTORNO=ci",
       "--env",
       `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
+      "--env",
+      `IDENTIDAD=${IDENTIDAD_PRUEBA}`,
       etiqueta,
       ...COMANDO_WORKER,
     ],
@@ -340,6 +347,8 @@ async function verificarWorker(etiqueta: string): Promise<string[]> {
     `DATABASE_URL=${DATABASE_URL_PRUEBA}`,
     "--env",
     `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
+    "--env",
+    `IDENTIDAD=${IDENTIDAD_PRUEBA}`,
     etiqueta,
     ...COMANDO_WORKER,
   ]);
@@ -408,6 +417,8 @@ async function probar(etiqueta: string): Promise<void> {
     `DATABASE_URL=${DATABASE_URL_PRUEBA}`,
     "--env",
     `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
+    "--env",
+    `IDENTIDAD=${IDENTIDAD_PRUEBA}`,
     etiqueta,
   ]);
 

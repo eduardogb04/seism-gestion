@@ -27,7 +27,7 @@
 
 import { AsyncLocalStorage } from "node:async_hooks";
 import pino from "pino";
-import { esquemaEntorno, type NivelLog } from "./entorno.ts";
+import { esquemaVariables, type NivelLog } from "./entorno.ts";
 
 export type Log = pino.Logger;
 
@@ -220,7 +220,7 @@ export function crearLog(opciones: OpcionesLog): Log {
   return logger;
 }
 
-const esquemaLog = esquemaEntorno.pick({
+const esquemaLog = esquemaVariables.pick({
   APP_ENTORNO: true,
   LOG_NIVEL: true,
 });

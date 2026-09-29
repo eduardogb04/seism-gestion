@@ -4,7 +4,7 @@
  * base64url sin relleno (43 caracteres). Nunca `Math.random` ni un UUID (que
  * tiene 122 bits aleatorios y una forma reconocible).
  *
- * `cerrarTodasDe` quita las filas: una sesión es una credencial, no un dato
+ * `cerrar` y `cerrarTodasDe` quitan las filas: una sesión es una credencial, no un dato
  * de negocio (ver el puerto y el ADR 0024).
  */
 
@@ -53,6 +53,10 @@ export function crearRepositorioSesionesPrisma(
     async buscarPorId(id) {
       const fila = await cliente.sesion.findUnique({ where: { id } });
       return fila === null ? null : desdeFila(fila);
+    },
+
+    async cerrar(id) {
+      await cliente.sesion.deleteMany({ where: { id } });
     },
 
     async cerrarTodasDe(usuarioId) {

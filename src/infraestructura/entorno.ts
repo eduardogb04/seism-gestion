@@ -29,7 +29,29 @@ export const NIVELES_LOG = [
 
 export type NivelLog = (typeof NIVELES_LOG)[number];
 
-export const esquemaEntorno = z.object({
+/** Quién verifica la identidad de quien entra (F0-31, ADR 0027). */
+const VALORES_IDENTIDAD = ["falsa", "google"] as const;
+
+/**
+ * Una variable que solo hace falta en algunos casos (las de Google, con
+ * `IDENTIDAD=falsa`): vacía cuenta como ausente, que es como la deja
+ * `.env.example` (`GOOGLE_CLIENT_SECRET=`).
+ */
+function opcional<T extends z.ZodType>(esquema: T) {
+  return z.preprocess(
+    (valor) => (valor === "" ? undefined : valor),
+    esquema.optional(),
+  );
+}
+
+/** Lo que exige `IDENTIDAD=google`: sin cualquiera de las tres no hay login. */
+const VARIABLES_DE_GOOGLE = [
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "APP_URL_PUBLICA",
+] as const;
+
+export const esquemaVariables = z.object({
   /** Dónde corre la app. No es secreto: `.env.example` trae `local`. */
   APP_ENTORNO: z.enum(VALORES_APP_ENTORNO),
   /**
@@ -56,6 +78,45 @@ export const esquemaEntorno = z.object({
    * nunca se escribe en el repo.
    */
   ADMIN_INICIAL_EMAIL: z.email(),
+  /**
+   * Quién verifica la identidad (F0-31, ADR 0027): `google` (OIDC) o
+   * `falsa` (una pantalla que lista emails de prueba, para dev, CI y el
+   * e2e). Obligatoria. `falsa` **no se acepta con `APP_ENTORNO=servidor`**:
+   * la app no arranca (ver el `superRefine` de abajo).
+   */
+  IDENTIDAD: z.enum(VALORES_IDENTIDAD),
+  /** El cliente OAuth de Google. Obligatoria con `IDENTIDAD=google`. */
+  GOOGLE_CLIENT_ID: opcional(z.string()),
+  /** El secreto de ese cliente: **secreta**, nunca en el repo. Obligatoria con `IDENTIDAD=google`. */
+  GOOGLE_CLIENT_SECRET: opcional(z.string()),
+  /**
+   * La URL con que el navegador llega a la app (`https://...`; en local,
+   * `http://localhost:3000`). Google vuelve a `<APP_URL_PUBLICA>/ingresar/callback`.
+   * Obligatoria con `IDENTIDAD=google`.
+   */
+  APP_URL_PUBLICA: opcional(z.url({ protocol: /^https?$/ })),
+});
+
+export const esquemaEntorno = esquemaVariables.superRefine((entorno, ctx) => {
+  if (entorno.IDENTIDAD === "falsa" && entorno.APP_ENTORNO === "servidor") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["IDENTIDAD"],
+      message:
+        "la identidad falsa no se puede usar con APP_ENTORNO=servidor: en el servidor va IDENTIDAD=google (RUNBOOK, sección de Google).",
+    });
+  }
+  if (entorno.IDENTIDAD === "google") {
+    for (const variable of VARIABLES_DE_GOOGLE) {
+      if (entorno[variable] === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: [variable],
+          message: "Hace falta con IDENTIDAD=google.",
+        });
+      }
+    }
+  }
 });
 
 export type Entorno = z.infer<typeof esquemaEntorno>;
@@ -75,6 +136,10 @@ const FORMATO_ESPERADO = new Map<string, string>([
     " Tiene que ser una URL de Postgres: postgresql://usuario:clave@servidor:puerto/base (o postgres://).",
   ],
   ["ADMIN_INICIAL_EMAIL", " Tiene que ser un email: nombre@dominio."],
+  [
+    "APP_URL_PUBLICA",
+    " Tiene que ser una URL http:// o https:// (la dirección con que el navegador llega a la app).",
+  ],
 ]);
 
 /**
@@ -98,7 +163,11 @@ export function validarEntorno(
     const variable = problema.path.map(String).join(".");
     const valor = variables[variable];
     if (valor === undefined || valor === "") {
-      return `- ${variable}: falta (no está definida o está vacía).`;
+      const cuando = problema.code === "custom" ? ` ${problema.message}` : "";
+      return `- ${variable}: falta (no está definida o está vacía).${cuando}`;
+    }
+    if (problema.code === "custom") {
+      return `- ${variable}: tiene un valor inválido: ${problema.message}`;
     }
     const validos =
       problema.code === "invalid_value"

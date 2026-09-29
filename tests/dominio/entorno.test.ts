@@ -21,17 +21,33 @@ const VALIDO = {
   APP_ENTORNO: "local",
   DATABASE_URL: URL_POSTGRES,
   ADMIN_INICIAL_EMAIL: EMAIL_ADMIN,
+  IDENTIDAD: "falsa",
+};
+
+/**
+ * Un entorno válido con la identidad de Google (F0-31): el único que vale en
+ * el servidor. Las credenciales son inventadas.
+ */
+const VALIDO_GOOGLE = {
+  ...VALIDO,
+  IDENTIDAD: "google",
+  GOOGLE_CLIENT_ID: "cliente-inventado.apps.ejemplo.test",
+  GOOGLE_CLIENT_SECRET: "secreto-inventado",
+  APP_URL_PUBLICA: "https://gestion.ejemplo.test",
 };
 
 describe("validarEntorno: APP_ENTORNO", () => {
   it.each(["local", "ci", "servidor"])(
     "acepta APP_ENTORNO=%s y lo devuelve tipado",
     (valor) => {
-      const resultado = validarEntorno({ ...VALIDO, APP_ENTORNO: valor });
+      const resultado = validarEntorno({
+        ...VALIDO_GOOGLE,
+        APP_ENTORNO: valor,
+      });
 
       expect(resultado).toEqual({
         ok: true,
-        entorno: { ...VALIDO, APP_ENTORNO: valor },
+        entorno: { ...VALIDO_GOOGLE, APP_ENTORNO: valor },
       });
     },
   );
@@ -230,6 +246,120 @@ describe("validarEntorno: en general", () => {
       ok: true,
       entorno: VALIDO,
     });
+  });
+});
+
+describe("validarEntorno: IDENTIDAD y las variables de Google (F0-31)", () => {
+  it.each(["local", "ci"])(
+    "acepta IDENTIDAD=falsa con APP_ENTORNO=%s, sin variables de Google",
+    (entorno) => {
+      const resultado = validarEntorno({ ...VALIDO, APP_ENTORNO: entorno });
+
+      expect(resultado).toEqual({
+        ok: true,
+        entorno: { ...VALIDO, APP_ENTORNO: entorno },
+      });
+    },
+  );
+
+  it("acepta IDENTIDAD=falsa con las GOOGLE_* vacías, como las trae .env.example", () => {
+    const resultado = validarEntorno({
+      ...VALIDO,
+      GOOGLE_CLIENT_ID: "",
+      GOOGLE_CLIENT_SECRET: "",
+    });
+
+    expect(resultado.ok).toBe(true);
+  });
+
+  it("rechaza IDENTIDAD=falsa con APP_ENTORNO=servidor: la app no arranca", () => {
+    const resultado = validarEntorno({
+      ...VALIDO_GOOGLE,
+      APP_ENTORNO: "servidor",
+      IDENTIDAD: "falsa",
+    });
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.mensaje).toContain("la app no arranca");
+      expect(resultado.mensaje).toContain("- IDENTIDAD:");
+      expect(resultado.mensaje).toContain("APP_ENTORNO=servidor");
+    }
+  });
+
+  it.each([undefined, ""])(
+    "rechaza IDENTIDAD=%j como ausente: es obligatoria",
+    (valor) => {
+      const resultado = validarEntorno({ ...VALIDO, IDENTIDAD: valor });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("- IDENTIDAD: falta");
+      }
+    },
+  );
+
+  it("rechaza un IDENTIDAD desconocido y dice los valores válidos", () => {
+    const resultado = validarEntorno({ ...VALIDO, IDENTIDAD: "microsoft" });
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.mensaje).toContain("IDENTIDAD");
+      expect(resultado.mensaje).toContain("falsa, google");
+    }
+  });
+
+  it("acepta IDENTIDAD=google con las tres variables", () => {
+    expect(validarEntorno(VALIDO_GOOGLE)).toEqual({
+      ok: true,
+      entorno: VALIDO_GOOGLE,
+    });
+  });
+
+  it.each(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "APP_URL_PUBLICA"])(
+    "con IDENTIDAD=google rechaza %s ausente o vacía y la nombra",
+    (variable) => {
+      for (const valor of [undefined, ""]) {
+        const resultado = validarEntorno({
+          ...VALIDO_GOOGLE,
+          [variable]: valor,
+        });
+
+        expect(resultado.ok).toBe(false);
+        if (!resultado.ok) {
+          expect(resultado.mensaje).toContain(`- ${variable}: falta`);
+        }
+      }
+    },
+  );
+
+  it.each(["no-es-url", "ftp://gestion.ejemplo.test"])(
+    "rechaza APP_URL_PUBLICA=%j: tiene que ser una URL http(s)",
+    (valor) => {
+      const resultado = validarEntorno({
+        ...VALIDO_GOOGLE,
+        APP_URL_PUBLICA: valor,
+      });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("- APP_URL_PUBLICA:");
+        expect(resultado.mensaje).toContain("https://");
+        expect(resultado.mensaje).not.toContain(valor);
+      }
+    },
+  );
+
+  it("no repite el secreto de Google en el mensaje", () => {
+    const resultado = validarEntorno({
+      ...VALIDO_GOOGLE,
+      APP_URL_PUBLICA: "no-es-url",
+    });
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.mensaje).not.toContain("secreto-inventado");
+    }
   });
 });
 

@@ -43,3 +43,8 @@ Desde F0-25: `cola-fallidos.ts` (`ColaFallidos { encolar, contarPendientes }`),
 `sonda-integracion.ts` (`SondaIntegracion { nombre, probar }`), con
 adaptadores de Prisma en `src/adaptadores/prisma/` (una sola implementación
 cada uno: sin doble ni suite de contrato todavía).
+
+Desde F0-28: `ia.ts` (`AdaptadorIa`, que devuelve la salida **sin validar**, y `AvisosIa`, el
+aviso de tope superado) y `repositorios/` (`uso-ia.ts`, el registro de uso de IA, y
+`configuracion.ts`, la lectura de `configuracion`). El doble de IA está en
+`src/adaptadores/ia-doble/`; los repositorios, con Prisma en `src/adaptadores/prisma/`. ADR 0026.

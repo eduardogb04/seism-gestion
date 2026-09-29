@@ -118,8 +118,11 @@ hay migraciones aplicadas, no había nada que revertir. Nunca se cambia la base 
 (`docs/convenciones-base.md`).
 
 **Sembrar datos mínimos** (desde F0-10): `npm run db:seed`, después de `npm run db:migrate`.
-Idempotente: correrlo dos veces (`npm run db:seed` otra vez) deja la base igual. Hoy carga una sola
-clave de `configuracion` (`ia.tope_mensual_usd` en `"0"`) y, desde F0-30, da de alta al **primer
+Idempotente: correrlo dos veces (`npm run db:seed` otra vez) deja la base igual. Hoy carga dos
+claves de `configuracion` (F0-28): `ia.tope_mensual_usd` (`"10.00"`, el tope de gasto de IA del mes)
+y `ia.costo_estimado_usd.defecto` (`"0.01"`), en dólares con punto decimal. Deja cada clave en
+su valor de `prisma/seed.ts`: para cambiar el tope se cambia ahí, por PR, y se vuelve a correr
+`npm run db:seed` (un valor cambiado en la base a mano lo pisa la próxima siembra). Desde F0-30, da de alta al **primer
 administrador** con el email de `ADMIN_INICIAL_EMAIL`, si no hay ya un usuario con ese email. En el
 servidor exige `SEED_PERMITIDO=si` además de `APP_ENTORNO=servidor`, para que no se corra ahí por
 accidente.

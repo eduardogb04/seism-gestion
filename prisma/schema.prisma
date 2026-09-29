@@ -40,6 +40,35 @@ model Configuracion {
   @@map("configuracion")
 }
 
+// Registro de uso de IA (F0-28, ADR 0026): una fila por cada vez que el caso
+// de uso `interpretar` le preguntó al adaptador de IA, escrita **antes** de
+// devolver la propuesta (o de rechazarla por inválida). La IA nunca escribe
+// en el dominio: su propuesta queda acá y la decisión humana la completa
+// Fase 1 (`decision_humana`, `decidido_por`, `decidido_en`, nulos al crear).
+model UsoIa {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Cuándo se preguntó, según el reloj inyectado.
+  en              DateTime  @db.Timestamptz(3)
+  perfil          String
+  modelo          String
+  versionPrompt   String    @map("version_prompt")
+  // Dólares con seis decimales: en el código, micro-dólares enteros (R5).
+  costoUsd        Decimal   @map("costo_usd") @db.Decimal(14, 6)
+  tokens          Int
+  // La salida del adaptador tal cual llegó, haya validado o no.
+  propuesta       Json
+  // Si la salida pasó el esquema Zod del que llamó (si no, `IA-0002`).
+  propuestaValida Boolean   @map("propuesta_valida")
+  decisionHumana  String?   @map("decision_humana")
+  // Nullable hasta que existan usuarios (lote 8), igual que en `configuracion`.
+  decididoPor     String?   @map("decidido_por") @db.Uuid
+  decididoEn      DateTime? @map("decidido_en") @db.Timestamptz(3)
+
+  // El tope suma el gasto de un mes: se busca por `en`.
+  @@index([en])
+  @@map("uso_ia")
+}
+
 // Cómo terminó una corrida de un job del worker (F0-25).
 enum ResultadoCorrida {
   ok

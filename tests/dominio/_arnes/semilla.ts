@@ -15,9 +15,16 @@
  * mecanismo de Vitest para esto, no una variable de entorno leída dos veces
  * (que además no está garantizado que un test la vea igual que el
  * `globalSetup` si algún día un proyecto corre archivos en procesos aparte).
+ *
+ * La resolución de la semilla y el `numRuns` viven en
+ * `tests/_arnes/semilla-fast-check.ts`, compartidos con las suites de
+ * contrato de `tests/contratos/` (F0-29, R14 de la ficha).
  */
-import process from "node:process";
 import type { TestProject } from "vitest/node";
+import {
+  numRunsFastCheck,
+  resolverSemillaFastCheck,
+} from "../../_arnes/semilla-fast-check.ts";
 
 declare module "vitest" {
   interface ProvidedContext {
@@ -25,19 +32,9 @@ declare module "vitest" {
   }
 }
 
-/** `FC_SEED` fija la semilla; sin ella (o si no es un número), se sortea una. */
-function resolverSemilla(): number {
-  const variable = process.env.FC_SEED;
-  if (variable === undefined || variable === "") {
-    return Date.now();
-  }
-  const provista = Number(variable);
-  return Number.isFinite(provista) ? provista : Date.now();
-}
-
 export default function anunciarSemilla(proyecto: TestProject): void {
-  const semilla = resolverSemilla();
-  const numRuns = process.env.CI ? 1000 : 200;
+  const semilla = resolverSemillaFastCheck();
+  const numRuns = numRunsFastCheck();
 
   console.log(
     `[fast-check] semilla=${semilla} numRuns=${numRuns} — para reproducir esta tanda: FC_SEED=${semilla} npm run test:dominio`,

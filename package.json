@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "worker": "node src/worker/index.ts",
     "lint": "biome check . && node scripts/sin-error-crudo.ts",
     "test": "vitest run --project dominio --project casos-uso",
     "test:dominio": "node scripts/test-dominio.ts",
@@ -52,6 +53,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "croner": "10.0.1",
     "next": "16.3.5",
     "pg": "8.23.0",
     "pino": "10.3.1",

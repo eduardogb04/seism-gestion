@@ -109,7 +109,7 @@ Las credenciales son de desarrollo, ficticias, y ya están en `.env.example`.
   `127.0.0.1:5432->5432/tcp`.
 - `npm run db:migrate` termina con `All migrations have been successfully applied.` (o, si ya
   estaba al día, `No pending migrations to apply.`).
-- `docker compose exec postgres psql -U seism -d seism_gestion -c "\dt"` lista `configuracion` (y
+- `docker compose exec postgres psql -U seism -d seism_gestion -c "\dt"` lista `configuracion`, `usuarios`, `sesiones` y `auditoria` (y
   `_prisma_migrations`, el registro de Prisma).
 
 **Revertir la última migración** (desde F0-09): `npm run db:migrate:down`. Imprime
@@ -122,15 +122,27 @@ Idempotente: correrlo dos veces (`npm run db:seed` otra vez) deja la base igual.
 claves de `configuracion` (F0-28): `ia.tope_mensual_usd` (`"10.00"`, el tope de gasto de IA del mes)
 y `ia.costo_estimado_usd.defecto` (`"0.01"`), en dólares con punto decimal. Deja cada clave en
 su valor de `prisma/seed.ts`: para cambiar el tope se cambia ahí, por PR, y se vuelve a correr
-`npm run db:seed` (un valor cambiado en la base a mano lo pisa la próxima siembra). En el servidor exige
-`SEED_PERMITIDO=si` además de `APP_ENTORNO=servidor`, para que no se corra ahí por accidente.
+`npm run db:seed` (un valor cambiado en la base a mano lo pisa la próxima siembra). Desde F0-30, da de alta al **primer
+administrador** con el email de `ADMIN_INICIAL_EMAIL`, si no hay ya un usuario con ese email. En el
+servidor exige `SEED_PERMITIDO=si` además de `APP_ENTORNO=servidor`, para que no se corra ahí por
+accidente.
+
+**Antes del primer `db:seed`, poné `ADMIN_INICIAL_EMAIL`** (desde F0-30). Es obligatoria: sin ella
+no arranca ni la app ni ningún script de base (`Entorno inválido …` nombrando
+`ADMIN_INICIAL_EMAIL`). En local, el `.env` copiado de `.env.example` trae `admin@ejemplo.test`
+(inventado): alcanza para probar. En el servidor va el email **real** de quien va a administrar los
+usuarios, en el `.env` del servidor y **nunca** en el repo. Si la semilla ya corrió con otro email,
+cambiar la variable y volver a correrla da de alta al nuevo administrador y no toca al anterior
+(revocarlo no es tarea de la semilla). Para verificar:
+`docker compose exec postgres psql -U seism -d seism_gestion -c "select email, rol, estado from usuarios"`
+muestra el email en minúsculas, `administrador` y `activo`.
 
 **Apagarla:** `docker compose down` (los datos quedan en el volumen `seism-gestion_postgres-datos`).
 `docker compose down -v` la apaga **y borra el volumen**: la próxima vez arranca vacía.
 
 **Si falla:**
 - `Entorno inválido: db:migrate no arranca.` y una lista → falta `.env` o le falta la variable que
-  nombra (`DATABASE_URL`, `APP_ENTORNO`): copiá `.env.example` a `.env`. Es a propósito: sin
+  nombra (`DATABASE_URL`, `APP_ENTORNO`, `ADMIN_INICIAL_EMAIL`): copiá `.env.example` a `.env`. Es a propósito: sin
   `DATABASE_URL` válida no arranca ni la app ni ningún script de base.
 - `Can't reach database server at localhost:5432` → la base no está levantada o todavía no está
   sana: `docker compose up -d --wait` y `docker compose ps`.
@@ -545,7 +557,7 @@ adentro de la imagen.
    ```
 3. Si querés verla con el navegador, en vez del paso 2:
    ```
-   docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba seism-gestion:local
+   docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ADMIN_INICIAL_EMAIL=admin@ejemplo.test seism-gestion:local
    ```
    y abrí `http://localhost:3000` y `http://localhost:3000/api/salud`. Se corta con `Ctrl+C`.
    La app todavía no se conecta a la base: alcanza con una `DATABASE_URL` de Postgres válida, como
@@ -609,7 +621,7 @@ repositorio sea público: hay que cambiarlo a mano una vez, y queda así para si
 - Desde cualquier máquina con Docker, **sin `docker login`**:
   ```
   docker pull ghcr.io/eduardogb04/seism-gestion:latest
-  docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba ghcr.io/eduardogb04/seism-gestion:latest
+  docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ADMIN_INICIAL_EMAIL=admin@ejemplo.test ghcr.io/eduardogb04/seism-gestion:latest
   ```
   (desde F0-08 la imagen exige `DATABASE_URL`; la app todavía no se conecta, alcanza con esa URL
   ficticia)
@@ -690,6 +702,61 @@ de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: c
 
 Ninguno. La app del e2e arranca con `APP_ENTORNO=local` y una `DATABASE_URL` ficticia escrita en
 `docker-compose.yml`, a la que nadie se conecta.
+
+---
+
+## 17. Correr el worker en local
+
+**Cuándo hace falta:** para ver el worker (F0-25) latir contra tu base local, o probar un job nuevo
+antes de abrir el PR. Los tests (`npm test`) ya lo prueban solos, con su propio Postgres.
+**Quién:** cualquiera con el repo clonado y Docker corriendo.
+**Necesitás antes:** el Postgres de compose levantado y migrado (sección 1: `docker compose up -d
+--wait` y `npm run db:migrate`) y `.env` copiado de `.env.example`.
+
+### Pasos
+
+Hay dos formas; elegí una.
+
+1. **Con Node, desde el código** (lo más rápido mientras desarrollás). El worker no lee `.env`
+   solo: se lo pasa Node.
+   ```
+   node --env-file=.env src/worker/index.ts
+   ```
+   (Es lo mismo que `npm run worker` con las variables ya cargadas en la terminal.) Se corta con
+   `Ctrl+C`.
+2. **Con la imagen, como en el servidor.** Construí la imagen (sección 14: `npm run imagen`) y
+   levantá el servicio `worker` de compose, que usa la misma imagen que la app con el comando del
+   worker y se conecta al Postgres de compose:
+   ```
+   docker compose --profile worker up -d worker
+   docker compose logs -f worker
+   ```
+   Para bajarlo: `docker compose --profile worker rm --stop --force worker`.
+
+### Cómo verificar que salió bien
+
+- Al arrancar, una línea `worker arrancado` con `jobs: [{ nombre: "latido", cron: "*/5 * * * *" }]`.
+- Cada 5 minutos (en el minuto 0, 5, 10...) aparece una corrida nueva de `latido` en la base:
+  ```
+  docker compose exec postgres psql -U seism -d seism_gestion -c "select job, inicio, fin, resultado from corridas_worker order by inicio desc limit 5;"
+  ```
+  con `resultado = ok` y `fin` no nulo.
+
+### Si falla
+
+- `Entorno inválido: el worker no arranca.` y el nombre de una variable → falta `.env` o le falta
+  esa variable (copiá `.env.example`). Con `node src/worker/index.ts` pelado, sin `--env-file`, es
+  lo esperado: el worker no lee `.env` solo.
+- `relation "corridas_worker" does not exist` en el log, con `INF-0001` → la base no está migrada:
+  `npm run db:migrate`.
+- Con compose, `pull access denied for seism-gestion` → falta construir la imagen (`npm run
+  imagen`).
+- Nunca `docker compose down -v` para "limpiar": borra el volumen de la base local.
+
+### Secretos que quedan (solo nombres)
+
+Ninguno nuevo. En el servidor, el worker usa las mismas variables que la app (`APP_ENTORNO`,
+`DATABASE_URL`, y `LOG_NIVEL` si hace falta), del mismo archivo de entorno.
 
 ---
 

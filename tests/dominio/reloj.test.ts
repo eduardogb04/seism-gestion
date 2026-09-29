@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   crearFechaHora,
   diferenciaEnDias,
+  diferenciaEnMilisegundos,
   esAnterior,
   type FechaHora,
   formatearISO,
@@ -266,6 +267,41 @@ describe("diferenciaEnDias", () => {
     const misma = fecha(2026, 9, 25);
 
     expect(Object.is(diferenciaEnDias(misma, misma), 0)).toBe(true);
+  });
+});
+
+describe("diferenciaEnMilisegundos", () => {
+  it("cuenta milisegundos dentro del mismo día", () => {
+    expect(
+      diferenciaEnMilisegundos(
+        fecha(2026, 9, 25, 10, 5, 1, 250),
+        fecha(2026, 9, 25, 10, 0, 0, 0),
+      ),
+    ).toBe(301_250);
+  });
+
+  it("cruza la medianoche y cuenta la hora, a diferencia de diferenciaEnDias", () => {
+    expect(
+      diferenciaEnMilisegundos(fecha(2026, 9, 16, 0, 1), fecha(2026, 9, 15, 23, 59)),
+    ).toBe(120_000);
+  });
+
+  it("cuenta días enteros y el 29 de febrero", () => {
+    expect(
+      diferenciaEnMilisegundos(fecha(2024, 3, 1), fecha(2024, 2, 28)),
+    ).toBe(2 * 86_400_000);
+  });
+
+  it("es negativa cuando la primera es anterior", () => {
+    expect(
+      diferenciaEnMilisegundos(fecha(2026, 9, 15), fecha(2026, 9, 15, 0, 0, 1)),
+    ).toBe(-1000);
+  });
+
+  it("la misma fecha contra sí misma da +0, nunca -0", () => {
+    const misma = fecha(2026, 9, 25, 8, 30);
+
+    expect(Object.is(diferenciaEnMilisegundos(misma, misma), 0)).toBe(true);
   });
 });
 

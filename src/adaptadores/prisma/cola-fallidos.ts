@@ -4,6 +4,7 @@
  * (`proximo_intento` nulo: en Fase 0 nadie lo reintenta solo).
  */
 
+import type { Codigo } from "../../dominio/compartido/errores/catalogo.ts";
 import type { ColaFallidos } from "../../puertos/cola-fallidos.ts";
 import type { PrismaClient } from "./generado/client.ts";
 
@@ -21,6 +22,19 @@ export function crearColaFallidosPrisma(prisma: PrismaClient): ColaFallidos {
     },
     contarPendientes() {
       return prisma.fallido.count({ where: { resueltoEn: null } });
+    },
+    async listarPendientes(limite) {
+      const filas = await prisma.fallido.findMany({
+        where: { resueltoEn: null },
+        orderBy: { creadoEn: "asc" },
+        take: limite,
+        select: { origen: true, codigoError: true, creadoEn: true },
+      });
+      return filas.map((fila) => ({
+        origen: fila.origen,
+        codigoError: fila.codigoError as Codigo,
+        creadoEn: fila.creadoEn,
+      }));
     },
   };
 }

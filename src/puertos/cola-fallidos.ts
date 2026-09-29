@@ -3,7 +3,7 @@
  * silencio, y menos la ingesta."* Lo que agotó sus reintentos
  * (`conReintento`, `src/infraestructura/reintento.ts`) queda acá, con su
  * código y lo necesario para volver a intentarlo, hasta que alguien lo
- * resuelve. El panel de salud (F0-26) cuenta los pendientes.
+ * resuelve. El panel de salud (F0-26) cuenta los pendientes y lista los más viejos.
  *
  * Implementado en Postgres (`src/adaptadores/prisma/cola-fallidos.ts`, tabla
  * `fallidos`). No hay método para borrar: un fallido se resuelve, no se borra.
@@ -35,9 +35,21 @@ export type Fallo = {
   readonly intentos: number;
 };
 
+/**
+ * Lo que el panel de salud muestra de un fallido pendiente. **Sin la
+ * `carga`**: es para reintentar a mano y no se muestra en pantalla.
+ */
+export type FallidoPendiente = {
+  readonly origen: string;
+  readonly codigoError: Codigo;
+  readonly creadoEn: Date;
+};
+
 export type ColaFallidos = {
   /** Deja el fallo en la cola, pendiente (sin `resuelto_en`). */
   encolar(fallo: Fallo): Promise<void>;
   /** Cuántos fallidos siguen sin resolver. */
   contarPendientes(): Promise<number>;
+  /** Hasta `limite` pendientes, del más viejo al más nuevo. */
+  listarPendientes(limite: number): Promise<readonly FallidoPendiente[]>;
 };

@@ -37,6 +37,8 @@ export type RepositorioUsuarios = {
   buscarPorId(id: Identificador<"Usuario">): Promise<Usuario | null>;
   /** Busca sin distinguir mayúsculas. */
   buscarPorEmail(email: string): Promise<Usuario | null>;
+  /** Todos los usuarios —también los revocados—, ordenados por email. */
+  listar(): Promise<readonly Usuario[]>;
   /**
    * Guarda un usuario nuevo. Si ya hay uno con ese email (sin distinguir
    * mayúsculas), lanza `AUT-0005` y no guarda nada.

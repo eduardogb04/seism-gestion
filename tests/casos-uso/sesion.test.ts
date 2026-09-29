@@ -285,6 +285,8 @@ describe("casos de uso de sesión", () => {
         transaccional: crearTransaccionalPrisma(cliente()),
         reloj: RelojFijo(fecha(10, 0, 5)),
         generadorId,
+        // Otro proceso: no comparte la caché de esta sesión (ADR 0028).
+        sesiones: { invalidarUsuario: () => undefined },
       }).revocar({ tipo: "persona", usuarioId: administradora }, operadora);
 
       reloj.en(fecha(10, 0, 20));

@@ -14,8 +14,14 @@
  *   Por eso revocar a alguien (que además borra sus sesiones) le corta la
  *   sesión activa a más tardar 30 s después. Si no valida, `AUT-0002`.
  * - `cerrarSesion(id)`: la quita de la base y de la caché.
+ * - `invalidarUsuario(usuarioId)` (F0-32, ADR 0028): saca de la caché todas
+ *   las entradas de ese usuario. Lo llaman los casos de uso de usuarios al
+ *   revocar o cambiar el rol, así el corte se ve en la **siguiente** request y
+ *   no a los 30 s.
  *
- * La caché es de este objeto: el punto de armado crea uno por proceso.
+ * La caché es de este objeto: el punto de armado crea uno por proceso. Con
+ * más de un proceso web, `invalidarUsuario` solo alcanza al suyo: ahí la
+ * invalidación tendría que pasar por la base (ADR 0028).
  */
 
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
@@ -67,6 +73,8 @@ export type CasosUsoSesion = {
   /** La sesión y su usuario, contra la base (caché ≤ 30 s), o `AUT-0002`. */
   validarSesion(id: string): Promise<SesionValida>;
   cerrarSesion(id: string): Promise<void>;
+  /** Olvida lo que la caché sabe de las sesiones de ese usuario (solo este proceso). */
+  invalidarUsuario(usuarioId: Identificador<"Usuario">): void;
 };
 
 function estaActivo(usuario: Usuario | null): usuario is Usuario {
@@ -180,6 +188,14 @@ export function crearCasosUsoSesion({
     async cerrarSesion(id) {
       cache.delete(id);
       await transaccional.ejecutar((repos) => repos.sesiones.cerrar(id));
+    },
+
+    invalidarUsuario(usuarioId) {
+      for (const [id, entrada] of cache) {
+        if (entrada.valida.usuario.id === usuarioId) {
+          cache.delete(id);
+        }
+      }
     },
   };
 }

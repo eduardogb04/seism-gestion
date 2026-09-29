@@ -10,9 +10,13 @@
  * - escriben un `RegistroAuditoria` con `antes` y `despues`, con la fecha del
  *   reloj inyectado.
  *
+ * `listar` (F0-32) devuelve todos los usuarios, también los revocados.
+ *
  * `revocar` y `cambiarRol` bloquean primero a los administradores activos:
  * nunca dejan el sistema sin uno (`AUT-0004`), tampoco con dos cambios al
- * mismo tiempo.
+ * mismo tiempo. Una vez confirmada la transacción, le avisan a `sesiones` que
+ * olvide la caché de ese usuario (F0-32, ADR 0028): el corte de una sesión
+ * revocada o de un rol cambiado se ve en la siguiente request.
  */
 
 import type { Actor } from "../../dominio/compartido/actor.ts";
@@ -49,9 +53,15 @@ export type DependenciasUsuarios = {
   readonly transaccional: Transaccional;
   readonly reloj: Reloj;
   readonly generadorId: GeneradorId;
+  /** Los casos de uso de sesión de este proceso: de ahí sale la caché a invalidar. */
+  readonly sesiones: {
+    invalidarUsuario(usuarioId: Identificador<"Usuario">): void;
+  };
 };
 
 export type CasosUsoUsuarios = {
+  /** Todos los usuarios, por email. `AUT-0003` si `actor` no es un administrador activo. */
+  listar(actor: Actor): Promise<readonly Usuario[]>;
   /** Da de alta un usuario activo. `AUT-0005` si el email ya existe; `AUT-0007` si no es un email. */
   darDeAlta(actor: Actor, email: string, rol: Rol): Promise<Usuario>;
   /**
@@ -71,6 +81,7 @@ export function crearCasosUsoUsuarios({
   transaccional,
   reloj,
   generadorId,
+  sesiones,
 }: DependenciasUsuarios): CasosUsoUsuarios {
   /** Aplica `cambios`, guarda y audita. */
   async function actualizar(
@@ -99,6 +110,13 @@ export function crearCasosUsoUsuarios({
   }
 
   return {
+    listar(actor) {
+      return transaccional.ejecutar(async (repos) => {
+        await exigirAdministrador(repos.usuarios, actor);
+        return repos.usuarios.listar();
+      });
+    },
+
     darDeAlta(actor, email, rol) {
       return transaccional.ejecutar(async (repos) => {
         await exigirAdministrador(repos.usuarios, actor);
@@ -125,8 +143,8 @@ export function crearCasosUsoUsuarios({
       });
     },
 
-    revocar(actor, usuarioId) {
-      return transaccional.ejecutar(async (repos) => {
+    async revocar(actor, usuarioId) {
+      const revocado = await transaccional.ejecutar(async (repos) => {
         const administradores =
           await repos.usuarios.bloquearAdministradoresActivos();
         await exigirAdministrador(repos.usuarios, actor);
@@ -137,10 +155,12 @@ export function crearCasosUsoUsuarios({
         exigirQueNoSeaElUltimoAdministrador(usuario, administradores);
         return actualizar(repos, actor, usuario, { estado: "revocado" });
       });
+      sesiones.invalidarUsuario(usuarioId);
+      return revocado;
     },
 
-    cambiarRol(actor, usuarioId, rol) {
-      return transaccional.ejecutar(async (repos) => {
+    async cambiarRol(actor, usuarioId, rol) {
+      const cambiado = await transaccional.ejecutar(async (repos) => {
         const administradores =
           await repos.usuarios.bloquearAdministradoresActivos();
         await exigirAdministrador(repos.usuarios, actor);
@@ -153,6 +173,8 @@ export function crearCasosUsoUsuarios({
         }
         return actualizar(repos, actor, usuario, { rol });
       });
+      sesiones.invalidarUsuario(usuarioId);
+      return cambiado;
     },
   };
 }

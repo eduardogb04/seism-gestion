@@ -10,3 +10,9 @@ caso de uso. Recibe un `Actor` obligatorio, exige una persona administradora
 y activa (`AUT-0003`), no deja el sistema sin administradores (`AUT-0004`) y
 corre entero en una transacción (`Transaccional`, `src/puertos/repositorios/`).
 Ver ADR 0024 y `tests/casos-uso/usuarios-casos-uso.test.ts`.
+
+Desde F0-32: `usuarios/` suma `listar`, `formularios.ts` (lo que llega de los
+formularios, con Zod: `AUT-0008`) y `roles.ts`; `revocar` y `cambiarRol`
+invalidan la caché de sesiones de ese usuario (`invalidarUsuario`). `sesion/`
+suma `acceso.ts`: la decisión de acceso de administrador y el `Actor` que sale
+de la sesión. Ver ADR 0028.

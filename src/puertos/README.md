@@ -29,3 +29,6 @@ token de 256 bits; `cerrarTodasDe` sí quita las filas, porque una sesión es un
 credencial y no un dato de negocio) y `transaccion.ts` (`Transaccional`: corre
 un trabajo contra los repositorios en una sola transacción). Adaptadores
 Prisma en `src/adaptadores/prisma/`. Ver ADR 0024.
+
+Desde F0-32: `RepositorioUsuarios.listar()` (todos, también los revocados, por
+email), para la pantalla de usuarios.

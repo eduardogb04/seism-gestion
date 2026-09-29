@@ -552,10 +552,11 @@ la tabla `usuarios`. El puerto es `src/puertos/identidad.ts`; los adaptadores, `
 `identidad-google` (`arctic` + verificación del `id_token` con `node:crypto`); el flujo, `src/casos-uso/sesion/`;
 las rutas, `src/app/(auth)/` (`/ingresar`, `/ingresar/callback`, `/salir`, `/sesion`). La cookie
 `seism_sesion` es `httpOnly; SameSite=Lax; Path=/` y `Secure` salvo con `APP_ENTORNO=local`; la sesión dura
-12 horas y **cada request se valida contra la base**, con caché de 30 s como máximo (revocar corta la
-sesión en ese plazo). El helper para saber quién es la sesión actual es `sesionActual()`
-(`src/app/(auth)/sesion-actual.ts`). La protección del panel es de F0-32. Cómo entrar con Google en
-local: RUNBOOK, sección 17.
+12 horas y **cada request se valida contra la base**, con caché de 30 s como máximo (revocar o cambiar el rol
+invalidan la caché de ese usuario en el mismo proceso, F0-32: la siguiente request ya es `AUT-0002`). El helper para saber quién es la sesión actual es `sesionActual()`
+(`src/app/(auth)/sesion-actual.ts`); la protección del panel (`accesoDeAdministrador()`) y el
+actor de toda escritura (`actorDesdeSesion()`) son de F0-32, ver *Cómo se agrega... una página que exige
+administrador* y ADR 0028. Cómo entrar con Google en local: RUNBOOK, sección 17.
 
 ## Límites de arquitectura
 
@@ -813,6 +814,15 @@ código**: una entrada no se borra ni cambia de tipo, aunque ya no se use (el te
 rechaza aun regenerando). El dominio devuelve `Resultado` con `codigo: catalogo.<CLAVE>.codigo`;
 en un borde se lanza `nuevoError(catalogo.<CLAVE>, detalles, causa?)`, nunca `new Error` (ADR 0020).
 
+**...una página que exige administrador (F0-32, ADR 0028).** Una `page.tsx` bajo
+`src/app/administracion/` (o `/salud`, F0-26) empieza con `const acceso = await accesoDeAdministrador();`
+(`src/app/(auth)/sesion-actual.ts`), **antes** de `armado()` o de leer ningún dato; si
+`acceso.tipo === "prohibido"` devuelve `<ErrorEnPantalla error={acceso.error} />` (`AUT-0003`). No alcanza con
+un layout: Next no lo vuelve a renderizar al navegar. Sus acciones de escritura (Server Actions,
+formularios HTML, sin `"use client"`) toman el `Actor` de `actorDesdeSesion()`, nunca de un campo del
+formulario, y validan lo que llega con Zod (`src/casos-uso/usuarios/formularios.ts`, `AUT-0008`).
+`tests/dominio/proteccion-administracion.test.ts` falla si una página no la llama. `/api/salud` no la usa.
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -823,11 +833,11 @@ estimación; el orden real de creación manda).
 
 ```
 src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23)
-src/casos-uso        orquesta dominio contra puertos. Desde F0-30: usuarios/ (darDeAlta, revocar, cambiarRol); F0-31: sesion/ (completarSesion, validarSesion con caché de 30 s, cerrarSesion, errores de pantalla)
+src/casos-uso        orquesta dominio contra puertos. Desde F0-30: usuarios/ (darDeAlta, revocar, cambiarRol; F0-32: listar, formularios con Zod, roles; revocar y cambiarRol invalidan la caché de sesiones); F0-31: sesion/ (completarSesion, validarSesion con caché de 30 s, cerrarSesion, errores de pantalla; F0-32: invalidarUsuario, acceso.ts con la decisión de acceso de administrador y el actor de la sesión)
 src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts); F0-31: identidad.ts
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts)
 src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado (armado.ts, identidad.ts: elige el adaptador según `IDENTIDAD`)
-src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión) · formato/importe.ts (USD 24.315,00, F0-20)
+src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión), administracion/ (F0-32: inicio y usuarios, protegidos por rol) · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
 tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures

@@ -29,3 +29,7 @@ al terminar).
   `usuarios-semilla.test.ts` (F0-30): las reglas de `darDeAlta`, `revocar` y
   `cambiarRol` (transacción y concurrencia incluidas), los adaptadores Prisma
   de usuarios, sesiones y auditoría, y el administrador inicial de la semilla.
+- `administracion-usuarios.test.ts` y `administracion-acciones.test.ts`
+  (F0-32): `listar`, la invalidación de la caché al revocar, y las Server
+  Actions de `/administracion/usuarios` (actor de la sesión, validación,
+  `AUT-0003` sin cambios en la base).

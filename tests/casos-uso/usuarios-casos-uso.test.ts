@@ -81,6 +81,7 @@ function casosDeUso(transaccional?: Transaccional) {
     transaccional: transaccional ?? crearTransaccionalPrisma(cliente()),
     reloj: RelojFijo(AHORA),
     generadorId,
+    sesiones: { invalidarUsuario: () => undefined },
   });
 }
 

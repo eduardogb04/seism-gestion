@@ -1,7 +1,8 @@
 /**
  * El punto de armado de la app (ADR 0004; desde F0-31): el único lugar fuera
  * de `src/adaptadores` que los importa. Conecta cada puerto con su adaptador
- * y arma los casos de uso que usa `src/app`.
+ * y arma los casos de uso que usa `src/app`. Los de usuarios reciben los de
+ * sesión (F0-32): al revocar o cambiar un rol, invalidan su caché.
  *
  * Se arma **una vez por proceso**, la primera vez que un pedido lo necesita
  * (no al importar: `next build` carga los módulos sin entorno). Queda en
@@ -13,6 +14,7 @@
  * vuelve a validar para tenerlo tipado.
  */
 
+import { crearGeneradorIdCrypto } from "../../adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../adaptadores/prisma/transaccion.ts";
 import { crearRelojSistema } from "../../adaptadores/reloj/sistema.ts";
@@ -20,6 +22,10 @@ import {
   type CasosUsoSesion,
   crearCasosUsoSesion,
 } from "../../casos-uso/sesion/sesion.ts";
+import {
+  type CasosUsoUsuarios,
+  crearCasosUsoUsuarios,
+} from "../../casos-uso/usuarios/usuarios.ts";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type { EstadoLogin, Identidad } from "../../puertos/identidad.ts";
@@ -36,6 +42,7 @@ export type Armado = {
   /** La identidad falsa (su lista de emails); `null` con Google. */
   readonly pruebas: Pruebas | null;
   readonly sesion: CasosUsoSesion;
+  readonly usuarios: CasosUsoUsuarios;
   generarEstadoLogin(): EstadoLogin;
 };
 
@@ -54,13 +61,18 @@ function armar(): Armado {
   const reloj = crearRelojSistema();
   const prisma = crearClientePrisma(entorno.DATABASE_URL);
   const { identidad, pruebas } = elegirIdentidad(entorno, reloj);
+  const transaccional = crearTransaccionalPrisma(prisma);
+  const sesion = crearCasosUsoSesion({ transaccional, reloj });
   return {
     appEntorno: entorno.APP_ENTORNO,
     identidad,
     pruebas,
-    sesion: crearCasosUsoSesion({
-      transaccional: crearTransaccionalPrisma(prisma),
+    sesion,
+    usuarios: crearCasosUsoUsuarios({
+      transaccional,
       reloj,
+      generadorId: crearGeneradorIdCrypto(),
+      sesiones: sesion,
     }),
     generarEstadoLogin,
   };

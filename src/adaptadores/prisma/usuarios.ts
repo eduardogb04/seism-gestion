@@ -90,6 +90,13 @@ export function crearRepositorioUsuariosPrisma(
       return fila === null ? null : desdeFila(fila);
     },
 
+    async listar() {
+      const filas = await cliente.usuario.findMany({
+        orderBy: { email: "asc" },
+      });
+      return filas.map(desdeFila);
+    },
+
     async crear(usuario) {
       try {
         await cliente.usuario.create({

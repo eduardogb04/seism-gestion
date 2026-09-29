@@ -48,3 +48,6 @@ Desde F0-28: `ia.ts` (`AdaptadorIa`, que devuelve la salida **sin validar**, y `
 aviso de tope superado) y `repositorios/` (`uso-ia.ts`, el registro de uso de IA, y
 `configuracion.ts`, la lectura de `configuracion`). El doble de IA está en
 `src/adaptadores/ia-doble/`; los repositorios, con Prisma en `src/adaptadores/prisma/`. ADR 0026.
+
+Desde F0-32: `RepositorioUsuarios.listar()` (todos, también los revocados, por
+email), para la pantalla de usuarios.

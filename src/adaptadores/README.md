@@ -33,3 +33,13 @@ repositorios y el puerto `Auditoria` de F0-22, que solo agrega filas),
 `transaccion.ts` (`Transaccional` con `$transaction` interactiva) y
 `conversiones.ts` (`FechaHora` ↔ `timestamptz` y `Actor` ↔ `jsonb`). Ver ADR
 0024.
+
+Desde F0-25, en `prisma/`: `cola-fallidos.ts` (tabla `fallidos`),
+`corridas-worker.ts` (tabla `corridas_worker`) y `sonda-base.ts` (`SELECT 1`,
+la integración `base` de `listarSalud`).
+
+Desde F0-28: `ia-doble/` (doble determinista del puerto de IA: responde por una tabla de casos
+fijada al construirse, error explícito si la pregunta no está), `prisma/uso-ia.ts` y
+`prisma/configuracion.ts` (los repositorios de `src/puertos/repositorios/`), `prisma/fecha-hora.ts`
+(`FechaHora` civil argentina → instante `timestamptz`) y `log/avisos-ia.ts` (el aviso de tope de IA
+por el log, hasta que el puerto de notificaciones esté en `main`). ADR 0026.

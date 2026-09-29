@@ -175,6 +175,30 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Volvé a intentar en unos minutos. Si se repite, avisá con este código: en el log está la causa y dónde ocurrió.",
   },
+  INF_0002: {
+    codigo: "INF-0002",
+    tipo: "sistema",
+    descripcion:
+      "Una operación falló en todos sus intentos y quedó en la cola de fallidos para revisarla.",
+    queHacer:
+      "No hace falta repetirla a mano todavía: quien mantiene el sistema la ve en el panel de salud. En el log está el origen, cuántas veces se intentó y el código del último error.",
+  },
+  IA_0001: {
+    codigo: "IA-0001",
+    tipo: "sistema",
+    descripcion:
+      "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",
+    queHacer:
+      "Seguí cargando a mano, como se hace sin IA. Si hace falta más tope este mes, avisá con este código: el tope es un parámetro de la configuración y se puede subir.",
+  },
+  IA_0002: {
+    codigo: "IA-0002",
+    tipo: "externo",
+    descripcion:
+      "La IA respondió algo que no tiene la forma esperada: su propuesta se descartó y no se usó para nada.",
+    queHacer:
+      "Seguí cargando a mano. Si se repite, avisá con este código: en el log está qué parte de la respuesta no cerró y en el registro de uso de IA, la respuesta tal cual llegó.",
+  },
   ALM_0001: {
     codigo: "ALM-0001",
     tipo: "externo",

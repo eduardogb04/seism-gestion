@@ -10,7 +10,8 @@
  * `probar` es lo que hace de test de esta tarea: levanta el contenedor,
  * espera a que el `HEALTHCHECK` lo dé por sano, pide `/` y `/api/salud`,
  * verifica que la versión del latido sea la del build, que la imagen no se
- * haya llevado ningún `.env` ni variable de más, y que el tamaño entre en el
+ * haya llevado ningún `.env` ni variable de más, que el worker (F0-25)
+ * arranque con su comando y sin `DATABASE_URL` no, y que el tamaño entre en el
  * tope. Cada verificación se informa por separado: un rojo no tapa a otro.
  *
  * No importa nada de `node_modules`: corre con Node pelado (`fetch` y el
@@ -25,6 +26,11 @@ import process from "node:process";
 const ETIQUETA_LOCAL = "seism-gestion:local";
 const CONTENEDOR = "seism-gestion-prueba";
 const CONTENEDOR_SIN_ENTORNO = "seism-gestion-prueba-sin-entorno";
+const CONTENEDOR_WORKER = "seism-gestion-prueba-worker";
+/** El comando del worker en la imagen (F0-25): la misma imagen, otro comando. */
+const COMANDO_WORKER = ["node", "src/worker/index.ts"] as const;
+/** Cuánto se espera a que el worker anuncie que arrancó. */
+const ESPERA_WORKER_MS = 30_000;
 const PUERTO = 3000;
 /**
  * La app valida `DATABASE_URL` al arrancar (F0-08) pero todavía no se
@@ -284,6 +290,98 @@ function verificarSinSecretos(etiqueta: string): string[] {
   return problemas;
 }
 
+/**
+ * El worker (F0-25) corre en la misma imagen con otro comando. Dos
+ * verificaciones: sin `DATABASE_URL` no arranca (sale distinto de 0 nombrando
+ * la variable), y con el entorno completo **arranca de verdad** (anuncia
+ * "worker arrancado" y sigue corriendo): si a la imagen le faltara un paquete
+ * o un archivo que el worker importa, se caería ahí. Sin `HEALTHCHECK`: el de
+ * la imagen es el de la app, y el worker no sirve HTTP.
+ */
+async function verificarWorker(etiqueta: string): Promise<string[]> {
+  const problemas: string[] = [];
+
+  borrarContenedor(CONTENEDOR_WORKER);
+  const sinBase = spawnSync(
+    "docker",
+    [
+      "run",
+      "--name",
+      CONTENEDOR_WORKER,
+      "--no-healthcheck",
+      "--env",
+      "APP_ENTORNO=ci",
+      "--env",
+      `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
+      "--env",
+      `IDENTIDAD=${IDENTIDAD_PRUEBA}`,
+      etiqueta,
+      ...COMANDO_WORKER,
+    ],
+    { encoding: "utf8", timeout: 30_000 },
+  );
+  borrarContenedor(CONTENEDOR_WORKER);
+  const salidaSinBase = `${sinBase.stdout ?? ""}${sinBase.stderr ?? ""}`;
+  console.log(
+    `Worker sin DATABASE_URL: salió ${sinBase.status}: ${salidaSinBase.trim()}`,
+  );
+  if (
+    sinBase.status === 0 ||
+    sinBase.status === null ||
+    !salidaSinBase.includes("DATABASE_URL")
+  ) {
+    problemas.push(
+      "Sin DATABASE_URL el worker tendría que salir con código distinto de 0 nombrando la variable; no lo hizo.",
+    );
+  }
+
+  docker([
+    "run",
+    "--detach",
+    "--name",
+    CONTENEDOR_WORKER,
+    "--no-healthcheck",
+    "--env",
+    "APP_ENTORNO=ci",
+    "--env",
+    `DATABASE_URL=${DATABASE_URL_PRUEBA}`,
+    "--env",
+    `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
+    "--env",
+    `IDENTIDAD=${IDENTIDAD_PRUEBA}`,
+    etiqueta,
+    ...COMANDO_WORKER,
+  ]);
+  try {
+    const limite = Date.now() + ESPERA_WORKER_MS;
+    let registro = "";
+    let corriendo = "";
+    while (Date.now() < limite) {
+      registro = dockerCapturar(["logs", CONTENEDOR_WORKER]);
+      corriendo = dockerCapturar([
+        "inspect",
+        "--format",
+        "{{.State.Running}}",
+        CONTENEDOR_WORKER,
+      ]).trim();
+      if (registro.includes("worker arrancado") || corriendo !== "true") {
+        break;
+      }
+      await dormir(1000);
+    }
+    console.log(`Worker con el entorno completo: ${registro.trim()}`);
+    if (!registro.includes("worker arrancado") || corriendo !== "true") {
+      problemas.push(
+        `Con el entorno completo el worker (${COMANDO_WORKER.join(" ")}) tendría que arrancar y seguir corriendo; no lo hizo.`,
+      );
+    }
+  } finally {
+    borrarContenedor(CONTENEDOR_WORKER);
+  }
+
+  return problemas;
+}
+
 function verificarTamano(etiqueta: string): string[] {
   const bytes = Number(
     dockerCapturar([
@@ -329,6 +427,7 @@ async function probar(etiqueta: string): Promise<void> {
     await esperarSaludable();
     problemas.push(...(await verificarRespuestas(version)));
     problemas.push(...verificarSinSecretos(etiqueta));
+    problemas.push(...(await verificarWorker(etiqueta)));
     problemas.push(...verificarTamano(etiqueta));
   } finally {
     console.log(`\n--- docker logs ${CONTENEDOR} ---`);
@@ -344,7 +443,7 @@ async function probar(etiqueta: string): Promise<void> {
     process.exit(1);
   }
   console.log(
-    "\nOK: el contenedor sirve / y /api/salud con la versión del build, no se llevó ningún .env y entra en el tope de tamaño.",
+    "\nOK: el contenedor sirve / y /api/salud con la versión del build, no se llevó ningún .env, el worker arranca (y sin DATABASE_URL no) y entra en el tope de tamaño.",
   );
 }
 

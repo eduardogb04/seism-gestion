@@ -89,10 +89,28 @@
     "queHacer": "Revisá que estés trabajando sobre el registro correcto. Si hay que recuperarlo, avisá con este código: el borrado es lógico y el registro sigue guardado.",
     "tipo": "persona"
   },
+  "IA_0001": {
+    "codigo": "IA-0001",
+    "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",
+    "queHacer": "Seguí cargando a mano, como se hace sin IA. Si hace falta más tope este mes, avisá con este código: el tope es un parámetro de la configuración y se puede subir.",
+    "tipo": "sistema"
+  },
+  "IA_0002": {
+    "codigo": "IA-0002",
+    "descripcion": "La IA respondió algo que no tiene la forma esperada: su propuesta se descartó y no se usó para nada.",
+    "queHacer": "Seguí cargando a mano. Si se repite, avisá con este código: en el log está qué parte de la respuesta no cerró y en el registro de uso de IA, la respuesta tal cual llegó.",
+    "tipo": "externo"
+  },
   "INF_0001": {
     "codigo": "INF-0001",
     "descripcion": "Ocurrió un error inesperado en el sistema y la operación no se completó.",
     "queHacer": "Volvé a intentar en unos minutos. Si se repite, avisá con este código: en el log está la causa y dónde ocurrió.",
+    "tipo": "sistema"
+  },
+  "INF_0002": {
+    "codigo": "INF-0002",
+    "descripcion": "Una operación falló en todos sus intentos y quedó en la cola de fallidos para revisarla.",
+    "queHacer": "No hace falta repetirla a mano todavía: quien mantiene el sistema la ve en el panel de salud. En el log está el origen, cuántas veces se intentó y el código del último error.",
     "tipo": "sistema"
   }
 }

@@ -251,6 +251,8 @@ describe("worker", () => {
         ...process.env,
         APP_ENTORNO: "ci",
         DATABASE_URL: uriBaseCompartida(),
+        // Obligatoria desde F0-30 (inventada, dominio reservado `.test`).
+        ADMIN_INICIAL_EMAIL: "admin@ejemplo.test",
         LOG_NIVEL: "info",
       },
     });

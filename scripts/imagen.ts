@@ -306,6 +306,8 @@ async function verificarWorker(etiqueta: string): Promise<string[]> {
       "--no-healthcheck",
       "--env",
       "APP_ENTORNO=ci",
+      "--env",
+      `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
       etiqueta,
       ...COMANDO_WORKER,
     ],
@@ -336,6 +338,8 @@ async function verificarWorker(etiqueta: string): Promise<string[]> {
     "APP_ENTORNO=ci",
     "--env",
     `DATABASE_URL=${DATABASE_URL_PRUEBA}`,
+    "--env",
+    `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
     etiqueta,
     ...COMANDO_WORKER,
   ]);

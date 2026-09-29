@@ -187,6 +187,17 @@ describe("verificarIdToken", () => {
     expect(rechazo(token)).toMatchObject(porMotivo("iss"));
   });
 
+  test.each([
+    "https://accounts.google.com.ejemplo.test",
+    "accounts.google.com.ejemplo.test",
+    "https://accounts.google.com/",
+    "https://evil.ejemplo.test/accounts.google.com",
+  ])("rechaza un iss que se parece al de Google pero no lo es (%s)", (iss) => {
+    const token = firmar({ ...CARGA_VALIDA, iss });
+
+    expect(rechazo(token)).toMatchObject(porMotivo("iss"));
+  });
+
   test("rechaza un aud que no es GOOGLE_CLIENT_ID", () => {
     const token = firmar({ ...CARGA_VALIDA, aud: "otro-cliente.ejemplo.test" });
 

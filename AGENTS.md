@@ -78,6 +78,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `docker compose up -d --wait` | Levanta el Postgres 16 local (`docker-compose.yml`) y espera a que esté sano. `docker compose ps` → `(healthy)`; `docker compose down` lo apaga (`-v` borra el volumen). Necesita Docker corriendo |
 | `npm run dev` | `next dev`: la app en `http://localhost:3000`. Necesita `.env` (copiá `.env.example`); si falta una variable o es inválida, **no arranca** (sale 1 y dice cuál). Ver *Next.js y entorno* |
 | `npm run build` | `next build` con `output: "standalone"`: compila, corre `tsc` y deja `.next/standalone/server.js`. **No necesita `.env`**; sí git o `APP_VERSION` (la versión del latido) |
+| `npm run worker` | `node src/worker/index.ts` (F0-25, ADR 0025): el proceso worker, con el TypeScript nativo de Node 24 (sin compilar). Valida el entorno con el esquema de la app (sin `DATABASE_URL` válida **no arranca**: sale 1 y dice cuál), levanta el planificador (`croner`) y registra cada corrida en `corridas_worker`. Necesita la base levantada y migrada; lee `.env` solo si lo cargás vos (`node --env-file=.env src/worker/index.ts`). RUNBOOK sección 17 |
 | `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
 | `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz — y después `scripts/sin-error-crudo.ts`, que rechaza `throw new Error` y `new ErrorSistema(` en `src/dominio/` y `src/casos-uso/` (F0-23, ADR 0020). `-- --write` aplica los arreglos de Biome |
 | `npm test` | Vitest sobre los niveles `dominio` y `casos-uso` (ver *Testing: en qué nivel va cada cosa*): el ciclo de siempre. **Necesita Docker corriendo** (el nivel casos de uso levanta un Postgres); no necesita `.env` ni la base de compose |
@@ -180,7 +181,8 @@ archivo (ADR 0005).
   al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO`,
   `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`) y
   `ADMIN_INICIAL_EMAIL` (F0-30: el primer administrador que crea `db:seed`; la de `.env.example`
-  es inventada, `admin@ejemplo.test`, y la real nunca entra al repo) e `IDENTIDAD` (F0-31: `falsa`
+  es inventada, `admin@ejemplo.test`, y la real nunca entra al repo), `LOG_NIVEL`, opcional (F0-24;
+  vacía o sin definir, `debug` en local e `info` en `ci`/`servidor`) e `IDENTIDAD` (F0-31: `falsa`
   o `google`; con `APP_ENTORNO=servidor` la falsa se rechaza y la app no arranca; con `google` exige
   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `APP_URL_PUBLICA`. Ver *Identidad y sesión*).
 - **`.env` y `standalone`.** Si al compilar existe un `.env`, `next build` lo **copia** a
@@ -191,7 +193,9 @@ archivo (ADR 0005).
   una vez, antes de atender pedidos) llama a `exigirEntornoValido` de
   `src/infraestructura/entorno.ts`. Si una variable falta o es inválida, escribe en stderr cuál
   (sin repetir el valor) y el proceso sale con código 1, en `next dev` y en `server.js`. `npm
-  run build` no valida el entorno ni necesita `.env`.
+  run build` no valida el entorno ni necesita `.env`. Con el entorno válido, instala los
+  manejadores de `src/infraestructura/proceso.ts` (F0-24): una excepción o un rechazo que nadie
+  capturó se loguea en `fatal` con `INF-0001` y el proceso sale con código 1 (lo reinicia Docker).
 - **La versión del latido** (`GET /api/salud` → `{ ok: true, version }`) se fija al compilar:
   `next.config.ts` usa `APP_VERSION` si está definida (la pasa el build de Docker desde F0-07) o,
   si no, el SHA corto de git; sin ninguna, el build falla. Next reemplaza
@@ -221,8 +225,12 @@ Decisiones y porqués en el ADR 0007. En corto:
   `node:24.14.1-alpine3.22` **fijada por digest**, como las acciones (ADR 0006); Dependabot
   (ecosistema `docker`) propone las subidas.
 - **La misma imagen sirve para app y worker.** No hay `ENTRYPOINT` propio: `CMD` es
-  `node server.js` (la app) y el worker (F0-25) va a correr esta misma imagen sobrescribiendo el
-  comando. No se inventa nada de eso antes de que el worker exista.
+  `node server.js` (la app) y el worker (F0-25) corre esta misma imagen con
+  `node src/worker/index.ts`. La etapa `dependencias-worker` instala las `dependencies` de
+  producción **menos** `next`, `react` y `react-dom` (ya están en el `standalone`), sin scripts,
+  con solo el compilador de consultas de PostgreSQL de Prisma y sin tipos ni mapas; la final copia
+  eso, el código que el worker importa y el cliente de Prisma generado. El `HEALTHCHECK` es el de la
+  app: el worker corre con `--no-healthcheck` (o `healthcheck: disable` en compose). ADR 0025.
 - **La versión entra como `--build-arg APP_VERSION`** (el SHA corto). `.git` no está en el contexto,
   así que **sin ese argumento el build falla**, a propósito (ADR 0005). `/api/salud` devuelve
   exactamente esa versión y la prueba la compara.
@@ -232,8 +240,10 @@ Decisiones y porqués en el ADR 0007. En corto:
 - **`npm run imagen:prueba` es el test de esta parte**, y corre en CI: `HEALTHCHECK` sano, `/` y
   `/api/salud` con la versión del build, ningún archivo `.env` adentro, ninguna variable fuera de
   la lista permitida, ninguna capa que mencione un `.env`, el contenedor **sale 1 sin
-  `APP_ENTORNO` ni `DATABASE_URL`** (nombrando las dos), y el tamaño por debajo de **250 MB** (hoy
-  206 MB). Falla nombrando **todas** las verificaciones que no pasaron. El contenedor de la prueba
+  `APP_ENTORNO` ni `DATABASE_URL`** (nombrando las dos), el worker **sale ≠ 0 sin `DATABASE_URL`**
+  (nombrándola) y **arranca** con el entorno completo (anuncia `worker arrancado` y sigue
+  corriendo), y el tamaño por debajo de **250 MB** (hoy
+  224 MB con el worker; 201 MB antes de F0-25, medido en CI). Falla nombrando **todas** las verificaciones que no pasaron. El contenedor de la prueba
   se levanta con `APP_ENTORNO=ci` y una `DATABASE_URL` ficticia (la app todavía no se conecta).
 - **Prisma en la imagen (F0-08).** La etapa `dependencias` copia `prisma.config.ts` y
   `prisma/schema.prisma` antes de `npm ci`, porque `postinstall` genera el cliente; el cliente
@@ -322,7 +332,8 @@ porqués en el ADR 0008. En corto:
   con el cliente generado (hasta acá, `db:migrate` y `db:migrate:down` corrían la CLI de Prisma o
   `psql` por su cuenta).
 - **La semilla** (F0-10, `prisma/seed.ts` + `scripts/db-seed.ts`, en `npm run db:seed`): inserta las
-  claves de `configuracion` con sus valores por defecto (hoy, `ia.tope_mensual_usd` en `"0"`) y,
+  claves de `configuracion` con sus valores por defecto (hoy, `ia.tope_mensual_usd` en `"10.00"` e
+  `ia.costo_estimado_usd.defecto` en `"0.01"`, F0-28) y,
   desde F0-30, el primer administrador (`ADMIN_INICIAL_EMAIL`) si no hay un usuario con ese email,
   con el actor de sistema `db-seed` y su registro de auditoría; a los demás usuarios no los toca
   (ADR 0024, `tests/casos-uso/usuarios-semilla.test.ts`). Idempotente por clave: si el valor no cambió, no escribe nada, así correrla dos veces deja la
@@ -523,7 +534,11 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
   segunda mitad de `npm run lint`: con la API del compilador de TypeScript rechaza `throw new
   Error(...)`, `throw Error(...)` (y los demás errores nativos) y `new ErrorSistema(` en
   `src/dominio/` y `src/casos-uso/`. Ver ADR 0020 y *Cómo se agrega... un error*.
-- **Prueba de que rechaza.** Tres fixtures, que `npm run lint:fixtures`
+- **Sin `console.*` en `src/` (F0-24).** Un `override` sobre `**/src/**` pone
+  `suspicious/noConsole` en `error`: en `src/` se loguea con el log de
+  `src/infraestructura/log.ts` (ver *Cómo se agrega... un log*). En `scripts/` y `tests/`
+  `console` sigue valiendo: son herramientas de consola.
+- **Prueba de que rechaza.** Cuatro fixtures, que `npm run lint:fixtures`
   (`scripts/lint-fixtures.ts`) corre por separado invocando el binario de Biome (o
   `sin-error-crudo`) con `cwd` en la carpeta de cada uno, imprimiendo su salida de error e **invirtiendo** el código de salida: sale
   0 si cada fixture fue rechazado por sus reglas, desde los archivos esperados y sin tocar los
@@ -538,6 +553,9 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
     verdad y no una copia (si alguien la saca de `biome.json`, el fixture pasa el lint y este
     comando se pone en rojo). Trae además el caso permitido, `src/adaptadores/reloj/usa-date.ts`:
     el mismo código fuera del dominio, que **no** tiene que aparecer como violación.
+  - `tests/fixtures/lint/sin-console/` (F0-24), misma forma que el anterior: `console.log` en
+    `src/infraestructura/` tiene que ser rechazado por `noConsole`; el mismo código en `scripts/`
+    es el caso permitido.
   - `tests/fixtures/lint/error-crudo/` (F0-23) lo rechaza `sin-error-crudo`, no Biome: un
     `throw new Error` y un `new ErrorSistema(` en `src/dominio/`, y `throw Error`/`throw new
     RangeError` en `src/casos-uso/`. Casos permitidos: un adaptador que lanza `Error` y el archivo
@@ -615,8 +633,13 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
    `src/dominio/compartido/errores/catalogo.ts`) y **un código nunca se reutiliza**. No existe
    `throw new Error` en `src/dominio` ni en `src/casos-uso`: lo frena `npm run lint`
    (`sin-error-crudo`). Ver *Cómo se agrega... un error* y ADR 0020.
-7. **Ningún log con secretos ni datos personales.** Hay un test dedicado. (Llega en F0-24.)
-8. **La IA nunca escribe en el dominio.** Crea borradores o propone; un humano confirma.
+7. **Ningún log con secretos ni datos personales.** Hay un test dedicado
+   (`tests/casos-uso/log.test.ts`, F0-24) y en `src/` no se usa `console.*` (Biome, `noConsole`).
+8. **La IA nunca escribe en el dominio.** Crea borradores o propone; un humano confirma. **Nadie
+   le habla a un proveedor de IA fuera de `src/puertos/ia.ts`**, y a ese puerto solo le habla el
+   caso de uso `interpretar` (`src/casos-uso/ia/`), que controla el tope de gasto, valida la
+   salida con Zod y la registra en `uso_ia` antes de devolverla (F0-28, ADR 0026). Ningún SDK de
+   proveedor se importa fuera de su adaptador.
 9. **Un archivo que crece demasiado se parte.**
 10. **Todo cambio de esquema es una migración con su `down.sql`.** Nadie toca la base a mano.
     Cómo se hace: `docs/convenciones-base.md` (sección *Base de datos*).
@@ -763,11 +786,32 @@ tiene más de una implementación, su suite de contrato entra a `tests/contratos
 entonces, `tests/contratos/README.md`); con una sola, alcanza con probarlo desde el test de
 dominio que lo usa.
 
+**...un adaptador real de un puerto con suite de contrato (F0-29).** Todo adaptador real de un
+puerto con suite en `tests/contratos/` (Gmail, WhatsApp, Telegram, SMTP: Fase 1, para `Correo` y
+`Notificaciones`) **tiene que pasar la misma suite** que su doble en memoria. La fábrica que le
+pasás a `suiteCorreo`/`suiteNotificaciones` no llama a `sembrar()`/`enviados()` del doble (eso no
+existe en un adaptador real): devuelve el puerto y una forma propia de preparar o leer estado
+(`preparar`/`leerEnviados`), que en un adaptador real habla con la API real (o su sandbox de test),
+no con una lista en memoria. Un archivo de test nuevo en el proyecto de Vitest que corresponda (sin
+red ni base: `dominio`; si necesita Docker o red: `casos-uso`) invoca la suite con esa fábrica.
+Los avisos al administrador (F0-25: cola de fallidos y corridas de worker; F0-28: tope de gasto de
+IA) se mandan por `src/puertos/notificaciones.ts`, aunque esas tareas todavía no existan.
+
 **...una clave a `configuracion` (F0-10).** Una entrada más en
 `CONFIGURACION_POR_DEFECTO` de `prisma/seed.ts`, con su `clave` y su `valor` por defecto (los dos,
 `String`: quien la lee convierte). `sembrar` la toma sola: no hace falta tocar el test. Un dato de
 negocio real en el valor por defecto no entra (regla 1); si hiciera falta uno, se decide en la
 tarea que lo necesita.
+
+**...un perfil de IA (F0-28).** Un perfil es un nombre (`"remito"`, por ejemplo) que el que llama
+pasa a `interpretar({ perfil, entrada, esquemaSalida })`. Hace falta: (1) el esquema Zod de la
+salida, en el caso de uso que lo usa (nunca se acepta una salida sin validar: si no valida, `IA-0002`);
+(2) si su costo estimado no es el de `ia.costo_estimado_usd.defecto`, la clave
+`ia.costo_estimado_usd.<perfil>` en `prisma/seed.ts` (dólares con punto, hasta seis decimales);
+(3) en los tests, las filas de la tabla del doble (`crearIaDoble`, `src/adaptadores/ia-doble/`) con
+entradas y salidas **inventadas**, incluida una salida que no valida; (4) quien llama atrapa
+`IA-0001` (tope superado) por su código y sigue por reglas. El prompt y el adaptador real son de
+Fase 1: el perfil no se lo pide a ningún proveedor directo (regla 8). Ver ADR 0026.
 
 **...un golden nuevo (F0-16).** Escribí el test con `compararConGolden("<nombre>", valorFijo)`
 (`tests/extraccion/_arnes/golden.ts`) contra un valor fijo, **sin fechas del sistema** (`Date`
@@ -823,6 +867,37 @@ formularios HTML, sin `"use client"`) toman el `Actor` de `actorDesdeSesion()`, 
 formulario, y validan lo que llega con Zod (`src/casos-uso/usuarios/formularios.ts`, `AUT-0008`).
 `tests/dominio/proteccion-administracion.test.ts` falla si una página no la llama. `/api/salud` no la usa.
 
+**...un log (F0-24).** En `src/`, con el `log` de `src/infraestructura/log.ts` (nunca `console.*`):
+`log.info({ campos }, "mensaje")`. Lo que corre dentro de `conReferencia("SRV-2026-014", fn)`
+lleva `referencia` sola, también después de cada `await`: no se pasa a mano. Todo lo que sale se
+redacta: el valor entero de cualquier clave que contenga `authorization`, `cookie`, `token`,
+`secret`, `password` o `clave`, y en cualquier texto (mensaje, pila, valores) lo que parezca email o
+CUIT. Los casos de uso no importan infraestructura: si necesitan loguear, reciben el log por
+parámetro. Un campo sensible nuevo que no entre en esas reglas: a `CLAVES_SENSIBLES`, con su caso en
+el test (ADR 0021).
+
+**...un job al worker (F0-25).** Un `Job` (`{ nombre, cron, ejecutar }`) en `src/worker/jobs.ts`,
+sumado a `JOBS`. Nada más: el planificador lo corre a través de `registrarCorrida`, así que cada
+corrida queda en `corridas_worker` (inicio antes, fin y resultado en `finally`) y, si lanza, se
+loguea con su código y el planificador sigue. `ejecutar` no atrapa sus propios errores para
+"seguir": que lance, con `nuevoError(catalogo.X, ...)` si tiene código propio. Lo que necesite de
+afuera (repositorios, adaptadores) le llega armado desde `src/infraestructura/arranque/worker.ts`.
+El test, en `tests/casos-uso/`, con la expresión cron por parámetro (`* * * * * *`, cada segundo)
+para no esperar el intervalo real, y afirmando la expresión real aparte. Si el job usa un paquete
+que la imagen no tiene, `npm run imagen:prueba` lo detecta (el worker no arranca). Dos réplicas del
+worker correrían cada job dos veces: en Fase 0 hay una sola (ADR 0025).
+
+**...una llamada con reintento (F0-25).** Con `conReintento(fn, politica)` de
+`src/infraestructura/reintento.ts`, armado una vez con `crearConReintento({ cola, log })` (la cola
+de fallidos sale de `arranque/`). `politica`: `origen` (quién falla, por ejemplo
+`ingesta.correo`), `carga` (un objeto JSON con lo necesario para reintentar a mano; **nunca un
+secreto**: queda en la base) y, si hace falta, `intentos` (3 por defecto) y `esperas`
+(`[1000, 10000, 60000]` ms por defecto). Si agota: queda una fila en `fallidos` con el código del
+último error, se loguea con `INF-0002` y **se relanza** `INF-0002`: el que llama se entera siempre.
+No lo envuelvas en un `catch` que siga como si nada. En el test, pasá `esperar` en la política
+para no dormir y afirmá la secuencia de esperas. El aviso al administrador es ese log hasta que
+exista el puerto de notificaciones (F0-29).
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -832,14 +907,14 @@ estimación; el orden real de creación manda).
 ## Estructura
 
 ```
-src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23)
-src/casos-uso        orquesta dominio contra puertos. Desde F0-30: usuarios/ (darDeAlta, revocar, cambiarRol; F0-32: listar, formularios con Zod, roles; revocar y cambiarRol invalidan la caché de sesiones); F0-31: sesion/ (completarSesion, validarSesion con caché de 30 s, cerrarSesion, errores de pantalla; F0-32: invalidarUsuario, acceso.ts con la decisión de acceso de administrador y el actor de la sesión)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts); F0-31: identidad.ts
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts)
-src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado (armado.ts, identidad.ts: elige el adaptador según `IDENTIDAD`)
+src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23); compartido/micro-usd.ts (costos de IA en micro-dólares, F0-28)
+src/casos-uso        orquesta dominio contra puertos. Desde F0-25: salud/listar-salud.ts (listarSalud: última corrida por job, fallidos pendientes, integraciones; nunca lanza) · F0-28: ia/ (interpretar: tope, validación y registro de uso de IA; gastoDelMes) · F0-30: usuarios/ (darDeAlta, revocar, cambiarRol; F0-32: listar, formularios con Zod, roles; revocar y cambiarRol invalidan la caché de sesiones); F0-31: sesion/ (completarSesion, validarSesion con caché de 30 s, cerrarSesion, errores de pantalla; F0-32: invalidarUsuario, acceso.ts con la decisión de acceso de administrador y el actor de la sesión)
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa) y repositorios/ (uso-ia.ts, configuracion.ts); F0-31: identidad.ts
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), ia-doble/ (doble determinista del puerto de IA, F0-28), log/avisos-ia.ts (aviso de tope de IA por log, F0-28), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts)
+src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · fallas.ts y reintento.ts (conReintento, F0-25) · arranque/ = punto de armado (worker.ts desde F0-25; armado.ts e identidad.ts, que elige el adaptador según `IDENTIDAD`, desde F0-31)
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión), administracion/ (F0-32: inicio y usuarios, protegidos por rol) · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
-src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
+src/worker           proceso aparte (F0-25): index.ts (entrada, `npm run worker`) · planificador.ts (croner) · registrar-corrida.ts · jobs.ts (latido)
 tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
 scripts/             utilidades de los comandos de package.json (sin-any.ts, sin-error-crudo.ts, db-migrate-down.ts, db-seed.ts, test-dominio.ts, e2e-app.ts; lib/migraciones.ts)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
@@ -847,8 +922,8 @@ vitest.config.ts     los tres niveles que corren con Vitest (proyectos dominio, 
 playwright.config.ts el nivel e2e: Chromium y el webServer que levanta la app con compose
 prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql} · seed.ts (el mecanismo, F0-10; el primer administrador, F0-30)
 prisma.config.ts     configuración de la CLI de Prisma: rutas y DATABASE_URL
-docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27) y, detrás del perfil `e2e`, la app para el e2e
-Dockerfile           imagen multi-stage de la app (y del worker desde F0-25) · .dockerignore
+docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27) y, detrás de perfiles, la app para el e2e (`e2e`) y el worker (`worker`, F0-25)
+Dockerfile           imagen multi-stage de la app y del worker (F0-25: otro comando, misma imagen) · .dockerignore
 docs/                arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/ · ensayos/ (registro de cada ensayo de deploy)
 infra/               oracle/bootstrap.sh (levanta la instancia del ensayo, F0-12) · servidor/ (compose del servidor, F0-13)
 .github/             workflows/ci.yml (el check `ci` y el job `publicar`) · CODEOWNERS · dependabot.yml

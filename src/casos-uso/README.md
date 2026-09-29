@@ -11,6 +11,14 @@ y activa (`AUT-0003`), no deja el sistema sin administradores (`AUT-0004`) y
 corre entero en una transacción (`Transaccional`, `src/puertos/repositorios/`).
 Ver ADR 0024 y `tests/casos-uso/usuarios-casos-uso.test.ts`.
 
+Desde F0-25: `salud/listar-salud.ts` (`listarSalud`: última corrida de cada
+job, fallidos pendientes y estado de cada integración; nunca lanza). Lo
+consumen el panel de salud (F0-26) y el gasto de IA (F0-28).
+
+Desde F0-28, `ia/`: `interpretar` (la única puerta a la IA: tope de gasto mensual, validación
+con el esquema Zod del que llama y registro en `uso_ia` antes de devolver; `IA-0001` e `IA-0002`)
+y `gastoDelMes` (gasto del mes contra el tope, para `/salud`). ADR 0026.
+
 Desde F0-32: `usuarios/` suma `listar`, `formularios.ts` (lo que llega de los
 formularios, con Zod: `AUT-0008`) y `roles.ts`; `revocar` y `cambiarRol`
 invalidan la caché de sesiones de ese usuario (`invalidarUsuario`). `sesion/`

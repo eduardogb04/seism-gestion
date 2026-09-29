@@ -145,6 +145,16 @@
   },
   "overrides": [
     {
+      "includes": ["**/src/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "error"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/src/dominio/**"],
       "linter": {
         "rules": {

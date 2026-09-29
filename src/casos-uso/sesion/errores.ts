@@ -10,7 +10,6 @@ import {
   catalogo,
   type EntradaCatalogo,
 } from "../../dominio/compartido/errores/catalogo.ts";
-import { ErrorSistema } from "../../dominio/compartido/errores/error-sistema.ts";
 
 export type ErrorDeLogin = {
   readonly codigo: Codigo;
@@ -38,7 +37,16 @@ export function pantallaDeCodigo(codigo: string | undefined): ErrorDeLogin {
  * El código con que la app manda a la pantalla de error, si `error` es un
  * `ErrorSistema`; `null` si es cualquier otra cosa (un error inesperado, que
  * la app deja seguir para que quede en el log del servidor).
+ *
+ * Se reconoce por su forma (nombre y código del catálogo) y no con
+ * `instanceof`: Next puede empaquetar `ErrorSistema` en más de un chunk, y la
+ * clase que lanza un caso de uso no es entonces la que ve la ruta.
  */
 export function codigoDeError(error: unknown): Codigo | null {
-  return error instanceof ErrorSistema ? error.codigo : null;
+  if (!(error instanceof Error) || error.name !== "ErrorSistema") {
+    return null;
+  }
+  const { codigo } = error as Error & { readonly codigo?: unknown };
+  const entrada = ENTRADAS.find((candidata) => candidata.codigo === codigo);
+  return entrada?.codigo ?? null;
 }

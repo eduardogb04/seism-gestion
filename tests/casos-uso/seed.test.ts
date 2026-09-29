@@ -24,9 +24,33 @@ import {
 } from "vitest";
 import { sembrar } from "../../prisma/seed.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
+import {
+  crearFechaHora,
+  RelojFijo,
+} from "../../src/dominio/compartido/reloj.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
+
+/** Desde F0-30 la semilla también pide el administrador inicial (inventado) y el reloj. */
+function opciones() {
+  const fecha = crearFechaHora({
+    anio: 2031,
+    mes: 1,
+    dia: 2,
+    hora: 3,
+    minuto: 4,
+    segundo: 5,
+    milisegundo: 6,
+  });
+  if (!fecha.ok) {
+    throw new Error(fecha.mensaje);
+  }
+  return {
+    adminInicialEmail: "admin@ejemplo.test",
+    reloj: RelojFijo(fecha.fechaHora),
+  };
+}
 
 function cliente(): ReturnType<typeof crearClientePrisma> {
   expect(prisma, "el cliente de Prisma no se armó").toBeDefined();
@@ -50,7 +74,7 @@ describe("semilla", () => {
     const db = cliente();
     const inicio = Date.now();
 
-    await sembrar(db);
+    await sembrar(db, opciones());
     expect(Date.now() - inicio).toBeLessThan(120_000);
 
     const primeraVez = await db.configuracion.findMany({
@@ -61,7 +85,7 @@ describe("semilla", () => {
     ]);
     expect(primeraVez[0]?.valor).toBe("0");
 
-    await sembrar(db);
+    await sembrar(db, opciones());
     const segundaVez = await db.configuracion.findMany({
       orderBy: { clave: "asc" },
     });

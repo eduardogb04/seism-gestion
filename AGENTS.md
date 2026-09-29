@@ -99,7 +99,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run db:migrate` | `scripts/db-migrate.ts`: lee `.env` si existe, **valida el entorno** (el mismo esquema que la app) y recién entonces corre `prisma migrate deploy`, que aplica las migraciones pendientes de `prisma/migrations/` (desde una base vacía o una ya migrada). Si `DATABASE_URL` falta o no es `postgresql://`/`postgres://`, **sale 1** nombrando la variable y Prisma ni se ejecuta. Necesita la base levantada |
 | `npm run db:migrate:down` | `scripts/db-migrate-down.ts`: valida el entorno igual que `db:migrate` y revierte **la última migración aplicada** en la base local de compose: su `down.sql` y el borrado de su fila de `_prisma_migrations`, en una transacción (así `db:migrate` la vuelve a aplicar). Una por corrida. Sale 1 si `DATABASE_URL` no apunta a `localhost` (no ejecuta nada), si no hay migraciones aplicadas o si la reversión falla. Necesita el servicio `postgres` de compose levantado. Ver ADR 0009 |
 | `npm run db:generar` | `prisma generate`: regenera el cliente en `src/adaptadores/prisma/generado/` después de cambiar `prisma/schema.prisma`. No se conecta a ninguna base |
-| `npm run db:seed` | `scripts/db-seed.ts`: valida el entorno igual que `db:migrate` y corre `prisma/seed.ts` (idempotente) con el cliente real de Prisma (`src/adaptadores/prisma/cliente.ts`, con `@prisma/adapter-pg`). Sale 1 sin sembrar nada si `APP_ENTORNO=servidor` y falta `SEED_PERMITIDO=si`. Necesita la base levantada |
+| `npm run db:seed` | `scripts/db-seed.ts`: valida el entorno igual que `db:migrate` y corre `prisma/seed.ts` (idempotente) con el cliente real de Prisma (`src/adaptadores/prisma/cliente.ts`, con `@prisma/adapter-pg`): las claves de `configuracion` y, desde F0-30, el **primer administrador** con el email de `ADMIN_INICIAL_EMAIL` (obligatoria), si no hay ya un usuario con ese email. Sale 1 sin sembrar nada si `APP_ENTORNO=servidor` y falta `SEED_PERMITIDO=si`. Necesita la base levantada |
 
 Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm run test:dominio
 && npm test && npm run test:extraccion && npm run typecheck:fixtures && npm run lint:fixtures &&
@@ -177,8 +177,10 @@ modelos:** antes de escribir código de Next, leé la guía que corresponda en
 archivo (ADR 0005).
 
 - **Levantar en local.** Copiá `.env.example` a `.env` (`.env` está en `.gitignore`: nunca entra
-  al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO` y
-  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`). La app
+  al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO`,
+  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`) y
+  `ADMIN_INICIAL_EMAIL` (F0-30: el primer administrador que crea `db:seed`; la de `.env.example`
+  es inventada, `admin@ejemplo.test`, y la real nunca entra al repo). La app
   todavía no se conecta a la base, pero sin `DATABASE_URL` válida no arranca.
 - **`.env` y `standalone`.** Si al compilar existe un `.env`, `next build` lo **copia** a
   `.next/standalone/.env` y `server.js` lo lee. Sin `.env` al compilar, las variables van en el
@@ -319,11 +321,13 @@ porqués en el ADR 0008. En corto:
   con el cliente generado (hasta acá, `db:migrate` y `db:migrate:down` corrían la CLI de Prisma o
   `psql` por su cuenta).
 - **La semilla** (F0-10, `prisma/seed.ts` + `scripts/db-seed.ts`, en `npm run db:seed`): inserta las
-  claves de `configuracion` con sus valores por defecto (hoy, `ia.tope_mensual_usd` en `"0"`).
-  Idempotente por clave: si el valor no cambió, no escribe nada, así correrla dos veces deja la
+  claves de `configuracion` con sus valores por defecto (hoy, `ia.tope_mensual_usd` en `"0"`) y,
+  desde F0-30, el primer administrador (`ADMIN_INICIAL_EMAIL`) si no hay un usuario con ese email,
+  con el actor de sistema `db-seed` y su registro de auditoría; a los demás usuarios no los toca
+  (ADR 0024, `tests/casos-uso/usuarios-semilla.test.ts`). Idempotente por clave: si el valor no cambió, no escribe nada, así correrla dos veces deja la
   base exactamente igual (`id`, `creado_en` y `actualizado_en` incluidos); un test de casos de uso
   la corre dos veces contra un Postgres de Testcontainers y compara. `prisma/seed.ts` importa solo
-  de `adaptadores/prisma` (el tipo del cliente generado): la validación de entorno y el permiso
+  de `adaptadores` (el cliente generado y los repositorios) y del dominio: la validación de entorno y el permiso
   para correr en el servidor viven en `scripts/db-seed.ts`, que se niega si `APP_ENTORNO=servidor`
   sin `SEED_PERMITIDO=si` (no es una variable del esquema de entorno; es un chequeo puntual de ese
   script, como el de "solo local" de `db-migrate-down.ts`). **Las semillas de Fase 1 serán
@@ -618,7 +622,15 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
     Ningún puerto de `src/puertos/**` (incluidos los de `repositorios/` cuando existan) declara un
     método `eliminar`/`borrar`/`delete`/`remove`/`destroy`/`purgar`; lo hace cumplir
     `tests/dominio/puertos-sin-borrado.test.ts`, que recorre las interfaces/tipos exportados con
-    la API del compilador de TypeScript.
+    la API del compilador de TypeScript. Única excepción, justificada en el ADR 0024: las
+    **sesiones** (`RepositorioSesiones.cerrarTodasDe`) sí se quitan, porque una sesión es una
+    credencial, no un dato de negocio.
+17. **Usuarios: solo los cambia un administrador.** `darDeAlta`, `revocar` y `cambiarRol`
+    (`src/casos-uso/usuarios/`, F0-30) reciben un `Actor` obligatorio y exigen que sea una
+    **persona** con usuario **administrador y activo** (`AUT-0003` si no); ninguno deja el sistema
+    sin administradores activos (`AUT-0004`). Corren enteros en una transacción (`Transaccional`) y
+    cada cambio escribe su `RegistroAuditoria`. El único usuario que no crea un administrador es el
+    primero, que crea `db:seed` (ADR 0024).
 
 ## Cómo se trabaja
 
@@ -808,9 +820,9 @@ estimación; el orden real de creación manda).
 
 ```
 src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23)
-src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/)
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts)
+src/casos-uso        orquesta dominio contra puertos. Desde F0-30: usuarios/ (darDeAlta, revocar, cambiarRol)
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts)
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts)
 src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
@@ -820,7 +832,7 @@ scripts/             utilidades de los comandos de package.json (sin-any.ts, sin
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
 vitest.config.ts     los tres niveles que corren con Vitest (proyectos dominio, casos-uso, extraccion)
 playwright.config.ts el nivel e2e: Chromium y el webServer que levanta la app con compose
-prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql} · seed.ts (el mecanismo, F0-10)
+prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql} · seed.ts (el mecanismo, F0-10; el primer administrador, F0-30)
 prisma.config.ts     configuración de la CLI de Prisma: rutas y DATABASE_URL
 docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27) y, detrás del perfil `e2e`, la app para el e2e
 Dockerfile           imagen multi-stage de la app (y del worker desde F0-25) · .dockerignore

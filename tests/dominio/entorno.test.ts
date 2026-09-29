@@ -13,8 +13,15 @@ import { validarEntorno } from "../../src/infraestructura/entorno.ts";
 /** Una URL de Postgres válida y ficticia: nada se conecta a ella en estos tests. */
 const URL_POSTGRES = "postgresql://usuario:clave@localhost:5432/base";
 
+/** Un email inventado, del dominio reservado `.test`. */
+const EMAIL_ADMIN = "admin@ejemplo.test";
+
 /** Un entorno completo y válido, para variar una sola variable por test. */
-const VALIDO = { APP_ENTORNO: "local", DATABASE_URL: URL_POSTGRES };
+const VALIDO = {
+  APP_ENTORNO: "local",
+  DATABASE_URL: URL_POSTGRES,
+  ADMIN_INICIAL_EMAIL: EMAIL_ADMIN,
+};
 
 describe("validarEntorno: APP_ENTORNO", () => {
   it.each(["local", "ci", "servidor"])(
@@ -24,13 +31,13 @@ describe("validarEntorno: APP_ENTORNO", () => {
 
       expect(resultado).toEqual({
         ok: true,
-        entorno: { APP_ENTORNO: valor, DATABASE_URL: URL_POSTGRES },
+        entorno: { ...VALIDO, APP_ENTORNO: valor },
       });
     },
   );
 
   it("rechaza APP_ENTORNO ausente y el mensaje nombra la variable", () => {
-    const resultado = validarEntorno({ DATABASE_URL: URL_POSTGRES });
+    const resultado = validarEntorno({ ...VALIDO, APP_ENTORNO: undefined });
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
@@ -86,12 +93,12 @@ describe("validarEntorno: DATABASE_URL (F0-08)", () => {
 
     expect(resultado).toEqual({
       ok: true,
-      entorno: { APP_ENTORNO: "local", DATABASE_URL: valor },
+      entorno: { ...VALIDO, DATABASE_URL: valor },
     });
   });
 
   it("rechaza DATABASE_URL ausente y el mensaje nombra la variable", () => {
-    const resultado = validarEntorno({ APP_ENTORNO: "local" });
+    const resultado = validarEntorno({ ...VALIDO, DATABASE_URL: undefined });
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
@@ -142,6 +149,56 @@ describe("validarEntorno: DATABASE_URL (F0-08)", () => {
   });
 });
 
+describe("validarEntorno: ADMIN_INICIAL_EMAIL (F0-30)", () => {
+  it.each(["admin@ejemplo.test", "Otra.Persona@ejemplo.test"])(
+    "acepta ADMIN_INICIAL_EMAIL=%s",
+    (valor) => {
+      const resultado = validarEntorno({
+        ...VALIDO,
+        ADMIN_INICIAL_EMAIL: valor,
+      });
+
+      expect(resultado).toEqual({
+        ok: true,
+        entorno: { ...VALIDO, ADMIN_INICIAL_EMAIL: valor },
+      });
+    },
+  );
+
+  it.each([undefined, ""])(
+    "rechaza ADMIN_INICIAL_EMAIL=%j como ausente: es obligatoria",
+    (valor) => {
+      const resultado = validarEntorno({
+        ...VALIDO,
+        ADMIN_INICIAL_EMAIL: valor,
+      });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("ADMIN_INICIAL_EMAIL");
+        expect(resultado.mensaje).toContain("falta");
+      }
+    },
+  );
+
+  it.each(["sin-arroba", "dos@@ejemplo.test", "con espacio@ejemplo.test"])(
+    "rechaza ADMIN_INICIAL_EMAIL=%j (no es un email) y dice qué se espera",
+    (valor) => {
+      const resultado = validarEntorno({
+        ...VALIDO,
+        ADMIN_INICIAL_EMAIL: valor,
+      });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("ADMIN_INICIAL_EMAIL");
+        expect(resultado.mensaje).toContain("valor inválido");
+        expect(resultado.mensaje).toContain("nombre@dominio");
+      }
+    },
+  );
+});
+
 describe("validarEntorno: en general", () => {
   it("nombra todas las variables que fallan, no solo la primera", () => {
     const resultado = validarEntorno({});
@@ -150,6 +207,7 @@ describe("validarEntorno: en general", () => {
     if (!resultado.ok) {
       expect(resultado.mensaje).toContain("APP_ENTORNO");
       expect(resultado.mensaje).toContain("DATABASE_URL");
+      expect(resultado.mensaje).toContain("ADMIN_INICIAL_EMAIL");
     }
   });
 
@@ -170,7 +228,7 @@ describe("validarEntorno: en general", () => {
 
     expect(resultado).toEqual({
       ok: true,
-      entorno: { APP_ENTORNO: "local", DATABASE_URL: URL_POSTGRES },
+      entorno: VALIDO,
     });
   });
 });

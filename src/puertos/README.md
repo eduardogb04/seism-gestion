@@ -21,3 +21,11 @@ declara un método de borrado físico (`eliminar`, `borrar`, `delete`,
 `remove`, `destroy`, `purgar`): lo prueba
 `tests/dominio/puertos-sin-borrado.test.ts` (regla no negociable 16 de
 `AGENTS.md`).
+
+Desde F0-29: `correo.ts` (`Correo { listarNuevos(desde: Cursor, limite?):
+Promise<{ mensajes, cursor }>; marcarProcesado(idExterno) }`, idempotente
+por `idExterno`) y `notificaciones.ts` (`Notificaciones { enviar(destinatario:
+Actor, mensaje) }`, un único destinatario por aviso: dirigidas, no
+difundidas). Dobles en `src/adaptadores/memoria/{correo,notificaciones}.ts`;
+las suites de contrato de `tests/contratos/` son la base que Gmail, WhatsApp,
+Telegram y SMTP (Fase 1) van a tener que pasar.

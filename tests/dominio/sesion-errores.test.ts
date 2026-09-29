@@ -24,6 +24,14 @@ describe("codigoDeError", () => {
     expect(codigoDeError(deOtraCopia)).toBe("AUT-0002");
   });
 
+  it("no reconoce como ErrorSistema un error con código válido pero otro name", () => {
+    const ajeno = Object.assign(new Error("AUT-0001"), {
+      name: "Error",
+      codigo: "AUT-0001",
+    });
+    expect(codigoDeError(ajeno)).toBeNull();
+  });
+
   it("devuelve null para un error cualquiera o un código que no es del catálogo", () => {
     expect(codigoDeError(new Error("AUT-0001"))).toBeNull();
     expect(

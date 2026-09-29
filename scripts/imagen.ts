@@ -32,6 +32,8 @@ const PUERTO = 3000;
  * ficticia, a la que nadie se conecta.
  */
 const DATABASE_URL_PRUEBA = "postgresql://prueba:prueba@127.0.0.1:5432/prueba";
+/** Obligatoria desde F0-30 (el primer administrador): inventada, nadie la usa acá. */
+const ADMIN_INICIAL_EMAIL_PRUEBA = "admin@ejemplo.test";
 /** Objetivo de tamaño de la imagen final (criterio de F0-07). */
 const TOPE_MB = 250;
 const ESPERA_MAXIMA_MS = 120_000;
@@ -310,6 +312,8 @@ async function probar(etiqueta: string): Promise<void> {
     "APP_ENTORNO=ci",
     "--env",
     `DATABASE_URL=${DATABASE_URL_PRUEBA}`,
+    "--env",
+    `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
     etiqueta,
   ]);
 

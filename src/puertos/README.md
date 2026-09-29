@@ -21,3 +21,19 @@ declara un método de borrado físico (`eliminar`, `borrar`, `delete`,
 `remove`, `destroy`, `purgar`): lo prueba
 `tests/dominio/puertos-sin-borrado.test.ts` (regla no negociable 16 de
 `AGENTS.md`).
+
+Desde F0-29: `correo.ts` (`Correo { listarNuevos(desde: Cursor, limite?):
+Promise<{ mensajes, cursor }>; marcarProcesado(idExterno) }`, idempotente
+por `idExterno`) y `notificaciones.ts` (`Notificaciones { enviar(destinatario:
+Actor, mensaje) }`, un único destinatario por aviso: dirigidas, no
+difundidas). Dobles en `src/adaptadores/memoria/{correo,notificaciones}.ts`;
+las suites de contrato de `tests/contratos/` son la base que Gmail, WhatsApp,
+Telegram y SMTP (Fase 1) van a tener que pasar.
+
+Desde F0-30: `repositorios/`, con `usuarios.ts` (`RepositorioUsuarios`: la
+lista blanca, email en minúsculas, sin método de borrado: revocar es
+`estado: "revocado"`), `sesiones.ts` (`RepositorioSesiones`: el `id` es el
+token de 256 bits; `cerrarTodasDe` sí quita las filas, porque una sesión es una
+credencial y no un dato de negocio) y `transaccion.ts` (`Transaccional`: corre
+un trabajo contra los repositorios en una sola transacción). Adaptadores
+Prisma en `src/adaptadores/prisma/`. Ver ADR 0024.

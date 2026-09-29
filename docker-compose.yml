@@ -56,6 +56,8 @@ services:
     environment:
       APP_ENTORNO: local
       DATABASE_URL: postgresql://prueba:prueba@127.0.0.1:5432/prueba
+      # Obligatoria desde F0-30; inventada, como todo lo de este servicio.
+      ADMIN_INICIAL_EMAIL: admin@ejemplo.test
     ports:
       # Solo en la máquina local, como el Postgres de arriba.
       - "127.0.0.1:3000:3000"

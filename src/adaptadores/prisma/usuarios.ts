@@ -6,6 +6,11 @@
  * El email se pasa a minúsculas al escribir y al buscar; la base lo exige
  * igual (índice único y CHECK `usuarios_email_en_minusculas`). Un email
  * repetido, aun con otras mayúsculas, es `AUT-0005`.
+ *
+ * Escribir exige identidad (F0-33, ADR 0029): `crear` y `actualizar` reciben
+ * el `Actor` y dejan la fila de auditoría con el mismo `cliente`, o sea en la
+ * misma transacción que el cambio: o quedan las dos cosas o ninguna. El
+ * `antes` de una actualización es lo que la base tenía justo antes de escribir.
  */
 
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
@@ -15,6 +20,7 @@ import type {
   RepositorioUsuarios,
   Usuario,
 } from "../../puertos/repositorios/usuarios.ts";
+import { crearAuditoriaPrisma } from "./auditoria.ts";
 import {
   actorAJson,
   actorDesdeJson,
@@ -54,6 +60,17 @@ function desdeFila(fila: FilaUsuario): Usuario {
   };
 }
 
+/** Lo que la auditoría guarda de un usuario en `antes` y `despues`. */
+function foto(usuario: Usuario): Readonly<Record<string, unknown>> {
+  return {
+    id: usuario.valor.id,
+    email: usuario.valor.email,
+    nombre: usuario.valor.nombre,
+    rol: usuario.valor.rol,
+    estado: usuario.valor.estado,
+  };
+}
+
 function aFila(usuario: Usuario) {
   return {
     email: normalizarEmail(usuario.valor.email),
@@ -77,6 +94,7 @@ function aFila(usuario: Usuario) {
 export function crearRepositorioUsuariosPrisma(
   cliente: Prisma.TransactionClient,
 ): RepositorioUsuarios {
+  const auditoria = crearAuditoriaPrisma(cliente);
   return {
     async buscarPorId(id) {
       const fila = await cliente.usuario.findUnique({ where: { id } });
@@ -97,7 +115,7 @@ export function crearRepositorioUsuariosPrisma(
       return filas.map(desdeFila);
     },
 
-    async crear(usuario) {
+    async crear(actor, usuario) {
       try {
         await cliente.usuario.create({
           data: { id: usuario.valor.id, ...aFila(usuario) },
@@ -115,12 +133,35 @@ export function crearRepositorioUsuariosPrisma(
         }
         throw error;
       }
+      await auditoria.registrar({
+        entidad: "Usuario",
+        id: usuario.valor.id,
+        accion: "crear",
+        antes: null,
+        despues: foto(usuario),
+        actor,
+        en: usuario.creadoEn,
+      });
     },
 
-    async actualizar(usuario) {
+    async actualizar(actor, usuario, accion) {
+      const antes = desdeFila(
+        await cliente.usuario.findUniqueOrThrow({
+          where: { id: usuario.valor.id },
+        }),
+      );
       await cliente.usuario.update({
         where: { id: usuario.valor.id },
         data: aFila(usuario),
+      });
+      await auditoria.registrar({
+        entidad: "Usuario",
+        id: usuario.valor.id,
+        accion,
+        antes: foto(antes),
+        despues: foto(usuario),
+        actor,
+        en: usuario.actualizadoEn,
       });
     },
 

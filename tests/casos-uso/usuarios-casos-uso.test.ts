@@ -104,10 +104,12 @@ async function existente(
   estado: EstadoUsuario = "activo",
 ): Promise<Identificador<"Usuario">> {
   const id = identificadorDesde<"Usuario">(generadorId.generar());
+  const actor = proceso("preparacion-test");
   await crearRepositorioUsuariosPrisma(cliente()).crear(
+    actor,
     crearAuditable(
       { id, email, nombre: null, rol, estado },
-      proceso("preparacion-test"),
+      actor,
       RelojFijo(fecha(1)),
     ),
   );
@@ -312,8 +314,10 @@ describe("casos de uso de usuarios", () => {
       await sesionDe(objetivo);
       const antes = await fotoDeLaBase();
 
-      // Lo que ve la transacción justo antes de fallar: prueba que la falla
-      // llega después de revocar y de cerrar las sesiones, no antes.
+      // Desde F0-33 la auditoría la escribe el repositorio, junto con el
+      // cambio del usuario. La falla se provoca justo después de esa escritura
+      // (que ya dejó la fila de auditoría) y de haber cerrado las sesiones:
+      // lo que ve la transacción antes de fallar prueba que llega tarde.
       const vistoAlFallar: { sesion?: unknown; estado?: unknown } = {};
       const real = crearTransaccionalPrisma(cliente());
       const conAuditoriaQueFalla: Transaccional = {
@@ -321,8 +325,10 @@ describe("casos de uso de usuarios", () => {
           real.ejecutar((repos) =>
             trabajo({
               ...repos,
-              auditoria: {
-                async registrar() {
+              usuarios: {
+                ...repos.usuarios,
+                async actualizar(actor, usuarioNuevo, accion) {
+                  await repos.usuarios.actualizar(actor, usuarioNuevo, accion);
                   vistoAlFallar.sesion = await repos.sesiones.buscarPorId(
                     una.id,
                   );

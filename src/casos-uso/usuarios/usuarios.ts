@@ -7,8 +7,9 @@
  * - corren **enteros en una transacción** (`Transaccional`): el cambio del
  *   usuario, el cierre de sus sesiones y el registro de auditoría quedan
  *   todos o ninguno;
- * - escriben un `RegistroAuditoria` con `antes` y `despues`, con la fecha del
- *   reloj inyectado.
+ * - dejan un `RegistroAuditoria` con `antes` y `despues`, con la fecha del
+ *   reloj inyectado: lo escribe el repositorio, que recibe el `Actor` (F0-33,
+ *   ADR 0029), en la misma transacción.
  *
  * `listar` (F0-32) devuelve todos los usuarios, también los revocados.
  *
@@ -46,7 +47,6 @@ import {
   exigirQueNoSeaElUltimoAdministrador,
   exigirUsuario,
   normalizarEmail,
-  registroDeUsuario,
 } from "./reglas.ts";
 
 export type DependenciasUsuarios = {
@@ -83,7 +83,7 @@ export function crearCasosUsoUsuarios({
   generadorId,
   sesiones,
 }: DependenciasUsuarios): CasosUsoUsuarios {
-  /** Aplica `cambios`, guarda y audita. */
+  /** Aplica `cambios`, cierra las sesiones si se revoca y guarda (el repositorio audita). */
   async function actualizar(
     repos: RepositoriosEnTransaccion,
     actor: Actor,
@@ -99,13 +99,10 @@ export function crearCasosUsoUsuarios({
     if (!actualizado.ok) {
       throw nuevoError(catalogo.DOM_0007, { usuarioId: usuario.valor.id });
     }
-    await repos.usuarios.actualizar(actualizado.valor);
     if (cambios.estado === "revocado") {
       await repos.sesiones.cerrarTodasDe(usuario.valor.id);
     }
-    await repos.auditoria.registrar(
-      registroDeUsuario(usuario, actualizado.valor, actor, reloj),
-    );
+    await repos.usuarios.actualizar(actor, actualizado.valor, "actualizar");
     return actualizado.valor;
   }
 
@@ -135,10 +132,7 @@ export function crearCasosUsoUsuarios({
           actor,
           reloj,
         );
-        await repos.usuarios.crear(usuario);
-        await repos.auditoria.registrar(
-          registroDeUsuario(null, usuario, actor, reloj),
-        );
+        await repos.usuarios.crear(actor, usuario);
         return usuario;
       });
     },

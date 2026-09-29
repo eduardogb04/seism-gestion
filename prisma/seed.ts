@@ -23,7 +23,6 @@
  */
 
 import { crearGeneradorIdCrypto } from "../src/adaptadores/memoria/generador-id.ts";
-import { crearAuditoriaPrisma } from "../src/adaptadores/prisma/auditoria.ts";
 import type { PrismaClient } from "../src/adaptadores/prisma/generado/client.ts";
 import { crearRepositorioUsuariosPrisma } from "../src/adaptadores/prisma/usuarios.ts";
 import {
@@ -114,21 +113,6 @@ async function sembrarAdministradorInicial(
       actor,
       reloj,
     );
-    await usuarios.crear(admin);
-    await crearAuditoriaPrisma(tx).registrar({
-      entidad: "Usuario",
-      id: admin.valor.id,
-      accion: "crear",
-      antes: null,
-      despues: {
-        id: admin.valor.id,
-        email: admin.valor.email,
-        nombre: admin.valor.nombre,
-        rol: admin.valor.rol,
-        estado: admin.valor.estado,
-      },
-      actor,
-      en: reloj.ahora(),
-    });
+    await usuarios.crear(actor, admin);
   });
 }

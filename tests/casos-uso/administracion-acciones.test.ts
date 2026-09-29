@@ -33,7 +33,10 @@ import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transacci
 import { crearRepositorioUsuariosPrisma } from "../../src/adaptadores/prisma/usuarios.ts";
 import { crearCasosUsoSesion } from "../../src/casos-uso/sesion/sesion.ts";
 import { crearCasosUsoUsuarios } from "../../src/casos-uso/usuarios/usuarios.ts";
-import { crearNombreProceso } from "../../src/dominio/compartido/actor.ts";
+import {
+  type Actor,
+  crearNombreProceso,
+} from "../../src/dominio/compartido/actor.ts";
 import { crearAuditable } from "../../src/dominio/compartido/auditable.ts";
 import {
   type Identificador,
@@ -130,10 +133,12 @@ async function existente(
     throw new Error(nombre.error);
   }
   const id = identificadorDesde<"Usuario">(generadorId.generar());
+  const actor: Actor = { tipo: "sistema", proceso: nombre.valor };
   await crearRepositorioUsuariosPrisma(cliente()).crear(
+    actor,
     crearAuditable(
       { id, email, nombre: null, rol, estado },
-      { tipo: "sistema", proceso: nombre.valor },
+      actor,
       RelojFijo(fecha(8)),
     ),
   );

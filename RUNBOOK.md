@@ -27,6 +27,7 @@
 14. Probar la imagen Docker en tu máquina
 15. La imagen publicada en GHCR: hacerla pública y la retención
 16. Correr el e2e (Playwright) en tu máquina
+17. Entrar con Google en local
 
 ---
 
@@ -648,7 +649,9 @@ que toques algo que se ve en la app y no quieras esperar a CI. En CI corre solo,
 **Necesitás antes:** Docker Desktop abierto (sección 1), Node 24, `npm ci` hecho, y **el navegador
 de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: construye la imagen
 `seism-gestion:local` (como la sección 14) y la corre detrás del perfil `e2e` de
-`docker-compose.yml`. No usa la base: la app todavía no se conecta a Postgres.
+`docker-compose.yml`. Desde F0-31 la app sí se conecta a una base: el e2e levanta la suya
+(`postgres-e2e`, descartable, en un puerto que elige Docker), la migra y la siembra con
+`admin@ejemplo.test`, y la app entra con la identidad falsa (`IDENTIDAD=falsa`).
 
 ### Pasos
 
@@ -669,12 +672,12 @@ de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: c
 
 ### Cómo verificar que salió bien
 
-- La corrida termina con `1 passed` y, arriba, la línea
-  `ok 1 [chromium] › tests\e2e\humo.spec.ts … la app levantada muestra la página de inicio y
-  responde el latido`.
+- La corrida termina con `4 passed`: el de humo (`humo.spec.ts`, la página de inicio y el latido) 
+  y los tres del login (`identidad.spec.ts`: entra un usuario activo, un email sin usuario ve
+  `AUT-0001`, un `state` ajeno ve `AUT-0002`).
 - En el camino se ve `Levantando la app del perfil e2e (seism-gestion:local) con compose.` y, al
-  final, `Container seism-gestion-app-1 Removed`: la app se apagó sola.
-- `docker ps -a` no muestra ningún `seism-gestion-app-1`. Si tenías levantado el Postgres de
+  final, `Container seism-gestion-app-1 Removed`: la app y su base se apagaron solas.
+- `docker ps -a` no muestra ningún `seism-gestion-app-1` ni `seism-gestion-postgres-e2e-1`. Si tenías levantado el Postgres de
   compose (`seism-gestion-postgres-1`), **sigue ahí y con sus datos**: el e2e no lo toca.
 
 ### Si falla
@@ -691,14 +694,14 @@ de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: c
   `npx playwright show-trace test-results/<carpeta>/trace.zip`.
 - Si por un corte de luz o un `Ctrl+C` quedó la app levantada, se baja con:
   ```
-  docker compose --profile e2e rm --stop --force app
+  docker compose --profile e2e rm --stop --force --volumes app postgres-e2e
   ```
   (Nunca `docker compose down -v`: eso borra el volumen de la base local.)
 
 ### Secretos que quedan (solo nombres)
 
-Ninguno. La app del e2e arranca con `APP_ENTORNO=local` y una `DATABASE_URL` ficticia escrita en
-`docker-compose.yml`, a la que nadie se conecta.
+Ninguno. La app del e2e arranca con `APP_ENTORNO=local`, `IDENTIDAD=falsa` y una `DATABASE_URL`
+ficticia (la de su base descartable) escritas en `docker-compose.yml`.
 
 ---
 
@@ -725,3 +728,47 @@ Ninguno. La app del e2e arranca con `APP_ENTORNO=local` y una `DATABASE_URL` fic
 ### Secretos que quedan (solo nombres)
 - `NOMBRE_DE_LA_VARIABLE` — dónde vive (GitHub Environment `ensayo` / `/etc/gestion/app.env`).
 ```
+
+---
+
+## 17. Entrar con Google en local
+
+**Cuándo hace falta:** para probar a mano el login real (F0-34). Para desarrollar, CI y el e2e no:
+usan la identidad falsa (`IDENTIDAD=falsa`), que lista emails de prueba y deja elegir uno.
+**Quién:** quien administra.
+**Necesitás antes:** un cliente OAuth de Google (sección 7: proyecto y pantalla de consentimiento)
+con `http://localhost:3000/ingresar/callback` como URI de redirección autorizada, y tu email dado
+de alta como usuario activo (sección 11, o `ADMIN_INICIAL_EMAIL` con `npm run db:seed`).
+
+### Pasos
+
+1. En tu `.env` (nunca en el repo), cambiá y completá:
+   ```
+   IDENTIDAD=google
+   GOOGLE_CLIENT_ID=<el ID de cliente>
+   GOOGLE_CLIENT_SECRET=<el secreto del cliente>
+   APP_URL_PUBLICA=http://localhost:3000
+   ```
+2. `npm run dev` y abrí `http://localhost:3000/ingresar`.
+
+### Cómo verificar que salió bien
+
+- `/ingresar` te manda a Google; al volver, caés en `/sesion`, que muestra tu email.
+- Con una cuenta que no es usuario activo, ves `AUT-0001` en pantalla y no queda sesión.
+
+### Si falla
+
+- Falta `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` o `APP_URL_PUBLICA` → la app no arranca y el
+  mensaje nombra la que falta.
+- `redirect_uri_mismatch` en Google → la URI autorizada no es exactamente
+  `<APP_URL_PUBLICA>/ingresar/callback`.
+- Con cuentas personales Google muestra "aplicación no verificada": es esperable hasta tener
+  Workspace; se sigue con "Avanzado".
+- En el servidor la identidad falsa no existe: `APP_ENTORNO=servidor` con `IDENTIDAD=falsa` no
+  arranca.
+
+### Secretos que quedan (solo nombres)
+
+`GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`: solo en tu `.env` (o en el servidor, sección 10).
+
+---

@@ -167,6 +167,14 @@ export const catalogo = definirCatalogo({
       "El email no es válido: tiene que tener la forma nombre@dominio, sin espacios.",
     queHacer: "Revisá el email, corregilo y volvé a intentar.",
   },
+  AUT_0008: {
+    codigo: "AUT-0008",
+    tipo: "persona",
+    descripcion:
+      "Los datos enviados desde el formulario no son válidos: falta un dato, el rol no es uno de los de la lista o el usuario no está bien identificado.",
+    queHacer:
+      "Volvé a la lista de usuarios y repetí la acción desde la pantalla, eligiendo el rol de la lista. Si no la podés completar, avisá con este código.",
+  },
   INF_0001: {
     codigo: "INF-0001",
     tipo: "sistema",

@@ -47,6 +47,12 @@
     "queHacer": "Revisá el email, corregilo y volvé a intentar.",
     "tipo": "persona"
   },
+  "AUT_0008": {
+    "codigo": "AUT-0008",
+    "descripcion": "Los datos enviados desde el formulario no son válidos: falta un dato, el rol no es uno de los de la lista o el usuario no está bien identificado.",
+    "queHacer": "Volvé a la lista de usuarios y repetí la acción desde la pantalla, eligiendo el rol de la lista. Si no la podés completar, avisá con este código.",
+    "tipo": "persona"
+  },
   "DOM_0001": {
     "codigo": "DOM-0001",
     "descripcion": "No se puede pasar a ese estado desde el estado actual: el cambio no está permitido.",

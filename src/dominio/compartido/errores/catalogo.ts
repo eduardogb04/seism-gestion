@@ -175,6 +175,14 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Volvé a intentar en unos minutos. Si se repite, avisá con este código: en el log está la causa y dónde ocurrió.",
   },
+  INF_0002: {
+    codigo: "INF-0002",
+    tipo: "sistema",
+    descripcion:
+      "Una operación falló en todos sus intentos y quedó en la cola de fallidos para revisarla.",
+    queHacer:
+      "No hace falta repetirla a mano todavía: quien mantiene el sistema la ve en el panel de salud. En el log está el origen, cuántas veces se intentó y el código del último error.",
+  },
   ALM_0001: {
     codigo: "ALM-0001",
     tipo: "externo",

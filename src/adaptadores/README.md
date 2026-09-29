@@ -33,3 +33,7 @@ repositorios y el puerto `Auditoria` de F0-22, que solo agrega filas),
 `transaccion.ts` (`Transaccional` con `$transaction` interactiva) y
 `conversiones.ts` (`FechaHora` ↔ `timestamptz` y `Actor` ↔ `jsonb`). Ver ADR
 0024.
+
+Desde F0-25, en `prisma/`: `cola-fallidos.ts` (tabla `fallidos`),
+`corridas-worker.ts` (tabla `corridas_worker`) y `sonda-base.ts` (`SELECT 1`,
+la integración `base` de `listarSalud`).

@@ -1,7 +1,8 @@
 # Servicios locales de desarrollo (F0-08). Decisiones y porqués:
 # docs/adr/0008-prisma-y-reversion.md y docs/convenciones-base.md.
 #
-# Hoy solo Postgres. MinIO (almacenamiento de documentos) llega en F0-27.
+# Hoy Postgres; detrás de perfiles, la app para el e2e (`e2e`) y el worker
+# (`worker`, F0-25). MinIO (almacenamiento de documentos) llega en F0-27.
 #
 #   docker compose up -d      levanta la base (espera al healthcheck con --wait)
 #   docker compose ps         tiene que decir "healthy"
@@ -61,6 +62,27 @@ services:
     ports:
       # Solo en la máquina local, como el Postgres de arriba.
       - "127.0.0.1:3000:3000"
+
+  # El worker (F0-25): la misma imagen que `app`, con el comando del worker.
+  # Vive detrás del perfil `worker`: no lo levanta `docker compose up -d`,
+  # sino `docker compose --profile worker up -d worker` (RUNBOOK). A
+  # diferencia de la app, se conecta de verdad: cada corrida de sus jobs
+  # queda en `corridas_worker` del Postgres de arriba, que tiene que estar
+  # migrado (`npm run db:migrate`). Sin `HEALTHCHECK`: el de la imagen es el
+  # de la app, y el worker no sirve HTTP; su latido es la tabla.
+  worker:
+    profiles: ["worker"]
+    image: seism-gestion:local
+    command: ["node", "src/worker/index.ts"]
+    environment:
+      APP_ENTORNO: local
+      DATABASE_URL: postgresql://seism:seism_local@postgres:5432/seism_gestion
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
 
 volumes:
   postgres-datos:

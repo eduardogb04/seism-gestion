@@ -37,3 +37,9 @@ token de 256 bits; `cerrarTodasDe` sí quita las filas, porque una sesión es un
 credencial y no un dato de negocio) y `transaccion.ts` (`Transaccional`: corre
 un trabajo contra los repositorios en una sola transacción). Adaptadores
 Prisma en `src/adaptadores/prisma/`. Ver ADR 0024.
+
+Desde F0-25: `cola-fallidos.ts` (`ColaFallidos { encolar, contarPendientes }`),
+`repositorios/corridas-worker.ts` (`RegistroCorridas`) y
+`sonda-integracion.ts` (`SondaIntegracion { nombre, probar }`), con
+adaptadores de Prisma en `src/adaptadores/prisma/` (una sola implementación
+cada uno: sin doble ni suite de contrato todavía).

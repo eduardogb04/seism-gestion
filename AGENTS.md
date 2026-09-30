@@ -146,8 +146,9 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   queda en rojo. Con la caché `~/.cache/ms-playwright` en *hit*, `playwright install --with-deps chromium`
   no baja el navegador; sí corre `apt-get` por las librerías del sistema (no se cachean, y en un
   runner nuevo faltan 9 paquetes de fuentes: hacerlo condicional no ahorra nada). `test:e2e` corre si alguno de los dos intentos salió bien.
-- **Tope: 10 minutos** (P9, `timeout-minutes` en cada job). Hoy la corrida entera tarda poco más de
-  un minuto, la mitad de eso el build de la imagen. Si pasa de 10, el check queda en rojo y es un bug de CI.
+- **Tope: 10 minutos** (P9, `timeout-minutes` en cada job). Hoy (M-06, 5 corridas medidas) el job `ci`
+  tarda entre 3:14 y 4:11, con el navegador del e2e en ~15 s; la meta de M-06 es quedar por debajo de
+  8 minutos. Si pasa de 10, el check queda en rojo y es un bug de CI.
 - **Cómo leer el resultado.** `gh pr checks <N>` lista los checks del PR con su estado y el link a
   la corrida (`gh pr checks <N> --watch` espera a que terminen). Si hay rojo:
   `gh run view <id-de-corrida> --log-failed` muestra solo los pasos que fallaron; el nombre del

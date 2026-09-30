@@ -34,7 +34,6 @@ al terminar).
   Actions de `/administracion/usuarios` (actor de la sesión, validación,
   `AUT-0003` sin cambios en la base).
 
-
 - `worker.test.ts` (F0-25): registro de cada corrida, planificador vivo
   después de un job que lanza, `latido` cada 5 minutos, y el proceso
   (`node src/worker/index.ts`) sin `DATABASE_URL` no arranca y con ella sí.

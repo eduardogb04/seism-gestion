@@ -28,10 +28,10 @@ import { crearRepositorioUsoIa } from "../../src/adaptadores/prisma/uso-ia.ts";
 import { fechaHoraLocalDe } from "../../src/adaptadores/reloj/sistema.ts";
 import { gastoDelMes } from "../../src/casos-uso/ia/gasto-del-mes.ts";
 import {
-  crearMemoriaDePruebas,
   type DependenciasSalud,
   LIMITE_FALLIDOS,
   listarSalud,
+  memoriaDePruebasVacia,
 } from "../../src/casos-uso/salud/listar-salud.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../src/dominio/compartido/errores/error-sistema.ts";
@@ -73,7 +73,7 @@ function dependencias(
     corridas: crearRegistroCorridasPrisma(db),
     fallidos: crearColaFallidosPrisma(db),
     sondas: [crearSondaBase(db)],
-    pruebasExitosas: crearMemoriaDePruebas(),
+    pruebasExitosas: memoriaDePruebasVacia(),
     gastoIa: () =>
       gastoDelMes(RelojFijo(fechaHoraLocalDe(AHORA)), {
         usos: crearRepositorioUsoIa(db),

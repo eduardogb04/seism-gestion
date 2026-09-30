@@ -115,14 +115,14 @@ export type Salud = {
 
 /** El instante (del `Reloj`) de la última prueba exitosa de cada sonda. */
 export type MemoriaDePruebas = {
-  registrar(nombre: string, en: FechaHora): void;
+  recordar(nombre: string, en: FechaHora): void;
   ultima(nombre: string): FechaHora | null;
 };
 
-export function crearMemoriaDePruebas(): MemoriaDePruebas {
+export function memoriaDePruebasVacia(): MemoriaDePruebas {
   const ultimas = new Map<string, FechaHora>();
   return {
-    registrar(nombre, en) {
+    recordar(nombre, en) {
       ultimas.set(nombre, en);
     },
     ultima(nombre) {
@@ -248,7 +248,7 @@ async function estadoDeIntegracion(
   let estado: Pick<EstadoIntegracion, "estado" | "detalle">;
   try {
     await sonda.probar();
-    deps.pruebasExitosas.registrar(sonda.nombre, ahora);
+    deps.pruebasExitosas.recordar(sonda.nombre, ahora);
     estado = { estado: "ok" };
   } catch (causa) {
     estado = { estado: "error", detalle: describir(causa) };

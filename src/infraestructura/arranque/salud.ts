@@ -18,9 +18,9 @@ import { crearRepositorioUsoIa } from "../../adaptadores/prisma/uso-ia.ts";
 import { fechaHoraLocalDe } from "../../adaptadores/reloj/sistema.ts";
 import { gastoDelMes } from "../../casos-uso/ia/gasto-del-mes.ts";
 import {
-  crearMemoriaDePruebas,
   type JobDelPanel,
   listarSalud,
+  memoriaDePruebasVacia,
   type Salud,
 } from "../../casos-uso/salud/listar-salud.ts";
 import type { Reloj } from "../../dominio/compartido/reloj.ts";
@@ -47,7 +47,7 @@ export function armarSalud(
     corridas: crearRegistroCorridasPrisma(prisma),
     fallidos: crearColaFallidosPrisma(prisma),
     sondas: [crearSondaBase(prisma)],
-    pruebasExitosas: crearMemoriaDePruebas(),
+    pruebasExitosas: memoriaDePruebasVacia(),
     gastoIa: () =>
       gastoDelMes(reloj, {
         usos: crearRepositorioUsoIa(prisma),

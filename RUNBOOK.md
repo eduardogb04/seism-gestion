@@ -119,8 +119,11 @@ hay migraciones aplicadas, no había nada que revertir. Nunca se cambia la base 
 (`docs/convenciones-base.md`).
 
 **Sembrar datos mínimos** (desde F0-10): `npm run db:seed`, después de `npm run db:migrate`.
-Idempotente: correrlo dos veces (`npm run db:seed` otra vez) deja la base igual. Hoy carga una sola
-clave de `configuracion` (`ia.tope_mensual_usd` en `"0"`) y, desde F0-30, da de alta al **primer
+Idempotente: correrlo dos veces (`npm run db:seed` otra vez) deja la base igual. Hoy carga dos
+claves de `configuracion` (F0-28): `ia.tope_mensual_usd` (`"10.00"`, el tope de gasto de IA del mes)
+y `ia.costo_estimado_usd.defecto` (`"0.01"`), en dólares con punto decimal. Deja cada clave en
+su valor de `prisma/seed.ts`: para cambiar el tope se cambia ahí, por PR, y se vuelve a correr
+`npm run db:seed` (un valor cambiado en la base a mano lo pisa la próxima siembra). Desde F0-30, da de alta al **primer
 administrador** con el email de `ADMIN_INICIAL_EMAIL`, si no hay ya un usuario con ese email. En el
 servidor exige `SEED_PERMITIDO=si` además de `APP_ENTORNO=servidor`, para que no se corra ahí por
 accidente.
@@ -702,6 +705,61 @@ de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: c
 
 Ninguno. La app del e2e arranca con `APP_ENTORNO=local`, `IDENTIDAD=falsa` y una `DATABASE_URL`
 ficticia (la de su base descartable) escritas en `docker-compose.yml`.
+
+---
+
+## 17. Correr el worker en local
+
+**Cuándo hace falta:** para ver el worker (F0-25) latir contra tu base local, o probar un job nuevo
+antes de abrir el PR. Los tests (`npm test`) ya lo prueban solos, con su propio Postgres.
+**Quién:** cualquiera con el repo clonado y Docker corriendo.
+**Necesitás antes:** el Postgres de compose levantado y migrado (sección 1: `docker compose up -d
+--wait` y `npm run db:migrate`) y `.env` copiado de `.env.example`.
+
+### Pasos
+
+Hay dos formas; elegí una.
+
+1. **Con Node, desde el código** (lo más rápido mientras desarrollás). El worker no lee `.env`
+   solo: se lo pasa Node.
+   ```
+   node --env-file=.env src/worker/index.ts
+   ```
+   (Es lo mismo que `npm run worker` con las variables ya cargadas en la terminal.) Se corta con
+   `Ctrl+C`.
+2. **Con la imagen, como en el servidor.** Construí la imagen (sección 14: `npm run imagen`) y
+   levantá el servicio `worker` de compose, que usa la misma imagen que la app con el comando del
+   worker y se conecta al Postgres de compose:
+   ```
+   docker compose --profile worker up -d worker
+   docker compose logs -f worker
+   ```
+   Para bajarlo: `docker compose --profile worker rm --stop --force worker`.
+
+### Cómo verificar que salió bien
+
+- Al arrancar, una línea `worker arrancado` con `jobs: [{ nombre: "latido", cron: "*/5 * * * *" }]`.
+- Cada 5 minutos (en el minuto 0, 5, 10...) aparece una corrida nueva de `latido` en la base:
+  ```
+  docker compose exec postgres psql -U seism -d seism_gestion -c "select job, inicio, fin, resultado from corridas_worker order by inicio desc limit 5;"
+  ```
+  con `resultado = ok` y `fin` no nulo.
+
+### Si falla
+
+- `Entorno inválido: el worker no arranca.` y el nombre de una variable → falta `.env` o le falta
+  esa variable (copiá `.env.example`). Con `node src/worker/index.ts` pelado, sin `--env-file`, es
+  lo esperado: el worker no lee `.env` solo.
+- `relation "corridas_worker" does not exist` en el log, con `INF-0001` → la base no está migrada:
+  `npm run db:migrate`.
+- Con compose, `pull access denied for seism-gestion` → falta construir la imagen (`npm run
+  imagen`).
+- Nunca `docker compose down -v` para "limpiar": borra el volumen de la base local.
+
+### Secretos que quedan (solo nombres)
+
+Ninguno nuevo. En el servidor, el worker usa las mismas variables que la app (`APP_ENTORNO`,
+`DATABASE_URL`, y `LOG_NIVEL` si hace falta), del mismo archivo de entorno.
 
 ---
 

@@ -80,10 +80,12 @@ describe("semilla", () => {
     const primeraVez = await db.configuracion.findMany({
       orderBy: { clave: "asc" },
     });
-    expect(primeraVez.map((fila) => fila.clave)).toEqual([
-      "ia.tope_mensual_usd",
+    // Valores inventados (F0-28, R6): el tope del mes y el costo estimado
+    // por defecto de una llamada a la IA, en dólares con punto decimal.
+    expect(primeraVez.map((fila) => [fila.clave, fila.valor])).toEqual([
+      ["ia.costo_estimado_usd.defecto", "0.01"],
+      ["ia.tope_mensual_usd", "10.00"],
     ]);
-    expect(primeraVez[0]?.valor).toBe("0");
 
     await sembrar(db, opciones());
     const segundaVez = await db.configuracion.findMany({

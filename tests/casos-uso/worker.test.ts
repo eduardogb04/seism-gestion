@@ -255,6 +255,9 @@ describe("worker", () => {
         ADMIN_INICIAL_EMAIL: "admin@ejemplo.test",
         // Obligatoria desde F0-31.
         IDENTIDAD: "falsa",
+        // Obligatoria desde F0-27.
+        ALMACEN: "disco",
+        ALMACEN_DIRECTORIO: ".almacen",
         LOG_NIVEL: "info",
       },
     });

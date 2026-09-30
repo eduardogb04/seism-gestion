@@ -57,3 +57,7 @@ Desde F0-33: `RepositorioUsuarios.crear(actor, usuario)` y
 deja la auditoría en la misma transacción; `RepositoriosEnTransaccion` ya no
 trae `auditoria`. `RepositorioSesiones` queda sin actor: una sesión es una
 credencial (ADR 0024 y 0029).
+
+Desde F0-27: `almacen-documentos.ts` (el almacén de documentos, con la única
+validación de claves y `claveDocumento`), con dos adaptadores reales, disco y
+s3, que pasan la suite `tests/contratos/almacen-documentos.ts` (ADR 0022).

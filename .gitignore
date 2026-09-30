@@ -19,3 +19,5 @@ blob-report/
 /.claude/
 # Salida completa de cada paso de `npm run verificar` (M-01).
 /.verificar/
+# Almacén de documentos en disco (F0-27): ALMACEN_DIRECTORIO de .env.example.
+/.almacen/

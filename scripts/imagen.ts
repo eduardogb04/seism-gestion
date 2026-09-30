@@ -315,6 +315,10 @@ async function verificarWorker(etiqueta: string): Promise<string[]> {
       `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
       "--env",
       `IDENTIDAD=${IDENTIDAD_PRUEBA}`,
+      "--env",
+      "ALMACEN=disco",
+      "--env",
+      "ALMACEN_DIRECTORIO=/tmp/almacen",
       etiqueta,
       ...COMANDO_WORKER,
     ],
@@ -349,6 +353,10 @@ async function verificarWorker(etiqueta: string): Promise<string[]> {
     `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
     "--env",
     `IDENTIDAD=${IDENTIDAD_PRUEBA}`,
+    "--env",
+    "ALMACEN=disco",
+    "--env",
+    "ALMACEN_DIRECTORIO=/tmp/almacen",
     etiqueta,
     ...COMANDO_WORKER,
   ]);
@@ -419,6 +427,12 @@ async function probar(etiqueta: string): Promise<void> {
     `ADMIN_INICIAL_EMAIL=${ADMIN_INICIAL_EMAIL_PRUEBA}`,
     "--env",
     `IDENTIDAD=${IDENTIDAD_PRUEBA}`,
+    // El almacén de documentos (F0-27): la app lo exige al arrancar. En una
+    // carpeta del contenedor; la prueba no guarda documentos.
+    "--env",
+    "ALMACEN=disco",
+    "--env",
+    "ALMACEN_DIRECTORIO=/tmp/almacen",
     etiqueta,
   ]);
 

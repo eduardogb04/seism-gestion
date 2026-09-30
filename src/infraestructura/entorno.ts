@@ -97,7 +97,40 @@ export const esquemaVariables = z.object({
   APP_URL_PUBLICA: opcional(z.url({ protocol: /^https?$/ })),
 });
 
-export const esquemaEntorno = esquemaVariables.superRefine((entorno, ctx) => {
+/** Dónde se guardan los documentos (F0-27). */
+export const VALORES_ALMACEN = ["disco", "s3"] as const;
+
+/** Un texto con algo adentro: vacío cuenta como que falta. */
+const textoNoVacio = z.string().min(1);
+
+/**
+ * El almacén de documentos (F0-27, ADR 0022): `ALMACEN` elige la
+ * implementación y cada una exige sus variables. Lo arma
+ * `src/infraestructura/arranque/almacen.ts`.
+ */
+const esquemaAlmacen = z.discriminatedUnion("ALMACEN", [
+  z.object({
+    /** En una carpeta local (`src/adaptadores/disco/`). */
+    ALMACEN: z.literal("disco"),
+    /** La carpeta; relativa, contra el directorio de trabajo. No es secreta. */
+    ALMACEN_DIRECTORIO: textoNoVacio,
+  }),
+  z.object({
+    /** En un servicio compatible con S3 (`src/adaptadores/s3/`): MinIO en local, R2 en el servidor. */
+    ALMACEN: z.literal("s3"),
+    /** La URL del servicio, `http://` o `https://`. */
+    S3_ENDPOINT: z.url({ protocol: /^https?$/ }),
+    S3_BUCKET: textoNoVacio,
+    /** Credenciales: secretas en el servidor; en local, las ficticias del MinIO de compose. */
+    S3_ACCESS_KEY: textoNoVacio,
+    S3_SECRET_KEY: textoNoVacio,
+    /** Opcional: `auto` es lo que usa R2; MinIO acepta cualquiera. */
+    S3_REGION: textoNoVacio.default("auto"),
+  }),
+]);
+
+/** Las variables generales con las reglas de identidad (F0-31). */
+const esquemaGeneral = esquemaVariables.superRefine((entorno, ctx) => {
   if (entorno.IDENTIDAD === "falsa" && entorno.APP_ENTORNO === "servidor") {
     ctx.addIssue({
       code: "custom",
@@ -119,6 +152,9 @@ export const esquemaEntorno = esquemaVariables.superRefine((entorno, ctx) => {
   }
 });
 
+/** Todo el entorno: lo general más el almacén de documentos (F0-27). */
+export const esquemaEntorno = z.intersection(esquemaGeneral, esquemaAlmacen);
+
 export type Entorno = z.infer<typeof esquemaEntorno>;
 
 export type ResultadoEntorno =
@@ -131,6 +167,11 @@ export type ResultadoEntorno =
  * del propio error).
  */
 const FORMATO_ESPERADO = new Map<string, string>([
+  ["ALMACEN", ` Valores válidos: ${VALORES_ALMACEN.join(", ")}.`],
+  [
+    "S3_ENDPOINT",
+    " Tiene que ser la URL del servicio S3: http://servidor:puerto o https://servidor.",
+  ],
   [
     "DATABASE_URL",
     " Tiene que ser una URL de Postgres: postgresql://usuario:clave@servidor:puerto/base (o postgres://).",

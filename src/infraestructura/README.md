@@ -19,3 +19,6 @@ Desde F0-25: `fallas.ts` (toda falla con código del catálogo y redactada) y
 encola en `fallidos`, loguea con `INF-0002` y relanza). `arranque/worker.ts`
 es el punto de armado del worker: el único lugar desde el que llega a los
 adaptadores. Ver ADR 0025.
+
+build). El log llega en F0-24. Desde F0-27, `arranque/almacen.ts`: elige el
+almacén de documentos (disco o s3) según `ALMACEN` (ADR 0022).

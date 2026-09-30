@@ -80,7 +80,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run build` | `next build` con `output: "standalone"`: compila, corre `tsc` y deja `.next/standalone/server.js`. **No necesita `.env`**; sí git o `APP_VERSION` (la versión del latido) |
 | `npm run worker` | `node src/worker/index.ts` (F0-25, ADR 0025): el proceso worker, con el TypeScript nativo de Node 24 (sin compilar). Valida el entorno con el esquema de la app (sin `DATABASE_URL` válida **no arranca**: sale 1 y dice cuál), levanta el planificador (`croner`) y registra cada corrida en `corridas_worker`. Necesita la base levantada y migrada; lee `.env` solo si lo cargás vos (`node --env-file=.env src/worker/index.ts`). RUNBOOK sección 17 |
 | `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
-| `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz — y después `scripts/sin-error-crudo.ts`, que rechaza `throw new Error` y `new ErrorSistema(` en `src/dominio/` y `src/casos-uso/` (F0-23, ADR 0020). `-- --write` aplica los arreglos de Biome |
+| `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz — y después `scripts/sin-error-crudo.ts`, que rechaza `throw new Error` y `new ErrorSistema(` en `src/dominio/` y `src/casos-uso/` (F0-23, ADR 0020), y `scripts/sin-marcas-conflicto.ts` (M-03), que recorre los archivos versionados (`git ls-files`) y rechaza, nombrando `archivo:línea`, una línea que empiece con `<<<<<<< ` o `>>>>>>> ` o que sea exactamente `=======` (saltea binarios; única excepción: `tests/fixtures/lint/conflicto/`). `-- --write` aplica los arreglos de Biome |
 | `npm test` | Vitest sobre los niveles `dominio` y `casos-uso` (ver *Testing: en qué nivel va cada cosa*): el ciclo de siempre. **Necesita Docker corriendo** (el nivel casos de uso levanta un Postgres y, para el almacén S3, MinIO: en Testcontainers y con los servicios de `docker-compose.yml` en un proyecto y un puerto al azar); no necesita `.env` ni tener compose levantado |
 | `npm run test:dominio` | Solo el nivel `dominio`, con su reloj: `scripts/test-dominio.ts` mide la corrida entera y **sale 1 si tarda más de 10 s** (criterio de F0-14). No necesita nada: el nivel dominio no abre red ni base |
 | `npm run test:extraccion` | Solo el nivel `extraccion` (golden files): el arnés `compararConGolden` (F0-16) y su caso de ejemplo |
@@ -91,7 +91,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run e2e:app` | No se llama a mano: es el `webServer` de `playwright.config.ts`. Construye la imagen (`npm run imagen`), levanta el servicio `app` del perfil `e2e` de compose y espera el latido. Lo apaga `tests/e2e/_arnes/apagar-app.ts` al terminar el e2e |
 | `npm run typecheck` | `tsc --noEmit` (TypeScript severo, `.ts` y `.tsx`) y después `scripts/sin-any.ts`, que rechaza cualquier `any` explícito (TypeScript no tiene opción de compilador para eso — ver ADR 0002; saltea lo que generan Next, ADR 0005, y Prisma, ADR 0008) |
 | `npm run typecheck:fixtures` | Prueba negativa de lo anterior: corre el mismo chequeo sobre `tests/fixtures/typecheck/*.ts`, que **tienen** que ser rechazados. Sale 0 si los rechazó a todos, 1 si aceptó alguno |
-| `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre cada fixture de `tests/fixtures/lint/`, por separado. `debe-fallar.ts` **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`; `reloj-inyectado/` por la regla del reloj (`noRestrictedGlobals` sobre `Date`), y solo desde `src/dominio/`; `error-crudo/` por `scripts/sin-error-crudo.ts` (`throw new Error` y `new ErrorSistema(`), y solo desde `src/dominio/` y `src/casos-uso/`. Sale 0 si cada uno fue rechazado por sus reglas y el caso permitido quedó limpio; 1 si alguno pasó, falta un diagnóstico o sobra uno |
+| `npm run lint:fixtures` | Prueba negativa de `lint`: corre Biome sobre cada fixture de `tests/fixtures/lint/`, por separado. `debe-fallar.ts` **tiene** que ser rechazado por `noExplicitAny` **y** `noUnusedVariables`; `reloj-inyectado/` por la regla del reloj (`noRestrictedGlobals` sobre `Date`), y solo desde `src/dominio/`; `error-crudo/` por `scripts/sin-error-crudo.ts` (`throw new Error` y `new ErrorSistema(`), y solo desde `src/dominio/` y `src/casos-uso/`; `conflicto/` por `scripts/sin-marcas-conflicto.ts` (`rechazado.md`, con los tres marcadores; `permitido.md`, con `=======` dentro de una línea y un subrayado setext de otra longitud, tiene que quedar limpio). Sale 0 si cada uno fue rechazado por sus reglas y el caso permitido quedó limpio; 1 si alguno pasó, falta un diagnóstico o sobra uno |
 | `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
 | `npm run limites:fixtures` | Prueba negativa de `limites`: corre dependency-cruiser sobre cada carpeta de `tests/fixtures/limites/` (una por regla), por separado. Sale 0 si cada una fue rechazada por **su** regla y desde los archivos esperados; 1 si alguna pasó, la rechazó otra regla, o hay una regla sin fixture |
 | `npm run verificar` | `scripts/verificar.ts` (M-01): corre `typecheck`, `lint`, `limites`, `test` y los `*:fixtures` que haya en `package.json`, en ese orden, una línea `✔`/`✘ <paso> (<segundos> s)` por paso; si uno falla, muestra sus últimas 60 líneas y para (sale ≠ 0). La salida completa de cada paso queda en `.verificar/<paso>.log`. `-- --seguir` corre todos igual y suma cuántos fallaron. Usalo durante el desarrollo en vez de los cuatro comandos sueltos |
@@ -542,7 +542,7 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
   `suspicious/noConsole` en `error`: en `src/` se loguea con el log de
   `src/infraestructura/log.ts` (ver *Cómo se agrega... un log*). En `scripts/` y `tests/`
   `console` sigue valiendo: son herramientas de consola.
-- **Prueba de que rechaza.** Cuatro fixtures, que `npm run lint:fixtures`
+- **Prueba de que rechaza.** Cinco fixtures, que `npm run lint:fixtures`
   (`scripts/lint-fixtures.ts`) corre por separado invocando el binario de Biome (o
   `sin-error-crudo`) con `cwd` en la carpeta de cada uno, imprimiendo su salida de error e **invirtiendo** el código de salida: sale
   0 si cada fixture fue rechazado por sus reglas, desde los archivos esperados y sin tocar los
@@ -564,6 +564,9 @@ Biome (`biome.json`, raíz del repo) hace las dos cosas en una sola herramienta:
     `throw new Error` y un `new ErrorSistema(` en `src/dominio/`, y `throw Error`/`throw new
     RangeError` en `src/casos-uso/`. Casos permitidos: un adaptador que lanza `Error` y el archivo
     que define `ErrorSistema`.
+  - `tests/fixtures/lint/conflicto/` (M-03) lo rechaza `scripts/sin-marcas-conflicto.ts`, la
+    tercera parte de `npm run lint`: a diferencia de los otros, el script recibe los archivos por
+    argumento (`rechazado.md` y `permitido.md`) y así no aplica su excepción por ruta.
 - **`// biome-ignore` exige motivo.** Ninguno sin explicar por qué en el mismo comentario. Si
   Biome choca con código real, se arregla el código, no la regla.
 
@@ -680,6 +683,12 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
     auditoría con ese actor. Lo hacen cumplir `tests/dominio/tipos/` (llamar sin actor no compila;
     un test lista las firmas de `src/casos-uso/**`; otro recorre `src/app/**`). Ver *Cómo se
     agrega...un caso de uso que escribe*.
+19. **Ningún marcador de conflicto entra al repo (M-03).** Ninguna línea de un archivo versionado
+    empieza con `<<<<<<< ` o `>>>>>>> `, ni es exactamente `=======`: un merge resuelto a mano
+    que los deja pasa callado en un `.md`, un `.yml` o un `.json`. Lo hace cumplir
+    `scripts/sin-marcas-conflicto.ts`, que corre dentro de `npm run lint` (así también en CI y
+    en `npm run verificar`). Única excepción: `tests/fixtures/lint/conflicto/`. Un título
+    Markdown subrayado con exactamente siete `=` se escribe con `#`.
 
 ## Cómo se trabaja
 
@@ -967,7 +976,7 @@ src/app              Next.js (App Router): página de inicio, layout raíz, api/
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte (F0-25): index.ts (entrada, `npm run worker`) · planificador.ts (croner) · registrar-corrida.ts · jobs.ts (latido)
 tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda; minio.ts, MinIO para el almacén S3) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
-scripts/             utilidades de los comandos de package.json (sin-any.ts, sin-error-crudo.ts, db-migrate-down.ts, db-seed.ts, test-dominio.ts, e2e-app.ts; lib/migraciones.ts)
+scripts/             utilidades de los comandos de package.json (sin-any.ts, sin-error-crudo.ts, sin-marcas-conflicto.ts, db-migrate-down.ts, db-seed.ts, test-dominio.ts, e2e-app.ts; lib/migraciones.ts)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
 vitest.config.ts     los tres niveles que corren con Vitest (proyectos dominio, casos-uso, extraccion)
 playwright.config.ts el nivel e2e: Chromium y el webServer que levanta la app con compose

@@ -82,3 +82,25 @@ armar un `Actor` de persona desde un formulario. El worker usa `{ tipo: "sistema
 `crear` y `actualizar` vuelven a no recibir actor, la auditoría vuelve a los casos de uso
 (`RepositoriosEnTransaccion.auditoria`) y se borran los tres tests de `tests/dominio/tipos/` y sus
 ayudas en `tests/dominio/_arnes/`. No toca el esquema ni datos.
+
+## Addendum 2026-09-30
+
+Dos aclaraciones que salieron de la verificación de F0-33 (tarea M-07). No cambian la decisión.
+
+**Los registros de sistema no reciben `Actor`.** `RepositorioUsoIa.registrar`
+(`src/puertos/repositorios/uso-ia.ts`) y `RegistroCorridas.iniciar` / `.terminar`
+(`src/puertos/repositorios/corridas-worker.ts`) quedan sin `Actor` a propósito. No son datos de
+negocio: son **registros que el propio sistema lleva de lo que hace** (cuánto gastó la IA, cuándo
+corrió cada job). Ninguna persona los escribe ni los cambia, no tienen `RegistroAuditoria` (no son
+entidades) y el "quién" sería siempre el mismo proceso. Pedir un `Actor` ahí obligaría a inventar uno
+`{ tipo: "sistema", proceso }` que no dice nada que el nombre del job o del perfil no diga ya. La
+regla 18 sigue valiendo para todo lo que sí es dato de negocio. El test de firmas
+(`tests/dominio/tipos/firmas-de-escritura.test.ts`) no cambia: recorre `src/casos-uso/**`, y estos
+puertos son del sistema, no casos de uso de escritura.
+
+**El test de Server Actions ve también las reexportaciones.** `actor-solo-desde-la-sesion.test.ts`
+mira, además de `export async function f`, las acciones exportadas aparte con `export { f }`,
+`export { f as g }` y `export default f` (o `export default async function`/flecha asíncrona), y exige
+que también lleguen a `actorDesdeSesion()` o `accesoDeAdministrador()`. No resuelve
+`export { f } from "./otro"`: una acción reexportada desde otro módulo se mira en el archivo donde
+se define, que es el que lleva la directiva `"use server"`.

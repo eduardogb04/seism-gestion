@@ -667,8 +667,15 @@ Las hace cumplir la máquina donde se puede; donde no, la revisión.
     (`src/casos-uso/usuarios/`, F0-30) reciben un `Actor` obligatorio y exigen que sea una
     **persona** con usuario **administrador y activo** (`AUT-0003` si no); ninguno deja el sistema
     sin administradores activos (`AUT-0004`). Corren enteros en una transacción (`Transaccional`) y
-    cada cambio escribe su `RegistroAuditoria`. El único usuario que no crea un administrador es el
-    primero, que crea `db:seed` (ADR 0024).
+    cada cambio deja su `RegistroAuditoria` (lo escribe el repositorio, F0-33). El único usuario
+    que no crea un administrador es el primero, que crea `db:seed` (ADR 0024).
+18. **Escribir exige identidad, por tipos (F0-33, ADR 0029).** Todo caso de uso que escribe
+    (nombre con `crear`, `guardar`, `dar`, `revocar`, `cambiar`, `marcar` o `registrar`) recibe
+    `Actor` como **primer parámetro obligatorio**, y los métodos de escritura de los repositorios
+    de entidades (`RepositorioUsuarios.crear` y `.actualizar`) también: el adaptador deja la
+    auditoría con ese actor. Lo hacen cumplir `tests/dominio/tipos/` (llamar sin actor no compila;
+    un test lista las firmas de `src/casos-uso/**`; otro recorre `src/app/**`). Ver *Cómo se
+    agrega...un caso de uso que escribe*.
 
 ## Cómo se trabaja
 
@@ -897,6 +904,33 @@ secreto**: queda en la base) y, si hace falta, `intentos` (3 por defecto) y `esp
 No lo envuelvas en un `catch` que siga como si nada. En el test, pasá `esperar` en la política
 para no dormir y afirmá la secuencia de esperas. El aviso al administrador es ese log hasta que
 exista el puerto de notificaciones (F0-29).
+
+**...un caso de uso que escribe (F0-33, ADR 0029).** Es imposible escribir sin identidad, y lo
+obliga el compilador, no la disciplina:
+
+- **`Actor` primero.** El caso de uso recibe `actor: Actor` como **primer parámetro**, sin
+  valor por defecto ni sobrecarga sin actor. Su nombre empieza con uno de estos verbos:
+  `crear`, `guardar`, `dar`, `revocar`, `cambiar`, `marcar`, `registrar` (seguido de mayúscula o
+  nada: `darDeAlta`, `cambiarRol`). Los casos de uso son **métodos** del objeto que arma una
+  fábrica (`crearCasosUso*`): las fábricas arman, no escriben, y están en la lista de excepciones
+  de `tests/dominio/tipos/firmas-de-escritura.test.ts`, cada una con su porqué.
+- **El repositorio también.** Los métodos de escritura de un repositorio de entidades reciben
+  `actor` primero y **el adaptador escribe la auditoría** en la misma transacción
+  (`RepositorioUsuarios.crear(actor, usuario)` y `.actualizar(actor, usuario, accion)`): el caso
+  de uso no llama a `auditoria.registrar` para esa entidad. `RepositorioSesiones` queda fuera: una
+  sesión es una credencial (ADR 0024).
+- **De dónde sale el actor.** En la app, **solo** de la sesión validada: `actorDesdeSesion()` o
+  `accesoDeAdministrador()` (`src/app/(auth)/sesion-actual.ts`); ningún otro archivo de `src/app/**`
+  arma un actor de persona (`tipo: "persona"`) y toda Server Action pide el actor a la sesión. En el
+  worker, un proceso del sistema: `{ tipo: "sistema", proceso }`, con `proceso` armado por
+  `crearNombreProceso("<nombre-del-job>")` (hoy el worker no llama a ninguna escritura; cuando lo
+  haga, el tipo lo obliga a pasar ese actor).
+- **Qué lo rechaza si falta.** `tests/dominio/tipos/escrituras-exigen-actor.test.ts`: cada llamada
+  sin actor lleva `// @ts-expect-error` y `npm run typecheck` falla (`Unused '@ts-expect-error'
+  directive`) si una firma pierde el actor; **un caso de uso o un método de escritura nuevo suma su
+  llamada ahí**. `firmas-de-escritura.test.ts` lista las firmas exportadas de `src/casos-uso/**` y
+  exige `Actor` en la primera posición (`npm run test:dominio`), y `actor-solo-desde-la-sesion.test.ts`
+  recorre `src/app/**`.
 
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·

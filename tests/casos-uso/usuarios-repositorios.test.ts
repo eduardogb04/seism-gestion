@@ -103,7 +103,7 @@ describe("adaptadores Prisma de usuarios, sesiones y auditoría", () => {
       const repo = crearRepositorioUsuariosPrisma(cliente());
       const usuario = usuarioNuevo("persona.inventada@ejemplo.test");
 
-      await repo.crear(usuario);
+      await repo.crear(procesoDePrueba(), usuario);
 
       expect(await repo.buscarPorId(usuario.valor.id)).toEqual(usuario);
       expect(
@@ -114,7 +114,7 @@ describe("adaptadores Prisma de usuarios, sesiones y auditoría", () => {
     test("un actor persona también vuelve igual", async () => {
       const repo = crearRepositorioUsuariosPrisma(cliente());
       const creador = usuarioNuevo("creador@ejemplo.test", "administrador");
-      await repo.crear(creador);
+      await repo.crear(procesoDePrueba(), creador);
       const actor: Actor = { tipo: "persona", usuarioId: creador.valor.id };
       const usuario = crearAuditable(
         { ...usuarioNuevo("otra@ejemplo.test").valor },
@@ -122,7 +122,7 @@ describe("adaptadores Prisma de usuarios, sesiones y auditoría", () => {
         RelojFijo(fecha(4)),
       );
 
-      await repo.crear(usuario);
+      await repo.crear(procesoDePrueba(), usuario);
 
       expect(await repo.buscarPorId(usuario.valor.id)).toEqual(usuario);
     });
@@ -131,7 +131,7 @@ describe("adaptadores Prisma de usuarios, sesiones y auditoría", () => {
       const repo = crearRepositorioUsuariosPrisma(cliente());
       const usuario = usuarioNuevo("Mayusculas.Inventadas@Ejemplo.TEST");
 
-      await repo.crear(usuario);
+      await repo.crear(procesoDePrueba(), usuario);
 
       const leido = await repo.buscarPorEmail(
         "MAYUSCULAS.inventadas@ejemplo.test",
@@ -141,9 +141,12 @@ describe("adaptadores Prisma de usuarios, sesiones y auditoría", () => {
 
     test("el email es único sin distinguir mayúsculas: A@ y a@ son el mismo (AUT-0005)", async () => {
       const repo = crearRepositorioUsuariosPrisma(cliente());
-      await repo.crear(usuarioNuevo("A@ejemplo.test"));
+      await repo.crear(procesoDePrueba(), usuarioNuevo("A@ejemplo.test"));
 
-      const segundo = repo.crear(usuarioNuevo("a@ejemplo.test"));
+      const segundo = repo.crear(
+        procesoDePrueba(),
+        usuarioNuevo("a@ejemplo.test"),
+      );
 
       await expect(segundo).rejects.toBeInstanceOf(ErrorSistema);
       await expect(segundo).rejects.toMatchObject({ codigo: "AUT-0005" });
@@ -163,16 +166,92 @@ describe("adaptadores Prisma de usuarios, sesiones y auditoría", () => {
     test("actualizar reemplaza datos y auditoría", async () => {
       const repo = crearRepositorioUsuariosPrisma(cliente());
       const usuario = usuarioNuevo("cambia@ejemplo.test");
-      await repo.crear(usuario);
+      await repo.crear(procesoDePrueba(), usuario);
       const cambiado: Usuario = {
         ...usuario,
         valor: { ...usuario.valor, rol: "administrador", estado: "revocado" },
         actualizadoEn: fecha(20, 18, 7),
       };
 
-      await repo.actualizar(cambiado);
+      await repo.actualizar(procesoDePrueba(), cambiado, "actualizar");
 
       expect(await repo.buscarPorId(usuario.valor.id)).toEqual(cambiado);
+    });
+
+    test("crear deja la auditoría con el actor recibido, en la misma transacción (F0-33)", async () => {
+      const actor: Actor = {
+        tipo: "persona",
+        usuarioId: identificadorDesde<"Usuario">(generadorId.generar()),
+      };
+      const usuario = usuarioNuevo("auditado@ejemplo.test");
+
+      await crearRepositorioUsuariosPrisma(cliente()).crear(actor, usuario);
+
+      const filas = await cliente().auditoria.findMany();
+      expect(filas).toHaveLength(1);
+      expect(filas[0]).toMatchObject({
+        entidad: "Usuario",
+        entidadId: usuario.valor.id,
+        accion: "crear",
+        antes: null,
+        despues: {
+          id: usuario.valor.id,
+          email: "auditado@ejemplo.test",
+          nombre: null,
+          rol: "operador",
+          estado: "activo",
+        },
+        actor: { tipo: "persona", usuarioId: actor.usuarioId },
+        en: new Date("2031-03-04T02:15:30.999Z"),
+      });
+    });
+
+    test("actualizar deja la auditoría con accion, antes (lo guardado), despues y actor (F0-33)", async () => {
+      const repo = crearRepositorioUsuariosPrisma(cliente());
+      const usuario = usuarioNuevo("cambia.auditado@ejemplo.test");
+      await repo.crear(procesoDePrueba(), usuario);
+      const actor: Actor = {
+        tipo: "persona",
+        usuarioId: identificadorDesde<"Usuario">(generadorId.generar()),
+      };
+      const cambiado: Usuario = {
+        ...usuario,
+        valor: { ...usuario.valor, rol: "administrador" },
+        actualizadoEn: fecha(20, 18, 7),
+        actualizadoPor: actor,
+      };
+
+      await repo.actualizar(actor, cambiado, "actualizar");
+
+      const filas = await cliente().auditoria.findMany({
+        where: { entidadId: usuario.valor.id, accion: "actualizar" },
+      });
+      expect(filas).toHaveLength(1);
+      expect(filas[0]).toMatchObject({
+        entidad: "Usuario",
+        entidadId: usuario.valor.id,
+        antes: { rol: "operador", estado: "activo" },
+        despues: { rol: "administrador", estado: "activo" },
+        actor: { tipo: "persona", usuarioId: actor.usuarioId },
+        en: new Date("2031-03-20T21:15:30.007Z"),
+      });
+    });
+
+    test("si la transacción falla después de crear, no queda ni el usuario ni su auditoría (F0-33)", async () => {
+      const usuario = usuarioNuevo("revertido@ejemplo.test");
+
+      await expect(
+        cliente().$transaction(async (tx) => {
+          await crearRepositorioUsuariosPrisma(tx).crear(
+            procesoDePrueba(),
+            usuario,
+          );
+          throw new Error("falla forzada (test)");
+        }),
+      ).rejects.toThrow("falla forzada (test)");
+
+      expect(await cliente().usuario.count()).toBe(0);
+      expect(await cliente().auditoria.count()).toBe(0);
     });
 
     test("bloquearAdministradoresActivos devuelve solo los administradores activos", async () => {
@@ -182,12 +261,15 @@ describe("adaptadores Prisma de usuarios, sesiones y auditoría", () => {
         "admin.revocado@ejemplo.test",
         "administrador",
       );
-      await repo.crear(activo);
-      await repo.crear({
+      await repo.crear(procesoDePrueba(), activo);
+      await repo.crear(procesoDePrueba(), {
         ...revocado,
         valor: { ...revocado.valor, estado: "revocado" },
       });
-      await repo.crear(usuarioNuevo("operador@ejemplo.test"));
+      await repo.crear(
+        procesoDePrueba(),
+        usuarioNuevo("operador@ejemplo.test"),
+      );
 
       const ids = await cliente().$transaction((tx) =>
         crearRepositorioUsuariosPrisma(tx).bloquearAdministradoresActivos(),
@@ -213,7 +295,10 @@ describe("adaptadores Prisma de usuarios, sesiones y auditoría", () => {
       email: string,
     ): Promise<Identificador<"Usuario">> {
       const usuario = usuarioNuevo(email);
-      await crearRepositorioUsuariosPrisma(cliente()).crear(usuario);
+      await crearRepositorioUsuariosPrisma(cliente()).crear(
+        procesoDePrueba(),
+        usuario,
+      );
       return usuario.valor.id;
     }
 

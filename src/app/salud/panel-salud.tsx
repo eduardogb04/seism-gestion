@@ -134,10 +134,7 @@ function SeccionFallidos({ salud }: { readonly salud: Salud }) {
         </thead>
         <tbody>
           {fallidos.map((fallido, posicion) => (
-            <tr
-              key={`${fallido.origen}-${fallido.codigoError}-${fallido.haceMs}`}
-              data-fallido={posicion}
-            >
+            <tr key={fallido.id} data-fallido={posicion}>
               <td>{fallido.origen}</td>
               <td>{fallido.codigoError}</td>
               <td>{haceCuanto(fallido.haceMs)}</td>

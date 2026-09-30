@@ -11,7 +11,7 @@
     "dev": "next dev",
     "build": "next build",
     "worker": "node src/worker/index.ts",
-    "lint": "biome check . && node scripts/sin-error-crudo.ts",
+    "lint": "biome check . && node scripts/sin-error-crudo.ts && node scripts/sin-marcas-conflicto.ts",
     "test": "vitest run --project dominio --project casos-uso",
     "test:dominio": "node scripts/test-dominio.ts",
     "test:extraccion": "vitest run --project extraccion",

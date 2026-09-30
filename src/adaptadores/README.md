@@ -43,3 +43,7 @@ fijada al construirse, error explícito si la pregunta no está), `prisma/uso-ia
 `prisma/configuracion.ts` (los repositorios de `src/puertos/repositorios/`), `prisma/fecha-hora.ts`
 (`FechaHora` civil argentina → instante `timestamptz`) y `log/avisos-ia.ts` (el aviso de tope de IA
 por el log, hasta que el puerto de notificaciones esté en `main`). ADR 0026.
+
+Desde F0-33, `prisma/usuarios.ts` escribe la fila de `auditoria` de cada `crear`
+y `actualizar` (con el `Actor` recibido, en la misma transacción): el `antes` es
+lo que la base tenía justo antes de escribir. Ver ADR 0029.

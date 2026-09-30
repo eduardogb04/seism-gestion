@@ -118,10 +118,12 @@ async function existente(
   estado: EstadoUsuario = "activo",
 ): Promise<Identificador<"Usuario">> {
   const id = identificadorDesde<"Usuario">(generadorId.generar());
+  const actor = preparacion();
   await crearRepositorioUsuariosPrisma(cliente()).crear(
+    actor,
     crearAuditable(
       { id, email, nombre: null, rol, estado },
-      preparacion(),
+      actor,
       RelojFijo(fecha(8)),
     ),
   );

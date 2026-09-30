@@ -187,12 +187,12 @@ jobs:
 
       # El navegador del e2e (F0-14, M-06). Solo Chromium, y cacheado entre
       # corridas: el paquete pesa unos 170 MB y bajarlo en cada corrida se come
-      # parte del tope de 10 minutos (P9). Con la caché en hit,
-      # `playwright install chromium` no baja nada. Las librerías del sistema
-      # no se cachean: `install-deps --dry-run` dice sin tocar nada si falta
-      # alguna, y solo entonces se instalan (con `--with-deps` cada corrida
-      # corría apt-get aunque el runner ya las trajera, y ahí se colgó el
-      # paso dos veces el 2026-09-30).
+      # parte del tope de 10 minutos (P9). Con la caché en hit, `--with-deps`
+      # no baja el navegador (medido: 0 bytes, el `install` tarda ~4 s); lo
+      # que sigue corriendo son las librerías del sistema, que no se cachean:
+      # `install-deps --dry-run` en un runner nuevo informa 9 paquetes de
+      # fuentes faltantes, así que hacerlas condicionales no ahorra nada.
+      # Ese `apt-get` es lo que se colgó dos veces el 2026-09-30.
       # Un paso colgado no puede comerse el tope: cada intento tiene su propio
       # `timeout-minutes` y hay **un** reintento. El primero es el único paso
       # del workflow con `continue-on-error`: si falla o se cuelga, el
@@ -211,9 +211,7 @@ jobs:
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
         timeout-minutes: 2
         continue-on-error: true
-        run: |
-          npx playwright install chromium
-          npx playwright install-deps --dry-run chromium || npx playwright install-deps chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Navegador del e2e (Chromium), intento 2
         id: navegador_2
@@ -221,7 +219,7 @@ jobs:
         timeout-minutes: 2
         run: |
           echo "::warning::el navegador del e2e falló o se colgó en el primer intento; reintentando"
-          if ! { npx playwright install chromium && { npx playwright install-deps --dry-run chromium || npx playwright install-deps chromium; }; }; then
+          if ! npx playwright install --with-deps chromium; then
             echo "::error::no se pudo instalar Chromium para el e2e en dos intentos (ver el log de este paso y del intento 1)"
             exit 1
           fi

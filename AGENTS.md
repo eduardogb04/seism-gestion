@@ -126,7 +126,8 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   `services: postgres` del job y compara el resultado con `schema.prisma` — ver *Base de datos*),
   `build` (sin `.env`), `imagen` e `imagen:prueba` (F0-07: construye la imagen Docker y la verifica
   levantada), **el navegador del e2e y `test:e2e`** (F0-14: Chromium cacheado entre corridas, y el
-  camino de humo contra la app levantada con compose) y gitleaks sobre los commits nuevos (los del
+  camino de humo contra la app levantada con compose; M-06: el navegador son dos pasos, el
+  intento 1 y el reintento, cada uno con su `timeout-minutes: 2`) y gitleaks sobre los commits nuevos (los del
   PR; en un push, los que trajo). Si
   `npm ci` anduvo, **corren todos aunque falle uno**, así el log muestra todos los rojos juntos; el
   check queda en rojo si falla cualquiera. Los de la imagen y el de gitleaks solo dependen del
@@ -138,6 +139,13 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
 - **Hay un segundo job, `publicar`** (F0-07): publica la imagen en GHCR y **solo corre en `push` a
   `main`**, con `needs: ci`. En un PR ni aparece; el check que se mira sigue siendo `ci`, que cubre
   todo lo que corre en un PR.
+- **El navegador del e2e (M-06).** Dos pasos, `Navegador del e2e (Chromium), intento 1` y `intento 2`,
+  cada uno con `timeout-minutes: 2`: el 2026-09-30 el paso único (`--with-deps`) se colgó dos veces
+  y se comió el tope. El intento 1 lleva `continue-on-error` (el único del workflow) y el 2 corre
+  solo si el 1 no salió bien; si el 2 falla, `::error::no se pudo instalar Chromium...` y el check
+  queda en rojo. Con la caché `~/.cache/ms-playwright` en *hit*, `playwright install --with-deps chromium`
+  no baja el navegador; sí corre `apt-get` por las librerías del sistema (no se cachean, y en un
+  runner nuevo faltan 9 paquetes de fuentes: hacerlo condicional no ahorra nada). `test:e2e` corre si alguno de los dos intentos salió bien.
 - **Tope: 10 minutos** (P9, `timeout-minutes` en cada job). Hoy la corrida entera tarda poco más de
   un minuto, la mitad de eso el build de la imagen. Si pasa de 10, el check queda en rojo y es un bug de CI.
 - **Cómo leer el resultado.** `gh pr checks <N>` lista los checks del PR con su estado y el link a
@@ -152,7 +160,9 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   todavía sin escribir). Si es un falso positivo: `.gitleaksignore` con el *fingerprint* del log y el
   motivo en el PR; nunca se saca el paso.
 - **Reglas del workflow.** Permisos base `contents: read`; un job que necesite más los eleva en su
-  propio bloque (hoy solo `publicar`, con `packages: write`). Ningún paso con `continue-on-error`. Toda acción de
+  propio bloque (hoy solo `publicar`, con `packages: write`). Ningún paso con `continue-on-error`, salvo uno: el intento 1 del
+  navegador del e2e (M-06), que tiene su reintento; si el reintento falla, el job queda en rojo con
+  `::error::`. Toda acción de
   terceros, incluidas las de `actions/*`, **fijada por SHA de commit completo** con el tag en un
   comentario (`uses: actions/checkout@<sha> # v7.0.1`), verificado con
   `gh api repos/<dueño>/<acción>/commits/<tag>`; nunca por tag. Dependabot propone las subidas de
@@ -321,6 +331,13 @@ porqués en el ADR 0008. En corto:
   en la base **local** (su `down.sql` y su fila de `_prisma_migrations`, en una transacción). Un
   `down.sql` no lleva `BEGIN`/`COMMIT`. La lógica está en `scripts/lib/migraciones.ts` y corre
   `psql` adentro del contenedor de Postgres: no hay driver de Postgres.
+- **La imagen de Postgres está en tres lugares (M-06).** La misma referencia
+  `postgres:<tag>@sha256:<digest>` en `docker-compose.yml` (servicios `postgres` y `postgres-e2e`) y
+  en `services: postgres` de `.github/workflows/ci.yml`. Para cambiarla, se cambian **los tres**:
+  Dependabot (ecosistema `docker-compose`, con los majors de Postgres ignorados: se queda en 16.x)
+  propone la subida de los dos de compose, y el de `ci.yml` se edita a mano con el mismo tag y
+  digest. `tests/dominio/imagen-postgres.test.ts` (nivel dominio, en `npm test` y en CI) falla si
+  las tres no son idénticas o si el arnés de casos de uso deja de leerla de compose.
 - **Test de migraciones** (`tests/casos-uso/migraciones.test.ts`, en `npm test` y en CI): corre
   contra el Postgres 16 efímero que el arnés del nivel casos de uso levanta una vez por corrida
   (Testcontainers, `@testcontainers/postgresql` 12.1.0, la misma imagen que `docker-compose.yml`),
@@ -776,7 +793,8 @@ carga el framework (F0-04): `page`, `layout` y `route` (`.ts`/`.tsx`) en cualqui
 **...un control a CI (F0-05).** El comando va primero a `package.json` (se tiene que poder correr
 local con `npm run <nombre>`) y después como paso del job `ci` en `.github/workflows/ci.yml`, con
 `name` igual al script y la misma condición que los demás
-(`if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}`), sin `continue-on-error`.
+(`if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}`), sin `continue-on-error`
+(la única excepción es el intento 1 del navegador del e2e, ver *CI*).
 Si el control es un `*:fixtures`, va al lado de su control. Si necesita una acción de terceros, va
 fijada por SHA con el tag en comentario. La corrida tiene que seguir entrando en 10 minutos; se
 suma a la lista de *Antes de abrir un PR* y a la sección *CI*.

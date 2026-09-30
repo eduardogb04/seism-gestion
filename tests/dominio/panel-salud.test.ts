@@ -132,6 +132,8 @@ describe("PanelSalud", () => {
       const latido = fragmento(html(), 'data-job="latido"');
 
       expect(latido).toContain('data-estado="ok"');
+      expect(latido).toContain(">VERDE<");
+      expect(latido).not.toContain(">ROJO<");
       expect(latido).toContain("hace 3 min");
     });
 
@@ -139,6 +141,8 @@ describe("PanelSalud", () => {
       const atrasado = fragmento(html(), 'data-job="atrasado"');
 
       expect(atrasado).toContain('data-estado="rojo"');
+      expect(atrasado).toContain(">ROJO<");
+      expect(atrasado).not.toContain(">VERDE<");
       expect(atrasado).toContain("hace 3 días");
       expect(atrasado).toContain("no corrió en el doble de su intervalo");
     });
@@ -147,12 +151,14 @@ describe("PanelSalud", () => {
       const nuevo = fragmento(html(), 'data-job="nuevo"');
 
       expect(nuevo).toContain('data-estado="rojo"');
+      expect(nuevo).toContain(">ROJO<");
       expect(nuevo).toContain("nunca corrió");
     });
 
     test("un error muestra su código y descripción, sin la causa (puede traer datos)", () => {
       const roto = fragmento(html(), 'data-job="roto"');
 
+      expect(roto).toContain(">ROJO<");
       expect(roto).toContain("INF-0001 · Falló algo");
       expect(roto).not.toContain("postgres://");
       expect(roto).not.toContain("secreto");
@@ -198,6 +204,8 @@ describe("PanelSalud", () => {
       const base = fragmento(html(), 'data-integracion="base"');
 
       expect(base).toContain('data-estado="ok"');
+      expect(base).toContain(">VERDE<");
+      expect(base).not.toContain(">ROJO<");
       expect(base).toContain("2026-03-10 12:00:00");
     });
 
@@ -205,6 +213,8 @@ describe("PanelSalud", () => {
       const almacen = fragmento(html(), 'data-integracion="almacen"');
 
       expect(almacen).toContain('data-estado="rojo"');
+      expect(almacen).toContain(">ROJO<");
+      expect(almacen).not.toContain(">VERDE<");
       expect(almacen).toContain("INF-0001 · Falló algo inesperado");
       expect(almacen).toContain("2026-03-09 08:30:00");
       expect(almacen).toContain("hace 1 día");
@@ -222,6 +232,8 @@ describe("PanelSalud", () => {
       const gasto = fragmento(html(), "data-gasto-ia");
 
       expect(gasto).toContain('data-estado="ok"');
+      expect(gasto).toContain(">VERDE<");
+      expect(gasto).not.toContain(">ROJO<");
       expect(gasto).toContain("2026-03");
       expect(gasto).toContain("USD 0.0035");
       expect(gasto).toContain("USD 10.00");
@@ -243,6 +255,8 @@ describe("PanelSalud", () => {
       );
 
       expect(gasto).toContain('data-estado="rojo"');
+      expect(gasto).toContain(">ROJO<");
+      expect(gasto).not.toContain(">VERDE<");
     });
 
     test("si no se pudo calcular dice el código, y el resto del panel se ve igual", () => {
@@ -251,9 +265,9 @@ describe("PanelSalud", () => {
         gastoIa: { tipo: "error", detalle: "INF-0001 · Falta el tope" },
       });
 
-      expect(fragmento(marcado, "data-gasto-ia")).toContain(
-        "INF-0001 · Falta el tope",
-      );
+      const gasto = fragmento(marcado, "data-gasto-ia");
+      expect(gasto).toContain("INF-0001 · Falta el tope");
+      expect(gasto).toContain(">ROJO<");
       expect(marcado).toContain('data-job="latido"');
       expect(marcado).toContain('data-integracion="base"');
     });

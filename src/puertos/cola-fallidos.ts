@@ -40,6 +40,8 @@ export type Fallo = {
  * `carga`**: es para reintentar a mano y no se muestra en pantalla.
  */
 export type FallidoPendiente = {
+  /** Identifica al fallido: dos con el mismo origen, código y fecha siguen siendo dos. */
+  readonly id: string;
   readonly origen: string;
   readonly codigoError: Codigo;
   readonly creadoEn: Date;

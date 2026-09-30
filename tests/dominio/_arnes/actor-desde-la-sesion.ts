@@ -8,8 +8,9 @@
  *   `src/app/(auth)/sesion-actual.ts` puede (y hoy ni siquiera lo hace: el
  *   actor lo arma `actorDeSesion`, en `src/casos-uso/sesion/acceso.ts`).
  * - `accionesSinActor`: cada Server Action (`export async function` de un
- *   archivo con la directiva `"use server"`, o una función con la directiva
- *   adentro) llama a `actorDesdeSesion()` o a `accesoDeAdministrador()`. Vale
+ *   archivo con la directiva `"use server"`, la que se exporta aparte con
+ *   `export { f }` / `export { f as g }` / `export default f`, o una función
+ *   con la directiva adentro) llama a `actorDesdeSesion()` o a `accesoDeAdministrador()`. Vale
  *   la llamada directa o a través de una función **del mismo archivo** que a
  *   su vez la haga (`ejecutar` en `acciones.ts`): el `Actor` sigue saliendo de
  *   la sesión, y la cadena se sigue hasta que no haya más funciones locales.
@@ -35,6 +36,12 @@ type FuncionLocal =
   | ts.FunctionDeclaration
   | ts.ArrowFunction
   | ts.FunctionExpression;
+
+/** Una Server Action y, si se exporta con otro nombre, el nombre exportado. */
+type Accion = {
+  readonly funcion: FuncionLocal;
+  readonly nombre: string | undefined;
+};
 
 function esAsincrona(nodo: ts.Node): boolean {
   return (
@@ -141,7 +148,13 @@ export function accionesSinActor(archivo: string, codigo: string): string[] {
     true,
     archivo.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
-  const acciones: FuncionLocal[] = [];
+  const acciones: Accion[] = [];
+  function sumar(funcion: FuncionLocal, nombre: string | undefined): void {
+    if (!acciones.some((accion) => accion.funcion === funcion)) {
+      acciones.push({ funcion, nombre });
+    }
+  }
+  const locales = funcionesDeNivelDeArchivo(fuente);
 
   if (empiezaConUseServer(fuente.statements)) {
     for (const sentencia of fuente.statements) {
@@ -150,7 +163,7 @@ export function accionesSinActor(archivo: string, codigo: string): string[] {
         esExportada(sentencia) &&
         esAsincrona(sentencia)
       ) {
-        acciones.push(sentencia);
+        sumar(sentencia, undefined);
       } else if (ts.isVariableStatement(sentencia) && esExportada(sentencia)) {
         for (const declaracion of sentencia.declarationList.declarations) {
           const valor = declaracion.initializer;
@@ -159,8 +172,37 @@ export function accionesSinActor(archivo: string, codigo: string): string[] {
             (ts.isArrowFunction(valor) || ts.isFunctionExpression(valor)) &&
             esAsincrona(valor)
           ) {
-            acciones.push(valor);
+            sumar(valor, undefined);
           }
+        }
+      } else if (
+        ts.isExportDeclaration(sentencia) &&
+        sentencia.moduleSpecifier === undefined &&
+        sentencia.exportClause !== undefined &&
+        ts.isNamedExports(sentencia.exportClause)
+      ) {
+        // export { f } / export { f as g }: la función es la local, el nombre el exportado.
+        for (const especificador of sentencia.exportClause.elements) {
+          const funcion = locales.get(
+            (especificador.propertyName ?? especificador.name).text,
+          );
+          if (funcion !== undefined && esAsincrona(funcion)) {
+            sumar(funcion, especificador.name.text);
+          }
+        }
+      } else if (
+        ts.isExportAssignment(sentencia) &&
+        !sentencia.isExportEquals
+      ) {
+        // export default f / export default async () => {}
+        const valor = sentencia.expression;
+        const funcion = ts.isIdentifier(valor)
+          ? locales.get(valor.text)
+          : ts.isArrowFunction(valor) || ts.isFunctionExpression(valor)
+            ? valor
+            : undefined;
+        if (funcion !== undefined && esAsincrona(funcion)) {
+          sumar(funcion, "default");
         }
       }
     }
@@ -175,18 +217,20 @@ export function accionesSinActor(archivo: string, codigo: string): string[] {
       nodo.body !== undefined &&
       ts.isBlock(nodo.body) &&
       empiezaConUseServer(nodo.body.statements) &&
-      !acciones.includes(nodo)
+      !acciones.some((accion) => accion.funcion === nodo)
     ) {
-      acciones.push(nodo);
+      acciones.push({ funcion: nodo, nombre: undefined });
     }
     ts.forEachChild(nodo, buscarEnLinea);
   }
   buscarEnLinea(fuente);
 
-  const llegan = nombresQueLlegan(funcionesDeNivelDeArchivo(fuente));
+  const llegan = nombresQueLlegan(locales);
   return acciones
-    .filter((accion) => !llamaA(accion, llegan))
-    .map((accion) => nombreDeAccion(accion, "(anónima)"));
+    .filter((accion) => !llamaA(accion.funcion, llegan))
+    .map(
+      (accion) => accion.nombre ?? nombreDeAccion(accion.funcion, "(anónima)"),
+    );
 }
 
 /** Todos los `.ts` y `.tsx` bajo `carpeta`, recursivo. */

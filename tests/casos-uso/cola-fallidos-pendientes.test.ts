@@ -1,7 +1,7 @@
 /**
  * `ColaFallidos.listarPendientes(limite)` (F0-26, R5), contra Postgres real:
  * lo que muestra el panel de salud de los fallidos sin resolver. Solo
- * `origen`, `codigoError` y `creadoEn`: nunca la `carga`, que queda en la
+ * `id`, `origen`, `codigoError` y `creadoEn`: nunca la `carga`, que queda en la
  * base.
  */
 
@@ -62,16 +62,19 @@ describe("ColaFallidos.listarPendientes", () => {
 
     expect(pendientes).toEqual([
       {
+        id: expect.any(String),
         origen: "prueba.viejo",
         codigoError: "INF-0002",
         creadoEn: new Date("2026-03-01T10:00:00Z"),
       },
       {
+        id: expect.any(String),
         origen: "prueba.medio",
         codigoError: "INF-0002",
         creadoEn: new Date("2026-03-04T10:00:00Z"),
       },
       {
+        id: expect.any(String),
         origen: "prueba.nuevo",
         codigoError: "INF-0002",
         creadoEn: new Date("2026-03-08T10:00:00Z"),
@@ -87,6 +90,16 @@ describe("ColaFallidos.listarPendientes", () => {
     const pendientes = await crearColaFallidosPrisma(db()).listarPendientes(2);
 
     expect(pendientes.map((p) => p.origen)).toEqual(["prueba.a", "prueba.b"]);
+  });
+
+  test("dos fallidos con el mismo origen, código y fecha vuelven con `id` distinto (M-07)", async () => {
+    await fallido("prueba.igual", "2026-03-01T10:00:00Z");
+    await fallido("prueba.igual", "2026-03-01T10:00:00Z");
+
+    const pendientes = await crearColaFallidosPrisma(db()).listarPendientes(10);
+
+    expect(pendientes).toHaveLength(2);
+    expect(new Set(pendientes.map((p) => p.id)).size).toBe(2);
   });
 
   test("sin pendientes, una lista vacía", async () => {

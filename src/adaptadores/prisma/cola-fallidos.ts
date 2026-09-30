@@ -28,9 +28,10 @@ export function crearColaFallidosPrisma(prisma: PrismaClient): ColaFallidos {
         where: { resueltoEn: null },
         orderBy: { creadoEn: "asc" },
         take: limite,
-        select: { origen: true, codigoError: true, creadoEn: true },
+        select: { id: true, origen: true, codigoError: true, creadoEn: true },
       });
       return filas.map((fila) => ({
+        id: fila.id,
         origen: fila.origen,
         codigoError: fila.codigoError as Codigo,
         creadoEn: fila.creadoEn,

@@ -45,7 +45,7 @@ function sinCausa(detalle: string): string {
 function resultadoDe(job: EstadoJob): string {
   const corrida = job.ultimaCorrida;
   if (corrida === null) {
-    return "nunca corrió";
+    return "—";
   }
   return corrida.resultado ?? "en curso";
 }

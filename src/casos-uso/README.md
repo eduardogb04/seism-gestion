@@ -12,8 +12,11 @@ corre entero en una transacción (`Transaccional`, `src/puertos/repositorios/`).
 Ver ADR 0024 y `tests/casos-uso/usuarios-casos-uso.test.ts`.
 
 Desde F0-25: `salud/listar-salud.ts` (`listarSalud`: última corrida de cada
-job, fallidos pendientes y estado de cada integración; nunca lanza). Lo
-consumen el panel de salud (F0-26) y el gasto de IA (F0-28).
+job con su color, fallidos pendientes y estado de cada integración; nunca lanza). Lo
+consume el panel de salud (F0-26): el color de cada job lo decide este caso de uso
+(rojo si nunca corrió, si terminó en error o si pasó el doble de su intervalo sin
+correr, aunque haya sido `ok`), no la página. `hace-cuanto.ts` es el texto de la
+edad ("hace 3 h").
 
 Desde F0-28, `ia/`: `interpretar` (la única puerta a la IA: tope de gasto mensual, validación
 con el esquema Zod del que llama y registro en `uso_ia` antes de devolver; `IA-0001` e `IA-0002`)

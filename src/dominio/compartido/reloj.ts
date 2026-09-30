@@ -287,6 +287,23 @@ export function diferenciaEnDias(
   );
 }
 
+const MILISEGUNDOS_POR_DIA = 86_400_000;
+
+/**
+ * Milisegundos de `fechaHora` menos `otra`, hora incluida (F0-26: el panel de
+ * salud compara el inicio de una corrida con "ahora"). Negativa si la primera
+ * es anterior. Aritmética entera sobre `diasDesdeCivil`, sin `Date`.
+ */
+export function diferenciaEnMilisegundos(
+  fechaHora: FechaHora,
+  otra: FechaHora,
+): number {
+  return (
+    diferenciaEnDias(fechaHora, otra) * MILISEGUNDOS_POR_DIA +
+    (milisegundosDelDia(fechaHora) - milisegundosDelDia(otra))
+  );
+}
+
 /** `true` si `fechaHora` es estrictamente anterior a `otra`, hora incluida. */
 export function esAnterior(fechaHora: FechaHora, otra: FechaHora): boolean {
   const dias = diferenciaEnDias(fechaHora, otra);

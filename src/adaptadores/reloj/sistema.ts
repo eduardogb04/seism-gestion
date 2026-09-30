@@ -16,31 +16,39 @@ import {
 } from "../../dominio/compartido/reloj.ts";
 
 /**
- * Un `Reloj` que lee la hora local del sistema en cada `ahora()`. Los
- * componentes que da `Date` (año, mes 0-indexado, día, hora, minuto,
- * segundo, milisegundo) siempre caen dentro de los rangos que
- * `crearFechaHora` acepta, así que el resultado siempre es `ok`.
+ * La fecha y hora civiles **locales** de un instante: la misma lectura que
+ * hace el reloj del sistema, así que dos `FechaHora` sacadas de acá (o de
+ * `crearRelojSistema`) se pueden restar entre sí sin que la zona horaria de
+ * la máquina cuente (F0-26: el panel de salud compara "ahora" con el inicio
+ * de una corrida que guardó la base). Los componentes que da `Date` (año,
+ * mes 0-indexado, día, hora, minuto, segundo, milisegundo) siempre caen
+ * dentro de los rangos que `crearFechaHora` acepta, así que el resultado
+ * siempre es `ok`.
  */
+export function fechaHoraLocalDe(instante: Date): FechaHora {
+  const resultado = crearFechaHora({
+    anio: instante.getFullYear(),
+    mes: instante.getMonth() + 1,
+    dia: instante.getDate(),
+    hora: instante.getHours(),
+    minuto: instante.getMinutes(),
+    segundo: instante.getSeconds(),
+    milisegundo: instante.getMilliseconds(),
+  });
+  if (!resultado.ok) {
+    // Inalcanzable: los componentes de `Date` siempre están en rango.
+    throw new Error(
+      `el reloj del sistema dio una fecha inválida (esto no debería pasar nunca): ${resultado.mensaje}`,
+    );
+  }
+  return resultado.fechaHora;
+}
+
+/** Un `Reloj` que lee la hora local del sistema en cada `ahora()`. */
 export function crearRelojSistema(): Reloj {
   return {
     ahora(): FechaHora {
-      const ahora = new Date();
-      const resultado = crearFechaHora({
-        anio: ahora.getFullYear(),
-        mes: ahora.getMonth() + 1,
-        dia: ahora.getDate(),
-        hora: ahora.getHours(),
-        minuto: ahora.getMinutes(),
-        segundo: ahora.getSeconds(),
-        milisegundo: ahora.getMilliseconds(),
-      });
-      if (!resultado.ok) {
-        // Inalcanzable: los componentes de `Date` siempre están en rango.
-        throw new Error(
-          `el reloj del sistema dio una fecha inválida (esto no debería pasar nunca): ${resultado.mensaje}`,
-        );
-      }
-      return resultado.fechaHora;
+      return fechaHoraLocalDe(new Date());
     },
   };
 }

@@ -239,6 +239,7 @@ describe("conReintento", () => {
     const conReintento = crearConReintento({
       cola: {
         encolar: () => Promise.reject(new Error("base caída")),
+        listarPendientes: () => Promise.resolve([]),
         contarPendientes: () => Promise.resolve(0),
       },
       log,

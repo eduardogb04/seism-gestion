@@ -20,5 +20,12 @@ encola en `fallidos`, loguea con `INF-0002` y relanza). `arranque/worker.ts`
 es el punto de armado del worker: el único lugar desde el que llega a los
 adaptadores. Ver ADR 0025.
 
-build). El log llega en F0-24. Desde F0-27, `arranque/almacen.ts`: elige el
+Desde F0-27, `arranque/almacen.ts`: elige el
 almacén de documentos (disco o s3) según `ALMACEN` (ADR 0022).
+
+Desde F0-26: `arranque/salud.ts` arma el panel de salud (`armarSalud`) con los
+puertos reales y la lista de jobs de `src/worker/jobs.ts` (`JOBS`, la misma
+definición que levanta el worker), y guarda en memoria la última prueba
+exitosa de cada integración. `arranque/intervalo-cron.ts` calcula, una vez, cada
+cuánto corre un job (la diferencia entre dos ejecuciones consecutivas de su
+cron): con eso `listarSalud` decide si está atrasado.

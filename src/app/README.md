@@ -16,3 +16,9 @@ Desde F0-32: `administracion/` (inicio y `usuarios/`: lista, alta, revocar y
 cambiar rol con Server Actions y formularios HTML, sin JavaScript de cliente).
 Toda página de ahí llama a `accesoDeAdministrador()` antes de leer datos; un
 operador ve `AUT-0003`. Ver ADR 0028.
+
+Desde F0-26: `salud/` (`/salud`, el panel de salud: cada job con su última corrida y
+su color, fallidos pendientes, integraciones y gasto de IA). Server Component, sin
+`"use client"`, sin `<script>` ni librerías de UI; se recarga con F5. Empieza con
+`await accesoDeAdministrador()` como las páginas de administración; `/api/salud`
+sigue pública. El color lo trae ya decidido `listarSalud`: la página solo lo muestra.

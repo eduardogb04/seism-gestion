@@ -746,6 +746,26 @@ mismo `S3_ACCESS_KEY` y `S3_SECRET_KEY` (F0-27), que son las del MinIO local de 
 variable que solo hace falta según el valor de otra (las `S3_*` con `ALMACEN=s3`) va en una rama
 de `z.discriminatedUnion` del esquema, no como opcional: así el mensaje nombra la que falta.
 
+Una variable **obligatoria** nueva tiene que estar en **cada lugar que arranca un proceso con un
+entorno escrito ahí** (M-04), y eso lo controla `tests/dominio/entorno-en-cada-arranque.test.ts`:
+arma el mapa nombre → valor de cada lugar y exige que `validarEntorno` lo acepte; si no, falla
+nombrando **lugar y variable**. Los lugares:
+
+1. `docker-compose.yml`: el `environment` de los servicios `app` y `worker`.
+2. `.github/workflows/ci.yml`: el `env` (del paso y del job) de cada paso que corre `npm run db:*`.
+3. `scripts/imagen.ts`: cada `docker run` de la app y del worker con `--env` (los `--env` de arriba).
+4. `scripts/e2e-app.ts`: el `const entorno` con que migra y siembra la base del e2e.
+5. `.env.example`.
+
+Los tests que arman un `Entorno` tipado no entran: el compilador ya exige todas. Un valor
+interpolado (`${X}`) se resuelve con la constante del mismo archivo o, si no se puede, con un valor
+de ejemplo de la variable (`EJEMPLOS` en el test): una variable nueva con `NOMBRE=` vacío o
+interpolada en algún lugar necesita su ejemplo ahí. Lo que arranca **a propósito** sin una variable
+va en `EXCEPCIONES` del test, con el motivo (hoy: el worker de `imagen:prueba` sin `DATABASE_URL`);
+el test afirma que ahí falta **solo** esa. Si agregás un lugar nuevo que arranca un proceso, sumale
+su extractor (con su test de ejemplo) al mismo archivo. Los `docker run` de `README.md` y
+`RUNBOOK.md` no los controla nada: se revisan a ojo.
+
 **...una migración (F0-08, F0-09).** Siguiendo `docs/convenciones-base.md`, *El ciclo de una
 migración*: `schema.prisma` → `npx prisma migrate dev --create-only --name <nombre>` → `down.sql`
 con `prisma migrate diff` (sin `BEGIN`/`COMMIT`) → revisión a mano de los dos → `npm run

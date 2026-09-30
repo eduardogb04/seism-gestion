@@ -47,3 +47,9 @@ al terminar).
   (`armarSalud`): los jobs salen de `JOBS` del worker y la memoria de pruebas
   vive con el panel armado.
 - `cola-fallidos-pendientes.test.ts` (F0-26): `listarPendientes` contra Postgres.
+
+- `almacen-disco.test.ts` y `almacen-s3.test.ts` (F0-27): la suite de contrato
+  del almacén de documentos (`tests/contratos/almacen-documentos.ts`) contra
+  disco (carpeta temporal) y contra MinIO (`_arnes/minio.ts`: Testcontainers y
+  los servicios de `docker-compose.yml`, con puertos al azar), más lo propio de
+  cada adaptador.

@@ -43,6 +43,8 @@ const FALSA: Entorno = {
   DATABASE_URL: "postgresql://prueba:prueba@127.0.0.1:5432/prueba",
   ADMIN_INICIAL_EMAIL: "Admin@Ejemplo.test",
   IDENTIDAD: "falsa",
+  ALMACEN: "disco",
+  ALMACEN_DIRECTORIO: ".almacen",
 };
 
 const GOOGLE: Entorno = {

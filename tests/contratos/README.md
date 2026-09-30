@@ -21,3 +21,10 @@ corren hoy contra `src/adaptadores/memoria/` desde `tests/dominio/`; toda
 implementación real de Fase 1 (Gmail, WhatsApp, Telegram, SMTP) tiene que
 pasar la misma suite (`AGENTS.md`, *Cómo se agrega...un adaptador real de un
 puerto con suite de contrato*).
+
+Una suite es una función que recibe una fábrica del adaptador; la llama el
+archivo de test de cada implementación (AGENTS.md, *Cómo se agrega... un
+adaptador que tiene que pasar una suite de contrato*).
+
+Desde F0-27: `almacen-documentos.ts` (`suiteAlmacenDocumentos`), que corren
+`tests/casos-uso/almacen-disco.test.ts` y `tests/casos-uso/almacen-s3.test.ts`.

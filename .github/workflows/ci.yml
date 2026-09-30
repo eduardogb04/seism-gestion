@@ -127,6 +127,10 @@ jobs:
           DATABASE_URL: postgresql://seism:seism_local@localhost:5432/seism_gestion
           ADMIN_INICIAL_EMAIL: admin@ejemplo.test
           IDENTIDAD: falsa
+          # db:migrate valida el entorno entero, y desde F0-27 ALMACEN es
+          # obligatoria: el paso no guarda documentos, alcanza con disco.
+          ALMACEN: disco
+          ALMACEN_DIRECTORIO: .almacen
         run: npm run db:migrate
 
       # `prisma migrate diff --exit-code` entre la base recién migrada y

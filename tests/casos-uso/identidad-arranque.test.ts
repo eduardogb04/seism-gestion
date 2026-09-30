@@ -31,6 +31,8 @@ const SERVIDOR_CON_GOOGLE = {
   GOOGLE_CLIENT_ID: "cliente-inventado.apps.ejemplo.test",
   GOOGLE_CLIENT_SECRET: "secreto-inventado",
   APP_URL_PUBLICA: "https://gestion.ejemplo.test",
+  ALMACEN: "disco",
+  ALMACEN_DIRECTORIO: "/tmp/almacen",
 };
 
 function arrancar(variables: Readonly<Record<string, string>>) {

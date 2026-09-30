@@ -115,6 +115,8 @@ function prepararBase(puerto: string): void {
     DATABASE_URL: `postgresql://seism:seism_local@127.0.0.1:${puerto}/seism_gestion`,
     ADMIN_INICIAL_EMAIL: "admin@ejemplo.test",
     IDENTIDAD: "falsa",
+    ALMACEN: "disco",
+    ALMACEN_DIRECTORIO: ".almacen",
   };
   for (const script of [MIGRAR, SEMBRAR]) {
     const resultado = spawnSync(process.execPath, [script], {

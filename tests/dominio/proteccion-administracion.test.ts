@@ -1,12 +1,12 @@
 /**
- * La protección del panel (F0-32, R2, ADR 0028) se sostiene página por página:
+ * La protección del panel (F0-32, R2, ADR 0028; y `/salud`, F0-26, R1) se sostiene página por página:
  * Next no vuelve a renderizar un layout al navegar dentro de un segmento, así
  * que un chequeo solo ahí deja pasar. Estas pruebas recorren el código en
  * vez de confiar en la memoria de quien agregue la próxima página:
  *
- * - toda `page.tsx` de `src/app/administracion/**` llama a
+ * - toda `page.tsx` de `src/app/administracion/**` y de `src/app/salud/**` llama a
  *   `accesoDeAdministrador()` **antes** de tocar el armado (los datos);
- * - nada de `src/app/administracion/**` es JavaScript de cliente propio;
+ * - nada de esas carpetas es JavaScript de cliente propio;
  * - `/api/salud` sigue pública (es el latido del deploy, P13): responde sin
  *   ninguna sesión y su archivo no importa nada de la sesión.
  */
@@ -25,13 +25,18 @@ function archivosBajo(carpeta: string): string[] {
 }
 
 const DE_ADMINISTRACION = archivosBajo(path.join(RAIZ, "administracion"));
-const PAGINAS = DE_ADMINISTRACION.filter((ruta) =>
+const DE_SALUD = archivosBajo(path.join(RAIZ, "salud"));
+const PROTEGIDOS = [...DE_ADMINISTRACION, ...DE_SALUD];
+const PAGINAS = PROTEGIDOS.filter((ruta) =>
   ruta.endsWith(`${path.sep}page.tsx`),
 );
 
-describe("/administracion/**", () => {
-  test("hay páginas que revisar", () => {
-    expect(PAGINAS.length).toBeGreaterThanOrEqual(2);
+describe("/administracion/** y /salud", () => {
+  test("hay páginas que revisar, y `/salud` es una de ellas", () => {
+    expect(PAGINAS.length).toBeGreaterThanOrEqual(3);
+    expect(PAGINAS.map((pagina) => path.relative(RAIZ, pagina))).toContain(
+      path.join("salud", "page.tsx"),
+    );
   });
 
   test.each(PAGINAS.map((pagina) => [path.relative(RAIZ, pagina), pagina]))(
@@ -49,7 +54,7 @@ describe("/administracion/**", () => {
   );
 
   test("ningún archivo es JavaScript de cliente", () => {
-    const deCliente = DE_ADMINISTRACION.filter((ruta) =>
+    const deCliente = PROTEGIDOS.filter((ruta) =>
       /^\s*["']use client["']/m.test(readFileSync(ruta, "utf8")),
     );
 

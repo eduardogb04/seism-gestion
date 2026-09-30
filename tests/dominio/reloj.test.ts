@@ -282,7 +282,10 @@ describe("diferenciaEnMilisegundos", () => {
 
   it("cruza la medianoche y cuenta la hora, a diferencia de diferenciaEnDias", () => {
     expect(
-      diferenciaEnMilisegundos(fecha(2026, 9, 16, 0, 1), fecha(2026, 9, 15, 23, 59)),
+      diferenciaEnMilisegundos(
+        fecha(2026, 9, 16, 0, 1),
+        fecha(2026, 9, 15, 23, 59),
+      ),
     ).toBe(120_000);
   });
 

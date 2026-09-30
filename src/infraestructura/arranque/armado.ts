@@ -2,7 +2,8 @@
  * El punto de armado de la app (ADR 0004; desde F0-31): el único lugar fuera
  * de `src/adaptadores` que los importa. Conecta cada puerto con su adaptador
  * y arma los casos de uso que usa `src/app`. Los de usuarios reciben los de
- * sesión (F0-32): al revocar o cambiar un rol, invalidan su caché.
+ * sesión (F0-32): al revocar o cambiar un rol, invalidan su caché. El panel
+ * de salud (`salud`, F0-26) llama a `listarSalud` con sus puertos ya armados.
  *
  * Se arma **una vez por proceso**, la primera vez que un pedido lo necesita
  * (no al importar: `next build` carga los módulos sin entorno). Queda en
@@ -18,6 +19,7 @@ import { crearGeneradorIdCrypto } from "../../adaptadores/memoria/generador-id.t
 import { crearClientePrisma } from "../../adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../adaptadores/prisma/transaccion.ts";
 import { crearRelojSistema } from "../../adaptadores/reloj/sistema.ts";
+import type { Salud } from "../../casos-uso/salud/listar-salud.ts";
 import {
   type CasosUsoSesion,
   crearCasosUsoSesion,
@@ -35,6 +37,7 @@ import {
   generarEstadoLogin,
   type Pruebas,
 } from "./identidad.ts";
+import { armarSalud } from "./salud.ts";
 
 export type Armado = {
   readonly appEntorno: Entorno["APP_ENTORNO"];
@@ -43,6 +46,8 @@ export type Armado = {
   readonly pruebas: Pruebas | null;
   readonly sesion: CasosUsoSesion;
   readonly usuarios: CasosUsoUsuarios;
+  /** El panel de salud (`/salud`): `listarSalud` con sus puertos armados. */
+  readonly salud: () => Promise<Salud>;
   generarEstadoLogin(): EstadoLogin;
 };
 
@@ -74,6 +79,7 @@ function armar(): Armado {
       generadorId: crearGeneradorIdCrypto(),
       sesiones: sesion,
     }),
+    salud: armarSalud(prisma, reloj),
     generarEstadoLogin,
   };
 }

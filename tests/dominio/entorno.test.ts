@@ -13,38 +13,50 @@ import { validarEntorno } from "../../src/infraestructura/entorno.ts";
 /** Una URL de Postgres válida y ficticia: nada se conecta a ella en estos tests. */
 const URL_POSTGRES = "postgresql://usuario:clave@localhost:5432/base";
 
-/** El almacén de documentos en disco (F0-27): lo que trae .env.example. */
-const ALMACEN_DISCO = { ALMACEN: "disco", ALMACEN_DIRECTORIO: ".almacen" };
+/** Un email inventado, del dominio reservado `.test`. */
+const EMAIL_ADMIN = "admin@ejemplo.test";
 
 /** Un entorno completo y válido, para variar una sola variable por test. */
+const ALMACEN_DISCO = { ALMACEN: "disco", ALMACEN_DIRECTORIO: ".almacen" };
+
 const VALIDO = {
   APP_ENTORNO: "local",
   DATABASE_URL: URL_POSTGRES,
+  ADMIN_INICIAL_EMAIL: EMAIL_ADMIN,
+  IDENTIDAD: "falsa",
   ...ALMACEN_DISCO,
+};
+
+/**
+ * Un entorno válido con la identidad de Google (F0-31): el único que vale en
+ * el servidor. Las credenciales son inventadas.
+ */
+const VALIDO_GOOGLE = {
+  ...VALIDO,
+  IDENTIDAD: "google",
+  GOOGLE_CLIENT_ID: "cliente-inventado.apps.ejemplo.test",
+  GOOGLE_CLIENT_SECRET: "secreto-inventado",
+  APP_URL_PUBLICA: "https://gestion.ejemplo.test",
 };
 
 describe("validarEntorno: APP_ENTORNO", () => {
   it.each(["local", "ci", "servidor"])(
     "acepta APP_ENTORNO=%s y lo devuelve tipado",
     (valor) => {
-      const resultado = validarEntorno({ ...VALIDO, APP_ENTORNO: valor });
+      const resultado = validarEntorno({
+        ...VALIDO_GOOGLE,
+        APP_ENTORNO: valor,
+      });
 
       expect(resultado).toEqual({
         ok: true,
-        entorno: {
-          APP_ENTORNO: valor,
-          DATABASE_URL: URL_POSTGRES,
-          ...ALMACEN_DISCO,
-        },
+        entorno: { ...VALIDO_GOOGLE, APP_ENTORNO: valor },
       });
     },
   );
 
   it("rechaza APP_ENTORNO ausente y el mensaje nombra la variable", () => {
-    const resultado = validarEntorno({
-      DATABASE_URL: URL_POSTGRES,
-      ...ALMACEN_DISCO,
-    });
+    const resultado = validarEntorno({ ...VALIDO, APP_ENTORNO: undefined });
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
@@ -100,15 +112,12 @@ describe("validarEntorno: DATABASE_URL (F0-08)", () => {
 
     expect(resultado).toEqual({
       ok: true,
-      entorno: { APP_ENTORNO: "local", DATABASE_URL: valor, ...ALMACEN_DISCO },
+      entorno: { ...VALIDO, DATABASE_URL: valor },
     });
   });
 
   it("rechaza DATABASE_URL ausente y el mensaje nombra la variable", () => {
-    const resultado = validarEntorno({
-      APP_ENTORNO: "local",
-      ...ALMACEN_DISCO,
-    });
+    const resultado = validarEntorno({ ...VALIDO, DATABASE_URL: undefined });
 
     expect(resultado.ok).toBe(false);
     if (!resultado.ok) {
@@ -159,6 +168,56 @@ describe("validarEntorno: DATABASE_URL (F0-08)", () => {
   });
 });
 
+describe("validarEntorno: ADMIN_INICIAL_EMAIL (F0-30)", () => {
+  it.each(["admin@ejemplo.test", "Otra.Persona@ejemplo.test"])(
+    "acepta ADMIN_INICIAL_EMAIL=%s",
+    (valor) => {
+      const resultado = validarEntorno({
+        ...VALIDO,
+        ADMIN_INICIAL_EMAIL: valor,
+      });
+
+      expect(resultado).toEqual({
+        ok: true,
+        entorno: { ...VALIDO, ADMIN_INICIAL_EMAIL: valor },
+      });
+    },
+  );
+
+  it.each([undefined, ""])(
+    "rechaza ADMIN_INICIAL_EMAIL=%j como ausente: es obligatoria",
+    (valor) => {
+      const resultado = validarEntorno({
+        ...VALIDO,
+        ADMIN_INICIAL_EMAIL: valor,
+      });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("ADMIN_INICIAL_EMAIL");
+        expect(resultado.mensaje).toContain("falta");
+      }
+    },
+  );
+
+  it.each(["sin-arroba", "dos@@ejemplo.test", "con espacio@ejemplo.test"])(
+    "rechaza ADMIN_INICIAL_EMAIL=%j (no es un email) y dice qué se espera",
+    (valor) => {
+      const resultado = validarEntorno({
+        ...VALIDO,
+        ADMIN_INICIAL_EMAIL: valor,
+      });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("ADMIN_INICIAL_EMAIL");
+        expect(resultado.mensaje).toContain("valor inválido");
+        expect(resultado.mensaje).toContain("nombre@dominio");
+      }
+    },
+  );
+});
+
 describe("validarEntorno: en general", () => {
   it("nombra todas las variables que fallan, no solo la primera", () => {
     const resultado = validarEntorno({});
@@ -167,6 +226,7 @@ describe("validarEntorno: en general", () => {
     if (!resultado.ok) {
       expect(resultado.mensaje).toContain("APP_ENTORNO");
       expect(resultado.mensaje).toContain("DATABASE_URL");
+      expect(resultado.mensaje).toContain("ADMIN_INICIAL_EMAIL");
     }
   });
 
@@ -187,17 +247,177 @@ describe("validarEntorno: en general", () => {
 
     expect(resultado).toEqual({
       ok: true,
-      entorno: {
-        APP_ENTORNO: "local",
-        DATABASE_URL: URL_POSTGRES,
-        ...ALMACEN_DISCO,
-      },
+      entorno: VALIDO,
     });
   });
 });
 
+describe("validarEntorno: IDENTIDAD y las variables de Google (F0-31)", () => {
+  it.each(["local", "ci"])(
+    "acepta IDENTIDAD=falsa con APP_ENTORNO=%s, sin variables de Google",
+    (entorno) => {
+      const resultado = validarEntorno({ ...VALIDO, APP_ENTORNO: entorno });
+
+      expect(resultado).toEqual({
+        ok: true,
+        entorno: { ...VALIDO, APP_ENTORNO: entorno },
+      });
+    },
+  );
+
+  it("acepta IDENTIDAD=falsa con las GOOGLE_* vacías, como las trae .env.example", () => {
+    const resultado = validarEntorno({
+      ...VALIDO,
+      GOOGLE_CLIENT_ID: "",
+      GOOGLE_CLIENT_SECRET: "",
+    });
+
+    expect(resultado.ok).toBe(true);
+  });
+
+  it("rechaza IDENTIDAD=falsa con APP_ENTORNO=servidor: la app no arranca", () => {
+    const resultado = validarEntorno({
+      ...VALIDO_GOOGLE,
+      APP_ENTORNO: "servidor",
+      IDENTIDAD: "falsa",
+    });
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.mensaje).toContain("la app no arranca");
+      expect(resultado.mensaje).toContain("- IDENTIDAD:");
+      expect(resultado.mensaje).toContain("APP_ENTORNO=servidor");
+    }
+  });
+
+  it.each([undefined, ""])(
+    "rechaza IDENTIDAD=%j como ausente: es obligatoria",
+    (valor) => {
+      const resultado = validarEntorno({ ...VALIDO, IDENTIDAD: valor });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("- IDENTIDAD: falta");
+      }
+    },
+  );
+
+  it("rechaza un IDENTIDAD desconocido y dice los valores válidos", () => {
+    const resultado = validarEntorno({ ...VALIDO, IDENTIDAD: "microsoft" });
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.mensaje).toContain("IDENTIDAD");
+      expect(resultado.mensaje).toContain("falsa, google");
+    }
+  });
+
+  it("acepta IDENTIDAD=google con las tres variables", () => {
+    expect(validarEntorno(VALIDO_GOOGLE)).toEqual({
+      ok: true,
+      entorno: VALIDO_GOOGLE,
+    });
+  });
+
+  it.each(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "APP_URL_PUBLICA"])(
+    "con IDENTIDAD=google rechaza %s ausente o vacía y la nombra",
+    (variable) => {
+      for (const valor of [undefined, ""]) {
+        const resultado = validarEntorno({
+          ...VALIDO_GOOGLE,
+          [variable]: valor,
+        });
+
+        expect(resultado.ok).toBe(false);
+        if (!resultado.ok) {
+          expect(resultado.mensaje).toContain(`- ${variable}: falta`);
+        }
+      }
+    },
+  );
+
+  it.each(["no-es-url", "ftp://gestion.ejemplo.test"])(
+    "rechaza APP_URL_PUBLICA=%j: tiene que ser una URL http(s)",
+    (valor) => {
+      const resultado = validarEntorno({
+        ...VALIDO_GOOGLE,
+        APP_URL_PUBLICA: valor,
+      });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("- APP_URL_PUBLICA:");
+        expect(resultado.mensaje).toContain("https://");
+        expect(resultado.mensaje).not.toContain(valor);
+      }
+    },
+  );
+
+  it("no repite el secreto de Google en el mensaje", () => {
+    const resultado = validarEntorno({
+      ...VALIDO_GOOGLE,
+      APP_URL_PUBLICA: "no-es-url",
+    });
+
+    expect(resultado.ok).toBe(false);
+    if (!resultado.ok) {
+      expect(resultado.mensaje).not.toContain("secreto-inventado");
+    }
+  });
+});
+
+describe("validarEntorno: LOG_NIVEL (F0-24)", () => {
+  it("es opcional: sin ella el entorno es válido y no aparece", () => {
+    const resultado = validarEntorno(VALIDO);
+
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) {
+      expect(Object.hasOwn(resultado.entorno, "LOG_NIVEL")).toBe(false);
+    }
+  });
+
+  it("vacía cuenta como no definida (así viene en .env.example)", () => {
+    const resultado = validarEntorno({ ...VALIDO, LOG_NIVEL: "" });
+
+    expect(resultado.ok).toBe(true);
+    if (resultado.ok) {
+      expect(resultado.entorno.LOG_NIVEL).toBeUndefined();
+    }
+  });
+
+  it.each(["fatal", "error", "warn", "info", "debug", "trace"])(
+    "acepta LOG_NIVEL=%s",
+    (valor) => {
+      const resultado = validarEntorno({ ...VALIDO, LOG_NIVEL: valor });
+
+      expect(resultado).toEqual({
+        ok: true,
+        entorno: { ...VALIDO, LOG_NIVEL: valor },
+      });
+    },
+  );
+
+  it.each(["verbose", "INFO", "5"])(
+    "rechaza LOG_NIVEL=%j y el mensaje nombra la variable y los valores válidos",
+    (valor) => {
+      const resultado = validarEntorno({ ...VALIDO, LOG_NIVEL: valor });
+
+      expect(resultado.ok).toBe(false);
+      if (!resultado.ok) {
+        expect(resultado.mensaje).toContain("LOG_NIVEL");
+        expect(resultado.mensaje).toContain("debug");
+      }
+    },
+  );
+});
+
 describe("validarEntorno: ALMACEN y sus variables (F0-27)", () => {
-  const BASE = { APP_ENTORNO: "local", DATABASE_URL: URL_POSTGRES };
+  const BASE = {
+    APP_ENTORNO: "local",
+    DATABASE_URL: URL_POSTGRES,
+    ADMIN_INICIAL_EMAIL: EMAIL_ADMIN,
+    IDENTIDAD: "falsa",
+  };
   const S3 = {
     ALMACEN: "s3",
     S3_ENDPOINT: "http://localhost:9000",

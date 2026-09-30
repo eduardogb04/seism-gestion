@@ -25,6 +25,23 @@ al terminar).
 - `migraciones-completas.test.ts` (F0-11): cada migración tiene su `down.sql`
   (sin Docker).
 - `seed.test.ts` (F0-10): `sembrar` dos veces deja la base igual.
+- `usuarios-casos-uso.test.ts`, `usuarios-repositorios.test.ts` y
+  `usuarios-semilla.test.ts` (F0-30): las reglas de `darDeAlta`, `revocar` y
+  `cambiarRol` (transacción y concurrencia incluidas), los adaptadores Prisma
+  de usuarios, sesiones y auditoría, y el administrador inicial de la semilla.
+- `administracion-usuarios.test.ts` y `administracion-acciones.test.ts`
+  (F0-32): `listar`, la invalidación de la caché al revocar, y las Server
+  Actions de `/administracion/usuarios` (actor de la sesión, validación,
+  `AUT-0003` sin cambios en la base).
+
+- `worker.test.ts` (F0-25): registro de cada corrida, planificador vivo
+  después de un job que lanza, `latido` cada 5 minutos, y el proceso
+  (`node src/worker/index.ts`) sin `DATABASE_URL` no arranca y con ella sí.
+- `reintento.test.ts` (F0-25): `conReintento` con esperas inyectadas; si
+  agota, fila en `fallidos`, log con `INF-0002` y el error relanzado.
+- `salud.test.ts` (F0-25): `listarSalud` con la base real, con una sonda que
+  lanza y con la base caída (nunca lanza).
+
 - `almacen-disco.test.ts` y `almacen-s3.test.ts` (F0-27): la suite de contrato
   del almacén de documentos (`tests/contratos/almacen-documentos.ts`) contra
   disco (carpeta temporal) y contra MinIO (`_arnes/minio.ts`: Testcontainers y

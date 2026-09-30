@@ -18,6 +18,32 @@ Desde F0-19: `memoria/`, con los primeros adaptadores de `src/puertos/`:
 `generador-id.ts` (UUIDs con `node:crypto` — no es un doble de test, es la
 implementación real; alcanza para lo que sigue).
 
+Desde F0-22: `memoria/auditoria.ts`, doble en memoria de `Auditoria` con
+`registrados()` para inspección.
+
+Desde F0-29: `memoria/correo.ts` (doble de `Correo`, con `sembrar()` y
+`procesados()`) y `memoria/notificaciones.ts` (doble de `Notificaciones`,
+con `enviados()`). Los dos pasan la suite de contrato de
+`tests/contratos/`, la misma que va a exigir a Gmail/WhatsApp/Telegram/SMTP
+en Fase 1 (`AGENTS.md`, *Cómo se agrega...un adaptador real de un puerto con
+suite de contrato*).
+
+Desde F0-30, en `prisma/`: `usuarios.ts`, `sesiones.ts` y `auditoria.ts` (los
+repositorios y el puerto `Auditoria` de F0-22, que solo agrega filas),
+`transaccion.ts` (`Transaccional` con `$transaction` interactiva) y
+`conversiones.ts` (`FechaHora` ↔ `timestamptz` y `Actor` ↔ `jsonb`). Ver ADR
+0024.
+
+Desde F0-25, en `prisma/`: `cola-fallidos.ts` (tabla `fallidos`),
+`corridas-worker.ts` (tabla `corridas_worker`) y `sonda-base.ts` (`SELECT 1`,
+la integración `base` de `listarSalud`).
+
+Desde F0-28: `ia-doble/` (doble determinista del puerto de IA: responde por una tabla de casos
+fijada al construirse, error explícito si la pregunta no está), `prisma/uso-ia.ts` y
+`prisma/configuracion.ts` (los repositorios de `src/puertos/repositorios/`), `prisma/fecha-hora.ts`
+(`FechaHora` civil argentina → instante `timestamptz`) y `log/avisos-ia.ts` (el aviso de tope de IA
+por el log, hasta que el puerto de notificaciones esté en `main`). ADR 0026.
+
 Desde F0-27: `disco/` y `s3/`, las dos implementaciones del almacén de
 documentos (`src/puertos/almacen-documentos.ts`, ADR 0022). Las elige
 `src/infraestructura/arranque/almacen.ts` según `ALMACEN`.

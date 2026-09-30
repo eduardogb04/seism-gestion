@@ -9,5 +9,16 @@ adaptadores (dependency-cruiser, `npm run limites`; ver
 
 Desde F0-04: `entorno.ts` (el esquema de variables de entorno y su
 validación al arrancar) y `version.ts` (cómo se resuelve la versión del
+build). Desde F0-24: `log.ts` (el log estructurado: pino, formato y nivel
+por entorno, `referencia` por contexto asíncrono con `conReferencia`,
+redacción de secretos y datos personales en todo lo que sale) y
+`proceso.ts` (excepción o rechazo no capturado → `fatal` con `INF-0001` y
+salida con código 1; lo instala `src/instrumentation.ts`). Ver ADR 0021.
+Desde F0-25: `fallas.ts` (toda falla con código del catálogo y redactada) y
+`reintento.ts` (`conReintento`: reintento con espera creciente; si agota,
+encola en `fallidos`, loguea con `INF-0002` y relanza). `arranque/worker.ts`
+es el punto de armado del worker: el único lugar desde el que llega a los
+adaptadores. Ver ADR 0025.
+
 build). El log llega en F0-24. Desde F0-27, `arranque/almacen.ts`: elige el
 almacén de documentos (disco o s3) según `ALMACEN` (ADR 0022).

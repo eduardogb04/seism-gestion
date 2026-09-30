@@ -3,6 +3,7 @@
 #
 # Postgres y, desde F0-27, MinIO (el almacén de documentos compatible con S3,
 # ADR 0022) con su bucket, que crea el servicio de un solo uso `minio-init`.
+# Detrás de perfiles, la app para el e2e (`e2e`) y el worker (`worker`, F0-25).
 #
 #   docker compose up -d      levanta la base y MinIO (espera a los healthchecks con --wait)
 #   docker compose ps         tiene que decir "healthy"
@@ -95,23 +96,80 @@ services:
   # publica** (`seism-gestion:local`, la que construye `npm run imagen`), no
   # `next dev`: el e2e prueba lo que se despliega.
   #
-  # `DATABASE_URL` es ficticia y nadie se conecta a ella: la app la valida al
-  # arrancar (F0-08) pero todavía no toca la base, igual que en
-  # `npm run imagen:prueba`. El día que se conecte de verdad, este servicio
-  # pasa a depender del `postgres` de arriba.
+  # Desde F0-31 la app se conecta a la base (el login y la sesión): usa la
+  # `postgres-e2e` de abajo, no la de desarrollo. Entra con la identidad falsa
+  # (`IDENTIDAD=falsa`, que el esquema acepta con `APP_ENTORNO=local`).
   app:
     profiles: ["e2e"]
     image: seism-gestion:local
     environment:
       APP_ENTORNO: local
-      DATABASE_URL: postgresql://prueba:prueba@127.0.0.1:5432/prueba
+      DATABASE_URL: postgresql://seism:seism_local@postgres-e2e:5432/seism_gestion
       # El almacén de documentos (F0-27) en una carpeta del contenedor: la app
       # lo exige al arrancar, y el e2e todavía no guarda documentos.
       ALMACEN: disco
       ALMACEN_DIRECTORIO: /tmp/almacen
+      # Obligatoria desde F0-30; inventada, como todo lo de este servicio. Es
+      # el administrador que `db:seed` da de alta y con el que entra el e2e.
+      ADMIN_INICIAL_EMAIL: admin@ejemplo.test
+      IDENTIDAD: falsa
+    depends_on:
+      postgres-e2e:
+        condition: service_healthy
     ports:
       # Solo en la máquina local, como el Postgres de arriba.
       - "127.0.0.1:3000:3000"
+
+  # La base del e2e (F0-31): descartable, sin volumen con nombre, y con el
+  # puerto de la máquina elegido por Docker (`127.0.0.1::5432`), así no choca
+  # con el Postgres de desarrollo ni con el `services: postgres` de CI.
+  # `scripts/e2e-app.ts` la levanta, le pregunta el puerto
+  # (`docker compose port`), la migra y la siembra antes de levantar la app;
+  # `tests/e2e/_arnes/apagar-app.ts` la borra con sus datos al terminar.
+  postgres-e2e:
+    profiles: ["e2e"]
+    image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    environment:
+      POSTGRES_USER: seism
+      POSTGRES_PASSWORD: seism_local
+      POSTGRES_DB: seism_gestion
+    ports:
+      - "127.0.0.1::5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      # Por TCP (`--host`): mientras la imagen inicializa la base, el servidor
+      # provisorio solo escucha en el socket, y no tiene que contar como sano.
+      test: ["CMD-SHELL", "pg_isready --host=127.0.0.1 --username=seism --dbname=seism_gestion"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # El worker (F0-25): la misma imagen que `app`, con el comando del worker.
+  # Vive detrás del perfil `worker`: no lo levanta `docker compose up -d`,
+  # sino `docker compose --profile worker up -d worker` (RUNBOOK). A
+  # diferencia de la app, se conecta de verdad: cada corrida de sus jobs
+  # queda en `corridas_worker` del Postgres de arriba, que tiene que estar
+  # migrado (`npm run db:migrate`). Sin `HEALTHCHECK`: el de la imagen es el
+  # de la app, y el worker no sirve HTTP; su latido es la tabla.
+  worker:
+    profiles: ["worker"]
+    image: seism-gestion:local
+    command: ["node", "src/worker/index.ts"]
+    environment:
+      APP_ENTORNO: local
+      DATABASE_URL: postgresql://seism:seism_local@postgres:5432/seism_gestion
+      # Obligatorias desde F0-30 y F0-31 (inventada / la falsa, como en `app`).
+      ADMIN_INICIAL_EMAIL: admin@ejemplo.test
+      IDENTIDAD: falsa
+      ALMACEN: disco
+      ALMACEN_DIRECTORIO: /tmp/almacen
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: unless-stopped
 
 volumes:
   postgres-datos:

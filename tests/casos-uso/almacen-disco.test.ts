@@ -130,6 +130,8 @@ describe("arranque: ALMACEN=disco", () => {
     const entorno: Entorno = {
       APP_ENTORNO: "local",
       DATABASE_URL: "postgresql://ficticio:ficticio@localhost:5432/ficticia",
+      ADMIN_INICIAL_EMAIL: "admin@ejemplo.test",
+      IDENTIDAD: "falsa",
       ALMACEN: "disco",
       ALMACEN_DIRECTORIO: directorio,
     };

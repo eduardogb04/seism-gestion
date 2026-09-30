@@ -9,19 +9,24 @@
  *    el código de ahora, no la imagen que haya quedado de otra rama. Docker
  *    reusa las capas, así que si nada cambió tarda segundos (en CI la acaba de
  *    construir el paso `imagen`).
- * 2. Levanta con eso el servicio `app` del perfil `e2e` de
+ * 2. Levanta la base del e2e (`postgres-e2e`, F0-31: descartable, en un
+ *    puerto que elige Docker), la migra (`scripts/db-migrate.ts`) y la
+ *    siembra (`scripts/db-seed.ts`: el administrador `admin@ejemplo.test`,
+ *    con el que entra el e2e).
+ * 3. Levanta con eso el servicio `app` del perfil `e2e` de
  *    `docker-compose.yml` —la **imagen que se publica**, no `next dev`—.
- * 3. Espera a que el latido (`/api/salud`, P13) responda y **se queda vivo**
+ * 4. Espera a que el latido (`/api/salud`, P13) responda y **se queda vivo**
  *    hasta que Playwright lo corta: el `webServer` de Playwright da por caída
  *    la corrida si su proceso termina antes ("Process from config.webServer
  *    exited early"), aunque la URL ya responda. Si no responde a tiempo,
  *    muestra el log del contenedor y sale 1.
  *
  * Quien la apaga es `tests/e2e/_arnes/apagar-app.ts`, el `globalTeardown` de
- * Playwright: borra **solo** el contenedor `app`, sin tocar el Postgres de
- * compose ni su volumen.
+ * Playwright: borra **solo** los contenedores `app` y `postgres-e2e`, sin
+ * tocar el Postgres de desarrollo ni su volumen.
  *
- * Corre con Node pelado, sin nada de `node_modules`.
+ * Corre con Node pelado; migrar y sembrar sí necesitan `node_modules` (Prisma):
+ * en CI ya corrió `npm ci`, y en local, el de siempre.
  */
 
 import { spawnSync } from "node:child_process";
@@ -32,6 +37,11 @@ import process from "node:process";
 const IMAGEN = "seism-gestion:local";
 /** El script que construye esa imagen (F0-07). */
 const CONSTRUCTOR = path.join(process.cwd(), "scripts", "imagen.ts");
+/** Los scripts que dejan la base del e2e migrada y sembrada (F0-08, F0-10). */
+const MIGRAR = path.join(process.cwd(), "scripts", "db-migrate.ts");
+const SEMBRAR = path.join(process.cwd(), "scripts", "db-seed.ts");
+/** El perfil de compose con la app y su base. */
+const COMPOSE_E2E = ["compose", "--profile", "e2e"] as const;
 /** El latido que dice que la app está sirviendo (P13). */
 const URL_SALUD = "http://127.0.0.1:3000/api/salud";
 const ESPERA_MAXIMA_MS = 120_000;
@@ -77,6 +87,51 @@ function hastaQueLoCorten(): Promise<void> {
   });
 }
 
+/**
+ * El puerto de la máquina en que quedó la base del e2e: compose lo elige al
+ * levantarla (`127.0.0.1::5432`) y `docker compose port` lo dice.
+ */
+function puertoDeLaBase(): string {
+  const resultado = spawnSync(
+    "docker",
+    [...COMPOSE_E2E, "port", "postgres-e2e", "5432"],
+    { encoding: "utf8" },
+  );
+  const puerto = /:(\d+)\s*$/.exec(resultado.stdout ?? "")?.[1];
+  if (resultado.status !== 0 || puerto === undefined) {
+    console.error(
+      `\nERROR: no se pudo saber el puerto de la base del e2e ('docker compose port' dijo: ${(resultado.stdout ?? "").trim()} ${(resultado.stderr ?? "").trim()}).`,
+    );
+    process.exit(1);
+  }
+  return puerto;
+}
+
+/** Migra y siembra la base del e2e, con el mismo entorno que la app del perfil. */
+function prepararBase(puerto: string): void {
+  const entorno = {
+    ...process.env,
+    APP_ENTORNO: "local",
+    DATABASE_URL: `postgresql://seism:seism_local@127.0.0.1:${puerto}/seism_gestion`,
+    ADMIN_INICIAL_EMAIL: "admin@ejemplo.test",
+    IDENTIDAD: "falsa",
+    ALMACEN: "disco",
+    ALMACEN_DIRECTORIO: ".almacen",
+  };
+  for (const script of [MIGRAR, SEMBRAR]) {
+    const resultado = spawnSync(process.execPath, [script], {
+      stdio: "inherit",
+      env: entorno,
+    });
+    if (resultado.status !== 0) {
+      console.error(
+        `\nERROR: ${path.basename(script)} salió ${resultado.status} sobre la base del e2e.`,
+      );
+      process.exit(1);
+    }
+  }
+}
+
 /** ¿Ya responde el latido? */
 async function responde(): Promise<boolean> {
   try {
@@ -97,8 +152,12 @@ if (construccion.status !== 0) {
   process.exit(1);
 }
 
+console.log("Levantando la base del e2e (postgres-e2e) con compose.");
+docker([...COMPOSE_E2E, "up", "--detach", "--wait", "postgres-e2e"]);
+prepararBase(puertoDeLaBase());
+
 console.log(`Levantando la app del perfil e2e (${IMAGEN}) con compose.`);
-docker(["compose", "--profile", "e2e", "up", "--detach", "app"]);
+docker([...COMPOSE_E2E, "up", "--detach", "app"]);
 
 const limite = Date.now() + ESPERA_MAXIMA_MS;
 while (Date.now() < limite) {

@@ -154,6 +154,8 @@ describe("almacén S3 contra MinIO de Testcontainers", () => {
       const almacen = crearAlmacenDocumentos({
         APP_ENTORNO: "local",
         DATABASE_URL: "postgresql://ficticio:ficticio@localhost:5432/ficticia",
+        ADMIN_INICIAL_EMAIL: "admin@ejemplo.test",
+        IDENTIDAD: "falsa",
         ALMACEN: "s3",
         S3_ENDPOINT: opciones.endpoint,
         S3_BUCKET: opciones.bucket,

@@ -16,3 +16,6 @@ Necesita Docker corriendo y el navegador instalado una vez
 
 - `humo.spec.ts`: abre `/`, ve el texto de la página de inicio, pide
   `/api/salud` y ve `ok: true`.
+- `usuarios.spec.ts` (F0-32): un solo recorrido con dos contextos de
+  navegador: alta desde la pantalla, la operadora rebota con `AUT-0003`, se la
+  revoca y su cookie deja de servir en la siguiente request.

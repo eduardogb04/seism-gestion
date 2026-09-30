@@ -17,7 +17,41 @@ import { z } from "zod";
 
 const VALORES_APP_ENTORNO = ["local", "ci", "servidor"] as const;
 
-const esquemaBase = z.object({
+/** Los niveles de log que acepta `LOG_NIVEL` (F0-24), del más grave al más detallado. */
+export const NIVELES_LOG = [
+  "fatal",
+  "error",
+  "warn",
+  "info",
+  "debug",
+  "trace",
+] as const;
+
+export type NivelLog = (typeof NIVELES_LOG)[number];
+
+/** Quién verifica la identidad de quien entra (F0-31, ADR 0027). */
+const VALORES_IDENTIDAD = ["falsa", "google"] as const;
+
+/**
+ * Una variable que solo hace falta en algunos casos (las de Google, con
+ * `IDENTIDAD=falsa`): vacía cuenta como ausente, que es como la deja
+ * `.env.example` (`GOOGLE_CLIENT_SECRET=`).
+ */
+function opcional<T extends z.ZodType>(esquema: T) {
+  return z.preprocess(
+    (valor) => (valor === "" ? undefined : valor),
+    esquema.optional(),
+  );
+}
+
+/** Lo que exige `IDENTIDAD=google`: sin cualquiera de las tres no hay login. */
+const VARIABLES_DE_GOOGLE = [
+  "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET",
+  "APP_URL_PUBLICA",
+] as const;
+
+export const esquemaVariables = z.object({
   /** Dónde corre la app. No es secreto: `.env.example` trae `local`. */
   APP_ENTORNO: z.enum(VALORES_APP_ENTORNO),
   /**
@@ -27,8 +61,43 @@ const esquemaBase = z.object({
    * (ficticia, ADR 0008).
    */
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  /**
+   * Nivel del log (F0-24). Opcional: sin ella, `debug` en `local` e `info`
+   * en `ci` y `servidor` (lo resuelve `src/infraestructura/log.ts`). Vacía
+   * cuenta como no definida: así viene en `.env.example`.
+   */
+  LOG_NIVEL: z.preprocess(
+    (valor) => (valor === "" ? undefined : valor),
+    z.enum(NIVELES_LOG).optional(),
+  ),
+  /**
+   * El email del primer administrador (F0-30): `npm run db:seed` lo da de
+   * alta si no existe (ADR 0024). Obligatoria: sin ella no hay forma de
+   * entrar a administrar usuarios. No es secreta, pero es un dato personal:
+   * el de `.env.example` es inventado (`admin@ejemplo.test`) y el real
+   * nunca se escribe en el repo.
+   */
+  ADMIN_INICIAL_EMAIL: z.email(),
+  /**
+   * Quién verifica la identidad (F0-31, ADR 0027): `google` (OIDC) o
+   * `falsa` (una pantalla que lista emails de prueba, para dev, CI y el
+   * e2e). Obligatoria. `falsa` **no se acepta con `APP_ENTORNO=servidor`**:
+   * la app no arranca (ver el `superRefine` de abajo).
+   */
+  IDENTIDAD: z.enum(VALORES_IDENTIDAD),
+  /** El cliente OAuth de Google. Obligatoria con `IDENTIDAD=google`. */
+  GOOGLE_CLIENT_ID: opcional(z.string()),
+  /** El secreto de ese cliente: **secreta**, nunca en el repo. Obligatoria con `IDENTIDAD=google`. */
+  GOOGLE_CLIENT_SECRET: opcional(z.string()),
+  /**
+   * La URL con que el navegador llega a la app (`https://...`; en local,
+   * `http://localhost:3000`). Google vuelve a `<APP_URL_PUBLICA>/ingresar/callback`.
+   * Obligatoria con `IDENTIDAD=google`.
+   */
+  APP_URL_PUBLICA: opcional(z.url({ protocol: /^https?$/ })),
 });
 
+/** Dónde se guardan los documentos (F0-27). */
 export const VALORES_ALMACEN = ["disco", "s3"] as const;
 
 /** Un texto con algo adentro: vacío cuenta como que falta. */
@@ -60,7 +129,31 @@ const esquemaAlmacen = z.discriminatedUnion("ALMACEN", [
   }),
 ]);
 
-export const esquemaEntorno = z.intersection(esquemaBase, esquemaAlmacen);
+/** Las variables generales con las reglas de identidad (F0-31). */
+const esquemaGeneral = esquemaVariables.superRefine((entorno, ctx) => {
+  if (entorno.IDENTIDAD === "falsa" && entorno.APP_ENTORNO === "servidor") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["IDENTIDAD"],
+      message:
+        "la identidad falsa no se puede usar con APP_ENTORNO=servidor: en el servidor va IDENTIDAD=google (RUNBOOK, sección de Google).",
+    });
+  }
+  if (entorno.IDENTIDAD === "google") {
+    for (const variable of VARIABLES_DE_GOOGLE) {
+      if (entorno[variable] === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: [variable],
+          message: "Hace falta con IDENTIDAD=google.",
+        });
+      }
+    }
+  }
+});
+
+/** Todo el entorno: lo general más el almacén de documentos (F0-27). */
+export const esquemaEntorno = z.intersection(esquemaGeneral, esquemaAlmacen);
 
 export type Entorno = z.infer<typeof esquemaEntorno>;
 
@@ -74,14 +167,19 @@ export type ResultadoEntorno =
  * del propio error).
  */
 const FORMATO_ESPERADO = new Map<string, string>([
-  [
-    "DATABASE_URL",
-    " Tiene que ser una URL de Postgres: postgresql://usuario:clave@servidor:puerto/base (o postgres://).",
-  ],
   ["ALMACEN", ` Valores válidos: ${VALORES_ALMACEN.join(", ")}.`],
   [
     "S3_ENDPOINT",
     " Tiene que ser la URL del servicio S3: http://servidor:puerto o https://servidor.",
+  ],
+  [
+    "DATABASE_URL",
+    " Tiene que ser una URL de Postgres: postgresql://usuario:clave@servidor:puerto/base (o postgres://).",
+  ],
+  ["ADMIN_INICIAL_EMAIL", " Tiene que ser un email: nombre@dominio."],
+  [
+    "APP_URL_PUBLICA",
+    " Tiene que ser una URL http:// o https:// (la dirección con que el navegador llega a la app).",
   ],
 ]);
 
@@ -106,7 +204,11 @@ export function validarEntorno(
     const variable = problema.path.map(String).join(".");
     const valor = variables[variable];
     if (valor === undefined || valor === "") {
-      return `- ${variable}: falta (no está definida o está vacía).`;
+      const cuando = problema.code === "custom" ? ` ${problema.message}` : "";
+      return `- ${variable}: falta (no está definida o está vacía).${cuando}`;
+    }
+    if (problema.code === "custom") {
+      return `- ${variable}: tiene un valor inválido: ${problema.message}`;
     }
     const validos =
       problema.code === "invalid_value"
@@ -128,7 +230,8 @@ export function validarEntorno(
 /**
  * Lo que corre al arrancar el servidor (solo en Node) o un script de base:
  * valida `process.env` y, si falla, escribe el mensaje en stderr y termina el
- * proceso con código 1. Sin `console`: los logs estructurados llegan en F0-24.
+ * proceso con código 1. Sin `console` ni el log estructurado (F0-24): el log
+ * todavía no sabe su formato ni su nivel si el entorno es inválido.
  */
 export function exigirEntornoValido(proceso = "la app"): Entorno {
   const resultado = validarEntorno(process.env, proceso);

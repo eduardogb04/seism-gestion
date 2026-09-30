@@ -27,6 +27,7 @@
 14. Probar la imagen Docker en tu máquina
 15. La imagen publicada en GHCR: hacerla pública y la retención
 16. Correr el e2e (Playwright) en tu máquina
+17. Entrar con Google en local
 
 ---
 
@@ -109,7 +110,7 @@ Las credenciales son de desarrollo, ficticias, y ya están en `.env.example`.
   `127.0.0.1:5432->5432/tcp`.
 - `npm run db:migrate` termina con `All migrations have been successfully applied.` (o, si ya
   estaba al día, `No pending migrations to apply.`).
-- `docker compose exec postgres psql -U seism -d seism_gestion -c "\dt"` lista `configuracion` (y
+- `docker compose exec postgres psql -U seism -d seism_gestion -c "\dt"` lista `configuracion`, `usuarios`, `sesiones` y `auditoria` (y
   `_prisma_migrations`, el registro de Prisma).
 
 **Revertir la última migración** (desde F0-09): `npm run db:migrate:down`. Imprime
@@ -118,16 +119,31 @@ hay migraciones aplicadas, no había nada que revertir. Nunca se cambia la base 
 (`docs/convenciones-base.md`).
 
 **Sembrar datos mínimos** (desde F0-10): `npm run db:seed`, después de `npm run db:migrate`.
-Idempotente: correrlo dos veces (`npm run db:seed` otra vez) deja la base igual. Hoy carga una sola
-clave de `configuracion` (`ia.tope_mensual_usd` en `"0"`); en el servidor exige
-`SEED_PERMITIDO=si` además de `APP_ENTORNO=servidor`, para que no se corra ahí por accidente.
+Idempotente: correrlo dos veces (`npm run db:seed` otra vez) deja la base igual. Hoy carga dos
+claves de `configuracion` (F0-28): `ia.tope_mensual_usd` (`"10.00"`, el tope de gasto de IA del mes)
+y `ia.costo_estimado_usd.defecto` (`"0.01"`), en dólares con punto decimal. Deja cada clave en
+su valor de `prisma/seed.ts`: para cambiar el tope se cambia ahí, por PR, y se vuelve a correr
+`npm run db:seed` (un valor cambiado en la base a mano lo pisa la próxima siembra). Desde F0-30, da de alta al **primer
+administrador** con el email de `ADMIN_INICIAL_EMAIL`, si no hay ya un usuario con ese email. En el
+servidor exige `SEED_PERMITIDO=si` además de `APP_ENTORNO=servidor`, para que no se corra ahí por
+accidente.
+
+**Antes del primer `db:seed`, poné `ADMIN_INICIAL_EMAIL`** (desde F0-30). Es obligatoria: sin ella
+no arranca ni la app ni ningún script de base (`Entorno inválido …` nombrando
+`ADMIN_INICIAL_EMAIL`). En local, el `.env` copiado de `.env.example` trae `admin@ejemplo.test`
+(inventado): alcanza para probar. En el servidor va el email **real** de quien va a administrar los
+usuarios, en el `.env` del servidor y **nunca** en el repo. Si la semilla ya corrió con otro email,
+cambiar la variable y volver a correrla da de alta al nuevo administrador y no toca al anterior
+(revocarlo no es tarea de la semilla). Para verificar:
+`docker compose exec postgres psql -U seism -d seism_gestion -c "select email, rol, estado from usuarios"`
+muestra el email en minúsculas, `administrador` y `activo`.
 
 **Apagarla:** `docker compose down` (los datos quedan en el volumen `seism-gestion_postgres-datos`).
 `docker compose down -v` la apaga **y borra el volumen**: la próxima vez arranca vacía.
 
 **Si falla:**
 - `Entorno inválido: db:migrate no arranca.` y una lista → falta `.env` o le falta la variable que
-  nombra (`DATABASE_URL`, `APP_ENTORNO`, `ALMACEN`...): copiá `.env.example` a `.env`. Es a propósito: sin
+  nombra (`DATABASE_URL`, `APP_ENTORNO`, `ADMIN_INICIAL_EMAIL`, `ALMACEN`...): copiá `.env.example` a `.env`. Es a propósito: sin
   `DATABASE_URL` válida no arranca ni la app ni ningún script de base.
 - `Can't reach database server at localhost:5432` → la base no está levantada o todavía no está
   sana: `docker compose up -d --wait` y `docker compose ps`.
@@ -571,7 +587,7 @@ adentro de la imagen.
    ```
 3. Si querés verla con el navegador, en vez del paso 2:
    ```
-   docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ALMACEN=disco -e ALMACEN_DIRECTORIO=/tmp/almacen seism-gestion:local
+   docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ADMIN_INICIAL_EMAIL=admin@ejemplo.test -e IDENTIDAD=falsa -e ALMACEN=disco -e ALMACEN_DIRECTORIO=/tmp/almacen seism-gestion:local
    ```
    y abrí `http://localhost:3000` y `http://localhost:3000/api/salud`. Se corta con `Ctrl+C`.
    La app todavía no se conecta a la base: alcanza con una `DATABASE_URL` de Postgres válida, como
@@ -635,7 +651,7 @@ repositorio sea público: hay que cambiarlo a mano una vez, y queda así para si
 - Desde cualquier máquina con Docker, **sin `docker login`**:
   ```
   docker pull ghcr.io/eduardogb04/seism-gestion:latest
-  docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ALMACEN=disco -e ALMACEN_DIRECTORIO=/tmp/almacen ghcr.io/eduardogb04/seism-gestion:latest
+  docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ADMIN_INICIAL_EMAIL=admin@ejemplo.test -e IDENTIDAD=falsa -e ALMACEN=disco -e ALMACEN_DIRECTORIO=/tmp/almacen ghcr.io/eduardogb04/seism-gestion:latest
   ```
   (desde F0-08 la imagen exige `DATABASE_URL`; la app todavía no se conecta, alcanza con esa URL
   ficticia)
@@ -665,7 +681,9 @@ que toques algo que se ve en la app y no quieras esperar a CI. En CI corre solo,
 **Necesitás antes:** Docker Desktop abierto (sección 1), Node 24, `npm ci` hecho, y **el navegador
 de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: construye la imagen
 `seism-gestion:local` (como la sección 14) y la corre detrás del perfil `e2e` de
-`docker-compose.yml`. No usa la base: la app todavía no se conecta a Postgres.
+`docker-compose.yml`. Desde F0-31 la app sí se conecta a una base: el e2e levanta la suya
+(`postgres-e2e`, descartable, en un puerto que elige Docker), la migra y la siembra con
+`admin@ejemplo.test`, y la app entra con la identidad falsa (`IDENTIDAD=falsa`).
 
 ### Pasos
 
@@ -686,12 +704,12 @@ de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: c
 
 ### Cómo verificar que salió bien
 
-- La corrida termina con `1 passed` y, arriba, la línea
-  `ok 1 [chromium] › tests\e2e\humo.spec.ts … la app levantada muestra la página de inicio y
-  responde el latido`.
+- La corrida termina con `4 passed`: el de humo (`humo.spec.ts`, la página de inicio y el latido) 
+  y los tres del login (`identidad.spec.ts`: entra un usuario activo, un email sin usuario ve
+  `AUT-0001`, un `state` ajeno ve `AUT-0002`).
 - En el camino se ve `Levantando la app del perfil e2e (seism-gestion:local) con compose.` y, al
-  final, `Container seism-gestion-app-1 Removed`: la app se apagó sola.
-- `docker ps -a` no muestra ningún `seism-gestion-app-1`. Si tenías levantado el Postgres de
+  final, `Container seism-gestion-app-1 Removed`: la app y su base se apagaron solas.
+- `docker ps -a` no muestra ningún `seism-gestion-app-1` ni `seism-gestion-postgres-e2e-1`. Si tenías levantado el Postgres de
   compose (`seism-gestion-postgres-1`), **sigue ahí y con sus datos**: el e2e no lo toca.
 
 ### Si falla
@@ -708,14 +726,69 @@ de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: c
   `npx playwright show-trace test-results/<carpeta>/trace.zip`.
 - Si por un corte de luz o un `Ctrl+C` quedó la app levantada, se baja con:
   ```
-  docker compose --profile e2e rm --stop --force app
+  docker compose --profile e2e rm --stop --force --volumes app postgres-e2e
   ```
   (Nunca `docker compose down -v`: eso borra el volumen de la base local.)
 
 ### Secretos que quedan (solo nombres)
 
-Ninguno. La app del e2e arranca con `APP_ENTORNO=local` y una `DATABASE_URL` ficticia escrita en
-`docker-compose.yml`, a la que nadie se conecta.
+Ninguno. La app del e2e arranca con `APP_ENTORNO=local`, `IDENTIDAD=falsa` y una `DATABASE_URL`
+ficticia (la de su base descartable) escritas en `docker-compose.yml`.
+
+---
+
+## 17. Correr el worker en local
+
+**Cuándo hace falta:** para ver el worker (F0-25) latir contra tu base local, o probar un job nuevo
+antes de abrir el PR. Los tests (`npm test`) ya lo prueban solos, con su propio Postgres.
+**Quién:** cualquiera con el repo clonado y Docker corriendo.
+**Necesitás antes:** el Postgres de compose levantado y migrado (sección 1: `docker compose up -d
+--wait` y `npm run db:migrate`) y `.env` copiado de `.env.example`.
+
+### Pasos
+
+Hay dos formas; elegí una.
+
+1. **Con Node, desde el código** (lo más rápido mientras desarrollás). El worker no lee `.env`
+   solo: se lo pasa Node.
+   ```
+   node --env-file=.env src/worker/index.ts
+   ```
+   (Es lo mismo que `npm run worker` con las variables ya cargadas en la terminal.) Se corta con
+   `Ctrl+C`.
+2. **Con la imagen, como en el servidor.** Construí la imagen (sección 14: `npm run imagen`) y
+   levantá el servicio `worker` de compose, que usa la misma imagen que la app con el comando del
+   worker y se conecta al Postgres de compose:
+   ```
+   docker compose --profile worker up -d worker
+   docker compose logs -f worker
+   ```
+   Para bajarlo: `docker compose --profile worker rm --stop --force worker`.
+
+### Cómo verificar que salió bien
+
+- Al arrancar, una línea `worker arrancado` con `jobs: [{ nombre: "latido", cron: "*/5 * * * *" }]`.
+- Cada 5 minutos (en el minuto 0, 5, 10...) aparece una corrida nueva de `latido` en la base:
+  ```
+  docker compose exec postgres psql -U seism -d seism_gestion -c "select job, inicio, fin, resultado from corridas_worker order by inicio desc limit 5;"
+  ```
+  con `resultado = ok` y `fin` no nulo.
+
+### Si falla
+
+- `Entorno inválido: el worker no arranca.` y el nombre de una variable → falta `.env` o le falta
+  esa variable (copiá `.env.example`). Con `node src/worker/index.ts` pelado, sin `--env-file`, es
+  lo esperado: el worker no lee `.env` solo.
+- `relation "corridas_worker" does not exist` en el log, con `INF-0001` → la base no está migrada:
+  `npm run db:migrate`.
+- Con compose, `pull access denied for seism-gestion` → falta construir la imagen (`npm run
+  imagen`).
+- Nunca `docker compose down -v` para "limpiar": borra el volumen de la base local.
+
+### Secretos que quedan (solo nombres)
+
+Ninguno nuevo. En el servidor, el worker usa las mismas variables que la app (`APP_ENTORNO`,
+`DATABASE_URL`, y `LOG_NIVEL` si hace falta), del mismo archivo de entorno.
 
 ---
 
@@ -742,3 +815,47 @@ Ninguno. La app del e2e arranca con `APP_ENTORNO=local` y una `DATABASE_URL` fic
 ### Secretos que quedan (solo nombres)
 - `NOMBRE_DE_LA_VARIABLE` — dónde vive (GitHub Environment `ensayo` / `/etc/gestion/app.env`).
 ```
+
+---
+
+## 17. Entrar con Google en local
+
+**Cuándo hace falta:** para probar a mano el login real (F0-34). Para desarrollar, CI y el e2e no:
+usan la identidad falsa (`IDENTIDAD=falsa`), que lista emails de prueba y deja elegir uno.
+**Quién:** quien administra.
+**Necesitás antes:** un cliente OAuth de Google (sección 7: proyecto y pantalla de consentimiento)
+con `http://localhost:3000/ingresar/callback` como URI de redirección autorizada, y tu email dado
+de alta como usuario activo (sección 11, o `ADMIN_INICIAL_EMAIL` con `npm run db:seed`).
+
+### Pasos
+
+1. En tu `.env` (nunca en el repo), cambiá y completá:
+   ```
+   IDENTIDAD=google
+   GOOGLE_CLIENT_ID=<el ID de cliente>
+   GOOGLE_CLIENT_SECRET=<el secreto del cliente>
+   APP_URL_PUBLICA=http://localhost:3000
+   ```
+2. `npm run dev` y abrí `http://localhost:3000/ingresar`.
+
+### Cómo verificar que salió bien
+
+- `/ingresar` te manda a Google; al volver, caés en `/sesion`, que muestra tu email.
+- Con una cuenta que no es usuario activo, ves `AUT-0001` en pantalla y no queda sesión.
+
+### Si falla
+
+- Falta `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` o `APP_URL_PUBLICA` → la app no arranca y el
+  mensaje nombra la que falta.
+- `redirect_uri_mismatch` en Google → la URI autorizada no es exactamente
+  `<APP_URL_PUBLICA>/ingresar/callback`.
+- Con cuentas personales Google muestra "aplicación no verificada": es esperable hasta tener
+  Workspace; se sigue con "Avanzado".
+- En el servidor la identidad falsa no existe: `APP_ENTORNO=servidor` con `IDENTIDAD=falsa` no
+  arranca.
+
+### Secretos que quedan (solo nombres)
+
+`GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`: solo en tu `.env` (o en el servidor, sección 10).
+
+---

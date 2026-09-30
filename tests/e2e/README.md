@@ -14,8 +14,10 @@ terminar, sin tocar el Postgres de compose ni su volumen.
 Necesita Docker corriendo y el navegador instalado una vez
 (`npx playwright install chromium`, RUNBOOK sección 16).
 
-- `humo.spec.ts`: abre `/`, ve el texto de la página de inicio, pide
-  `/api/salud` y ve `ok: true`.
+- `humo.spec.ts` (F0-14, F0-26): abre `/`, ve el texto de la página de inicio, pide
+  `/api/salud` y ve `ok: true`; entra como administrador (identidad falsa) y ve
+  las cuatro secciones de `/salud` con la integración `base` en verde. Sin sesión,
+  `/salud` no muestra el panel; con JavaScript apagado se ve igual.
 - `usuarios.spec.ts` (F0-32): un solo recorrido con dos contextos de
   navegador: alta desde la pantalla, la operadora rebota con `AUT-0003`, se la
   revoca y su cookie deja de servir en la siguiente request.

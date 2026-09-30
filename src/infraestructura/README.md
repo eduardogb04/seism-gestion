@@ -19,3 +19,10 @@ Desde F0-25: `fallas.ts` (toda falla con código del catálogo y redactada) y
 encola en `fallidos`, loguea con `INF-0002` y relanza). `arranque/worker.ts`
 es el punto de armado del worker: el único lugar desde el que llega a los
 adaptadores. Ver ADR 0025.
+
+Desde F0-26: `arranque/salud.ts` arma el panel de salud (`armarSalud`) con los
+puertos reales y la lista de jobs de `src/worker/jobs.ts` (`JOBS`, la misma
+definición que levanta el worker), y guarda en memoria la última prueba
+exitosa de cada integración. `arranque/intervalo-cron.ts` calcula, una vez, cada
+cuánto corre un job (la diferencia entre dos ejecuciones consecutivas de su
+cron): con eso `listarSalud` decide si está atrasado.

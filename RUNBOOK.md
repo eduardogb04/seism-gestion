@@ -28,6 +28,7 @@
 15. La imagen publicada en GHCR: hacerla pública y la retención
 16. Correr el e2e (Playwright) en tu máquina
 17. Entrar con Google en local
+18. Abrir el panel de salud (`/salud`) en local
 
 ---
 
@@ -828,5 +829,48 @@ de alta como usuario activo (sección 11, o `ADMIN_INICIAL_EMAIL` con `npm run d
 ### Secretos que quedan (solo nombres)
 
 `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`: solo en tu `.env` (o en el servidor, sección 10).
+
+---
+
+## 18. Abrir el panel de salud (`/salud`) en local
+
+**Cuándo hace falta:** para ver el estado del sistema (F0-26): cada job del worker con su última
+corrida, los fallidos pendientes, las integraciones y el gasto de IA del mes. Es lo que se mira al
+cerrar el lote 6.
+**Quién:** quien administra.
+**Necesitás antes:** la app corriendo (`npm run dev`, sección 1) con `IDENTIDAD=falsa` o Google
+(«Entrar con Google en local»), tu email dado de alta como **administrador** activo (`ADMIN_INICIAL_EMAIL` con
+`npm run db:seed`, o la sección 11) y, para ver el worker, «Correr el worker en local» corriendo.
+
+### Pasos
+
+1. Entrá en `http://localhost:3000/ingresar` y elegí tu email.
+2. Abrí `http://localhost:3000/salud`. No hay que hacer nada más: la página no se actualiza sola,
+   se recarga con F5.
+
+### Cómo verificar que salió bien
+
+- Con el worker corriendo, `latido` está en **VERDE** con "hace < 1 min" o pocos minutos.
+- Apagá el worker, esperá 10 minutos y recargá: `latido` pasa a **ROJO** ("no corrió en el doble
+  de su intervalo") aunque su última corrida haya sido `ok`.
+- Un error del worker (por ejemplo, una `DATABASE_URL` inválida) muestra en la pantalla el mismo
+  código (`INF-NNNN`) que en el log.
+- Sin sesión, `/salud` te manda a `AUT-0002`; con un usuario que no es administrador, ves
+  `AUT-0003`. `/api/salud` (el latido del deploy) sigue abierta.
+
+### Si falla
+
+- `Salud` con `AUT-0003` → tu usuario no es administrador (sección 11).
+- `latido` en rojo "nunca corrió" → el worker no corrió contra esta base («Correr el worker en local»).
+- "No se pudieron leer los fallidos" o una integración en rojo → la base no responde: `docker
+  compose ps`, y `npm run db:migrate` si es una base nueva.
+- El recuadro de gasto de IA dice un código en vez del gasto → falta la clave del tope
+  (`ia.tope_mensual_usd`): `npm run db:seed`.
+- "Última prueba exitosa: sin prueba exitosa desde que arrancó la app" es normal tras reiniciar:
+  ese dato vive en la memoria del proceso.
+
+### Secretos que quedan (solo nombres)
+
+Ninguno.
 
 ---

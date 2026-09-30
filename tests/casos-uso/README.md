@@ -39,5 +39,11 @@ al terminar).
   (`node src/worker/index.ts`) sin `DATABASE_URL` no arranca y con ella sí.
 - `reintento.test.ts` (F0-25): `conReintento` con esperas inyectadas; si
   agota, fila en `fallidos`, log con `INF-0002` y el error relanzado.
-- `salud.test.ts` (F0-25): `listarSalud` con la base real, con una sonda que
-  lanza y con la base caída (nunca lanza).
+- `salud.test.ts` (F0-25, F0-26): `listarSalud` con la base real y reloj fijo: el
+  color de cada job (bordes exactos del doble del intervalo), los fallidos con
+  código y edad, la última prueba exitosa de cada integración y el gasto de IA;
+  con una sonda que lanza y con la base caída (nunca lanza).
+- `salud-armada.test.ts` (F0-26): el panel tal como lo arma la app
+  (`armarSalud`): los jobs salen de `JOBS` del worker y la memoria de pruebas
+  vive con el panel armado.
+- `cola-fallidos-pendientes.test.ts` (F0-26): `listarPendientes` contra Postgres.

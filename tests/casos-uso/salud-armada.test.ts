@@ -14,6 +14,7 @@ import {
   describe,
   expect,
   test,
+  vi,
 } from "vitest";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { fechaHoraLocalDe } from "../../src/adaptadores/reloj/sistema.ts";
@@ -21,6 +22,26 @@ import { RelojFijo } from "../../src/dominio/compartido/reloj.ts";
 import { armarSalud } from "../../src/infraestructura/arranque/salud.ts";
 import { JOBS } from "../../src/worker/jobs.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
+
+/**
+ * El worker de esta tanda tiene un job más que el real, para probar que el
+ * panel lee la lista de `JOBS` y no una escrita a mano.
+ */
+vi.mock("../../src/worker/jobs.ts", async (importarOriginal) => {
+  const original =
+    await importarOriginal<typeof import("../../src/worker/jobs.ts")>();
+  return {
+    ...original,
+    JOBS: [
+      ...original.JOBS,
+      {
+        nombre: "diario-de-prueba",
+        cron: "0 3 * * *",
+        ejecutar: () => Promise.resolve(),
+      },
+    ],
+  };
+});
 
 type Db = ReturnType<typeof crearClientePrisma>;
 
@@ -71,6 +92,16 @@ describe("armarSalud", () => {
       JOBS.map((job) => job.nombre),
     );
     expect(salud.jobs.every((job) => job.estado === "rojo")).toBe(true);
+  });
+
+  test("un job que el worker suma aparece solo, medido contra su propio intervalo", async () => {
+    await corrida("diario-de-prueba", 2 * 24 * 60 * MINUTO);
+
+    const salud = await panel()();
+
+    expect(
+      salud.jobs.find((job) => job.job === "diario-de-prueba")?.estado,
+    ).toBe("ok");
   });
 
   test("el latido corre cada 5 minutos: a 10 minutos justos está en verde", async () => {

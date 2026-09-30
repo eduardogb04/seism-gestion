@@ -13,6 +13,13 @@ import { crearLog } from "../../src/infraestructura/log.ts";
 import type { MensajeNotificacion } from "../../src/puertos/notificaciones.ts";
 import { suiteNotificaciones } from "../contratos/notificaciones.ts";
 
+/** Una línea del log, ya parseada. */
+type RegistroDeAviso = {
+  readonly level: string;
+  readonly destinatario: string;
+  readonly mensaje: MensajeNotificacion;
+};
+
 function logEnMemoria() {
   const escritas: string[] = [];
   const log = crearLog({
@@ -20,12 +27,12 @@ function logEnMemoria() {
     nivel: "debug",
     destino: { write: (linea) => escritas.push(linea) },
   });
-  const registros = (): Record<string, unknown>[] =>
+  const registros = (): RegistroDeAviso[] =>
     escritas
       .join("")
       .split("\n")
       .filter((linea) => linea !== "")
-      .map((linea) => JSON.parse(linea) as Record<string, unknown>);
+      .map((linea) => JSON.parse(linea) as RegistroDeAviso);
   return { log, registros };
 }
 
@@ -37,11 +44,9 @@ suiteNotificaciones("por log", () => {
       registros().map((registro) => ({
         destinatario: {
           tipo: "persona",
-          usuarioId: identificadorDesde<"Usuario">(
-            String(registro["destinatario"]),
-          ),
+          usuarioId: identificadorDesde<"Usuario">(registro.destinatario),
         } satisfies Actor,
-        mensaje: registro["mensaje"] as MensajeNotificacion,
+        mensaje: registro.mensaje,
       })),
   };
 });

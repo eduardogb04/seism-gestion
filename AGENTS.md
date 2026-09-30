@@ -818,8 +818,11 @@ existe en un adaptador real): devuelve el puerto y una forma propia de preparar 
 (`preparar`/`leerEnviados`), que en un adaptador real habla con la API real (o su sandbox de test),
 no con una lista en memoria. Un archivo de test nuevo en el proyecto de Vitest que corresponda (sin
 red ni base: `dominio`; si necesita Docker o red: `casos-uso`) invoca la suite con esa fábrica.
-Los avisos al administrador (F0-25: cola de fallidos y corridas de worker; F0-28: tope de gasto de
-IA) se mandan por `src/puertos/notificaciones.ts`, aunque esas tareas todavía no existan.
+Los avisos al administrador (F0-25: cola de fallidos; F0-28: tope de gasto de IA) se mandan por
+`src/puertos/notificaciones.ts`, **uno por cada administrador activo**, desde M-05 (ADR 0030):
+`src/infraestructura/arranque/avisos.ts` arma `avisar` con el puerto y `RepositorioUsuarios`. En
+Fase 0 el canal es `notificaciones-por-log` (`src/adaptadores/log/notificaciones.ts`, un `warn` con
+el `usuarioId` y sin email), que pasa la misma suite de contrato.
 
 **...una clave a `configuracion` (F0-10).** Una entrada más en
 `CONFIGURACION_POR_DEFECTO` de `prisma/seed.ts`, con su `clave` y su `valor` por defecto (los dos,
@@ -919,8 +922,9 @@ secreto**: queda en la base) y, si hace falta, `intentos` (3 por defecto) y `esp
 (`[1000, 10000, 60000]` ms por defecto). Si agota: queda una fila en `fallidos` con el código del
 último error, se loguea con `INF-0002` y **se relanza** `INF-0002`: el que llama se entera siempre.
 No lo envuelvas en un `catch` que siga como si nada. En el test, pasá `esperar` en la política
-para no dormir y afirmá la secuencia de esperas. El aviso al administrador es ese log hasta que
-exista el puerto de notificaciones (F0-29).
+para no dormir y afirmá la secuencia de esperas. El aviso al administrador sale por `avisar` (M-05, ADR 0030):
+`crearConReintento({ cola, log, avisar })`, con `avisar` armado en `arranque/avisos.ts`; si `avisar`
+lanza, se loguea con su código y `conReintento` relanza igual `INF-0002`.
 
 **...un caso de uso que escribe (F0-33, ADR 0029).** Es imposible escribir sin identidad, y lo
 obliga el compilador, no la disciplina:
@@ -960,9 +964,9 @@ estimación; el orden real de creación manda).
 ```
 src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23); compartido/micro-usd.ts (costos de IA en micro-dólares, F0-28)
 src/casos-uso        orquesta dominio contra puertos. Desde F0-25: salud/listar-salud.ts (listarSalud: última corrida por job con su color —rojo si nunca corrió, si terminó en error o si pasó el doble de su intervalo sin correr—, fallidos pendientes con código y edad, integraciones con su última prueba exitosa y gasto de IA del mes; nunca lanza; F0-26) y salud/hace-cuanto.ts · F0-28: ia/ (interpretar: tope, validación y registro de uso de IA; gastoDelMes) · F0-30: usuarios/ (darDeAlta, revocar, cambiarRol; F0-32: listar, formularios con Zod, roles; revocar y cambiarRol invalidan la caché de sesiones); F0-31: sesion/ (completarSesion, validarSesion con caché de 30 s, cerrarSesion, errores de pantalla; F0-32: invalidarUsuario, acceso.ts con la decisión de acceso de administrador y el actor de la sesión)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa) y repositorios/ (uso-ia.ts, configuracion.ts); F0-31: identidad.ts · F0-27: almacen-documentos.ts (con la validación de claves)
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), ia-doble/ (doble determinista del puerto de IA, F0-28), log/avisos-ia.ts (aviso de tope de IA por log, F0-28), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts), disco/ y s3/ (F0-27: el almacén de documentos)
-src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · fallas.ts y reintento.ts (conReintento, F0-25) · arranque/ = punto de armado (worker.ts desde F0-25; armado.ts e identidad.ts, que elige el adaptador según `IDENTIDAD`, desde F0-31; desde F0-27: almacen.ts, que elige disco o s3 según ALMACEN y arma nuevaClaveDocumento con el reloj real; salud.ts —el panel armado con la lista de `JOBS` del worker— e intervalo-cron.ts, desde F0-26)
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa; M-05: el aviso devuelve una promesa y no lanza) y repositorios/ (uso-ia.ts, configuracion.ts); F0-31: identidad.ts · F0-27: almacen-documentos.ts (con la validación de claves)
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), ia-doble/ (doble determinista del puerto de IA, F0-28), log/notificaciones.ts (el `Notificaciones` de Fase 0: un warn con el usuarioId, M-05), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts), disco/ y s3/ (F0-27: el almacén de documentos)
+src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · fallas.ts y reintento.ts (conReintento, F0-25) · arranque/ = punto de armado (worker.ts desde F0-25; avisos.ts —los avisos al administrador por `Notificaciones`, M-05—, armado.ts e identidad.ts, que elige el adaptador según `IDENTIDAD`, desde F0-31; desde F0-27: almacen.ts, que elige disco o s3 según ALMACEN y arma nuevaClaveDocumento con el reloj real; salud.ts —el panel armado con la lista de `JOBS` del worker— e intervalo-cron.ts, desde F0-26)
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión), administracion/ (F0-32: inicio y usuarios, protegidos por rol), salud/ (F0-26: el panel `/salud`, HTML del servidor sin JavaScript de cliente, protegido por rol de administrador) · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte (F0-25): index.ts (entrada, `npm run worker`) · planificador.ts (croner) · registrar-corrida.ts · jobs.ts (latido)

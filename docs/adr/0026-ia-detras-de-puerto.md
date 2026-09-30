@@ -50,9 +50,9 @@ leído con `parsearUsd` (hasta seis decimales, sin negativos, sin redondear). Nu
 (`src/adaptadores/prisma/fecha-hora.ts`): la `FechaHora` civil argentina es UTC−03:00 (sin
 horario de verano desde 2009).
 
-**El aviso del tope va por el log** (`src/adaptadores/log/avisos-ia.ts`, `warn` con `codigo:
-"IA-0001"`, sin la entrada) hasta que el puerto de notificaciones (F0-29) esté en `main`: entonces
-se implementa `AvisosIa` con ese puerto y el caso de uso no cambia.
+**El aviso del tope va por el puerto `Notificaciones`**, uno por cada administrador activo, sin la
+entrada (M-05, ADR 0030: `AvisosIa` lo implementa `arranque/avisos.ts` y el caso de uso solo lo
+espera; hasta entonces fue un `warn` de `log/avisos-ia.ts`).
 
 **El doble** (`src/adaptadores/ia-doble/`) recibe la tabla de casos al construirse y responde por
 perfil y entrada exactos; lo que no está en la tabla es `INF-0001`, nunca una respuesta inventada.
@@ -88,6 +88,6 @@ perfil y entrada exactos; lo que no está en la tabla es `INF-0001`, nunca una r
 ## Cómo se revierte
 
 Todo queda en `src/casos-uso/ia/`, `src/puertos/ia.ts`, `src/puertos/repositorios/`, los
-adaptadores `ia-doble`, `log/avisos-ia.ts` y `prisma/{uso-ia,configuracion,fecha-hora}.ts`, y la
+adaptadores `ia-doble` y `prisma/{uso-ia,configuracion,fecha-hora}.ts`, y la
 migración `uso_ia` (con su `down.sql`). Cambiar una garantía (por ejemplo, `IA-0001` como
 `Resultado`) toca solo `interpretar.ts` y sus llamadores.

@@ -26,10 +26,11 @@ import {
   type CasoIaDoble,
   crearIaDoble,
 } from "../../src/adaptadores/ia-doble/ia-doble.ts";
-import { crearAvisosIaPorLog } from "../../src/adaptadores/log/avisos-ia.ts";
+import { crearNotificacionesEnMemoria } from "../../src/adaptadores/memoria/notificaciones.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearLectorConfiguracion } from "../../src/adaptadores/prisma/configuracion.ts";
 import { crearRepositorioUsoIa } from "../../src/adaptadores/prisma/uso-ia.ts";
+import { crearRepositorioUsuariosPrisma } from "../../src/adaptadores/prisma/usuarios.ts";
 import { gastoDelMes } from "../../src/casos-uso/ia/gasto-del-mes.ts";
 import { crearInterpretar } from "../../src/casos-uso/ia/interpretar.ts";
 import { ErrorSistema } from "../../src/dominio/compartido/errores/error-sistema.ts";
@@ -38,6 +39,18 @@ import {
   type FechaHora,
   RelojFijo,
 } from "../../src/dominio/compartido/reloj.ts";
+import {
+  crearAvisarAdministradores,
+  crearAvisosIa,
+} from "../../src/infraestructura/arranque/avisos.ts";
+import type { Notificaciones } from "../../src/puertos/notificaciones.ts";
+import {
+  ADMIN_DOS,
+  ADMIN_UNO,
+  EX_ADMIN,
+  OPERADOR,
+  sembrarUsuarios,
+} from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import {
   type ClientePrisma,
@@ -86,7 +99,11 @@ function db(): ClientePrisma {
   return prisma as ClientePrisma;
 }
 
-function armar(ahora: FechaHora) {
+/** `canal`: por dónde salen los avisos (por defecto, el doble en memoria). */
+function armar(
+  ahora: FechaHora,
+  canal: Notificaciones = crearNotificacionesEnMemoria(),
+) {
   const doble = crearIaDoble(CASOS);
   const log = capturarLog();
   const interpretar = crearInterpretar({
@@ -94,9 +111,21 @@ function armar(ahora: FechaHora) {
     usos: crearRepositorioUsoIa(db()),
     configuracion: crearLectorConfiguracion(db()),
     reloj: RelojFijo(ahora),
-    avisos: crearAvisosIaPorLog(log.log),
+    avisos: crearAvisosIa(
+      crearAvisarAdministradores({
+        notificaciones: canal,
+        usuarios: crearRepositorioUsuariosPrisma(db()),
+        log: log.log,
+      }),
+    ),
   });
   return { doble, interpretar, log };
+}
+
+/** Un doble en memoria de `Notificaciones` y el `armar` que sale por él. */
+function armarConDoble(ahora: FechaHora) {
+  const notificaciones = crearNotificacionesEnMemoria();
+  return { ...armar(ahora, notificaciones), notificaciones };
 }
 
 /** Una fila de uso ya gastada, en la fecha dada. */
@@ -156,9 +185,17 @@ describe("tope mensual de gasto de IA", () => {
     expect(await db().usoIa.count()).toBe(2);
   });
 
-  test("un micro-dólar arriba del tope: no llama al adaptador, IA-0001 con el detalle, aviso en el log y sin fila nueva", async () => {
+  test("un micro-dólar arriba del tope: no llama al adaptador, IA-0001 con el detalle, un aviso por administrador activo y sin fila nueva", async () => {
+    const [uno, dos] = await sembrarUsuarios(db(), [
+      ADMIN_UNO,
+      ADMIN_DOS,
+      OPERADOR,
+      EX_ADMIN,
+    ]);
     await gastado(fecha({ anio: 2026, mes: 9, dia: 2 }), 6_001n);
-    const { interpretar, doble, log } = armar(MEDIADOS_DE_SEPTIEMBRE);
+    const { interpretar, doble, notificaciones } = armarConDoble(
+      MEDIADOS_DE_SEPTIEMBRE,
+    );
 
     const error = await rechazo(preguntar(interpretar));
 
@@ -172,14 +209,68 @@ describe("tope mensual de gasto de IA", () => {
       perfil: PERFIL,
     });
     expect(await db().usoIa.count()).toBe(1);
-    const avisos = log.lineas();
-    expect(avisos).toHaveLength(1);
-    expect(avisos[0]).toMatchObject({
-      level: "warn",
-      codigo: "IA-0001",
-      detalles: { mes: "2026-09", tope: "0.01" },
+    const enviados = notificaciones.enviados();
+    expect(enviados.map((envio) => envio.destinatario)).toEqual([
+      { tipo: "persona", usuarioId: uno?.id },
+      { tipo: "persona", usuarioId: dos?.id },
+    ]);
+    for (const envio of enviados) {
+      expect(JSON.stringify(envio.mensaje)).toContain("IA-0001");
+      expect(envio.mensaje.cuerpo).toContain("mes: 2026-09");
+      expect(envio.mensaje.cuerpo).toContain("tope: 0.01");
+      expect(JSON.stringify(envio.mensaje)).not.toContain(ENTRADA);
+    }
+  });
+
+  test("un administrador revocado no recibe el aviso del tope", async () => {
+    const [vigente] = await sembrarUsuarios(db(), [ADMIN_UNO, EX_ADMIN]);
+    await gastado(fecha({ anio: 2026, mes: 9, dia: 2 }), 10_000n);
+    const { interpretar, notificaciones } = armarConDoble(
+      MEDIADOS_DE_SEPTIEMBRE,
+    );
+
+    await rechazo(preguntar(interpretar));
+
+    expect(notificaciones.enviados().map((e) => e.destinatario)).toEqual([
+      { tipo: "persona", usuarioId: vigente?.id },
+    ]);
+  });
+
+  test("sin administradores activos: IA-0001 igual, cero envíos y un warn con el código", async () => {
+    await sembrarUsuarios(db(), [OPERADOR, EX_ADMIN]);
+    await gastado(fecha({ anio: 2026, mes: 9, dia: 2 }), 10_000n);
+    const { interpretar, notificaciones, log } = armarConDoble(
+      MEDIADOS_DE_SEPTIEMBRE,
+    );
+
+    expect((await rechazo(preguntar(interpretar))).codigo).toBe("IA-0001");
+
+    expect(notificaciones.enviados()).toEqual([]);
+    expect(log.lineas()).toHaveLength(1);
+    expect(log.lineas()[0]).toMatchObject({ level: "warn", codigo: "IA-0001" });
+  });
+
+  test("si enviar lanza, el aviso no tapa el IA-0001: se sigue lanzando y la falla se loguea con su código", async () => {
+    await sembrarUsuarios(db(), [ADMIN_UNO]);
+    await gastado(fecha({ anio: 2026, mes: 9, dia: 2 }), 10_000n);
+    const canalCaido: Notificaciones = {
+      enviar: () => Promise.reject(new Error("canal caído")),
+    };
+    const { interpretar, doble, log } = armar(
+      MEDIADOS_DE_SEPTIEMBRE,
+      canalCaido,
+    );
+
+    const error = await rechazo(preguntar(interpretar));
+
+    expect(error.codigo).toBe("IA-0001");
+    expect(doble.llamadas()).toBe(0);
+    expect(log.lineas()).toHaveLength(1);
+    expect(log.lineas()[0]).toMatchObject({
+      level: "error",
+      codigo: "INF-0001",
+      aviso: "IA-0001",
     });
-    expect(JSON.stringify(avisos)).not.toContain(ENTRADA);
   });
 
   test("el costo estimado del perfil manda sobre el de defecto", async () => {

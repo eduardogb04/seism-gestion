@@ -53,7 +53,8 @@ relanza con código.**
   llamadas a bordes (adaptadores) que ya lanzan, y un `Resultado` que el que llama puede ignorar
   es justo la falla silenciosa que se quiere evitar. Si ni siquiera se puede encolar (la base está
   caída), lo dice en el log (`encolado: false`) y relanza igual.
-- **Aviso al administrador: por log**, hasta que exista el puerto de notificaciones (F0-29).
+- **Aviso al administrador: por el puerto `Notificaciones`**, uno por cada administrador activo
+  (M-05, ADR 0030; hasta entonces fue un log).
 - **`listarSalud()`** (`src/casos-uso/salud/`) recibe sus puertos por parámetro y **nunca lanza**:
   una sonda que rechaza queda en `error`, y si no se pudo leer una corrida o los pendientes, lo
   dice (`error` en el job, `fallidosPendientes: null`) en vez de mostrar "nunca corrió" o un cero.

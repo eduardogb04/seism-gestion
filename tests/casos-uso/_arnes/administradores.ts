@@ -34,15 +34,14 @@ export type DatosSembrado = {
   readonly estado: EstadoUsuario;
 };
 
-/** Datos de un usuario inventado. */
+/** Dos administradores inventados, en orden alfabético de email: así salen de `listar()`. */
 export const ADMIN_UNO = {
-  email: "admin.uno@ejemplo.test",
+  email: "admin.a@ejemplo.test",
   rol: "administrador",
   estado: "activo",
 } as const;
-/** Datos de un usuario inventado. */
 export const ADMIN_DOS = {
-  email: "admin.dos@ejemplo.test",
+  email: "admin.b@ejemplo.test",
   rol: "administrador",
   estado: "activo",
 } as const;

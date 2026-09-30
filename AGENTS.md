@@ -179,20 +179,16 @@ archivo (ADR 0005).
 
 - **Levantar en local.** Copiá `.env.example` a `.env` (`.env` está en `.gitignore`: nunca entra
   al repo) y `npm run dev`. Next lee `.env` solo. Las variables hoy: `APP_ENTORNO`,
-<<<<<<< HEAD
-  `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`) y el
-  almacén de documentos (F0-27, ADR 0022): `ALMACEN` (`disco` | `s3`, obligatoria); con `disco`,
-  `ALMACEN_DIRECTORIO`; con `s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` y
-  `S3_REGION` (opcional, por defecto `auto`). Las `S3_*` de `.env.example` son las del MinIO de
-  compose. La app todavía no se conecta a la base, pero sin `DATABASE_URL` válida no arranca.
-=======
   `DATABASE_URL` (F0-08; la de `.env.example` apunta al Postgres de `docker-compose.yml`) y
   `ADMIN_INICIAL_EMAIL` (F0-30: el primer administrador que crea `db:seed`; la de `.env.example`
   es inventada, `admin@ejemplo.test`, y la real nunca entra al repo), `LOG_NIVEL`, opcional (F0-24;
   vacía o sin definir, `debug` en local e `info` en `ci`/`servidor`) e `IDENTIDAD` (F0-31: `falsa`
   o `google`; con `APP_ENTORNO=servidor` la falsa se rechaza y la app no arranca; con `google` exige
   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `APP_URL_PUBLICA`. Ver *Identidad y sesión*).
->>>>>>> origin/main
+  El almacén de documentos (F0-27, ADR 0022): `ALMACEN` (`disco` | `s3`, obligatoria); con `disco`,
+  `ALMACEN_DIRECTORIO`; con `s3`, `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` y
+  `S3_REGION` (opcional, por defecto `auto`). Las `S3_*` de `.env.example` son las del MinIO de
+  compose.
 - **`.env` y `standalone`.** Si al compilar existe un `.env`, `next build` lo **copia** a
   `.next/standalone/.env` y `server.js` lo lee. Sin `.env` al compilar, las variables van en el
   entorno del proceso. Para la imagen Docker (F0-07): el `.env` no puede entrar al contexto del
@@ -962,40 +958,23 @@ estimación; el orden real de creación manda).
 ## Estructura
 
 ```
-<<<<<<< HEAD
-src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23)
-src/casos-uso        orquesta dominio contra puertos (vacío hasta el lote 5)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-27: almacen-documentos.ts (con la validación de claves)
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg) memoria/ (F0-19: secuencias.ts, generador-id.ts), disco/ y s3/ (F0-27: el almacén de documentos)
-src/infraestructura  entorno.ts (Zod) · version.ts · log (F0-24) · arranque/ = punto de armado (desde F0-27: almacen.ts, que elige disco o s3 según ALMACEN y arma nuevaClaveDocumento con el reloj real)
-src/app              Next.js (App Router): página de inicio, layout raíz, api/salud · formato/importe.ts (USD 24.315,00, F0-20)
-src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
-src/worker           proceso aparte: planificador + jobs (vacío hasta el lote 6)
-tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda; minio.ts, MinIO para el almacén S3) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
-=======
 src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23); compartido/micro-usd.ts (costos de IA en micro-dólares, F0-28)
 src/casos-uso        orquesta dominio contra puertos. Desde F0-25: salud/listar-salud.ts (listarSalud: última corrida por job, fallidos pendientes, integraciones; nunca lanza) · F0-28: ia/ (interpretar: tope, validación y registro de uso de IA; gastoDelMes) · F0-30: usuarios/ (darDeAlta, revocar, cambiarRol; F0-32: listar, formularios con Zod, roles; revocar y cambiarRol invalidan la caché de sesiones); F0-31: sesion/ (completarSesion, validarSesion con caché de 30 s, cerrarSesion, errores de pantalla; F0-32: invalidarUsuario, acceso.ts con la decisión de acceso de administrador y el actor de la sesión)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa) y repositorios/ (uso-ia.ts, configuracion.ts); F0-31: identidad.ts
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), ia-doble/ (doble determinista del puerto de IA, F0-28), log/avisos-ia.ts (aviso de tope de IA por log, F0-28), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts)
-src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · fallas.ts y reintento.ts (conReintento, F0-25) · arranque/ = punto de armado (worker.ts desde F0-25; armado.ts e identidad.ts, que elige el adaptador según `IDENTIDAD`, desde F0-31)
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa) y repositorios/ (uso-ia.ts, configuracion.ts); F0-31: identidad.ts · F0-27: almacen-documentos.ts (con la validación de claves)
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), ia-doble/ (doble determinista del puerto de IA, F0-28), log/avisos-ia.ts (aviso de tope de IA por log, F0-28), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts), disco/ y s3/ (F0-27: el almacén de documentos)
+src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · fallas.ts y reintento.ts (conReintento, F0-25) · arranque/ = punto de armado (worker.ts desde F0-25; armado.ts e identidad.ts, que elige el adaptador según `IDENTIDAD`, desde F0-31; desde F0-27: almacen.ts, que elige disco o s3 según ALMACEN y arma nuevaClaveDocumento con el reloj real)
 src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión), administracion/ (F0-32: inicio y usuarios, protegidos por rol) · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte (F0-25): index.ts (entrada, `npm run worker`) · planificador.ts (croner) · registrar-corrida.ts · jobs.ts (latido)
-tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
->>>>>>> origin/main
+tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda; minio.ts, MinIO para el almacén S3) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
 scripts/             utilidades de los comandos de package.json (sin-any.ts, sin-error-crudo.ts, db-migrate-down.ts, db-seed.ts, test-dominio.ts, e2e-app.ts; lib/migraciones.ts)
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
 vitest.config.ts     los tres niveles que corren con Vitest (proyectos dominio, casos-uso, extraccion)
 playwright.config.ts el nivel e2e: Chromium y el webServer que levanta la app con compose
 prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql} · seed.ts (el mecanismo, F0-10; el primer administrador, F0-30)
 prisma.config.ts     configuración de la CLI de Prisma: rutas y DATABASE_URL
-<<<<<<< HEAD
-docker-compose.yml   servicios locales: Postgres 16, MinIO y minio-init (el bucket; F0-27) y, detrás del perfil `e2e`, la app para el e2e
-Dockerfile           imagen multi-stage de la app (y del worker desde F0-25) · .dockerignore
-=======
-docker-compose.yml   servicios locales: Postgres 16 (MinIO llega en F0-27) y, detrás de perfiles, la app para el e2e (`e2e`) y el worker (`worker`, F0-25)
+docker-compose.yml   servicios locales: Postgres 16, MinIO y minio-init (el bucket; F0-27) y, detrás de perfiles, la app para el e2e (`e2e`) y el worker (`worker`, F0-25)
 Dockerfile           imagen multi-stage de la app y del worker (F0-25: otro comando, misma imagen) · .dockerignore
->>>>>>> origin/main
 docs/                arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/ · ensayos/ (registro de cada ensayo de deploy)
 infra/               oracle/bootstrap.sh (levanta la instancia del ensayo, F0-12) · servidor/ (compose del servidor, F0-13)
 .github/             workflows/ci.yml (el check `ci` y el job `publicar`) · CODEOWNERS · dependabot.yml

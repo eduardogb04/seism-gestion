@@ -8,7 +8,7 @@
  * **sin** tocar los archivos permitidos; 1 si alguno fue aceptado, si falta
  * un diagnóstico o si aparece uno donde no correspondía.
  *
- * Son cuatro fixtures, y prueban cosas distintas:
+ * Son cinco fixtures, y prueban cosas distintas:
  *
  * - `debe-fallar.ts` (F0-02): dos reglas independientes (`noExplicitAny` y
  *   `noUnusedVariables`), para que el rechazo de una no tape que la otra dejó
@@ -36,6 +36,13 @@
  *   el archivo que define `ErrorSistema`. Sus diagnósticos tienen la misma
  *   forma que los de Biome (`archivo:línea:columna regla`), así los revisa el
  *   mismo código.
+ * - `conflicto/` (M-03): no lo mira Biome sino `scripts/sin-marcas-conflicto.ts`
+ *   (la tercera parte de `npm run lint`), que rechaza una línea que empieza
+ *   con `<<<<<<< ` o `>>>>>>> `, o que es exactamente `=======`. A
+ *   diferencia de los otros, no mira una estructura `src/...` sino los
+ *   archivos que se le pasan por argumento: `rechazado.md` (los tres
+ *   marcadores, uno por regla) y `permitido.md` (`=======` dentro de una
+ *   línea, un subrayado setext de otra longitud: limpio).
  *
  * Biome no expone una API de Node: se invoca su CLI (el mismo script que usa
  * `node_modules/.bin/biome`, que resuelve el binario nativo según la
@@ -55,17 +62,22 @@ const DIR_FIXTURES = path.join(RAIZ, "tests", "fixtures", "lint");
 
 /**
  * Cabecera de un diagnóstico: `<archivo>:<línea>:<columna> lint/<regla>` (Biome)
- * o `... sin-error-crudo/<regla>` (`scripts/sin-error-crudo.ts`).
+ * `... sin-error-crudo/<regla>` (`scripts/sin-error-crudo.ts`) o
+ * `<archivo>:<línea> sin-marcas-conflicto/<regla>` (sin columna:
+ * `scripts/sin-marcas-conflicto.ts` marca la línea entera).
  */
-const LINEA_DIAGNOSTICO = /^(\S+):\d+:\d+\s+((?:lint|sin-error-crudo)\/[\w/]+)/;
+const LINEA_DIAGNOSTICO =
+  /^(\S+?):\d+(?::\d+)?\s+((?:lint|sin-error-crudo|sin-marcas-conflicto)\/[\w/]+)/;
 
 interface Fixture {
-  /** Quién lo tiene que rechazar: Biome o `scripts/sin-error-crudo.ts`. */
-  readonly herramienta: "biome" | "sin-error-crudo";
+  /** Quién lo tiene que rechazar: Biome o uno de los scripts de `scripts/`. */
+  readonly herramienta: "biome" | "sin-error-crudo" | "sin-marcas-conflicto";
   /** Carpeta del fixture, relativa a `tests/fixtures/lint/` (`"."` es la raíz). */
   readonly carpeta: string;
   /** Qué se le pasa a `biome check`: un archivo o una carpeta. */
   readonly objetivo: string;
+  /** Para `sin-marcas-conflicto`: los archivos que se le pasan por argumento. */
+  readonly archivosArgumento?: readonly string[];
   /** Reglas que tienen que aparecer, todas, en la salida. */
   readonly reglasEsperadas: readonly string[];
   /** Archivos (relativos al fixture) que tienen que aparecer como violación. */
@@ -120,6 +132,19 @@ const FIXTURES: readonly Fixture[] = [
       "src/dominio/compartido/errores/error-sistema.ts",
     ],
   },
+  {
+    herramienta: "sin-marcas-conflicto",
+    carpeta: "conflicto",
+    objetivo: ".",
+    archivosArgumento: ["rechazado.md", "permitido.md"],
+    reglasEsperadas: [
+      "sin-marcas-conflicto/inicio",
+      "sin-marcas-conflicto/medio",
+      "sin-marcas-conflicto/fin",
+    ],
+    archivosQueViolan: ["rechazado.md"],
+    archivosPermitidos: ["permitido.md"],
+  },
 ];
 
 interface Diagnostico {
@@ -147,6 +172,14 @@ function argumentos(fixture: Fixture): string[] {
   if (fixture.herramienta === "sin-error-crudo") {
     // El script mira src/dominio y src/casos-uso del directorio actual.
     return [path.join(RAIZ, "scripts", "sin-error-crudo.ts")];
+  }
+  if (fixture.herramienta === "sin-marcas-conflicto") {
+    // Sin argumentos el script mira `git ls-files` y excluye esta carpeta:
+    // acá se le pasan los archivos del fixture, que sí tiene que mirar.
+    return [
+      path.join(RAIZ, "scripts", "sin-marcas-conflicto.ts"),
+      ...(fixture.archivosArgumento ?? []),
+    ];
   }
   return [
     require.resolve("@biomejs/biome/bin/biome"),
@@ -245,7 +278,7 @@ function main(): void {
 
   console.error(
     "lint:fixtures: al menos un fixture no fue rechazado como se esperaba. " +
-      "Revisá biome.json, scripts/sin-error-crudo.ts y tests/fixtures/lint/.",
+      "Revisá biome.json, scripts/sin-error-crudo.ts, scripts/sin-marcas-conflicto.ts y tests/fixtures/lint/.",
   );
   process.exit(1);
 }

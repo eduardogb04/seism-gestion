@@ -1,15 +1,13 @@
 /**
  * Las reglas que comparten los casos de uso de usuarios (F0-30, ADR 0024):
- * quién puede ejecutarlos, cuándo un administrador es el último, la forma de
- * un email y el registro de auditoría de cada cambio.
+ * quién puede ejecutarlos, cuándo un administrador es el último, y la forma de
+ * un email.
  */
 
 import type { Actor } from "../../dominio/compartido/actor.ts";
-import type { RegistroAuditoria } from "../../dominio/compartido/auditable.ts";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type { Identificador } from "../../dominio/compartido/identificador.ts";
-import type { Reloj } from "../../dominio/compartido/reloj.ts";
 import type {
   RepositorioUsuarios,
   Usuario,
@@ -84,37 +82,4 @@ export function normalizarEmail(email: string): string {
     throw nuevoError(catalogo.AUT_0007, { largo: email.length });
   }
   return normalizado;
-}
-
-/** Lo que la auditoría guarda de un usuario en `antes` y `despues`. */
-function foto(usuario: Usuario): Readonly<Record<string, unknown>> {
-  return {
-    id: usuario.valor.id,
-    email: usuario.valor.email,
-    nombre: usuario.valor.nombre,
-    rol: usuario.valor.rol,
-    estado: usuario.valor.estado,
-  };
-}
-
-/**
- * El `RegistroAuditoria` de un cambio de usuario. Sin `antes` es un alta
- * (`crear`); con `antes`, un cambio (`actualizar`): revocar no es un borrado
- * (el usuario sigue guardado, con `estado: "revocado"`).
- */
-export function registroDeUsuario(
-  antes: Usuario | null,
-  despues: Usuario,
-  actor: Actor,
-  reloj: Reloj,
-): RegistroAuditoria {
-  return {
-    entidad: "Usuario",
-    id: despues.valor.id,
-    accion: antes === null ? "crear" : "actualizar",
-    antes: antes === null ? null : foto(antes),
-    despues: foto(despues),
-    actor,
-    en: reloj.ahora(),
-  };
 }

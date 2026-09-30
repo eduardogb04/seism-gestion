@@ -36,6 +36,8 @@ const NO_ESCRIBEN: Readonly<Record<string, string>> = {
     "fábrica: arma el objeto de casos de uso con sus dependencias, no escribe nada",
   crearCasosUsoSesion:
     "fábrica: arma el objeto de casos de uso de sesión con sus dependencias, no escribe nada",
+  crearInterpretar:
+    "fábrica (F0-28): arma `interpretar` con sus dependencias, no escribe nada",
 };
 
 function descripcion(firma: FirmaDeEscritura): string {

@@ -143,7 +143,10 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   cada uno con `timeout-minutes: 2`: el 2026-09-30 el paso único (`--with-deps`) se colgó dos veces
   y se comió el tope. El intento 1 lleva `continue-on-error` (el único del workflow) y el 2 corre
   solo si el 1 no salió bien; si el 2 falla, `::error::no se pudo instalar Chromium...` y el check
-  queda en rojo. Con la caché `~/.cache/ms-playwright` en *hit*, `playwright install --with-deps chromium`
+  queda en rojo. Playwright corre `sudo apt-get`: al ser root, el corte por tiempo del paso no lo mata
+  y queda vivo con el lock de dpkg tomado (así falló el reintento: `Could not get lock
+  /var/lib/dpkg/lock-frontend`). Por eso el intento 2 empieza matando los `apt-get`/`dpkg` que hayan
+  quedado y corre `dpkg --configure -a`. Peor caso: 2 min del intento 1 + hasta 2 del intento 2. Con la caché `~/.cache/ms-playwright` en *hit*, `playwright install --with-deps chromium`
   no baja el navegador; sí corre `apt-get` por las librerías del sistema (no se cachean, y en un
   runner nuevo faltan 9 paquetes de fuentes: hacerlo condicional no ahorra nada). `test:e2e` corre si alguno de los dos intentos salió bien.
 - **Tope: 10 minutos** (P9, `timeout-minutes` en cada job). Hoy (M-06, 5 corridas medidas) el job `ci`

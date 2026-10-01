@@ -201,7 +201,8 @@ jobs:
       # tiempo del paso no lo mata y sigue vivo con el lock de dpkg tomado
       # (así falló el reintento sin esto: `Could not get lock
       # /var/lib/dpkg/lock-frontend`). Por eso el intento 2 empieza matando
-      # lo que haya quedado de `apt-get`/`dpkg` y reparando dpkg. La clave de la caché lleva el hash del `package-lock.json`:
+      # lo que haya quedado de `apt-get`/`dpkg` y reparando dpkg. La clave de la
+      # caché lleva el hash del `package-lock.json`:
       # subir la versión de Playwright trae una caché nueva.
       - name: Caché del navegador del e2e
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}

@@ -18,7 +18,8 @@
  * (`escrituras-exigen-actor.test.ts`, `firmas-de-escritura.test.ts`).
  */
 
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
@@ -156,5 +157,127 @@ describe("los detectores (sobre código en memoria)", () => {
          export function sincrona() { return 1; }`,
       ),
     ).toEqual([]);
+  });
+
+  describe("Server Actions exportadas por reexportación (M-07)", () => {
+    const SIN_SESION = `async function borrarTodo(formulario: FormData) {
+           return armado().usuarios.revocar(formulario.get("actor"), "x");
+         }`;
+
+    test("export { f } sin sesión es rechazada", () => {
+      expect(
+        accionesSinActor(
+          "acciones.ts",
+          `"use server";
+           ${SIN_SESION}
+           export { borrarTodo };`,
+        ),
+      ).toEqual(["borrarTodo"]);
+    });
+
+    test("export { f as g } sin sesión es rechazada, con el nombre con que se exporta", () => {
+      expect(
+        accionesSinActor(
+          "acciones.ts",
+          `"use server";
+           ${SIN_SESION}
+           export { borrarTodo as borrar };`,
+        ),
+      ).toEqual(["borrar"]);
+    });
+
+    test("export default f sin sesión es rechazada", () => {
+      expect(
+        accionesSinActor(
+          "acciones.ts",
+          `"use server";
+           ${SIN_SESION}
+           export default borrarTodo;`,
+        ),
+      ).toEqual(["default"]);
+    });
+
+    test("export default de una función o flecha asíncrona sin sesión es rechazada", () => {
+      expect(
+        accionesSinActor(
+          "acciones.ts",
+          `"use server";
+           export default async function (formulario: FormData) { return formulario; }`,
+        ),
+      ).toEqual(["default"]);
+      expect(
+        accionesSinActor(
+          "acciones.ts",
+          `"use server";
+           export default async (formulario: FormData) => formulario;`,
+        ),
+      ).toEqual(["default"]);
+    });
+
+    test("una flecha const exportada por separado sin sesión es rechazada", () => {
+      expect(
+        accionesSinActor(
+          "acciones.ts",
+          `"use server";
+           const borrarTodo = async () => armado();
+           export { borrarTodo as borrar };`,
+        ),
+      ).toEqual(["borrar"]);
+    });
+
+    test("las tres formas con sesión son aceptadas", () => {
+      expect(
+        accionesSinActor(
+          "acciones.ts",
+          `"use server";
+           async function uno() { return actorDesdeSesion(); }
+           async function dos() { await accesoDeAdministrador(); }
+           async function tres() { return actorDesdeSesion(); }
+           export { uno };
+           export { dos as otra };
+           export default tres;`,
+        ),
+      ).toEqual([]);
+    });
+
+    test("lo que se reexporta pero no es una función asíncrona local no cuenta, y una exportada de dos formas se informa una vez", () => {
+      expect(
+        accionesSinActor(
+          "acciones.ts",
+          `"use server";
+           function sincrona() { return 1; }
+           const VALOR = 1;
+           export { sincrona, VALOR };`,
+        ),
+      ).toEqual([]);
+      expect(
+        accionesSinActor(
+          "acciones.ts",
+          `"use server";
+           export async function alta() { return 1; }
+           export { alta };`,
+        ),
+      ).toEqual(["alta"]);
+    });
+
+    test("un archivo temporal 'use server' con export { f } y sin sesión, dentro de la carpeta recorrida, se ve", () => {
+      const carpeta = mkdtempSync(path.join(tmpdir(), "m07-"));
+      try {
+        writeFileSync(
+          path.join(carpeta, "acciones.ts"),
+          `"use server";
+           async function sinSesion() { return 1; }
+           export { sinSesion };`,
+        );
+
+        const sinActor = archivosDeLaApp(carpeta).flatMap((ruta) =>
+          accionesSinActor(ruta, readFileSync(ruta, "utf8")),
+        );
+
+        expect(sinActor).toEqual(["sinSesion"]);
+      } finally {
+        rmSync(carpeta, { recursive: true, force: true });
+      }
+    });
   });
 });

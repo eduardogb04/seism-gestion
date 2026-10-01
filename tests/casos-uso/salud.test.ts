@@ -242,8 +242,18 @@ describe("listarSalud", () => {
 
       expect(salud.fallidosPendientes).toBe(2);
       expect(salud.fallidos).toEqual([
-        { origen: "prueba.a", codigoError: "INF-0002", haceMs: 3 * DIA },
-        { origen: "prueba.c", codigoError: "INF-0002", haceMs: 5 * MINUTO },
+        {
+          id: expect.any(String),
+          origen: "prueba.a",
+          codigoError: "INF-0002",
+          haceMs: 3 * DIA,
+        },
+        {
+          id: expect.any(String),
+          origen: "prueba.c",
+          codigoError: "INF-0002",
+          haceMs: 5 * MINUTO,
+        },
       ]);
       expect(JSON.stringify(salud)).not.toContain("inventado");
     });

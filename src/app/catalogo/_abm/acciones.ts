@@ -6,7 +6,9 @@
  * `Actor` sale solo de la sesión, y si esa persona puede escribir lo decide el
  * caso de uso.
  *
- * Si pasó, redirigen al listado. Si no, devuelven el estado del formulario: lo
+ * Si pasó, redirigen al listado, con la búsqueda, el orden y la página que
+ * tenía (`vuelta`, lo que va después del `?`: cambia los parámetros del
+ * listado, nunca a dónde se va). Si no, devuelven el estado del formulario: lo
  * que la persona escribió y el mensaje de cada campo, o el error con su código
  * (también una entidad o un id que no existen: `DOM-0009`). Ninguna lanza un
  * error del catálogo.
@@ -43,6 +45,7 @@ type Escritura =
 
 async function escribir(
   entidad: string,
+  vuelta: string,
   formulario: FormData,
   trabajo: <E extends EntidadAbm>(
     actor: Actor,
@@ -55,7 +58,7 @@ async function escribir(
     conDefinicion(entidad, async (definicion) => {
       const escritura = await trabajo(actor, definicion, escrito);
       return escritura.ok
-        ? { ruta: definicion.ruta }
+        ? { ruta: `${definicion.ruta}?${vuelta}` }
         : { errores: escritura.errores };
     }),
   );
@@ -70,10 +73,11 @@ async function escribir(
 
 export async function crearRegistro(
   entidad: string,
+  vuelta: string,
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  return escribir(entidad, formulario, (actor, definicion, escrito) =>
+  return escribir(entidad, vuelta, formulario, (actor, definicion, escrito) =>
     armado().abm.crear(actor, definicion, escrito),
   );
 }
@@ -81,10 +85,11 @@ export async function crearRegistro(
 export async function guardarRegistro(
   entidad: string,
   id: string,
+  vuelta: string,
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  return escribir(entidad, formulario, (actor, definicion, escrito) =>
+  return escribir(entidad, vuelta, formulario, (actor, definicion, escrito) =>
     armado().abm.guardar(actor, definicion, id, escrito),
   );
 }
@@ -93,10 +98,11 @@ export async function guardarRegistro(
 export async function darDeBajaRegistro(
   entidad: string,
   id: string,
+  vuelta: string,
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  return escribir(entidad, formulario, async (actor, definicion) => {
+  return escribir(entidad, vuelta, formulario, async (actor, definicion) => {
     await armado().abm.marcarEliminado(actor, definicion, id);
     return { ok: true };
   });

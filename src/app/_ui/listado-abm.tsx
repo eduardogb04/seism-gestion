@@ -1,7 +1,9 @@
 /**
  * El listado de cualquier ABM (F1-03, ADR 0031): buscador, orden, tabla y
  * paginado. Todo son enlaces y un formulario `GET`: el estado del listado vive
- * en la URL y lo resuelve la base, no el navegador.
+ * en la URL y lo resuelve la base, no el navegador. Alta, edición y baja (F1-09)
+ * son enlaces al mismo listado con un parámetro más (`nuevo`, `editar` o
+ * `baja`) que abre la ventana, sin perder la búsqueda, el orden ni la página.
  */
 
 import type { Listado } from "../../casos-uso/abm/abm.ts";
@@ -13,23 +15,41 @@ import {
 import type { EntidadAbm } from "../../puertos/repositorios/abm.ts";
 import { Boton, clasesDeBoton } from "./boton.tsx";
 import { CampoTexto } from "./campo-texto.tsx";
+import { Enlace } from "./enlace-next.ts";
 import { Tabla } from "./tabla.tsx";
 
-type Vista = {
+export type Vista = {
   readonly buscar: string;
   readonly orden: string;
   readonly direccion: "asc" | "desc";
   readonly pagina: number;
 };
 
-function enlace(ruta: string, { buscar, orden, direccion, pagina }: Vista) {
-  const parametros = new URLSearchParams({
+export type VentanaPedida = {
+  readonly clave: "nuevo" | "editar" | "baja";
+  readonly valor: string;
+};
+
+/** Lo que va después del `?`: la vista del listado y, si hay, la ventana abierta. */
+export function consultaDe(
+  { buscar, orden, direccion, pagina }: Vista,
+  ventana?: VentanaPedida,
+): string {
+  return new URLSearchParams({
     ...(buscar === "" ? {} : { buscar }),
     orden,
     direccion,
     pagina: String(pagina),
-  });
-  return `${ruta}?${parametros}`;
+    ...(ventana === undefined ? {} : { [ventana.clave]: ventana.valor }),
+  }).toString();
+}
+
+export function enlace(
+  ruta: string,
+  vista: Vista,
+  ventana?: VentanaPedida,
+): string {
+  return `${ruta}?${consultaDe(vista, ventana)}`;
 }
 
 export function ListadoAbm<E extends EntidadAbm>({
@@ -66,9 +86,13 @@ export function ListadoAbm<E extends EntidadAbm>({
           </Boton>
         </form>
         {puedeEscribir ? (
-          <a href={`${ruta}/nuevo`} className={clasesDeBoton("primario")}>
+          <Enlace
+            href={enlace(ruta, vista, { clave: "nuevo", valor: "1" })}
+            scroll={false}
+            className={clasesDeBoton("primario")}
+          >
             Alta de {singular}
-          </a>
+          </Enlace>
         ) : null}
       </div>
       <p className="mb-2 flex flex-wrap gap-3">
@@ -110,18 +134,26 @@ export function ListadoAbm<E extends EntidadAbm>({
               {puedeEscribir ? (
                 <td>
                   <div className="flex flex-wrap gap-2">
-                    <a
-                      href={`${ruta}/${valor.id}`}
+                    <Enlace
+                      href={enlace(ruta, vista, {
+                        clave: "editar",
+                        valor: valor.id,
+                      })}
+                      scroll={false}
                       className={clasesDeBoton("secundario")}
                     >
                       Editar
-                    </a>
-                    <a
-                      href={`${ruta}/${valor.id}/baja`}
+                    </Enlace>
+                    <Enlace
+                      href={enlace(ruta, vista, {
+                        clave: "baja",
+                        valor: valor.id,
+                      })}
+                      scroll={false}
                       className={clasesDeBoton("peligro")}
                     >
                       Dar de baja
-                    </a>
+                    </Enlace>
                   </div>
                 </td>
               ) : null}

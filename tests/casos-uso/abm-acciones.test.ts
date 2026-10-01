@@ -1,7 +1,7 @@
 /**
  * Las Server Actions del molde de ABM (F1-03, ADR 0031) contra el Postgres de
  * verdad del arnés, llamadas como las llama Next: con lo que las pantallas
- * les atan (entidad, id), el estado previo y un `FormData`. Solo se reemplaza
+ * les atan (entidad, id, la vuelta al listado), el estado previo y un `FormData`. Solo se reemplaza
  * lo que es de Next o del armado: la cookie y el punto de armado.
  *
  * - Lo que no pasa **vuelve al formulario**: lo que la persona escribió, tal
@@ -85,6 +85,8 @@ function reloj() {
 }
 
 const LISTA = "/catalogo/grupos";
+/** Lo que el listado le ata a cada acción: su búsqueda, orden y página. */
+const VUELTA = "buscar=norte&orden=nombre&direccion=desc&pagina=2";
 const SIN_SESION = "/ingresar/error?codigo=AUT-0002";
 const VACIO = { escrito: {}, errores: {} };
 
@@ -156,7 +158,12 @@ describe("acciones del molde de ABM", () => {
 
   async function alta(nombre: string): Promise<string> {
     await destino(
-      crearRegistro("Grupo", VACIO, formulario({ nombre, observaciones: "" })),
+      crearRegistro(
+        "Grupo",
+        VUELTA,
+        VACIO,
+        formulario({ nombre, observaciones: "" }),
+      ),
     );
     const fila = await cliente().grupo.findFirstOrThrow({ where: { nombre } });
     return fila.id;
@@ -166,6 +173,7 @@ describe("acciones del molde de ABM", () => {
     const va = await destino(
       crearRegistro(
         "Grupo",
+        VUELTA,
         VACIO,
         formulario({
           nombre: "Grupo Norte",
@@ -176,7 +184,7 @@ describe("acciones del molde de ABM", () => {
       ),
     );
 
-    expect(va).toBe(LISTA);
+    expect(va).toBe(`${LISTA}?${VUELTA}`);
     const { grupos } = await filas();
     expect(grupos).toHaveLength(1);
     expect(grupos[0]).toMatchObject({
@@ -191,7 +199,7 @@ describe("acciones del molde de ABM", () => {
     const datos = formulario({ nombre: "   ", observaciones: " Una nota " });
     datos.set("$ACTION_KEY", "lo-agrega-react");
 
-    const estado = await crearRegistro("Grupo", VACIO, datos);
+    const estado = await crearRegistro("Grupo", VUELTA, VACIO, datos);
 
     expect(estado).toEqual({
       escrito: { nombre: "   ", observaciones: " Una nota " },
@@ -206,10 +214,16 @@ describe("acciones del molde de ABM", () => {
     const antes = await filas();
     const escrito = { nombre: "grupo norte", observaciones: "Otra nota" };
 
-    const enAlta = await crearRegistro("Grupo", VACIO, formulario(escrito));
+    const enAlta = await crearRegistro(
+      "Grupo",
+      VUELTA,
+      VACIO,
+      formulario(escrito),
+    );
     const enEdicion = await guardarRegistro(
       "Grupo",
       id,
+      VUELTA,
       VACIO,
       formulario(escrito),
     );
@@ -230,12 +244,13 @@ describe("acciones del molde de ABM", () => {
       guardarRegistro(
         "Grupo",
         id,
+        VUELTA,
         VACIO,
         formulario({ nombre: "Grupo Centro", observaciones: "" }),
       ),
     );
 
-    expect(va).toBe(LISTA);
+    expect(va).toBe(`${LISTA}?${VUELTA}`);
     expect((await filas()).grupos.map(({ nombre }) => nombre)).toEqual([
       "Grupo Centro",
     ]);
@@ -247,6 +262,7 @@ describe("acciones del molde de ABM", () => {
     const estado = await guardarRegistro(
       "Grupo",
       "00000000-0000-4000-8000-00000000abcd",
+      VUELTA,
       VACIO,
       formulario(escrito),
     );
@@ -263,11 +279,17 @@ describe("acciones del molde de ABM", () => {
     const id = await alta("Grupo Norte");
 
     const va = await destino(
-      darDeBajaRegistro("Grupo", id, VACIO, formulario({})),
+      darDeBajaRegistro("Grupo", id, VUELTA, VACIO, formulario({})),
     );
-    const otraVez = await darDeBajaRegistro("Grupo", id, VACIO, formulario({}));
+    const otraVez = await darDeBajaRegistro(
+      "Grupo",
+      id,
+      VUELTA,
+      VACIO,
+      formulario({}),
+    );
 
-    expect(va).toBe(LISTA);
+    expect(va).toBe(`${LISTA}?${VUELTA}`);
     expect(otraVez).toMatchObject({
       errores: {},
       error: { codigo: "DOM-0009" },
@@ -283,14 +305,16 @@ describe("acciones del molde de ABM", () => {
     const datos = formulario({ nombre: "Grupo Sur", observaciones: "" });
     cookie.valor = undefined;
 
-    expect(await destino(crearRegistro("Grupo", VACIO, datos))).toBe(
-      SIN_SESION,
-    );
-    expect(await destino(guardarRegistro("Grupo", id, VACIO, datos))).toBe(
+    expect(await destino(crearRegistro("Grupo", VUELTA, VACIO, datos))).toBe(
       SIN_SESION,
     );
     expect(
-      await destino(darDeBajaRegistro("Grupo", id, VACIO, formulario({}))),
+      await destino(guardarRegistro("Grupo", id, VUELTA, VACIO, datos)),
+    ).toBe(SIN_SESION);
+    expect(
+      await destino(
+        darDeBajaRegistro("Grupo", id, VUELTA, VACIO, formulario({})),
+      ),
     ).toBe(SIN_SESION);
     expect(await filas()).toEqual(antes);
   });
@@ -302,11 +326,11 @@ describe("acciones del molde de ABM", () => {
     const datos = formulario(escrito);
 
     const estados = [
-      await crearRegistro("Usuario", VACIO, datos),
-      await guardarRegistro("toString", id, VACIO, datos),
-      await guardarRegistro("Grupo", "no-es-un-id", VACIO, datos),
-      await darDeBajaRegistro("NoExiste", id, VACIO, datos),
-      await darDeBajaRegistro("Grupo", "no-es-un-id", VACIO, datos),
+      await crearRegistro("Usuario", VUELTA, VACIO, datos),
+      await guardarRegistro("toString", id, VUELTA, VACIO, datos),
+      await guardarRegistro("Grupo", "no-es-un-id", VUELTA, VACIO, datos),
+      await darDeBajaRegistro("NoExiste", id, VUELTA, VACIO, datos),
+      await darDeBajaRegistro("Grupo", "no-es-un-id", VUELTA, VACIO, datos),
     ];
 
     for (const estado of estados) {

@@ -70,6 +70,7 @@ export type EstadoJob = {
 };
 
 export type FallidoListado = {
+  readonly id: string;
   readonly origen: string;
   readonly codigoError: string;
   readonly haceMs: number;
@@ -226,6 +227,7 @@ async function listarPendientes(
   try {
     const pendientes = await deps.fallidos.listarPendientes(LIMITE_FALLIDOS);
     return pendientes.map((pendiente) => ({
+      id: pendiente.id,
       origen: pendiente.origen,
       codigoError: pendiente.codigoError,
       haceMs: edadMs(deps, pendiente.creadoEn),

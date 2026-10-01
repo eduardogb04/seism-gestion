@@ -7,6 +7,7 @@
  * resto.
  */
 
+import { isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 import { PanelSalud } from "../../src/app/salud/panel-salud.tsx";
@@ -59,8 +60,18 @@ const SALUD: Salud = {
   ],
   fallidosPendientes: 120,
   fallidos: [
-    { origen: "ingesta.correo", codigoError: "ING-0001", haceMs: 2 * DIA },
-    { origen: "ingesta.remito", codigoError: "INF-0002", haceMs: 4 * HORA },
+    {
+      id: "00000000-0000-4000-8000-000000000001",
+      origen: "ingesta.correo",
+      codigoError: "ING-0001",
+      haceMs: 2 * DIA,
+    },
+    {
+      id: "00000000-0000-4000-8000-000000000002",
+      origen: "ingesta.remito",
+      codigoError: "INF-0002",
+      haceMs: 4 * HORA,
+    },
   ],
   integraciones: [
     {
@@ -92,6 +103,27 @@ const SALUD: Salud = {
 
 function html(salud: Salud = SALUD): string {
   return renderToStaticMarkup(PanelSalud({ salud }));
+}
+
+/**
+ * Las `key` de las filas (los elementos con el atributo `atributo`) del árbol
+ * de React, sin renderizarlo a HTML: el render a texto del servidor no avisa de
+ * claves repetidas, así que se mira la `key` que le pasa el componente. Los
+ * componentes del panel son funciones puras (sin hooks): se expanden llamándolos.
+ */
+function clavesDeFilas(nodo: ReactNode, atributo: string): (string | null)[] {
+  if (Array.isArray(nodo)) {
+    return nodo.flatMap((hijo) => clavesDeFilas(hijo, atributo));
+  }
+  if (!isValidElement<{ children?: ReactNode }>(nodo)) {
+    return [];
+  }
+  const propios = atributo in (nodo.props as object) ? [nodo.key] : [];
+  if (typeof nodo.type === "function") {
+    const expandido = (nodo.type as (props: object) => ReactNode)(nodo.props);
+    return [...propios, ...clavesDeFilas(expandido, atributo)];
+  }
+  return [...propios, ...clavesDeFilas(nodo.props.children, atributo)];
 }
 
 /** El fragmento de una fila o recuadro, del atributo `data-*` a su cierre. */
@@ -179,6 +211,28 @@ describe("PanelSalud", () => {
       expect(primero).toContain("ING-0001");
       expect(primero).toContain("hace 2 días");
       expect(fragmento(marcado, 'data-fallido="1"')).toContain("hace 4 h");
+    });
+
+    test("dos fallidos con el mismo origen, código y edad son dos filas con `key` distinta (M-07)", () => {
+      const repetido = {
+        origen: "ingesta.correo",
+        codigoError: "ING-0001",
+        haceMs: DIA,
+      };
+      const salud: Salud = {
+        ...SALUD,
+        fallidosPendientes: 2,
+        fallidos: [
+          { id: "00000000-0000-4000-8000-0000000000a1", ...repetido },
+          { id: "00000000-0000-4000-8000-0000000000a2", ...repetido },
+        ],
+      };
+
+      expect(html(salud).match(/data-fallido="/g)).toHaveLength(2);
+      const claves = clavesDeFilas(PanelSalud({ salud }), "data-fallido");
+      expect(claves).toHaveLength(2);
+      expect(new Set(claves).size).toBe(2);
+      expect(claves).not.toContain(null);
     });
 
     test("sin pendientes, lo dice", () => {

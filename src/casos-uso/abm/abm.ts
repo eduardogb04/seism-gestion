@@ -3,12 +3,14 @@
  * `DefinicionAbm` de la entidad, así un ABM nuevo no suma un archivo acá.
  *
  * - `crear`, `guardar` y `marcarEliminado` reciben el `Actor` primero, exigen
- *   que sea una persona activa con un rol de `rolesQueEscriben` (`AUT-0003`
+ *   que sea una persona activa con un rol de `rolesQueEscriben` (`AUT-0009`
  *   si no) y corren enteros en una transacción; la auditoría la deja el
  *   repositorio en esa misma transacción.
  * - Lo que la persona puede corregir en el formulario (una validación, un
  *   valor único repetido) **vuelve** por campo, no se lanza. Lo demás se lanza
  *   con su código: `DOM-0009` si el registro no existe o está dado de baja.
+ * - `guardar` con los mismos datos que ya están no escribe nada: ni la fila
+ *   ni una auditoría sin cambio.
  * - `listar` valida los parámetros de la URL: uno inválido cae a su valor por
  *   defecto. Buscar, ordenar y paginar los resuelve la base.
  */
@@ -153,6 +155,16 @@ async function repetidos<E extends EntidadAbm>(
   return errores;
 }
 
+function sinCambios<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+  actuales: Readonly<Record<string, string | null>>,
+  nuevos: Readonly<Record<string, string | null>>,
+): boolean {
+  return camposDe(definicion).every(
+    ([campo]) => actuales[campo] === nuevos[campo],
+  );
+}
+
 async function vigente<E extends EntidadAbm>(
   repos: RepositoriosEnTransaccion,
   { entidad }: DefinicionAbm<E>,
@@ -221,7 +233,12 @@ export function crearCasosUsoAbm({
 
     crear(actor, definicion, escrito) {
       return transaccional.ejecutar(async (repos) => {
-        await exigirRol(repos.usuarios, actor, definicion.rolesQueEscriben);
+        await exigirRol(
+          repos.usuarios,
+          actor,
+          definicion.rolesQueEscriben,
+          catalogo.AUT_0009,
+        );
         const validado = validar(definicion, escrito);
         if (!validado.ok) {
           return validado;
@@ -251,11 +268,19 @@ export function crearCasosUsoAbm({
 
     guardar(actor, definicion, id, escrito) {
       return transaccional.ejecutar(async (repos) => {
-        await exigirRol(repos.usuarios, actor, definicion.rolesQueEscriben);
+        await exigirRol(
+          repos.usuarios,
+          actor,
+          definicion.rolesQueEscriben,
+          catalogo.AUT_0009,
+        );
         const actual = await vigente(repos, definicion, id);
         const validado = validar(definicion, escrito);
         if (!validado.ok) {
           return validado;
+        }
+        if (sinCambios(definicion, actual.valor, validado.datos)) {
+          return { ok: true, registro: actual };
         }
         const repositorio = repos.abm(definicion.entidad);
         const errores = await repetidos(
@@ -283,7 +308,12 @@ export function crearCasosUsoAbm({
 
     marcarEliminado(actor, definicion, id) {
       return transaccional.ejecutar(async (repos) => {
-        await exigirRol(repos.usuarios, actor, definicion.rolesQueEscriben);
+        await exigirRol(
+          repos.usuarios,
+          actor,
+          definicion.rolesQueEscriben,
+          catalogo.AUT_0009,
+        );
         const eliminado = marcarEliminado(
           await vigente(repos, definicion, id),
           actor,

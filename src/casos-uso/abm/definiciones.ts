@@ -12,7 +12,7 @@ import type { EntidadAbm } from "../../puertos/repositorios/abm.ts";
 import type { DefinicionAbm } from "./definicion.ts";
 import { GRUPOS } from "./grupos.ts";
 
-const DEFINICIONES: { readonly [E in EntidadAbm]: DefinicionAbm<E> } = {
+export const DEFINICIONES: { readonly [E in EntidadAbm]: DefinicionAbm<E> } = {
   Grupo: GRUPOS,
 };
 

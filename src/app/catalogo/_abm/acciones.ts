@@ -2,18 +2,18 @@
 
 /**
  * Las acciones de escritura de todos los ABM (F1-03, ADR 0031). Las pantallas
- * del molde les atan el nombre de la entidad (y el id): llegan de afuera, así
- * que la entidad se busca entre las definiciones (`DOM-0009` si no hay) y el id
- * lo valida el caso de uso. El `Actor` sale solo de la sesión, y si esa persona puede escribir lo
- * decide el caso de uso.
+ * del molde les atan el nombre de la entidad (y el id): llegan de afuera. El
+ * `Actor` sale solo de la sesión, y si esa persona puede escribir lo decide el
+ * caso de uso.
  *
- * Alta y edición devuelven el estado del formulario si algo no pasó: lo que la
- * persona escribió, el mensaje de cada campo o el error con su código. Si pasó,
- * redirigen al listado.
+ * Si pasó, redirigen al listado. Si no, devuelven el estado del formulario: lo
+ * que la persona escribió y el mensaje de cada campo, o el error con su código
+ * (también una entidad o un id que no existen: `DOM-0009`). Ninguna lanza un
+ * error del catálogo.
  */
 
 import { redirect } from "next/navigation.js";
-import type { ResultadoEscritura } from "../../../casos-uso/abm/abm.ts";
+import type { ErroresPorCampo } from "../../../casos-uso/abm/abm.ts";
 import type {
   DefinicionAbm,
   Escrito,
@@ -37,32 +37,35 @@ function escritoEn(formulario: FormData): Escrito {
   return escrito;
 }
 
-function escribir(
+type Escritura =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly errores: ErroresPorCampo };
+
+async function escribir(
   entidad: string,
   formulario: FormData,
   trabajo: <E extends EntidadAbm>(
     actor: Actor,
     definicion: DefinicionAbm<E>,
     escrito: Escrito,
-  ) => Promise<ResultadoEscritura<E>>,
+  ) => Promise<Escritura>,
 ): Promise<EstadoFormulario> {
   const escrito = escritoEn(formulario);
-  return conDefinicion(entidad, async (definicion) => {
-    const resultado = await conActorDeSesion((actor) =>
-      trabajo(actor, definicion, escrito),
-    );
-    if (!resultado.ok) {
-      return {
-        escrito,
-        errores: {},
-        error: pantallaDeCodigo(resultado.codigo),
-      };
-    }
-    if (!resultado.valor.ok) {
-      return { escrito, errores: resultado.valor.errores };
-    }
-    redirect(definicion.ruta);
-  });
+  const resultado = await conActorDeSesion((actor) =>
+    conDefinicion(entidad, async (definicion) => {
+      const escritura = await trabajo(actor, definicion, escrito);
+      return escritura.ok
+        ? { ruta: definicion.ruta }
+        : { errores: escritura.errores };
+    }),
+  );
+  if (!resultado.ok) {
+    return { escrito, errores: {}, error: pantallaDeCodigo(resultado.codigo) };
+  }
+  if ("errores" in resultado.valor) {
+    return { escrito, errores: resultado.valor.errores };
+  }
+  redirect(resultado.valor.ruta);
 }
 
 export async function crearRegistro(
@@ -86,19 +89,15 @@ export async function guardarRegistro(
   );
 }
 
-/** La baja, ya confirmada. Vuelve al listado; si no pasó, con `?error=<código>`. */
+/** La baja, ya confirmada. */
 export async function darDeBajaRegistro(
   entidad: string,
   id: string,
-): Promise<never> {
-  return conDefinicion(entidad, async (definicion) => {
-    const resultado = await conActorDeSesion((actor) =>
-      armado().abm.marcarEliminado(actor, definicion, id),
-    );
-    redirect(
-      resultado.ok
-        ? definicion.ruta
-        : `${definicion.ruta}?${new URLSearchParams({ error: resultado.codigo })}`,
-    );
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(entidad, formulario, async (actor, definicion) => {
+    await armado().abm.marcarEliminado(actor, definicion, id);
+    return { ok: true };
   });
 }

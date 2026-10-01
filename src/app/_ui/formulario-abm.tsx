@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * El formulario de alta y de edición de cualquier ABM (F1-03, ADR 0031). Es el
+ * El formulario de alta, de edición y de confirmación de baja (sin campos) de
+ * cualquier ABM (F1-03, ADR 0031). Es el
  * único componente de cliente de `_ui/`: `useActionState` es lo que permite
  * que una acción rechazada vuelva con lo que la persona escribió y el mensaje
  * al lado de cada campo. Con JavaScript apagado funciona igual: el formulario
@@ -12,7 +13,7 @@ import { useActionState } from "react";
 import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
 import type { CampoAbm, Escrito } from "../../casos-uso/abm/definicion.ts";
 import type { ErrorDeLogin } from "../../casos-uso/sesion/errores.ts";
-import { Boton, clasesDeBoton } from "./boton.tsx";
+import { Boton, clasesDeBoton, type VarianteDeBoton } from "./boton.tsx";
 import { CampoTexto, CampoTextoLargo } from "./campo-texto.tsx";
 import { ErrorEnPantalla } from "./error-en-pantalla.tsx";
 
@@ -50,6 +51,7 @@ export function FormularioAbm({
   accion,
   campos,
   inicial,
+  enviar: { texto, variante },
   rutaAlCancelar,
 }: {
   readonly accion: (
@@ -58,11 +60,15 @@ export function FormularioAbm({
   ) => Promise<EstadoFormulario>;
   readonly campos: readonly (readonly [string, CampoAbm])[];
   readonly inicial: EstadoFormulario;
+  readonly enviar: {
+    readonly texto: string;
+    readonly variante: VarianteDeBoton;
+  };
   readonly rutaAlCancelar: string;
 }) {
-  const [estado, enviar, enviando] = useActionState(accion, inicial);
+  const [estado, alEnviar, enviando] = useActionState(accion, inicial);
   return (
-    <form action={enviar} className="flex max-w-xl flex-col gap-4">
+    <form action={alEnviar} className="flex max-w-xl flex-col gap-4">
       {estado.error === undefined ? null : (
         <ErrorEnPantalla error={estado.error} />
       )}
@@ -70,8 +76,8 @@ export function FormularioAbm({
         <Control key={nombre} nombre={nombre} campo={campo} estado={estado} />
       ))}
       <div className="flex flex-wrap gap-3">
-        <Boton variante="primario" type="submit" disabled={enviando}>
-          Guardar
+        <Boton variante={variante} type="submit" disabled={enviando}>
+          {texto}
         </Boton>
         <a href={rutaAlCancelar} className={clasesDeBoton("secundario")}>
           Cancelar

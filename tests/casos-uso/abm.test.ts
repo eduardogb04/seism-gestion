@@ -8,7 +8,7 @@
  * - el único es entre los no eliminados, sin mayúsculas ni espacios de los
  *   extremos, y además lo garantiza la base;
  * - quien no tiene un rol de `rolesQueEscriben` (o está revocado, o es un
- *   proceso) no escribe: `AUT-0003`, sin fila ni auditoría;
+ *   proceso) no escribe: `AUT-0009`, sin fila ni auditoría;
  * - listado con búsqueda, orden y paginado; lo dado de baja no aparece.
  *
  * Datos inventados. Necesita Docker corriendo.
@@ -296,6 +296,28 @@ describe("molde de ABM, con Grupos", () => {
       expect(resultado.ok).toBe(true);
     });
 
+    test("guardar lo mismo que ya está no escribe: ni toca la fila ni deja auditoría", async () => {
+      const id = await alta("Grupo Norte", "Primera nota");
+      const cambio = { nombre: "Grupo Sur", observaciones: "" };
+      await casos(HOY).guardar(admin, GRUPOS, id, cambio);
+      const antes = await cliente().grupo.findUniqueOrThrow({ where: { id } });
+
+      const otraVez = await casos(fecha(10)).guardar(operador, GRUPOS, id, {
+        nombre: "  Grupo Sur ",
+        observaciones: "  ",
+      });
+
+      expect(otraVez.ok).toBe(true);
+      expect(
+        await cliente().grupo.findUniqueOrThrow({ where: { id } }),
+      ).toEqual(antes);
+      const registros = await auditoriaDeGrupos();
+      expect(registros.map(({ accion }) => accion)).toEqual([
+        "crear",
+        "actualizar",
+      ]);
+    });
+
     test("el nombre de otro grupo vuelve con DOM-0008 y no cambia nada", async () => {
       await alta("Grupo Norte");
       const id = await alta("Grupo Sur");
@@ -391,20 +413,20 @@ describe("molde de ABM, con Grupos", () => {
   });
 
   describe("quién escribe", () => {
-    test("un operador, si la definición no lo incluye, no da de alta, no edita ni da de baja: AUT-0003 y nada cambia", async () => {
+    test("un operador, si la definición no lo incluye, no da de alta, no edita ni da de baja: AUT-0009 y nada cambia", async () => {
       const id = await alta("Grupo Norte");
       const antes = await filas();
       const datos = { nombre: "Grupo Sur", observaciones: "" };
 
       await expect(
         casos().crear(operador, SOLO_ADMINISTRADOR, datos),
-      ).rejects.toMatchObject({ codigo: "AUT-0003" });
+      ).rejects.toMatchObject({ codigo: "AUT-0009" });
       await expect(
         casos().guardar(operador, SOLO_ADMINISTRADOR, id, datos),
-      ).rejects.toMatchObject({ codigo: "AUT-0003" });
+      ).rejects.toMatchObject({ codigo: "AUT-0009" });
       await expect(
         casos().marcarEliminado(operador, SOLO_ADMINISTRADOR, id),
-      ).rejects.toMatchObject({ codigo: "AUT-0003" });
+      ).rejects.toMatchObject({ codigo: "AUT-0009" });
 
       expect(await filas()).toEqual(antes);
       expect(
@@ -433,13 +455,13 @@ describe("molde de ABM, con Grupos", () => {
 
         await expect(
           casos().crear(actor(), GRUPOS, datos),
-        ).rejects.toMatchObject({ codigo: "AUT-0003" });
+        ).rejects.toMatchObject({ codigo: "AUT-0009" });
         await expect(
           casos().guardar(actor(), GRUPOS, id, datos),
-        ).rejects.toMatchObject({ codigo: "AUT-0003" });
+        ).rejects.toMatchObject({ codigo: "AUT-0009" });
         await expect(
           casos().marcarEliminado(actor(), GRUPOS, id),
-        ).rejects.toMatchObject({ codigo: "AUT-0003" });
+        ).rejects.toMatchObject({ codigo: "AUT-0009" });
 
         expect(await filas()).toEqual(antes);
       },

@@ -1019,7 +1019,9 @@ falta un paso:
    migración con `down.sql` (*una migración*). **Por cada campo único, el índice va a mano en
    `migration.sql`** (Prisma no declara índices sobre expresiones, y `migrate diff` no lo cuenta como
    diferencia): `CREATE UNIQUE INDEX "<tabla>_<columna>_unico" ON "<tabla>" (lower("<columna>"))
-   WHERE ("eliminado_en" IS NULL);`. Sin él, dos altas simultáneas pueden repetir el valor.
+   WHERE ("eliminado_en" IS NULL);`. Sin él, dos altas simultáneas pueden repetir el valor, y
+   `tests/casos-uso/abm-indices-unicos.test.ts` queda en rojo: recorre todas las definiciones y busca
+   ese índice en la base migrada (por eso el modelo se llama como la entidad).
 3. **La tabla**, una línea en `src/adaptadores/prisma/abm/tablas.ts`:
    `crearRepositorioAbmPrisma(cliente, "<Entidad>", cliente.<modelo>)`. Si el modelo no coincide con
    `EntidadesAbm` o le faltan columnas de auditable, no compila.
@@ -1041,9 +1043,10 @@ molde no se repiten** (`tests/casos-uso/abm.test.ts`, `abm-acciones.test.ts`, `t
 un ABM nuevo prueba solo lo que tenga de propio. Un **tipo de campo** que todavía no existe (número,
 fecha, opción, relación) es una variante más de `CampoAbm` (`src/casos-uso/abm/definicion.ts`), con
 su conversión en `valorDeCampo` y su control en `src/app/_ui/formulario-abm.tsx`, que es el **único**
-componente de cliente de `_ui/`. Los casos de uso deciden quién escribe (`AUT-0003`); las pantallas
+componente de cliente de `_ui/`. Los casos de uso deciden quién escribe (`AUT-0009`); las pantallas
 solo ocultan los botones. Lo que la persona corrige vuelve al lado del campo (`DOM-0008`: valor único
-repetido); `DOM-0009`: el registro no existe o está dado de baja.
+repetido); `DOM-0009`: el registro no existe o está dado de baja. Las acciones no lanzan errores del
+catálogo: vuelven al formulario con su código. Guardar sin cambios no escribe ni audita.
 
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·

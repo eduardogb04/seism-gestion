@@ -190,6 +190,14 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Volvé a la lista de usuarios y repetí la acción desde la pantalla, eligiendo el rol de la lista. Si no la podés completar, avisá con este código.",
   },
+  AUT_0009: {
+    codigo: "AUT-0009",
+    tipo: "persona",
+    descripcion:
+      "Tu rol no puede modificar este catálogo: no puede dar de alta, editar ni dar de baja sus registros.",
+    queHacer:
+      "Pedile a alguien con un rol que sí pueda que lo haga por vos. Si tendrías que poder, avisale a un administrador para que revise tu rol.",
+  },
   INF_0001: {
     codigo: "INF-0001",
     tipo: "sistema",

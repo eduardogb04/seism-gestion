@@ -24,7 +24,6 @@ import type {
   EntidadAbm,
   RegistroAbm,
 } from "../../../puertos/repositorios/abm.ts";
-import { Boton, clasesDeBoton } from "../../_ui/boton.tsx";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { ListadoAbm } from "../../_ui/listado-abm.tsx";
@@ -116,9 +115,6 @@ export async function PaginaListado<E extends EntidadAbm>({
       sesion={sesion}
       titulo={definicion.plural}
     >
-      {typeof parametros.error === "string" ? (
-        <ErrorEnPantalla error={pantallaDeCodigo(parametros.error)} />
-      ) : null}
       <ListadoAbm
         definicion={definicion}
         listado={listado}
@@ -142,6 +138,7 @@ export function PaginaAlta<E extends EntidadAbm>({
         accion={crearRegistro.bind(null, definicion.entidad)}
         campos={camposDe(definicion)}
         inicial={{ escrito: {}, errores: {} }}
+        enviar={{ texto: "Guardar", variante: "primario" }}
         rutaAlCancelar={definicion.ruta}
       />
     </Pantalla>
@@ -161,6 +158,7 @@ export function PaginaEdicion<E extends EntidadAbm>(
           accion={guardarRegistro.bind(null, definicion.entidad, valor.id)}
           campos={camposDe(definicion)}
           inicial={{ escrito: escritoDe(valor), errores: {} }}
+          enviar={{ texto: "Guardar", variante: "primario" }}
           rutaAlCancelar={definicion.ruta}
         />
       )}
@@ -190,21 +188,17 @@ export function PaginaBaja<E extends EntidadAbm>(
                 </div>
               ))}
             </dl>
-            <form
-              action={darDeBajaRegistro.bind(
+            <FormularioAbm
+              accion={darDeBajaRegistro.bind(
                 null,
                 definicion.entidad,
                 valor.id,
               )}
-              className="flex flex-wrap gap-3"
-            >
-              <Boton variante="peligro" type="submit">
-                Confirmar baja
-              </Boton>
-              <a href={definicion.ruta} className={clasesDeBoton("secundario")}>
-                Cancelar
-              </a>
-            </form>
+              campos={[]}
+              inicial={{ escrito: {}, errores: {} }}
+              enviar={{ texto: "Confirmar baja", variante: "peligro" }}
+              rutaAlCancelar={definicion.ruta}
+            />
           </>
         );
       }}

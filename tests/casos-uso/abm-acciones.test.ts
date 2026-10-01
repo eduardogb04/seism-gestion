@@ -8,7 +8,8 @@
  *   cual, y el mensaje de cada campo; un error que no es de un campo, con su
  *   código del catálogo.
  * - El actor sale solo de la sesión; sin sesión, `AUT-0002` y nada cambia.
- * - La entidad llega de afuera: una que no existe es `DOM-0009`.
+ * - La entidad y el id llegan de afuera: si no existen, el error vuelve con su
+ *   código (`DOM-0009`) para mostrarlo en pantalla; ninguna acción lanza.
  *
  * Datos inventados. Necesita Docker corriendo.
  */
@@ -258,14 +259,19 @@ describe("acciones del molde de ABM", () => {
     expect(estado.error?.mensaje).not.toBe("");
   });
 
-  test("la baja marca el registro y vuelve al listado; la de uno que no existe vuelve con su código", async () => {
+  test("la baja marca el registro y vuelve al listado; la de uno que ya no está devuelve el error con su código", async () => {
     const id = await alta("Grupo Norte");
 
-    const va = await destino(darDeBajaRegistro("Grupo", id));
-    const otraVez = await destino(darDeBajaRegistro("Grupo", id));
+    const va = await destino(
+      darDeBajaRegistro("Grupo", id, VACIO, formulario({})),
+    );
+    const otraVez = await darDeBajaRegistro("Grupo", id, VACIO, formulario({}));
 
     expect(va).toBe(LISTA);
-    expect(otraVez).toBe(`${LISTA}?error=DOM-0009`);
+    expect(otraVez).toMatchObject({
+      errores: {},
+      error: { codigo: "DOM-0009" },
+    });
     const { grupos } = await filas();
     expect(grupos).toHaveLength(1);
     expect(grupos[0]?.eliminadoEn).not.toBeNull();
@@ -283,20 +289,33 @@ describe("acciones del molde de ABM", () => {
     expect(await destino(guardarRegistro("Grupo", id, VACIO, datos))).toBe(
       SIN_SESION,
     );
-    expect(await destino(darDeBajaRegistro("Grupo", id))).toBe(SIN_SESION);
+    expect(
+      await destino(darDeBajaRegistro("Grupo", id, VACIO, formulario({}))),
+    ).toBe(SIN_SESION);
     expect(await filas()).toEqual(antes);
   });
 
-  test("una entidad que no es de un ABM es DOM-0009 y nada cambia", async () => {
+  test("una entidad o un id que no existen no rompen: las tres devuelven DOM-0009 para mostrar, y nada cambia", async () => {
+    const id = await alta("Grupo Norte");
     const antes = await filas();
-    const datos = formulario({ nombre: "Grupo Norte", observaciones: "" });
+    const escrito = { nombre: "Grupo Sur", observaciones: "" };
+    const datos = formulario(escrito);
 
-    await expect(crearRegistro("Usuario", VACIO, datos)).rejects.toMatchObject({
-      codigo: "DOM-0009",
-    });
-    await expect(
-      darDeBajaRegistro("toString", "no-importa"),
-    ).rejects.toMatchObject({ codigo: "DOM-0009" });
+    const estados = [
+      await crearRegistro("Usuario", VACIO, datos),
+      await guardarRegistro("toString", id, VACIO, datos),
+      await guardarRegistro("Grupo", "no-es-un-id", VACIO, datos),
+      await darDeBajaRegistro("NoExiste", id, VACIO, datos),
+      await darDeBajaRegistro("Grupo", "no-es-un-id", VACIO, datos),
+    ];
+
+    for (const estado of estados) {
+      expect(estado).toMatchObject({
+        escrito,
+        errores: {},
+        error: { codigo: "DOM-0009" },
+      });
+    }
     expect(await filas()).toEqual(antes);
   });
 });

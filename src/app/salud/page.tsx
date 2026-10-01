@@ -6,19 +6,26 @@
  */
 
 import { armado } from "../../infraestructura/arranque/armado.ts";
+import { ErrorEnPantalla } from "../_ui/error-en-pantalla.tsx";
+import { Marco } from "../_ui/marco.tsx";
+import { Tarjeta } from "../_ui/tarjeta.tsx";
 import { accesoDeAdministrador } from "../(auth)/sesion-actual.ts";
-import { ErrorEnPantalla } from "../administracion/error-en-pantalla.tsx";
 import { PanelSalud } from "./panel-salud.tsx";
 
 export default async function Salud() {
   const acceso = await accesoDeAdministrador();
   if (acceso.tipo === "prohibido") {
     return (
-      <main>
+      <Tarjeta>
         <h1>Salud</h1>
         <ErrorEnPantalla error={acceso.error} />
-      </main>
+      </Tarjeta>
     );
   }
-  return <PanelSalud salud={await armado().salud()} />;
+  const { email, rol } = acceso.sesion.usuario;
+  return (
+    <Marco email={email} rol={rol} rutaActual="/salud">
+      <PanelSalud salud={await armado().salud()} />
+    </Marco>
+  );
 }

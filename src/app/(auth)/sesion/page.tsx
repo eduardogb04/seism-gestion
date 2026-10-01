@@ -5,6 +5,10 @@
  */
 
 import { connection } from "next/server.js";
+import { clasesDeBoton } from "../../_ui/boton.tsx";
+import { FormularioSalir } from "../../_ui/formulario-salir.tsx";
+import { Marco } from "../../_ui/marco.tsx";
+import { Tarjeta } from "../../_ui/tarjeta.tsx";
 import { sesionActual } from "../sesion-actual.ts";
 
 export default async function SesionActual() {
@@ -12,23 +16,25 @@ export default async function SesionActual() {
   const sesion = await sesionActual();
   if (sesion === null) {
     return (
-      <main>
+      <Tarjeta>
         <h1>Sin sesión</h1>
-        <p>No hay una sesión abierta en este navegador.</p>
-        <a href="/ingresar">Entrar</a>
-      </main>
+        <p className="mb-4">No hay una sesión abierta en este navegador.</p>
+        <a href="/ingresar" className={clasesDeBoton("primario")}>
+          Entrar
+        </a>
+      </Tarjeta>
     );
   }
+  const { email, rol } = sesion.usuario;
   return (
-    <main>
-      <h1>Sesión iniciada</h1>
-      <p>
-        Entraste como <strong data-email-sesion>{sesion.usuario.email}</strong>{" "}
-        ({sesion.usuario.rol}).
-      </p>
-      <form method="post" action="/salir">
-        <button type="submit">Cerrar sesión</button>
-      </form>
-    </main>
+    <Marco email={email} rol={rol} rutaActual="/sesion">
+      <main>
+        <h1>Sesión iniciada</h1>
+        <p className="mb-4">
+          Entraste como <strong data-email-sesion>{email}</strong> ({rol}).
+        </p>
+        <FormularioSalir texto="Cerrar sesión" />
+      </main>
+    </Marco>
   );
 }

@@ -32,8 +32,12 @@ export type CampoAbm =
       readonly etiqueta: string;
       readonly opciones: readonly OpcionAbm[];
     }
-  /** Una casilla: el dato es un `boolean`. */
-  | { readonly tipo: "siNo"; readonly etiqueta: string }
+  /** Una casilla: el dato es un `boolean`; `marcadaAlCrear`: en el alta viene marcada. */
+  | {
+      readonly tipo: "siNo";
+      readonly etiqueta: string;
+      readonly marcadaAlCrear?: true;
+    }
   /**
    * Un registro vigente de otra entidad, que se elige de una lista y se
    * muestra por su columna `mostrar`: una de las de orden de la entidad
@@ -99,6 +103,19 @@ export function camposDe<E extends EntidadAbm>(
 ): readonly (readonly [string, CampoAbm])[] {
   const campos: Readonly<Record<string, CampoAbm>> = definicion.campos;
   return Object.entries(campos);
+}
+
+/** Lo que trae el formulario de alta antes de escribir: las casillas que vienen marcadas. */
+export function valoresDeAlta<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+): Escrito {
+  return Object.fromEntries(
+    camposDe(definicion).flatMap(([nombre, campo]) =>
+      campo.tipo === "siNo" && campo.marcadaAlCrear === true
+        ? [[nombre, MARCADA]]
+        : [],
+    ),
+  );
 }
 
 /** De lo escrito al valor que valida la definición. */

@@ -25,6 +25,11 @@ const SECCIONES: readonly Seccion[] = [
     soloAdministrador: false,
   },
   {
+    texto: "Tipos de servicio",
+    ruta: "/catalogo/tipos-de-servicio",
+    soloAdministrador: false,
+  },
+  {
     texto: "Usuarios",
     ruta: "/administracion/usuarios",
     soloAdministrador: true,

@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-07, los cinco tipos de servicio), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -100,6 +100,7 @@ export async function sembrar(
   if (opciones.appEntorno !== "servidor") {
     await sembrarGruposDeDemostracion(prisma, opciones.reloj);
     await sembrarClientesDeDemostracion(prisma, opciones.reloj);
+    await sembrarTiposDeServicio(prisma, opciones.reloj);
   }
 }
 
@@ -236,6 +237,70 @@ async function sembrarClientesDeDemostracion(
             ...CLIENTE_BASE,
             ...datos,
             grupoId: grupoVigente?.id ?? null,
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
+}
+
+const TIPOS_DE_SERVICIO_DE_DEMOSTRACION: readonly {
+  readonly nombre: string;
+  readonly descripcion: string;
+  readonly modalidad: "puntual" | "recurrente";
+}[] = [
+  {
+    nombre: "Auditoría de tanques",
+    descripcion: "Relevamiento y verificación del estado de tanques.",
+    modalidad: "puntual",
+  },
+  {
+    nombre: "Logística",
+    descripcion: "Traslado y coordinación de cargas.",
+    modalidad: "puntual",
+  },
+  {
+    nombre: "Certificación de camiones",
+    descripcion: "Verificación y certificación de camiones.",
+    modalidad: "puntual",
+  },
+  {
+    nombre: "Informes",
+    descripcion: "Informes técnicos a pedido.",
+    modalidad: "puntual",
+  },
+  {
+    nombre: "Servicio de operación / alquiler de tanques",
+    descripcion: "Operación o alquiler de tanques, con servicio continuo.",
+    modalidad: "recurrente",
+  },
+];
+
+/** Da de alta cada tipo de servicio si **nunca hubo** uno con ese nombre (como los grupos). */
+async function sembrarTiposDeServicio(
+  prisma: PrismaClient,
+  reloj: Reloj,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const tipos = repositorioAbmPrisma(tx, "TipoServicio");
+    for (const datos of TIPOS_DE_SERVICIO_DE_DEMOSTRACION) {
+      if (
+        (await tx.tipoServicio.findFirst({
+          where: { nombre: datos.nombre },
+        })) !== null
+      ) {
+        continue;
+      }
+      await tipos.crear(
+        actor,
+        crearAuditable(
+          {
+            ...datos,
+            activo: true,
             id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
           },
           actor,

@@ -15,6 +15,7 @@ import {
   type DefinicionAbm,
   escritoDe,
   textosDe,
+  valoresDeAlta,
 } from "../../../casos-uso/abm/definicion.ts";
 import {
   codigoDeError,
@@ -94,7 +95,7 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
           accion={crearRegistro.bind(null, entidad, vuelta)}
           campos={camposDe(definicion)}
           elegibles={elegibles}
-          inicial={{ escrito: {}, errores: {} }}
+          inicial={{ escrito: valoresDeAlta(definicion), errores: {} }}
           enviar={{ texto: "Guardar", variante: "primario" }}
           rutaAlCancelar={rutaAlCerrar}
         />

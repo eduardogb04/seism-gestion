@@ -1,0 +1,112 @@
+/**
+ * `npm run arrancar` (F1-01): levanta el sistema en local con un solo paso.
+ *
+ * Docker responde → puerto 3000 libre → `.env` → Postgres de compose →
+ * migraciones → semilla → URL y email de prueba → `next dev`. Los dos
+ * primeros pasos no escriben nada: si fallan, la máquina queda como estaba.
+ * Al cortar con Ctrl+C la base de compose queda levantada.
+ *
+ * Solo encadena lo que ya existe (`db:migrate`, `db:seed`): ellos validan el
+ * entorno. MinIO no se levanta porque `.env.example` usa `ALMACEN=disco`.
+ */
+
+import { spawnSync } from "node:child_process";
+import { copyFileSync, existsSync } from "node:fs";
+import { connect } from "node:net";
+import path from "node:path";
+import process from "node:process";
+
+const PUERTO_APP = 3000;
+const BIN_NEXT = path.join(
+  process.cwd(),
+  "node_modules",
+  "next",
+  "dist",
+  "bin",
+  "next",
+);
+
+function avisar(texto: string): void {
+  process.stdout.write(`${texto}\n`);
+}
+
+function cortar(texto: string, codigo = 1): never {
+  process.stderr.write(`\n${texto}\n`);
+  process.exit(codigo);
+}
+
+/** Corre un paso mostrando su salida; si falla, corta nombrándolo. */
+function paso(
+  nombre: string,
+  comando: string,
+  argumentos: readonly string[],
+): void {
+  const resultado = spawnSync(comando, [...argumentos], { stdio: "inherit" });
+  if (resultado.status !== 0) {
+    cortar(
+      `arrancar: falló el paso «${nombre}» (salió ${resultado.status ?? "sin código"}).`,
+      resultado.status ?? 1,
+    );
+  }
+}
+
+function dockerResponde(): boolean {
+  const resultado = spawnSync("docker", ["info"], { stdio: "ignore" });
+  return resultado.error === undefined && resultado.status === 0;
+}
+
+/**
+ * Se prueba conectando, no escuchando: en Windows un `listen` en 127.0.0.1
+ * convive con un servidor que escucha en todas las interfaces (como `next
+ * dev`) y no avisaría que el puerto está tomado.
+ */
+function puertoOcupado(puerto: number): Promise<boolean> {
+  return new Promise((resolver) => {
+    const conexion = connect(puerto, "127.0.0.1");
+    conexion.once("connect", () => {
+      conexion.destroy();
+      resolver(true);
+    });
+    conexion.once("error", () => resolver(false));
+  });
+}
+
+if (!dockerResponde()) {
+  cortar(
+    "Docker no está andando.\n" +
+      "Abrí Docker Desktop desde el menú Inicio, esperá a que diga «running» y volvé a correr `npm run arrancar`.",
+  );
+}
+
+if (await puertoOcupado(PUERTO_APP)) {
+  cortar(
+    `El puerto ${PUERTO_APP} está ocupado.\n` +
+      "Lo más probable es otra ventana con `npm run arrancar` o `npm run dev`: cerrala y volvé a correr `npm run arrancar`.",
+  );
+}
+
+if (!existsSync(".env")) {
+  copyFileSync(".env.example", ".env");
+  avisar("Creé .env a partir de .env.example.");
+}
+
+paso("base de datos", "docker", [
+  "compose",
+  "up",
+  "--detach",
+  "--wait",
+  "postgres",
+]);
+paso("migraciones", process.execPath, ["scripts/db-migrate.ts"]);
+paso("semilla", process.execPath, ["scripts/db-seed.ts"]);
+
+process.loadEnvFile(".env");
+avisar(
+  `\nLa app queda en http://localhost:${PUERTO_APP}\n` +
+    `Para entrar, el email de prueba es ${process.env.ADMIN_INICIAL_EMAIL}\n`,
+);
+
+const app = spawnSync(process.execPath, [BIN_NEXT, "dev"], {
+  stdio: "inherit",
+});
+process.exit(app.status ?? 1);

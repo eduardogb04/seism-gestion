@@ -98,6 +98,10 @@ Testcontainers lo encuentra solo, sin configurar nada.
 Postgres 16 en un contenedor, definido en `docker-compose.yml`. No hace falta instalar Postgres.
 Las credenciales son de desarrollo, ficticias, y ya están en `.env.example`.
 
+**El camino normal (desde F1-01):** con Docker Desktop abierto, `npm run arrancar` hace todo lo de abajo y deja
+la app en `http://localhost:3000`; al terminar imprime con qué email entrar. Se puede correr dos veces (con Ctrl+C
+en el medio). Los pasos sueltos de abajo quedan para cuando haga falta uno solo.
+
 1. Docker Desktop corriendo.
 2. Parado en la carpeta del repo:
    ```

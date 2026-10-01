@@ -5,7 +5,7 @@
  * 1. **Tope.** Lee el tope del mes y el costo estimado del perfil
  *    (`configuracion`) y suma el gasto del mes civil del reloj inyectado. Si
  *    `acumulado + estimado > tope` (estrictamente: igual al tope se
- *    permite), **no llama** al adaptador, avisa por `AvisosIa` y lanza
+ *    permite), **no llama** al adaptador, avisa por `AvisosIa` (que no lanza) y lanza
  *    `IA-0001` con `{ acumulado, estimado, tope, mes, perfil }`. No escribe
  *    fila: no hubo llamada. El que llamó atrapa `IA-0001` por su código y
  *    sigue "por reglas".
@@ -76,7 +76,7 @@ export function crearInterpretar(dependencias: DependenciasInterpretar) {
         mes: mes.etiqueta,
         perfil,
       });
-      avisos.topeSuperado(error);
+      await avisos.topeSuperado(error);
       throw error;
     }
 

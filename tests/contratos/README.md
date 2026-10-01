@@ -22,6 +22,10 @@ implementación real de Fase 1 (Gmail, WhatsApp, Telegram, SMTP) tiene que
 pasar la misma suite (`AGENTS.md`, *Cómo se agrega...un adaptador real de un
 puerto con suite de contrato*).
 
+Desde M-05, `suiteNotificaciones` también la corre el adaptador `notificaciones-por-log`
+(`tests/dominio/adaptadores-log-notificaciones.test.ts`): el envío queda como una línea `warn` del
+log, y la fábrica lo lee de ahí.
+
 Una suite es una función que recibe una fábrica del adaptador; la llama el
 archivo de test de cada implementación (AGENTS.md, *Cómo se agrega... un
 adaptador que tiene que pasar una suite de contrato*).

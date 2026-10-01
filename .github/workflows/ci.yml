@@ -197,7 +197,11 @@ jobs:
       # `timeout-minutes` y hay **un** reintento. El primero es el único paso
       # del workflow con `continue-on-error`: si falla o se cuelga, el
       # segundo corre igual y, si también falla, el job queda en rojo con
-      # `::error::`. La clave de la caché lleva el hash del `package-lock.json`:
+      # `::error::`. Playwright corre `sudo apt-get`: es root, el corte por
+      # tiempo del paso no lo mata y sigue vivo con el lock de dpkg tomado
+      # (así falló el reintento sin esto: `Could not get lock
+      # /var/lib/dpkg/lock-frontend`). Por eso el intento 2 empieza matando
+      # lo que haya quedado de `apt-get`/`dpkg` y reparando dpkg. La clave de la caché lleva el hash del `package-lock.json`:
       # subir la versión de Playwright trae una caché nueva.
       - name: Caché del navegador del e2e
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
@@ -219,6 +223,10 @@ jobs:
         timeout-minutes: 2
         run: |
           echo "::warning::el navegador del e2e falló o se colgó en el primer intento; reintentando"
+          sudo pkill -KILL -x apt-get || true
+          sudo pkill -KILL -x dpkg || true
+          sudo pkill -KILL -f /usr/lib/apt/methods || true
+          sudo dpkg --configure -a
           if ! npx playwright install --with-deps chromium; then
             echo "::error::no se pudo instalar Chromium para el e2e en dos intentos (ver el log de este paso y del intento 1)"
             exit 1

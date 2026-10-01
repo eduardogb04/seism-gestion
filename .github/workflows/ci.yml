@@ -185,24 +185,19 @@ jobs:
         if: ${{ !cancelled() && steps.imagen.outcome == 'success' }}
         run: npm run imagen:prueba
 
-      # El navegador del e2e (F0-14, M-06). Solo Chromium, y cacheado entre
+      # El navegador del e2e (F0-14, M-06, M-08). Solo Chromium, y cacheado entre
       # corridas: el paquete pesa unos 170 MB y bajarlo en cada corrida se come
-      # parte del tope de 10 minutos (P9). Con la caché en hit, `--with-deps`
-      # no baja el navegador (medido: 0 bytes, el `install` tarda ~4 s); lo
-      # que sigue corriendo son las librerías del sistema, que no se cachean:
-      # `install-deps --dry-run` en un runner nuevo informa 9 paquetes de
-      # fuentes faltantes, así que hacerlas condicionales no ahorra nada.
-      # Ese `apt-get` es lo que se colgó dos veces el 2026-09-30.
-      # Un paso colgado no puede comerse el tope: cada intento tiene su propio
+      # parte del tope de 10 minutos (P9). Se instala SIN `--with-deps`: eso
+      # corre `apt-get` contra el espejo de Ubuntu del runner, que el 2026-10-01
+      # se colgó en los dos intentos. Las librerías que Chromium necesita ya
+      # vienen en la imagen del runner; si algún día faltara una, el e2e falla
+      # con el error textual de Chromium (no se vuelve a `--with-deps`).
+      # Un paso colgado no puede comerse el tope: la descarga sale de la CDN de
+      # Playwright y también puede fallar, así que cada intento tiene su propio
       # `timeout-minutes` y hay **un** reintento. El primero es el único paso
       # del workflow con `continue-on-error`: si falla o se cuelga, el
       # segundo corre igual y, si también falla, el job queda en rojo con
-      # `::error::`. Playwright corre `sudo apt-get`: es root, el corte por
-      # tiempo del paso no lo mata y sigue vivo con el lock de dpkg tomado
-      # (así falló el reintento sin esto: `Could not get lock
-      # /var/lib/dpkg/lock-frontend`). Por eso el intento 2 empieza matando
-      # lo que haya quedado de `apt-get`/`dpkg` y reparando dpkg. La clave de la
-      # caché lleva el hash del `package-lock.json`:
+      # `::error::`. La clave de la caché lleva el hash del `package-lock.json`:
       # subir la versión de Playwright trae una caché nueva.
       - name: Caché del navegador del e2e
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
@@ -216,7 +211,7 @@ jobs:
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
         timeout-minutes: 2
         continue-on-error: true
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Navegador del e2e (Chromium), intento 2
         id: navegador_2
@@ -224,11 +219,7 @@ jobs:
         timeout-minutes: 2
         run: |
           echo "::warning::el navegador del e2e falló o se colgó en el primer intento; reintentando"
-          sudo pkill -KILL -x apt-get || true
-          sudo pkill -KILL -x dpkg || true
-          sudo pkill -KILL -f /usr/lib/apt/methods || true
-          sudo dpkg --configure -a
-          if ! npx playwright install --with-deps chromium; then
+          if ! npx playwright install chromium; then
             echo "::error::no se pudo instalar Chromium para el e2e en dos intentos (ver el log de este paso y del intento 1)"
             exit 1
           fi

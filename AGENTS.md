@@ -127,8 +127,8 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   `services: postgres` del job y compara el resultado con `schema.prisma` — ver *Base de datos*),
   `build` (sin `.env`), `imagen` e `imagen:prueba` (F0-07: construye la imagen Docker y la verifica
   levantada), **el navegador del e2e y `test:e2e`** (F0-14: Chromium cacheado entre corridas, y el
-  camino de humo contra la app levantada con compose; M-06: el navegador son dos pasos, el
-  intento 1 y el reintento, cada uno con su `timeout-minutes: 2`) y gitleaks sobre los commits nuevos (los del
+  camino de humo contra la app levantada con compose; M-06 y M-08: el navegador son dos pasos, el
+  intento 1 y el reintento, cada uno con su `timeout-minutes: 2`, sin `apt-get`) y gitleaks sobre los commits nuevos (los del
   PR; en un push, los que trajo). Si
   `npm ci` anduvo, **corren todos aunque falle uno**, así el log muestra todos los rojos juntos; el
   check queda en rojo si falla cualquiera. Los de la imagen y el de gitleaks solo dependen del
@@ -140,16 +140,17 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
 - **Hay un segundo job, `publicar`** (F0-07): publica la imagen en GHCR y **solo corre en `push` a
   `main`**, con `needs: ci`. En un PR ni aparece; el check que se mira sigue siendo `ci`, que cubre
   todo lo que corre en un PR.
-- **El navegador del e2e (M-06).** Dos pasos, `Navegador del e2e (Chromium), intento 1` y `intento 2`,
-  cada uno con `timeout-minutes: 2`: el 2026-09-30 el paso único (`--with-deps`) se colgó dos veces
-  y se comió el tope. El intento 1 lleva `continue-on-error` (el único del workflow) y el 2 corre
-  solo si el 1 no salió bien; si el 2 falla, `::error::no se pudo instalar Chromium...` y el check
-  queda en rojo. Playwright corre `sudo apt-get`: al ser root, el corte por tiempo del paso no lo mata
-  y queda vivo con el lock de dpkg tomado (así falló el reintento: `Could not get lock
-  /var/lib/dpkg/lock-frontend`). Por eso el intento 2 empieza matando los `apt-get`/`dpkg` que hayan
-  quedado y corre `dpkg --configure -a`. Peor caso: 2 min del intento 1 + hasta 2 del intento 2. Con la caché `~/.cache/ms-playwright` en *hit*, `playwright install --with-deps chromium`
-  no baja el navegador; sí corre `apt-get` por las librerías del sistema (no se cachean, y en un
-  runner nuevo faltan 9 paquetes de fuentes: hacerlo condicional no ahorra nada). `test:e2e` corre si alguno de los dos intentos salió bien.
+- **El navegador del e2e (M-06, M-08).** `npx playwright install chromium` **sin `--with-deps`**: eso
+  corre `apt-get` contra el espejo de Ubuntu del runner y el 2026-09-30 y el 2026-10-01 se colgó en los
+  dos intentos; ningún paso del workflow ejecuta `apt-get`, `dpkg` ni `install-deps`. Las librerías del
+  sistema que Chromium necesita vienen en la imagen del runner. Si una imagen nueva dejara de traer alguna,
+  `test:e2e` falla con el error textual de Chromium (la lista de paquetes que faltan): se instala esa
+  lista a propósito, no se vuelve a `--with-deps`. Son dos pasos, `Navegador del e2e (Chromium), intento 1`
+  y `intento 2`, cada uno con `timeout-minutes: 2`, porque la descarga sale de la CDN de Playwright y
+  también puede fallar: el intento 1 lleva `continue-on-error` (el único del workflow) y el 2 corre solo
+  si el 1 no salió bien; si el 2 falla, `::error::no se pudo instalar Chromium...` y el check queda en
+  rojo. Peor caso: 2 min + 2 min. Con la caché `~/.cache/ms-playwright` en *hit* no se baja nada.
+  `test:e2e` corre si alguno de los dos intentos salió bien.
 - **Tope: 10 minutos** (P9, `timeout-minutes` en cada job). Hoy (M-06, 5 corridas medidas) el job `ci`
   tarda entre 3:14 y 4:11, con el navegador del e2e en ~15 s; la meta de M-06 es quedar por debajo de
   8 minutos. Si pasa de 10, el check queda en rojo y es un bug de CI.

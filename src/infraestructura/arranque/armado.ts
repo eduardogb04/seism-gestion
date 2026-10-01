@@ -19,6 +19,7 @@ import { crearGeneradorIdCrypto } from "../../adaptadores/memoria/generador-id.t
 import { crearClientePrisma } from "../../adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../adaptadores/prisma/transaccion.ts";
 import { crearRelojSistema } from "../../adaptadores/reloj/sistema.ts";
+import { type CasosUsoAbm, crearCasosUsoAbm } from "../../casos-uso/abm/abm.ts";
 import type { Salud } from "../../casos-uso/salud/listar-salud.ts";
 import {
   type CasosUsoSesion,
@@ -46,6 +47,8 @@ export type Armado = {
   readonly pruebas: Pruebas | null;
   readonly sesion: CasosUsoSesion;
   readonly usuarios: CasosUsoUsuarios;
+  /** Los casos de uso del molde de ABM (F1-03): sirven a todos los catálogos. */
+  readonly abm: CasosUsoAbm;
   /** El panel de salud (`/salud`): `listarSalud` con sus puertos armados. */
   readonly salud: () => Promise<Salud>;
   generarEstadoLogin(): EstadoLogin;
@@ -68,6 +71,7 @@ function armar(): Armado {
   const { identidad, pruebas } = elegirIdentidad(entorno, reloj);
   const transaccional = crearTransaccionalPrisma(prisma);
   const sesion = crearCasosUsoSesion({ transaccional, reloj });
+  const generadorId = crearGeneradorIdCrypto();
   return {
     appEntorno: entorno.APP_ENTORNO,
     identidad,
@@ -76,9 +80,10 @@ function armar(): Armado {
     usuarios: crearCasosUsoUsuarios({
       transaccional,
       reloj,
-      generadorId: crearGeneradorIdCrypto(),
+      generadorId,
       sesiones: sesion,
     }),
+    abm: crearCasosUsoAbm({ transaccional, reloj, generadorId }),
     salud: armarSalud(prisma, reloj),
     generarEstadoLogin,
   };

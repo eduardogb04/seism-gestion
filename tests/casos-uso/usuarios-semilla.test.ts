@@ -62,6 +62,7 @@ function fecha(dia: number): FechaHora {
 const EMAIL = "Admin.Inicial@Ejemplo.TEST";
 const opciones = (dia = 10) => ({
   adminInicialEmail: EMAIL,
+  appEntorno: "servidor" as const,
   reloj: RelojFijo(fecha(dia)),
 });
 

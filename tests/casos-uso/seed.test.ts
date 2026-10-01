@@ -11,6 +11,10 @@
  * una fila sin necesidad, esos campos —o `actualizado_en`— cambiarían entre
  * corridas).
  *
+ * Desde F1-03 también siembra los **datos de demostración** (tres grupos
+ * inventados), con el actor `db-seed` y su auditoría, en `local` y en `ci`;
+ * en `servidor` no.
+ *
  * Necesita Docker corriendo (RUNBOOK, sección 1).
  */
 
@@ -33,7 +37,7 @@ import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
 
 /** Desde F0-30 la semilla también pide el administrador inicial (inventado) y el reloj. */
-function opciones() {
+function opciones(appEntorno: "local" | "ci" | "servidor" = "local") {
   const fecha = crearFechaHora({
     anio: 2031,
     mes: 1,
@@ -48,6 +52,7 @@ function opciones() {
   }
   return {
     adminInicialEmail: "admin@ejemplo.test",
+    appEntorno,
     reloj: RelojFijo(fecha.fechaHora),
   };
 }
@@ -94,4 +99,60 @@ describe("semilla", () => {
 
     expect(segundaVez).toEqual(primeraVez);
   }, 120_000);
+
+  test("siembra tres grupos de demostración con su auditoría, una sola vez", async () => {
+    const db = cliente();
+    const foto = async () => ({
+      grupos: await db.grupo.findMany({ orderBy: { nombre: "asc" } }),
+      auditoria: await db.auditoria.findMany({
+        where: { entidad: "Grupo" },
+        orderBy: { id: "asc" },
+      }),
+    });
+
+    await sembrar(db, opciones());
+    const primeraVez = await foto();
+    await sembrar(db, opciones());
+
+    expect(primeraVez.grupos.map(({ nombre }) => nombre)).toEqual([
+      "Grupo Centro",
+      "Grupo Norte",
+      "Grupo Sur",
+    ]);
+    const semilla = { tipo: "sistema", proceso: "db-seed" };
+    for (const grupo of primeraVez.grupos) {
+      expect(grupo).toMatchObject({ creadoPor: semilla, eliminadoEn: null });
+    }
+    expect(primeraVez.auditoria).toHaveLength(3);
+    for (const registro of primeraVez.auditoria) {
+      expect(registro).toMatchObject({ accion: "crear", actor: semilla });
+    }
+    expect(await foto()).toEqual(primeraVez);
+  });
+
+  test("un grupo de demostración dado de baja no vuelve a aparecer al sembrar otra vez", async () => {
+    const db = cliente();
+    await sembrar(db, opciones());
+    await db.grupo.updateMany({
+      where: { nombre: "Grupo Norte" },
+      data: { eliminadoEn: new Date(), eliminadoPor: { tipo: "sistema" } },
+    });
+
+    await sembrar(db, opciones());
+
+    expect(await db.grupo.count()).toBe(3);
+  });
+
+  test("en el servidor no siembra ningún grupo; en ci, sí", async () => {
+    const db = cliente();
+
+    await sembrar(db, opciones("servidor"));
+
+    expect(await db.grupo.count()).toBe(0);
+    expect(await db.configuracion.count()).toBeGreaterThan(0);
+
+    await sembrar(db, opciones("ci"));
+
+    expect(await db.grupo.count()).toBe(3);
+  });
 });

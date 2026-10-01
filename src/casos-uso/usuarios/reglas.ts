@@ -5,38 +5,52 @@
  */
 
 import type { Actor } from "../../dominio/compartido/actor.ts";
-import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
+import {
+  catalogo,
+  type EntradaCatalogo,
+} from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type { Identificador } from "../../dominio/compartido/identificador.ts";
 import type {
   RepositorioUsuarios,
+  Rol,
   Usuario,
 } from "../../puertos/repositorios/usuarios.ts";
 
 /**
- * Exige que `actor` sea una **persona** con un usuario **administrador** y
- * **activo** (no revocado ni eliminado). Si no, `AUT-0003`. Un proceso del
- * sistema no administra usuarios: el primer administrador lo crea `db:seed`
- * por su cuenta (ADR 0024).
+ * Exige que `actor` sea una **persona** con un usuario **activo** (no revocado
+ * ni eliminado) cuyo rol esté en `roles`. Si no, lanza `rechazo`: cada permiso
+ * tiene su código. Un proceso del sistema no pasa: lo que siembra `db:seed` va
+ * por su camino (ADR 0024).
  */
-export async function exigirAdministrador(
+export async function exigirRol(
   usuarios: RepositorioUsuarios,
   actor: Actor,
+  roles: readonly Rol[],
+  rechazo: EntradaCatalogo,
 ): Promise<void> {
   const quien =
     actor.tipo === "persona"
       ? await usuarios.buscarPorId(actor.usuarioId)
       : null;
-  const esAdministradorActivo =
+  const puede =
     quien !== null &&
-    quien.valor.rol === "administrador" &&
+    roles.includes(quien.valor.rol) &&
     quien.valor.estado === "activo" &&
     quien.eliminadoEn === undefined;
-  if (!esAdministradorActivo) {
-    throw nuevoError(catalogo.AUT_0003, {
+  if (!puede) {
+    throw nuevoError(rechazo, {
       actor: actor.tipo === "persona" ? actor.usuarioId : actor.proceso,
     });
   }
+}
+
+/** `exigirRol` para lo que solo hace un administrador: los usuarios (`AUT-0003`). */
+export function exigirAdministrador(
+  usuarios: RepositorioUsuarios,
+  actor: Actor,
+): Promise<void> {
+  return exigirRol(usuarios, actor, ["administrador"], catalogo.AUT_0003);
 }
 
 /** El usuario con ese id, o `AUT-0006` si no existe. */

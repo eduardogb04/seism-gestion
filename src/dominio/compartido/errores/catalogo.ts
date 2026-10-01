@@ -114,6 +114,21 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Revisá que estés trabajando sobre el registro correcto. Si hay que recuperarlo, avisá con este código: el borrado es lógico y el registro sigue guardado.",
   },
+  DOM_0008: {
+    codigo: "DOM-0008",
+    tipo: "persona",
+    descripcion: "Ya existe otro registro con ese valor: no se puede repetir.",
+    queHacer:
+      "Cambiá el valor del campo marcado o buscá el registro que ya lo tiene. Uno dado de baja no cuenta: su valor se puede volver a usar.",
+  },
+  DOM_0009: {
+    codigo: "DOM-0009",
+    tipo: "persona",
+    descripcion:
+      "El registro no existe o ya fue dado de baja: no se puede ver, modificar ni dar de baja.",
+    queHacer:
+      "Volvé al listado y buscalo de nuevo: puede que otra persona lo haya dado de baja recién. Si tendría que estar, avisá con este código.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",
@@ -174,6 +189,14 @@ export const catalogo = definirCatalogo({
       "Los datos enviados desde el formulario no son válidos: falta un dato, el rol no es uno de los de la lista o el usuario no está bien identificado.",
     queHacer:
       "Volvé a la lista de usuarios y repetí la acción desde la pantalla, eligiendo el rol de la lista. Si no la podés completar, avisá con este código.",
+  },
+  AUT_0009: {
+    codigo: "AUT-0009",
+    tipo: "persona",
+    descripcion:
+      "Tu rol no puede modificar este catálogo: no puede dar de alta, editar ni dar de baja sus registros.",
+    queHacer:
+      "Pedile a alguien con un rol que sí pueda que lo haga por vos. Si tendrías que poder, avisale a un administrador para que revise tu rol.",
   },
   INF_0001: {
     codigo: "INF-0001",

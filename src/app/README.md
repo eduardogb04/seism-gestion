@@ -28,5 +28,14 @@ Desde F1-02: `globales.css` (Tailwind 4 por CSS, importado en `layout.tsx`) y
 del login renderiza después de su control de acceso), `Tarjeta` (pantallas sin
 marco: entrar y sus errores) y los componentes de las pantallas (`Boton`,
 `CampoTexto`, `Selector`, `Tabla`, `ErrorEnPantalla`). Todo es HTML del
-servidor: ningún archivo lleva `"use client"`
+servidor: ningún archivo lleva `"use client"`, salvo `formulario-abm.tsx`
 (`tests/dominio/marco.test.ts`).
+
+Desde F1-03 (ADR 0031): `catalogo/`, los ABM. `_abm/` es el molde —las cuatro
+pantallas (`paginas.tsx`) y las acciones (`acciones.ts`) de cualquier ABM— y
+cada entidad tiene su carpeta (`grupos/`) con cuatro `page.tsx` de pocas líneas:
+llaman a `sesionExigida()` antes que nada (los catálogos los ve cualquier usuario
+activo) y le pasan la definición al molde. En `_ui/`, `ListadoAbm` y
+`FormularioAbm`: este es de cliente (`useActionState`) para volver con lo escrito
+y el mensaje al lado del campo, y funciona igual sin JavaScript. Ver *Cómo se
+agrega...un ABM* en `AGENTS.md`.

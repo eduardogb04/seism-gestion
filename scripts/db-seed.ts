@@ -11,7 +11,9 @@
  * que `db-migrate-down.ts` exige `DATABASE_URL` local antes de revertir.
  *
  * Desde F0-30 le pasa a la semilla `ADMIN_INICIAL_EMAIL` (el primer
- * administrador, ya validado por el esquema) y el reloj del sistema.
+ * administrador, ya validado por el esquema) y el reloj del sistema. Desde
+ * F1-03 también `APP_ENTORNO`: los datos de demostración (grupos inventados)
+ * no se siembran en `servidor`, aunque `SEED_PERMITIDO=si` deje correr la semilla.
  */
 
 import { existsSync } from "node:fs";
@@ -41,6 +43,7 @@ try {
   await sembrar(prisma, {
     adminInicialEmail: entorno.ADMIN_INICIAL_EMAIL,
     reloj: crearRelojSistema(),
+    appEntorno: entorno.APP_ENTORNO,
   });
   process.stdout.write(`${PROCESO}: listo.\n`);
 } finally {

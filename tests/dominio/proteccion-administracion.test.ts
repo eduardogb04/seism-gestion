@@ -7,6 +7,8 @@
  * - toda `page.tsx` de `src/app/administracion/**` y de `src/app/salud/**` llama a
  *   `accesoDeAdministrador()` **antes** de tocar el armado (los datos);
  * - nada de esas carpetas es JavaScript de cliente propio;
+ * - toda `page.tsx` de `src/app/catalogo/**` (F1-03) llama a `sesionExigida()`
+ *   antes que nada: los catálogos los ve cualquier usuario activo con sesión;
  * - `/api/salud` sigue pública (es el latido del deploy, P13): responde sin
  *   ninguna sesión y su archivo no importa nada de la sesión.
  */
@@ -59,6 +61,31 @@ describe("/administracion/** y /salud", () => {
     );
 
     expect(deCliente).toEqual([]);
+  });
+});
+
+describe("/catalogo/**", () => {
+  const PAGINAS_DE_CATALOGO = archivosBajo(path.join(RAIZ, "catalogo")).filter(
+    (ruta) => ruta.endsWith(`${path.sep}page.tsx`),
+  );
+
+  test("hay páginas que revisar, y el listado de Grupos es una de ellas", () => {
+    expect(
+      PAGINAS_DE_CATALOGO.map((pagina) => path.relative(RAIZ, pagina)),
+    ).toContain(path.join("catalogo", "grupos", "page.tsx"));
+  });
+
+  test.each(
+    PAGINAS_DE_CATALOGO.map((pagina) => [path.relative(RAIZ, pagina), pagina]),
+  )("%s exige sesión antes de leer datos", (_nombre, pagina) => {
+    const codigo = readFileSync(pagina, "utf8");
+    const exige = codigo.indexOf("await sesionExigida()");
+    const datos = codigo.indexOf("armado()");
+
+    expect(exige, "no llama a sesionExigida()").toBeGreaterThan(-1);
+    if (datos !== -1) {
+      expect(exige).toBeLessThan(datos);
+    }
   });
 });
 

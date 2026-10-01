@@ -61,3 +61,8 @@ credencial (ADR 0024 y 0029).
 Desde F0-27: `almacen-documentos.ts` (el almacén de documentos, con la única
 validación de claves y `claveDocumento`), con dos adaptadores reales, disco y
 s3, que pasan la suite `tests/contratos/almacen-documentos.ts` (ADR 0022).
+
+Desde F1-03: `repositorios/abm.ts`, el puerto genérico de los ABM (ADR 0031).
+`EntidadesAbm` dice la forma de los datos de cada entidad y
+`RepositoriosEnTransaccion.abm(entidad)` entrega su repositorio: un ABM nuevo
+no suma un puerto ni una propiedad a `transaccion.ts`.

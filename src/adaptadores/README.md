@@ -55,3 +55,8 @@ lo que la base tenía justo antes de escribir. Ver ADR 0029.
 Desde F0-27: `disco/` y `s3/`, las dos implementaciones del almacén de
 documentos (`src/puertos/almacen-documentos.ts`, ADR 0022). Las elige
 `src/infraestructura/arranque/almacen.ts` según `ALMACEN`.
+
+Desde F1-03: `prisma/abm/`, el repositorio de cualquier ABM (ADR 0031).
+`repositorio.ts` busca, ordena y pagina en la consulta y deja la auditoría en
+la misma transacción; `tablas.ts` dice qué tabla de Prisma es cada entidad
+(una línea por ABM).

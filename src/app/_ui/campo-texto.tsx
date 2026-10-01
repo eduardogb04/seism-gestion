@@ -1,23 +1,64 @@
-import { type ComponentProps, useId } from "react";
+import { type ComponentProps, type ReactNode, useId } from "react";
 
-export function CampoTexto({
+type PropsDeCampo = {
+  readonly etiqueta: string;
+  /** Lo que la persona tiene que corregir en este campo: va debajo, pegado a él. */
+  readonly error?: string | undefined;
+};
+
+function Campo({
+  id,
   etiqueta,
-  ...resto
-}: { readonly etiqueta: string } & Omit<
-  ComponentProps<"input">,
-  "className" | "id"
->) {
-  const id = useId();
+  error,
+  children,
+}: PropsDeCampo & { readonly id: string; readonly children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={id} className="font-medium">
         {etiqueta}
       </label>
-      <input
-        id={id}
-        className="rounded border border-gray-300 bg-white px-3 py-2"
-        {...resto}
-      />
+      {children}
+      {error === undefined ? null : (
+        <p id={`${id}-error`} data-error-de-campo className="text-red-800">
+          {error}
+        </p>
+      )}
     </div>
+  );
+}
+
+function atributos(id: string, error: string | undefined) {
+  return {
+    id,
+    className:
+      "rounded border border-gray-300 bg-white px-3 py-2 aria-invalid:border-red-700",
+    "aria-invalid": error !== undefined,
+    "aria-describedby": error === undefined ? undefined : `${id}-error`,
+  };
+}
+
+export function CampoTexto({
+  etiqueta,
+  error,
+  ...resto
+}: PropsDeCampo & Omit<ComponentProps<"input">, "className" | "id">) {
+  const id = useId();
+  return (
+    <Campo id={id} etiqueta={etiqueta} error={error}>
+      <input {...atributos(id, error)} {...resto} />
+    </Campo>
+  );
+}
+
+export function CampoTextoLargo({
+  etiqueta,
+  error,
+  ...resto
+}: PropsDeCampo & Omit<ComponentProps<"textarea">, "className" | "id">) {
+  const id = useId();
+  return (
+    <Campo id={id} etiqueta={etiqueta} error={error}>
+      <textarea rows={4} {...atributos(id, error)} {...resto} />
+    </Campo>
   );
 }

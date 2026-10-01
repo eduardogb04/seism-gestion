@@ -16,21 +16,18 @@ import type {
   GastoIa,
   Salud,
 } from "../../casos-uso/salud/listar-salud.ts";
+import { Tabla } from "../_ui/tabla.tsx";
 
 type Estado = "ok" | "rojo";
 
-const COLORES: Record<
-  Estado,
-  { readonly fondo: string; readonly texto: string }
-> = {
-  ok: { fondo: "#d8f3dc", texto: "#1b4332" },
-  rojo: { fondo: "#ffccd5", texto: "#7d0a1f" },
+const COLORES: Record<Estado, string> = {
+  ok: "bg-green-100 text-green-900",
+  rojo: "bg-red-100 text-red-900",
 };
 
 function Semaforo({ estado }: { readonly estado: Estado }) {
-  const { fondo, texto } = COLORES[estado];
   return (
-    <strong style={{ background: fondo, color: texto, padding: "0 0.5em" }}>
+    <strong className={`rounded px-2 ${COLORES[estado]}`}>
       {estado === "ok" ? "VERDE" : "ROJO"}
     </strong>
   );
@@ -73,22 +70,13 @@ function SeccionJobs({ jobs }: { readonly jobs: readonly EstadoJob[] }) {
   return (
     <section>
       <h2>Jobs</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Job</th>
-            <th>Estado</th>
-            <th>Última corrida</th>
-            <th>Resultado</th>
-            <th>Detalle</th>
-          </tr>
-        </thead>
-        <tbody>
-          {jobs.map((job) => (
-            <FilaJob key={job.job} job={job} />
-          ))}
-        </tbody>
-      </table>
+      <Tabla
+        cabeceras={["Job", "Estado", "Última corrida", "Resultado", "Detalle"]}
+      >
+        {jobs.map((job) => (
+          <FilaJob key={job.job} job={job} />
+        ))}
+      </Tabla>
     </section>
   );
 }
@@ -124,24 +112,15 @@ function SeccionFallidos({ salud }: { readonly salud: Salud }) {
           ? ` (se muestran los ${fallidos.length} más viejos)`
           : ""}
       </p>
-      <table>
-        <thead>
-          <tr>
-            <th>Origen</th>
-            <th>Código</th>
-            <th>Edad</th>
+      <Tabla cabeceras={["Origen", "Código", "Edad"]}>
+        {fallidos.map((fallido, posicion) => (
+          <tr key={fallido.id} data-fallido={posicion}>
+            <td>{fallido.origen}</td>
+            <td>{fallido.codigoError}</td>
+            <td>{haceCuanto(fallido.haceMs)}</td>
           </tr>
-        </thead>
-        <tbody>
-          {fallidos.map((fallido, posicion) => (
-            <tr key={fallido.id} data-fallido={posicion}>
-              <td>{fallido.origen}</td>
-              <td>{fallido.codigoError}</td>
-              <td>{haceCuanto(fallido.haceMs)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        ))}
+      </Tabla>
     </section>
   );
 }
@@ -170,37 +149,34 @@ function SeccionIntegraciones({
   return (
     <section>
       <h2>Integraciones</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Integración</th>
-            <th>Estado</th>
-            <th>Última prueba exitosa</th>
-            <th>Detalle</th>
-          </tr>
-        </thead>
-        <tbody>
-          {integraciones.map((integracion) => {
-            const estado: Estado = integracion.estado === "ok" ? "ok" : "rojo";
-            return (
-              <tr
-                key={integracion.nombre}
-                data-integracion={integracion.nombre}
-                data-estado={estado}
-              >
-                <td>{integracion.nombre}</td>
-                <td>
-                  <Semaforo estado={estado} />
-                </td>
-                <td>
-                  <UltimaPrueba integracion={integracion} />
-                </td>
-                <td>{integracion.detalle ?? ""}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <Tabla
+        cabeceras={[
+          "Integración",
+          "Estado",
+          "Última prueba exitosa",
+          "Detalle",
+        ]}
+      >
+        {integraciones.map((integracion) => {
+          const estado: Estado = integracion.estado === "ok" ? "ok" : "rojo";
+          return (
+            <tr
+              key={integracion.nombre}
+              data-integracion={integracion.nombre}
+              data-estado={estado}
+            >
+              <td>{integracion.nombre}</td>
+              <td>
+                <Semaforo estado={estado} />
+              </td>
+              <td>
+                <UltimaPrueba integracion={integracion} />
+              </td>
+              <td>{integracion.detalle ?? ""}</td>
+            </tr>
+          );
+        })}
+      </Tabla>
     </section>
   );
 }

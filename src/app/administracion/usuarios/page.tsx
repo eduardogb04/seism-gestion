@@ -18,8 +18,14 @@ import {
 import { ETIQUETAS_ROL, ROLES } from "../../../casos-uso/usuarios/roles.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import type { Rol, Usuario } from "../../../puertos/repositorios/usuarios.ts";
+import { Boton } from "../../_ui/boton.tsx";
+import { CampoTexto } from "../../_ui/campo-texto.tsx";
+import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
+import { Marco } from "../../_ui/marco.tsx";
+import { Selector } from "../../_ui/selector.tsx";
+import { Tabla } from "../../_ui/tabla.tsx";
+import { Tarjeta } from "../../_ui/tarjeta.tsx";
 import { accesoDeAdministrador } from "../../(auth)/sesion-actual.ts";
-import { ErrorEnPantalla } from "../error-en-pantalla.tsx";
 import {
   altaDeUsuario,
   cambiarRolDeUsuario,
@@ -30,23 +36,28 @@ type Props = {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const OPCIONES_DE_ROL = ROLES.map((rol) => ({
+  valor: rol,
+  texto: ETIQUETAS_ROL[rol],
+}));
+
 function SelectorDeRol({
-  id,
   etiqueta,
+  etiquetaOculta,
   actual,
 }: {
-  readonly id?: string;
-  readonly etiqueta?: string;
+  readonly etiqueta: string;
+  readonly etiquetaOculta?: boolean;
   readonly actual: Rol;
 }) {
   return (
-    <select id={id} name="rol" aria-label={etiqueta} defaultValue={actual}>
-      {ROLES.map((rol) => (
-        <option key={rol} value={rol}>
-          {ETIQUETAS_ROL[rol]}
-        </option>
-      ))}
-    </select>
+    <Selector
+      etiqueta={etiqueta}
+      etiquetaOculta={etiquetaOculta}
+      name="rol"
+      defaultValue={actual}
+      opciones={OPCIONES_DE_ROL}
+    />
   );
 }
 
@@ -55,12 +66,13 @@ export default async function Usuarios({ searchParams }: Props) {
   const acceso = await accesoDeAdministrador();
   if (acceso.tipo === "prohibido") {
     return (
-      <main>
+      <Tarjeta>
         <h1>Usuarios</h1>
         <ErrorEnPantalla error={acceso.error} />
-      </main>
+      </Tarjeta>
     );
   }
+  const { email, rol } = acceso.sesion.usuario;
   const { error } = await searchParams;
   let usuarios: readonly Usuario[];
   try {
@@ -71,54 +83,60 @@ export default async function Usuarios({ searchParams }: Props) {
       throw fallo;
     }
     return (
-      <main>
-        <h1>Usuarios</h1>
-        <ErrorEnPantalla error={pantallaDeCodigo(codigo)} />
-      </main>
+      <Marco email={email} rol={rol} rutaActual="/administracion/usuarios">
+        <main>
+          <h1>Usuarios</h1>
+          <ErrorEnPantalla error={pantallaDeCodigo(codigo)} />
+        </main>
+      </Marco>
     );
   }
   return (
-    <main>
-      <h1>Usuarios</h1>
-      <p>
-        <a href="/administracion">Administración</a>
-      </p>
-      {typeof error === "string" ? (
-        <ErrorEnPantalla error={pantallaDeCodigo(error)} />
-      ) : null}
+    <Marco email={email} rol={rol} rutaActual="/administracion/usuarios">
+      <main>
+        <h1>Usuarios</h1>
+        <p>
+          <a href="/administracion">Administración</a>
+        </p>
+        {typeof error === "string" ? (
+          <ErrorEnPantalla error={pantallaDeCodigo(error)} />
+        ) : null}
 
-      <h2>Dar de alta</h2>
-      <form action={altaDeUsuario}>
-        <label>
-          Email <input type="email" name="email" required maxLength={254} />
-        </label>{" "}
-        <label htmlFor="rol-de-alta">Rol</label>{" "}
-        <SelectorDeRol id="rol-de-alta" actual="operador" />{" "}
-        <button type="submit">Dar de alta</button>
-      </form>
+        <h2>Dar de alta</h2>
+        <form action={altaDeUsuario} className="flex flex-wrap items-end gap-3">
+          <CampoTexto
+            etiqueta="Email"
+            type="email"
+            name="email"
+            required
+            maxLength={254}
+          />
+          <SelectorDeRol etiqueta="Rol" actual="operador" />
+          <Boton variante="primario" type="submit">
+            Dar de alta
+          </Boton>
+        </form>
 
-      <h2>Lista</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Email</th>
-            <th>Rol</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody>
+        <h2>Lista</h2>
+        <Tabla cabeceras={["Email", "Rol", "Estado"]}>
           {usuarios.map(({ valor }) => (
             <tr key={valor.id} data-usuario={valor.email}>
               <td>{valor.email}</td>
               <td>
                 {valor.estado === "activo" ? (
-                  <form action={cambiarRolDeUsuario}>
+                  <form
+                    action={cambiarRolDeUsuario}
+                    className="flex flex-wrap items-center gap-2"
+                  >
                     <input type="hidden" name="usuarioId" value={valor.id} />
                     <SelectorDeRol
                       etiqueta={`Rol de ${valor.email}`}
+                      etiquetaOculta
                       actual={valor.rol}
-                    />{" "}
-                    <button type="submit">Cambiar rol</button>
+                    />
+                    <Boton variante="secundario" type="submit">
+                      Cambiar rol
+                    </Boton>
                   </form>
                 ) : (
                   ETIQUETAS_ROL[valor.rol]
@@ -126,10 +144,15 @@ export default async function Usuarios({ searchParams }: Props) {
               </td>
               <td>
                 {valor.estado === "activo" ? (
-                  <form action={revocarUsuario}>
-                    activo{" "}
+                  <form
+                    action={revocarUsuario}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <span>activo</span>
                     <input type="hidden" name="usuarioId" value={valor.id} />
-                    <button type="submit">Revocar</button>
+                    <Boton variante="peligro" type="submit">
+                      Revocar
+                    </Boton>
                   </form>
                 ) : (
                   "revocado"
@@ -137,8 +160,8 @@ export default async function Usuarios({ searchParams }: Props) {
               </td>
             </tr>
           ))}
-        </tbody>
-      </table>
-    </main>
+        </Tabla>
+      </main>
+    </Marco>
   );
 }

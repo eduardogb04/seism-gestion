@@ -47,6 +47,10 @@ async function verElPanel(page: Page): Promise<void> {
     "ok",
   );
   await expect(page.locator('[data-job="latido"]')).toHaveCount(1);
+  // Los estilos llegaron a la imagen: sin Tailwind compilado el menú no tiene fondo.
+  await expect(
+    page.getByRole("navigation", { name: "Secciones" }),
+  ).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 }
 
 test("la app levantada muestra la página de inicio, responde el latido y el administrador ve el panel de salud", async ({

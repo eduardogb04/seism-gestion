@@ -206,8 +206,9 @@ archivo (ADR 0005).
   `process.env.APP_VERSION` por el literal en el código compilado.
 - **Archivos de Next.** `page.tsx`, `layout.tsx` y `route.ts` los carga Next por su nombre, y
   `src/instrumentation.ts` tiene que vivir en la raíz de `src/` pero cuenta como parte de `app`
-  para los límites. El layout raíz es el mínimo que exige el App Router (`<html lang="es">`), sin
-  estilos.
+  para los límites. El layout raíz es el mínimo que exige el App Router (`<html lang="es">`) más
+  los estilos globales (`src/app/globales.css`: Tailwind 4, configuración por CSS, `postcss.config.mjs`;
+  sin modo oscuro).
 - **`tsconfig.json` y Next.** Next exige `jsx: "react-jsx"` y agrega el plugin `next`, los tipos
   que genera (`next-env.d.ts`, `.next/types/`) e `incremental`. Las seis opciones severas no se
   tocan; si una tipificación de Next choca, se documenta la excepción puntual en un ADR, no se
@@ -914,8 +915,9 @@ en un borde se lanza `nuevoError(catalogo.<CLAVE>, detalles, causa?)`, nunca `ne
 **...una página que exige administrador (F0-32, ADR 0028).** Una `page.tsx` bajo
 `src/app/administracion/` (o `/salud`, F0-26) empieza con `const acceso = await accesoDeAdministrador();`
 (`src/app/(auth)/sesion-actual.ts`), **antes** de `armado()` o de leer ningún dato; si
-`acceso.tipo === "prohibido"` devuelve `<ErrorEnPantalla error={acceso.error} />` (`AUT-0003`). No alcanza con
-un layout: Next no lo vuelve a renderizar al navegar. Sus acciones de escritura (Server Actions,
+`acceso.tipo === "prohibido"` devuelve `<ErrorEnPantalla error={acceso.error} />` (`src/app/_ui/`, `AUT-0003`);
+si no, renderiza su contenido dentro de `<Marco>` (`src/app/_ui/marco.tsx`, F1-02: menú, cabecera con *Salir*;
+recibe el email y el rol de `acceso.sesion.usuario`). No alcanza con un layout: Next no lo vuelve a renderizar al navegar. Sus acciones de escritura (Server Actions,
 formularios HTML, sin `"use client"`) toman el `Actor` de `actorDesdeSesion()`, nunca de un campo del
 formulario, y validan lo que llega con Zod (`src/casos-uso/usuarios/formularios.ts`, `AUT-0008`).
 `tests/dominio/proteccion-administracion.test.ts` falla si una página no la llama. `/api/salud` no la usa.
@@ -992,7 +994,7 @@ src/casos-uso        orquesta dominio contra puertos. Desde F0-25: salud/listar-
 src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa) y repositorios/ (uso-ia.ts, configuracion.ts); F0-31: identidad.ts · F0-27: almacen-documentos.ts (con la validación de claves)
 src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), ia-doble/ (doble determinista del puerto de IA, F0-28), log/avisos-ia.ts (aviso de tope de IA por log, F0-28), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts), disco/ y s3/ (F0-27: el almacén de documentos)
 src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · fallas.ts y reintento.ts (conReintento, F0-25) · arranque/ = punto de armado (worker.ts desde F0-25; armado.ts e identidad.ts, que elige el adaptador según `IDENTIDAD`, desde F0-31; desde F0-27: almacen.ts, que elige disco o s3 según ALMACEN y arma nuevaClaveDocumento con el reloj real; salud.ts —el panel armado con la lista de `JOBS` del worker— e intervalo-cron.ts, desde F0-26)
-src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión), administracion/ (F0-32: inicio y usuarios, protegidos por rol), salud/ (F0-26: el panel `/salud`, HTML del servidor sin JavaScript de cliente, protegido por rol de administrador) · formato/importe.ts (USD 24.315,00, F0-20)
+src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión), administracion/ (F0-32: inicio y usuarios, protegidos por rol), salud/ (F0-26: el panel `/salud`, HTML del servidor sin JavaScript de cliente, protegido por rol de administrador) · _ui/ (F1-02: el marco, la tarjeta y los componentes —botón, campo, selector, tabla, error en pantalla— de las pantallas: HTML del servidor, sin `"use client"`) · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte (F0-25): index.ts (entrada, `npm run worker`) · planificador.ts (croner) · registrar-corrida.ts · jobs.ts (latido)
 tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda; minio.ts, MinIO para el almacén S3) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures

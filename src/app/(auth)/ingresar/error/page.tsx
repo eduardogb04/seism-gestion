@@ -4,6 +4,8 @@
  */
 
 import { pantallaDeCodigo } from "../../../../casos-uso/sesion/errores.ts";
+import { ErrorEnPantalla } from "../../../_ui/error-en-pantalla.tsx";
+import { Tarjeta } from "../../../_ui/tarjeta.tsx";
 
 type Props = {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -15,13 +17,10 @@ export default async function ErrorDeIngreso({ searchParams }: Props) {
     typeof codigo === "string" ? codigo : undefined,
   );
   return (
-    <main>
+    <Tarjeta>
       <h1>No se pudo entrar</h1>
-      <p>
-        <strong data-codigo-error>{error.codigo}</strong> · {error.mensaje}
-      </p>
-      <p>{error.queHacer}</p>
+      <ErrorEnPantalla error={error} />
       <a href="/ingresar">Volver a entrar</a>
-    </main>
+    </Tarjeta>
   );
 }

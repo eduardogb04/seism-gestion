@@ -125,6 +125,12 @@
     "queHacer": "Volvé al listado y buscalo de nuevo: puede que otra persona lo haya dado de baja recién. Si tendría que estar, avisá con este código.",
     "tipo": "persona"
   },
+  "DOM_0010": {
+    "codigo": "DOM-0010",
+    "descripcion": "No se puede dar de baja: hay registros vigentes que lo usan.",
+    "queHacer": "Primero reasigná o dá de baja lo que lo usa (por ejemplo, los clientes de un grupo) y volvé a intentarlo.",
+    "tipo": "persona"
+  },
   "IA_0001": {
     "codigo": "IA-0001",
     "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",

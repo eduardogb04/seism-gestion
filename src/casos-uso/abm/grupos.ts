@@ -28,4 +28,5 @@ export const GRUPOS: DefinicionAbm<"Grupo"> = {
   busqueda: ["nombre", "observaciones"],
   orden: ["nombre"],
   rolesQueEscriben: ["administrador", "operador"],
+  listado: ["nombre", "observaciones"],
 };

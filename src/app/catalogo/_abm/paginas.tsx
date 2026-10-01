@@ -9,10 +9,12 @@
  */
 
 import type { ReactNode } from "react";
+import type { CasosUsoAbm } from "../../../casos-uso/abm/abm.ts";
 import {
   camposDe,
   type DefinicionAbm,
   escritoDe,
+  textosDe,
 } from "../../../casos-uso/abm/definicion.ts";
 import {
   codigoDeError,
@@ -42,6 +44,17 @@ export type PropsListado = {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+/** Lo que se muestra de cada registro que se puede elegir, por id. */
+function etiquetasDe(
+  elegibles: Awaited<ReturnType<CasosUsoAbm["opciones"]>>,
+): ReadonlyMap<string, string> {
+  return new Map(
+    Object.values(elegibles).flatMap((lista) =>
+      lista.map(({ valor, texto }) => [valor, texto] as const),
+    ),
+  );
+}
+
 const VENTANAS = ["baja", "editar", "nuevo"] as const;
 
 /** La ventana que pide la URL; si piden más de una, gana la primera de `VENTANAS`. */
@@ -69,6 +82,7 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
   readonly rutaAlCerrar: string;
 }) {
   const { entidad, singular } = definicion;
+  const elegibles = await armado().abm.opciones(definicion);
   const titulos = {
     nuevo: `Alta de ${singular}`,
     editar: `Edición de ${singular}`,
@@ -81,6 +95,7 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
         <FormularioAbm
           accion={crearRegistro.bind(null, entidad, vuelta)}
           campos={camposDe(definicion)}
+          elegibles={elegibles}
           inicial={{ escrito: {}, errores: {} }}
           enviar={{ texto: "Guardar", variante: "primario" }}
           rutaAlCancelar={rutaAlCerrar}
@@ -88,12 +103,13 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
       );
     } else {
       const { valor } = await armado().abm.obtener(definicion, pedida.valor);
-      const textos = escritoDe(valor);
+      const textos = escritoDe(definicion, valor);
       contenido =
         pedida.clave === "editar" ? (
           <FormularioAbm
             accion={guardarRegistro.bind(null, entidad, valor.id, vuelta)}
             campos={camposDe(definicion)}
+            elegibles={elegibles}
             inicial={{ escrito: textos, errores: {} }}
             enviar={{ texto: "Guardar", variante: "primario" }}
             rutaAlCancelar={rutaAlCerrar}
@@ -102,16 +118,19 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
           <>
             <p>Confirmá la baja de {singular}:</p>
             <dl className="my-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-              {camposDe(definicion).map(([nombre, campo]) => (
-                <div key={nombre} className="contents">
-                  <dt className="font-medium">{campo.etiqueta}</dt>
-                  <dd className="whitespace-pre-line">{textos[nombre]}</dd>
-                </div>
-              ))}
+              {textosDe(definicion, valor, etiquetasDe(elegibles)).map(
+                ([etiqueta, texto]) => (
+                  <div key={etiqueta} className="contents">
+                    <dt className="font-medium">{etiqueta}</dt>
+                    <dd className="whitespace-pre-line">{texto}</dd>
+                  </div>
+                ),
+              )}
             </dl>
             <FormularioAbm
               accion={darDeBajaRegistro.bind(null, entidad, valor.id, vuelta)}
               campos={[]}
+              elegibles={{}}
               inicial={{ escrito: {}, errores: {} }}
               enviar={{ texto: "Confirmar baja", variante: "peligro" }}
               rutaAlCancelar={rutaAlCerrar}

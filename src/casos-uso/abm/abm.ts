@@ -12,7 +12,11 @@
  * - `guardar` con los mismos datos que ya están no escribe nada: ni la fila
  *   ni una auditoría sin cambio.
  * - `listar` valida los parámetros de la URL: uno inválido cae a su valor por
- *   defecto. Buscar, ordenar y paginar los resuelve la base.
+ *   defecto. Buscar, ordenar y paginar los resuelve la base; lo que se muestra
+ *   de un registro relacionado se trae en una sola consulta por página.
+ * - Una opción fuera de su lista, o una relación con un registro que no existe
+ *   o está dado de baja, vuelve en el campo. Dar de baja un registro al que
+ *   apunta otro vigente se rechaza con `DOM-0010`.
  */
 
 import { z } from "zod";
@@ -41,14 +45,22 @@ import { exigirRol } from "../usuarios/reglas.ts";
 import {
   type ColumnaAbm,
   camposDe,
+  celdasDe,
   type DefinicionAbm,
   type Escrito,
+  type ValoresAbm,
   valorDeCampo,
 } from "./definicion.ts";
+import { conDefinicion, enUso } from "./definiciones.ts";
 
 const REGISTROS_POR_PAGINA = 25;
 
 const MENSAJE_UNICO = `${catalogo.DOM_0008.codigo} · ${catalogo.DOM_0008.descripcion}`;
+
+const MENSAJE_OPCION = "Elegí una de las opciones de la lista.";
+
+/** Prisma toma `take` como entero de 32 bits: el máximo es "todas". */
+const TODAS = 2 ** 31 - 1;
 
 const esquemaId = z.uuid();
 
@@ -68,8 +80,16 @@ export type ResultadoEscritura<E extends EntidadAbm> =
 /** Los parámetros del listado como llegan en la URL, sin validar. */
 type ParametrosListado = Readonly<Record<string, unknown>>;
 
+/** Un registro elegible en el selector de una relación. */
+export type OpcionDeRelacion = {
+  readonly valor: string;
+  readonly texto: string;
+};
+
 export type Listado<E extends EntidadAbm> = {
   readonly registros: readonly RegistroAbm<E>[];
+  /** Las celdas de cada registro (por id), en el orden de `definicion.listado`. */
+  readonly celdas: Readonly<Record<string, readonly string[]>>;
   /** Cuántos cumplen la búsqueda, en todas las páginas. */
   readonly total: number;
   readonly pagina: number;
@@ -84,6 +104,10 @@ export type CasosUsoAbm = {
     definicion: DefinicionAbm<E>,
     parametros: ParametrosListado,
   ): Promise<Listado<E>>;
+  /** Por cada campo de relación, los registros vigentes que se pueden elegir. */
+  opciones<E extends EntidadAbm>(
+    definicion: DefinicionAbm<E>,
+  ): Promise<Readonly<Record<string, readonly OpcionDeRelacion[]>>>;
   /** El registro vigente con ese id. `DOM-0009` si no existe o está dado de baja. */
   obtener<E extends EntidadAbm>(
     definicion: DefinicionAbm<E>,
@@ -116,20 +140,29 @@ function validar<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
   escrito: Escrito,
 ): Validado<E> {
-  const leido = definicion.validacion.safeParse(
-    Object.fromEntries(
-      camposDe(definicion).map(([nombre, campo]) => [
-        nombre,
-        valorDeCampo(campo, escrito[nombre] ?? ""),
-      ]),
-    ),
+  const valores = Object.fromEntries(
+    camposDe(definicion).map(([nombre, campo]) => [
+      nombre,
+      valorDeCampo(campo, escrito[nombre] ?? ""),
+    ]),
   );
-  if (leido.success) {
+  const errores: Record<string, string> = {};
+  for (const [nombre, campo] of camposDe(definicion)) {
+    if (
+      campo.tipo === "opcion" &&
+      !campo.opciones.some(({ valor }) => valor === valores[nombre])
+    ) {
+      errores[nombre] = MENSAJE_OPCION;
+    }
+  }
+  const leido = definicion.validacion.safeParse(valores);
+  if (leido.success && Object.keys(errores).length === 0) {
     return { ok: true, datos: leido.data };
   }
-  const errores: Record<string, string> = {};
-  for (const { path, message } of leido.error.issues) {
-    errores[String(path[0])] ??= message;
+  if (!leido.success) {
+    for (const { path, message } of leido.error.issues) {
+      errores[String(path[0])] ??= message;
+    }
   }
   return { ok: false, errores };
 }
@@ -155,10 +188,51 @@ async function repetidos<E extends EntidadAbm>(
   return errores;
 }
 
+/** Las relaciones de `datos` que apuntan a un registro que no existe o está dado de baja. */
+async function relacionesRotas<E extends EntidadAbm>(
+  repos: RepositoriosEnTransaccion,
+  definicion: DefinicionAbm<E>,
+  datos: DatosAbm<E>,
+): Promise<ErroresPorCampo> {
+  const valores: ValoresAbm = datos;
+  const errores: Record<string, string> = {};
+  for (const [nombre, campo] of camposDe(definicion)) {
+    const id = valores[nombre];
+    if (campo.tipo !== "relacion" || typeof id !== "string") {
+      continue;
+    }
+    const destino = esquemaId.safeParse(id).success
+      ? await repos.abm(campo.entidad).buscarPorId(id)
+      : null;
+    if (destino === null || destino.eliminadoEn !== undefined) {
+      errores[nombre] = MENSAJE_OPCION;
+    }
+  }
+  return errores;
+}
+
+/** Lo que solo la base sabe: un valor único repetido o una relación rota. */
+async function erroresDeBase<E extends EntidadAbm>(
+  repos: RepositoriosEnTransaccion,
+  definicion: DefinicionAbm<E>,
+  datos: DatosAbm<E>,
+  propio: string | null,
+): Promise<ErroresPorCampo> {
+  return {
+    ...(await relacionesRotas(repos, definicion, datos)),
+    ...(await repetidos(
+      repos.abm(definicion.entidad),
+      definicion,
+      datos,
+      propio,
+    )),
+  };
+}
+
 function sinCambios<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
-  actuales: Readonly<Record<string, string | null>>,
-  nuevos: Readonly<Record<string, string | null>>,
+  actuales: ValoresAbm,
+  nuevos: ValoresAbm,
 ): boolean {
   return camposDe(definicion).every(
     ([campo]) => actuales[campo] === nuevos[campo],
@@ -179,6 +253,61 @@ async function vigente<E extends EntidadAbm>(
   return registro;
 }
 
+/** Lo que se muestra de cada registro relacionado con `registros`, por id, en una sola consulta por campo. */
+async function etiquetasDe<E extends EntidadAbm>(
+  repos: RepositoriosEnTransaccion,
+  definicion: DefinicionAbm<E>,
+  registros: readonly RegistroAbm<E>[],
+): Promise<ReadonlyMap<string, string>> {
+  const etiquetas = new Map<string, string>();
+  for (const [nombre, campo] of camposDe(definicion)) {
+    if (campo.tipo !== "relacion") {
+      continue;
+    }
+    const ids = new Set<string>();
+    for (const { valor } of registros) {
+      const datos: ValoresAbm = valor;
+      const id = datos[nombre];
+      if (typeof id === "string") {
+        ids.add(id);
+      }
+    }
+    if (ids.size === 0) {
+      continue;
+    }
+    for (const { valor } of await repos
+      .abm(campo.entidad)
+      .buscarPorIds([...ids])) {
+      const destino: ValoresAbm = valor;
+      const texto = destino[campo.mostrar];
+      if (typeof texto === "string") {
+        etiquetas.set(valor.id, texto);
+      }
+    }
+  }
+  return etiquetas;
+}
+
+/** Los registros vigentes de `destino`, por la columna que se muestra. */
+async function opcionesDe<E extends EntidadAbm>(
+  repos: RepositoriosEnTransaccion,
+  destino: DefinicionAbm<E>,
+  mostrar: string,
+): Promise<readonly OpcionDeRelacion[]> {
+  const { registros } = await repos.abm(destino.entidad).listar({
+    buscaEn: [],
+    orden:
+      destino.orden.find((columna) => columna === mostrar) ?? destino.orden[0],
+    direccion: "asc",
+    saltear: 0,
+    cantidad: TODAS,
+  });
+  return registros.map(({ valor }) => {
+    const datos: ValoresAbm = valor;
+    return { valor: valor.id, texto: String(datos[mostrar]) };
+  });
+}
+
 function parametrosDe<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
   parametros: ParametrosListado,
@@ -191,6 +320,16 @@ function parametrosDe<E extends EntidadAbm>(
       pagina: z.coerce.number().int().min(1).catch(1),
     })
     .parse(parametros);
+}
+
+function normalizarBusqueda<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+  columna: ColumnaAbm<E>,
+): ((buscado: string) => string) | undefined {
+  const normalizadores: Readonly<
+    Record<string, ((buscado: string) => string) | undefined>
+  > = definicion.normalizarBusqueda ?? {};
+  return normalizadores[columna];
 }
 
 export function crearCasosUsoAbm({
@@ -208,15 +347,25 @@ export function crearCasosUsoAbm({
         const { registros, total } = await repos
           .abm(definicion.entidad)
           .listar({
-            buscar,
-            enColumnas: definicion.busqueda,
+            buscaEn: definicion.busqueda.flatMap((columna) => {
+              const texto =
+                normalizarBusqueda(definicion, columna)?.(buscar) ?? buscar;
+              return buscar === "" || texto === "" ? [] : [{ columna, texto }];
+            }),
             orden,
             direccion,
             saltear: (pagina - 1) * REGISTROS_POR_PAGINA,
             cantidad: REGISTROS_POR_PAGINA,
           });
+        const etiquetas = await etiquetasDe(repos, definicion, registros);
         return {
           registros,
+          celdas: Object.fromEntries(
+            registros.map(({ valor }) => [
+              valor.id,
+              celdasDe(definicion, valor, etiquetas),
+            ]),
+          ),
           total,
           pagina,
           paginas: Math.max(1, Math.ceil(total / REGISTROS_POR_PAGINA)),
@@ -224,6 +373,20 @@ export function crearCasosUsoAbm({
           orden,
           direccion,
         };
+      });
+    },
+
+    opciones(definicion) {
+      return transaccional.ejecutar(async (repos) => {
+        const opciones: Record<string, readonly OpcionDeRelacion[]> = {};
+        for (const [nombre, campo] of camposDe(definicion)) {
+          if (campo.tipo === "relacion") {
+            opciones[nombre] = await conDefinicion(campo.entidad, (destino) =>
+              opcionesDe(repos, destino, campo.mostrar),
+            );
+          }
+        }
+        return opciones;
       });
     },
 
@@ -244,8 +407,8 @@ export function crearCasosUsoAbm({
           return validado;
         }
         const repositorio = repos.abm(definicion.entidad);
-        const errores = await repetidos(
-          repositorio,
+        const errores = await erroresDeBase(
+          repos,
           definicion,
           validado.datos,
           null,
@@ -283,8 +446,8 @@ export function crearCasosUsoAbm({
           return { ok: true, registro: actual };
         }
         const repositorio = repos.abm(definicion.entidad);
-        const errores = await repetidos(
-          repositorio,
+        const errores = await erroresDeBase(
+          repos,
           definicion,
           validado.datos,
           actual.valor.id,
@@ -314,11 +477,14 @@ export function crearCasosUsoAbm({
           definicion.rolesQueEscriben,
           catalogo.AUT_0009,
         );
-        const eliminado = marcarEliminado(
-          await vigente(repos, definicion, id),
-          actor,
-          reloj,
-        );
+        const actual = await vigente(repos, definicion, id);
+        if (await enUso(repos, definicion.entidad, id)) {
+          throw nuevoError(catalogo.DOM_0010, {
+            entidad: definicion.entidad,
+            id,
+          });
+        }
+        const eliminado = marcarEliminado(actual, actor, reloj);
         if (!eliminado.ok) {
           throw nuevoError(catalogo.DOM_0009, { id });
         }

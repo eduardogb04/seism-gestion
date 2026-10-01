@@ -20,6 +20,11 @@ type Seccion = {
 const SECCIONES: readonly Seccion[] = [
   { texto: "Grupos", ruta: "/catalogo/grupos", soloAdministrador: false },
   {
+    texto: "Clientes y proveedores",
+    ruta: "/catalogo/clientes",
+    soloAdministrador: false,
+  },
+  {
     texto: "Usuarios",
     ruta: "/administracion/usuarios",
     soloAdministrador: true,

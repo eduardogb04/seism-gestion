@@ -50,6 +50,37 @@ export function CampoTexto({
   );
 }
 
+/** Una casilla de sí/no: marcada manda su `value`, desmarcada no manda nada. */
+export function CasillaSiNo({
+  etiqueta,
+  error,
+  ...resto
+}: PropsDeCampo & Omit<ComponentProps<"input">, "className" | "id" | "type">) {
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          className="size-4"
+          id={id}
+          aria-invalid={error !== undefined}
+          aria-describedby={error === undefined ? undefined : `${id}-error`}
+          {...resto}
+        />
+        <label htmlFor={id} className="font-medium">
+          {etiqueta}
+        </label>
+      </div>
+      {error === undefined ? null : (
+        <p id={`${id}-error`} data-error-de-campo className="text-red-800">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function CampoTextoLargo({
   etiqueta,
   error,

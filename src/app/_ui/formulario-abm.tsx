@@ -12,13 +12,21 @@
 
 import { useRouter } from "next/navigation.js";
 import { useActionState } from "react";
-import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
-import type { CampoAbm, Escrito } from "../../casos-uso/abm/definicion.ts";
+import type {
+  ErroresPorCampo,
+  OpcionDeRelacion,
+} from "../../casos-uso/abm/abm.ts";
+import {
+  type CampoAbm,
+  type Escrito,
+  MARCADA,
+} from "../../casos-uso/abm/definicion.ts";
 import type { ErrorDeLogin } from "../../casos-uso/sesion/errores.ts";
 import { Boton, clasesDeBoton, type VarianteDeBoton } from "./boton.tsx";
-import { CampoTexto, CampoTextoLargo } from "./campo-texto.tsx";
+import { CampoTexto, CampoTextoLargo, CasillaSiNo } from "./campo-texto.tsx";
 import { Enlace } from "./enlace-next.ts";
 import { ErrorEnPantalla } from "./error-en-pantalla.tsx";
+import { Selector } from "./selector.tsx";
 
 export type EstadoFormulario = {
   readonly escrito: Escrito;
@@ -30,11 +38,14 @@ export type EstadoFormulario = {
 function Control({
   nombre,
   campo,
+  elegibles,
   estado,
   alAbrir,
 }: {
   readonly nombre: string;
   readonly campo: CampoAbm;
+  /** Los registros que se pueden elegir en una relación. */
+  readonly elegibles: readonly OpcionDeRelacion[];
   readonly estado: EstadoFormulario;
   readonly alAbrir: boolean;
 }) {
@@ -50,6 +61,37 @@ function Control({
       return <CampoTexto type="text" {...comunes} />;
     case "textoLargo":
       return <CampoTextoLargo {...comunes} />;
+    case "opcion":
+      return (
+        <Selector
+          {...comunes}
+          opciones={[
+            { valor: "", texto: "Elegí una opción" },
+            ...campo.opciones.map(({ valor, etiqueta }) => ({
+              valor,
+              texto: etiqueta,
+            })),
+          ]}
+        />
+      );
+    case "relacion":
+      return (
+        <Selector
+          {...comunes}
+          opciones={[{ valor: "", texto: "Ninguno" }, ...elegibles]}
+        />
+      );
+    case "siNo":
+      return (
+        <CasillaSiNo
+          autoFocus={comunes.autoFocus}
+          etiqueta={comunes.etiqueta}
+          name={nombre}
+          value={MARCADA}
+          defaultChecked={estado.escrito[nombre] === MARCADA}
+          error={comunes.error}
+        />
+      );
   }
 }
 
@@ -61,6 +103,7 @@ function enfocar(enlace: { focus(): void } | null) {
 export function FormularioAbm({
   accion,
   campos,
+  elegibles,
   inicial,
   enviar: { texto, variante },
   rutaAlCancelar,
@@ -70,6 +113,8 @@ export function FormularioAbm({
     formulario: FormData,
   ) => Promise<EstadoFormulario>;
   readonly campos: readonly (readonly [string, CampoAbm])[];
+  /** Por campo de relación, lo que se puede elegir. */
+  readonly elegibles: Readonly<Record<string, readonly OpcionDeRelacion[]>>;
   readonly inicial: EstadoFormulario;
   readonly enviar: {
     readonly texto: string;
@@ -92,15 +137,22 @@ export function FormularioAbm({
       {estado.error === undefined ? null : (
         <ErrorEnPantalla error={estado.error} />
       )}
-      {campos.map(([nombre, campo], posicion) => (
-        <Control
-          key={nombre}
-          nombre={nombre}
-          campo={campo}
-          estado={estado}
-          alAbrir={posicion === 0}
-        />
-      ))}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {campos.map(([nombre, campo], posicion) => (
+          <div
+            key={nombre}
+            className={campo.tipo === "textoLargo" ? "md:col-span-2" : ""}
+          >
+            <Control
+              nombre={nombre}
+              campo={campo}
+              elegibles={elegibles[nombre] ?? []}
+              estado={estado}
+              alAbrir={posicion === 0}
+            />
+          </div>
+        ))}
+      </div>
       <div className="flex flex-wrap gap-3">
         <Boton variante={variante} type="submit" disabled={enviando}>
           {texto}

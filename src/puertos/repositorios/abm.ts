@@ -1,0 +1,77 @@
+/**
+ * El puerto genérico de los ABM (F1-03, ADR 0031): un solo repositorio para
+ * todas las entidades de catálogo, que `RepositoriosEnTransaccion.abm` entrega
+ * por entidad. Un ABM nuevo suma **una entrada** a `EntidadesAbm` con la forma
+ * de sus datos; no suma un puerto.
+ *
+ * Como en usuarios (ADR 0029), `crear` y `actualizar` reciben el `Actor` y el
+ * adaptador deja la auditoría en la misma transacción. No hay borrado: dar de
+ * baja es `actualizar` un registro que ya trae `eliminadoEn`.
+ *
+ * Implementado con Prisma en `src/adaptadores/prisma/abm/`.
+ */
+
+import type { Actor } from "../../dominio/compartido/actor.ts";
+import type {
+  AccionAuditoria,
+  Auditable,
+} from "../../dominio/compartido/auditable.ts";
+import type { Identificador } from "../../dominio/compartido/identificador.ts";
+
+/** Los datos de cada entidad con ABM, sin el `id` ni la auditoría. */
+export type EntidadesAbm = {
+  readonly Grupo: {
+    readonly nombre: string;
+    readonly observaciones: string | null;
+  };
+};
+
+export type EntidadAbm = keyof EntidadesAbm;
+export type DatosAbm<E extends EntidadAbm> = EntidadesAbm[E];
+
+/** Datos `D` con su `id` y quién y cuándo los creó, cambió y dio de baja. */
+export type RegistroDe<D> = Auditable<
+  D & { readonly id: Identificador<string> }
+>;
+
+export type ConsultaDe<D> = {
+  /** Lo que se busca: contiene, sin distinguir mayúsculas. Vacío no filtra. */
+  readonly buscar: string;
+  readonly enColumnas: readonly (keyof D & string)[];
+  readonly orden: keyof D & string;
+  readonly direccion: "asc" | "desc";
+  readonly saltear: number;
+  readonly cantidad: number;
+};
+
+export type RepositorioDe<D> = {
+  /** Los no eliminados que cumplen la consulta, y cuántos son sin paginar. */
+  listar(consulta: ConsultaDe<D>): Promise<{
+    readonly registros: readonly RegistroDe<D>[];
+    readonly total: number;
+  }>;
+  /** También devuelve uno eliminado: quien llama decide qué hacer con él. */
+  buscarPorId(id: string): Promise<RegistroDe<D> | null>;
+  /** El no eliminado que tiene ese valor en `columna`, sin distinguir mayúsculas. */
+  buscarPorValor(
+    columna: keyof D & string,
+    valor: string,
+  ): Promise<RegistroDe<D> | null>;
+  /**
+   * Guarda un registro nuevo y su auditoría (`crear`, sin `antes`). Si la base
+   * rechaza un valor único repetido, lanza `DOM-0008` y no guarda nada.
+   */
+  crear(actor: Actor, registro: RegistroDe<D>): Promise<void>;
+  /**
+   * Reemplaza un registro que ya existe y deja la auditoría con `accion`, lo
+   * que estaba guardado y lo que queda. `DOM-0008` si repite un valor único.
+   */
+  actualizar(
+    actor: Actor,
+    registro: RegistroDe<D>,
+    accion: AccionAuditoria,
+  ): Promise<void>;
+};
+
+export type RegistroAbm<E extends EntidadAbm> = RegistroDe<DatosAbm<E>>;
+export type RepositorioAbm<E extends EntidadAbm> = RepositorioDe<DatosAbm<E>>;

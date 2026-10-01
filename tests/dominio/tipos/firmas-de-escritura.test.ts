@@ -36,6 +36,8 @@ const NO_ESCRIBEN: Readonly<Record<string, string>> = {
     "fábrica: arma el objeto de casos de uso con sus dependencias, no escribe nada",
   crearCasosUsoSesion:
     "fábrica: arma el objeto de casos de uso de sesión con sus dependencias, no escribe nada",
+  crearCasosUsoAbm:
+    "fábrica (F1-03): arma los casos de uso del molde de ABM con sus dependencias, no escribe nada",
   crearInterpretar:
     "fábrica (F0-28): arma `interpretar` con sus dependencias, no escribe nada",
 };
@@ -56,7 +58,14 @@ describe("las escrituras de src/casos-uso reciben Actor primero", () => {
     const nombres = A_REVISAR.map((firma) => firma.nombre);
 
     expect(nombres).toEqual(
-      expect.arrayContaining(["darDeAlta", "revocar", "cambiarRol"]),
+      expect.arrayContaining([
+        "darDeAlta",
+        "revocar",
+        "cambiarRol",
+        "crear",
+        "guardar",
+        "marcarEliminado",
+      ]),
     );
   });
 

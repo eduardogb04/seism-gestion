@@ -7,6 +7,7 @@
  * Implementado con Prisma en `src/adaptadores/prisma/transaccion.ts`
  * (`$transaction` interactiva).
  */
+import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
 import type { RepositorioSesiones } from "./sesiones.ts";
 import type { RepositorioUsuarios } from "./usuarios.ts";
 
@@ -14,6 +15,8 @@ import type { RepositorioUsuarios } from "./usuarios.ts";
 export type RepositoriosEnTransaccion = {
   readonly usuarios: RepositorioUsuarios;
   readonly sesiones: RepositorioSesiones;
+  /** El repositorio de cualquier entidad con ABM (F1-03, ADR 0031). */
+  abm<E extends EntidadAbm>(entidad: E): RepositorioAbm<E>;
 };
 
 export type Transaccional = {

@@ -107,6 +107,18 @@
     "queHacer": "Revisá que estés trabajando sobre el registro correcto. Si hay que recuperarlo, avisá con este código: el borrado es lógico y el registro sigue guardado.",
     "tipo": "persona"
   },
+  "DOM_0008": {
+    "codigo": "DOM-0008",
+    "descripcion": "Ya existe otro registro con ese valor: no se puede repetir.",
+    "queHacer": "Cambiá el valor del campo marcado o buscá el registro que ya lo tiene. Uno dado de baja no cuenta: su valor se puede volver a usar.",
+    "tipo": "persona"
+  },
+  "DOM_0009": {
+    "codigo": "DOM-0009",
+    "descripcion": "El registro no existe o ya fue dado de baja: no se puede ver, modificar ni dar de baja.",
+    "queHacer": "Volvé al listado y buscalo de nuevo: puede que otra persona lo haya dado de baja recién. Si tendría que estar, avisá con este código.",
+    "tipo": "persona"
+  },
   "IA_0001": {
     "codigo": "IA-0001",
     "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",

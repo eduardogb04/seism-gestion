@@ -195,3 +195,22 @@ model Auditoria {
   @@index([entidad, entidadId])
   @@map("auditoria")
 }
+
+// Grupos (F1-03): el primer catálogo que sale del molde de ABM (ADR 0031).
+// Las columnas de auditable son las de `usuarios`. El nombre es único entre
+// los no eliminados y sin distinguir mayúsculas: lo garantiza el índice
+// `grupos_nombre_unico`, sobre `lower(nombre)`, que vive solo en la migración
+// (Prisma no declara índices sobre expresiones).
+model Grupo {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre         String
+  observaciones  String?
+  creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json      @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+
+  @@map("grupos")
+}

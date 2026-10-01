@@ -211,6 +211,42 @@ model Grupo {
   actualizadoPor Json      @map("actualizado_por") @db.JsonB
   eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+  clientes       Cliente[]
 
   @@map("grupos")
+}
+
+// Clientes y proveedores (F1-04), segundo catálogo del molde de ABM. Lo que
+// pide una factura es obligatorio. La razón social (sin distinguir mayúsculas)
+// y el CUIT son únicos entre los no eliminados: lo garantizan los índices
+// `clientes_razon_social_unico` y `clientes_cuit_unico`, solo en la migración
+// (Prisma no declara índices sobre expresiones). La condición frente al IVA y
+// la provincia son texto: su lista vive en la definición del ABM.
+model Cliente {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  razonSocial      String    @map("razon_social")
+  cuit             String
+  condicionIva     String    @map("condicion_iva")
+  domicilio        String
+  localidad        String
+  provincia        String
+  codigoPostal     String    @map("codigo_postal")
+  esCliente        Boolean   @map("es_cliente")
+  esProveedor      Boolean   @map("es_proveedor")
+  nombreCorto      String?   @map("nombre_corto")
+  grupoId          String?   @map("grupo_id") @db.Uuid
+  grupo            Grupo?    @relation(fields: [grupoId], references: [id], onDelete: Restrict)
+  contactoNombre   String?   @map("contacto_nombre")
+  contactoTelefono String?   @map("contacto_telefono")
+  contactoEmail    String?   @map("contacto_email")
+  emailFacturacion String?   @map("email_facturacion")
+  observaciones    String?
+  creadoEn         DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor        Json      @map("creado_por") @db.JsonB
+  actualizadoEn    DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor   Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn      DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor     Json?     @map("eliminado_por") @db.JsonB
+
+  @@map("clientes")
 }

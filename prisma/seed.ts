@@ -9,9 +9,9 @@
  * persona administradora) sino por este camino aparte, con el actor de
  * sistema `db-seed` (ADR 0024).
  *
- * Desde F1-03, los **datos de demostración**: tres grupos inventados, por el
- * repositorio del molde de ABM (ADR 0031), con el actor `db-seed` y su
- * auditoría. En el servidor (`appEntorno`) no van.
+ * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
+ * F1-04, cuatro clientes), por el repositorio del molde de ABM (ADR 0031), con
+ * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
  * dominio; nada de entorno: la validación de entorno, el reloj del sistema y
@@ -39,6 +39,7 @@ import { catalogo } from "../src/dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../src/dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../src/dominio/compartido/identificador.ts";
 import type { Reloj } from "../src/dominio/compartido/reloj.ts";
+import type { DatosAbm } from "../src/puertos/repositorios/abm.ts";
 import type { DatosUsuario } from "../src/puertos/repositorios/usuarios.ts";
 
 /** Lo que la semilla necesita de afuera: lo arma `scripts/db-seed.ts`. */
@@ -98,6 +99,7 @@ export async function sembrar(
   await sembrarAdministradorInicial(prisma, opciones);
   if (opciones.appEntorno !== "servidor") {
     await sembrarGruposDeDemostracion(prisma, opciones.reloj);
+    await sembrarClientesDeDemostracion(prisma, opciones.reloj);
   }
 }
 
@@ -126,6 +128,115 @@ async function sembrarGruposDeDemostracion(
             id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
             nombre,
             observaciones: null,
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
+}
+
+type DatosCliente = DatosAbm<"Cliente">;
+
+/** Lo común a los clientes de demostración; cada uno cambia lo suyo. */
+const CLIENTE_BASE: DatosCliente = {
+  razonSocial: "",
+  cuit: "",
+  condicionIva: "responsable_inscripto",
+  domicilio: "Calle Falsa 123",
+  localidad: "Ciudad Ejemplo",
+  provincia: "cordoba",
+  codigoPostal: "X5000",
+  esCliente: true,
+  esProveedor: false,
+  nombreCorto: null,
+  grupoId: null,
+  contactoNombre: null,
+  contactoTelefono: null,
+  contactoEmail: null,
+  emailFacturacion: null,
+  observaciones: null,
+};
+
+/** Inventados: los CUIT tienen cuerpo `30-0000000x` y su dígito calculado. */
+const CLIENTES_DE_DEMOSTRACION: readonly {
+  readonly datos: Partial<DatosCliente>;
+  readonly grupo: string | null;
+}[] = [
+  {
+    datos: {
+      razonSocial: "Empresa Ejemplo Uno S.A.",
+      cuit: "30000000015",
+      nombreCorto: "Ejemplo Uno",
+      contactoNombre: "Persona de Ejemplo",
+      contactoEmail: "contacto@ejemplo.test",
+      emailFacturacion: "facturas@ejemplo.test",
+    },
+    grupo: "Grupo Norte",
+  },
+  {
+    datos: {
+      razonSocial: "Empresa Ejemplo Dos S.R.L.",
+      cuit: "30000000023",
+      condicionIva: "monotributo",
+      provincia: "santa_fe",
+      localidad: "Pueblo Ejemplo",
+      codigoPostal: "S2000",
+    },
+    grupo: null,
+  },
+  {
+    datos: {
+      razonSocial: "Servicios Ejemplo Tres S.A.",
+      cuit: "30000000031",
+      esProveedor: true,
+    },
+    grupo: "Grupo Centro",
+  },
+  {
+    datos: {
+      razonSocial: "Proveedora Ejemplo Cinco S.A.",
+      cuit: "30000000058",
+      esCliente: false,
+      esProveedor: true,
+      provincia: "mendoza",
+      codigoPostal: "M5500",
+    },
+    grupo: null,
+  },
+];
+
+/**
+ * Da de alta cada cliente de demostración si **nunca hubo** uno con ese CUIT
+ * (como los grupos), con su grupo si ese grupo sigue existiendo.
+ */
+async function sembrarClientesDeDemostracion(
+  prisma: PrismaClient,
+  reloj: Reloj,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const clientes = repositorioAbmPrisma(tx, "Cliente");
+    for (const { datos, grupo } of CLIENTES_DE_DEMOSTRACION) {
+      const cuit = datos.cuit ?? "";
+      if ((await tx.cliente.findFirst({ where: { cuit } })) !== null) {
+        continue;
+      }
+      const grupoVigente =
+        grupo === null
+          ? null
+          : await tx.grupo.findFirst({
+              where: { nombre: grupo, eliminadoEn: null },
+            });
+      await clientes.crear(
+        actor,
+        crearAuditable(
+          {
+            ...CLIENTE_BASE,
+            ...datos,
+            grupoId: grupoVigente?.id ?? null,
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
           },
           actor,
           reloj,

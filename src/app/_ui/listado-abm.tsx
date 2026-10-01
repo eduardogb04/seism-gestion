@@ -8,9 +8,8 @@
 
 import type { Listado } from "../../casos-uso/abm/abm.ts";
 import {
-  camposDe,
+  cabecerasDe,
   type DefinicionAbm,
-  escritoDe,
 } from "../../casos-uso/abm/definicion.ts";
 import type { EntidadAbm } from "../../puertos/repositorios/abm.ts";
 import { Boton, clasesDeBoton } from "./boton.tsx";
@@ -62,12 +61,17 @@ export function ListadoAbm<E extends EntidadAbm>({
   readonly puedeEscribir: boolean;
 }) {
   const { ruta, singular } = definicion;
-  const campos = camposDe(definicion);
-  const etiquetas = new Map(
-    campos.map(([nombre, campo]) => [nombre, campo.etiqueta]),
-  );
-  const { registros, total, pagina, paginas, buscar, orden, direccion } =
-    listado;
+  const cabeceras = cabecerasDe(definicion);
+  const {
+    registros,
+    celdas,
+    total,
+    pagina,
+    paginas,
+    buscar,
+    orden,
+    direccion,
+  } = listado;
   const vista: Vista = { buscar, orden, direccion, pagina };
   return (
     <>
@@ -110,25 +114,19 @@ export function ListadoAbm<E extends EntidadAbm>({
                 pagina: 1,
               })}
             >
-              {etiquetas.get(columna)}
+              {definicion.campos[columna].etiqueta}
               {actual ? (direccion === "asc" ? " ↑" : " ↓") : ""}
             </a>
           );
         })}
       </p>
-      <Tabla
-        cabeceras={[
-          ...campos.map(([, campo]) => campo.etiqueta),
-          ...(puedeEscribir ? ["Acciones"] : []),
-        ]}
-      >
+      <Tabla cabeceras={[...cabeceras, ...(puedeEscribir ? ["Acciones"] : [])]}>
         {registros.map(({ valor }) => {
-          const textos = escritoDe(valor);
           return (
             <tr key={valor.id}>
-              {campos.map(([nombre]) => (
-                <td key={nombre} className="whitespace-pre-line">
-                  {textos[nombre]}
+              {(celdas[valor.id] ?? []).map((texto, posicion) => (
+                <td key={cabeceras[posicion]} className="whitespace-pre-line">
+                  {texto}
                 </td>
               ))}
               {puedeEscribir ? (

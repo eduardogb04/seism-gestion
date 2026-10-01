@@ -24,10 +24,33 @@ type EntidadesAbm = {
     readonly nombre: string;
     readonly observaciones: string | null;
   };
+  readonly Cliente: {
+    readonly razonSocial: string;
+    readonly cuit: string;
+    readonly condicionIva: string;
+    readonly domicilio: string;
+    readonly localidad: string;
+    readonly provincia: string;
+    readonly codigoPostal: string;
+    readonly esCliente: boolean;
+    readonly esProveedor: boolean;
+    readonly nombreCorto: string | null;
+    readonly grupoId: string | null;
+    readonly contactoNombre: string | null;
+    readonly contactoTelefono: string | null;
+    readonly contactoEmail: string | null;
+    readonly emailFacturacion: string | null;
+    readonly observaciones: string | null;
+  };
 };
 
 export type EntidadAbm = keyof EntidadesAbm;
 export type DatosAbm<E extends EntidadAbm> = EntidadesAbm[E];
+
+/** Las columnas de texto de `D`: por las únicas se busca, se ordena y se compara. */
+export type ColumnaDeTexto<D> = {
+  [C in keyof D & string]: D[C] extends string | null ? C : never;
+}[keyof D & string];
 
 /** Datos `D` con su `id` y quién y cuándo los creó, cambió y dio de baja. */
 export type RegistroDe<D> = Auditable<
@@ -35,10 +58,12 @@ export type RegistroDe<D> = Auditable<
 >;
 
 type ConsultaDe<D> = {
-  /** Lo que se busca: contiene, sin distinguir mayúsculas. Vacío no filtra. */
-  readonly buscar: string;
-  readonly enColumnas: readonly (keyof D & string)[];
-  readonly orden: keyof D & string;
+  /** Qué se busca en cada columna: contiene, sin distinguir mayúsculas. Ninguna no filtra. */
+  readonly buscaEn: readonly {
+    readonly columna: ColumnaDeTexto<D>;
+    readonly texto: string;
+  }[];
+  readonly orden: ColumnaDeTexto<D>;
   readonly direccion: "asc" | "desc";
   readonly saltear: number;
   readonly cantidad: number;
@@ -52,11 +77,15 @@ export type RepositorioDe<D> = {
   }>;
   /** También devuelve uno eliminado: quien llama decide qué hacer con él. */
   buscarPorId(id: string): Promise<RegistroDe<D> | null>;
+  /** Los que existen de esos ids, también los eliminados, en una sola consulta. */
+  buscarPorIds(ids: readonly string[]): Promise<readonly RegistroDe<D>[]>;
   /** El no eliminado que tiene ese valor en `columna`, sin distinguir mayúsculas. */
   buscarPorValor(
-    columna: keyof D & string,
+    columna: ColumnaDeTexto<D>,
     valor: string,
   ): Promise<RegistroDe<D> | null>;
+  /** ¿Hay algún no eliminado con exactamente ese valor en `columna`? */
+  hayVigenteCon(columna: ColumnaDeTexto<D>, valor: string): Promise<boolean>;
   /**
    * Guarda un registro nuevo y su auditoría (`crear`, sin `antes`). Si la base
    * rechaza un valor único repetido, lanza `DOM-0008` y no guarda nada.

@@ -14,6 +14,7 @@ import { nuevoError } from "../../../dominio/compartido/errores/error-sistema.ts
 import { identificadorDesde } from "../../../dominio/compartido/identificador.ts";
 import { formatearISO } from "../../../dominio/compartido/reloj.ts";
 import type {
+  ColumnaDeTexto,
   RegistroDe,
   RepositorioDe,
 } from "../../../puertos/repositorios/abm.ts";
@@ -41,16 +42,17 @@ type FilaAuditable = {
 };
 
 type Datos<F> = Omit<F, keyof FilaAuditable>;
-type Columna<F> = keyof Datos<F> & string;
+type Columna<F> = ColumnaDeTexto<Datos<F>>;
 
 type FiltroTexto = {
-  mode: "insensitive";
+  mode?: "insensitive";
   contains?: string;
   equals?: string;
 };
 
 type Donde<F> = {
-  eliminadoEn: null;
+  eliminadoEn?: null;
+  id?: { in: string[] };
   OR?: Partial<Record<Columna<F>, FiltroTexto>>[];
 };
 
@@ -70,9 +72,9 @@ type FilaEscrita<F> = Datos<F> & ColumnasDeAuditoria & { id: string };
 type TablaAbm<F extends FilaAuditable> = {
   findMany(args: {
     where: Donde<F>;
-    orderBy: Orden<F>[];
-    skip: number;
-    take: number;
+    orderBy?: Orden<F>[];
+    skip?: number;
+    take?: number;
   }): Promise<F[]>;
   count(args: { where: Donde<F> }): Promise<number>;
   findFirst(args: { where: Donde<F> }): Promise<F | null>;
@@ -172,14 +174,14 @@ export function crearRepositorioAbmPrisma<F extends FilaAuditable>(
 ): RepositorioDe<Datos<F>> {
   const auditoria = crearAuditoriaPrisma(cliente);
   return {
-    async listar({ buscar, enColumnas, orden, direccion, saltear, cantidad }) {
+    async listar({ buscaEn, orden, direccion, saltear, cantidad }) {
       const where: Donde<F> =
-        buscar === ""
+        buscaEn.length === 0
           ? { eliminadoEn: null }
           : {
               eliminadoEn: null,
-              OR: enColumnas.map((columna) =>
-                enColumna(columna, { contains: buscar, mode: "insensitive" }),
+              OR: buscaEn.map(({ columna, texto }) =>
+                enColumna(columna, { contains: texto, mode: "insensitive" }),
               ),
             };
       const filas = await tabla.findMany({
@@ -200,6 +202,11 @@ export function crearRepositorioAbmPrisma<F extends FilaAuditable>(
       return fila === null ? null : desdeFila(fila);
     },
 
+    async buscarPorIds(ids) {
+      const filas = await tabla.findMany({ where: { id: { in: [...ids] } } });
+      return filas.map(desdeFila);
+    },
+
     async buscarPorValor(columna, valor) {
       const fila = await tabla.findFirst({
         where: {
@@ -208,6 +215,16 @@ export function crearRepositorioAbmPrisma<F extends FilaAuditable>(
         },
       });
       return fila === null ? null : desdeFila(fila);
+    },
+
+    async hayVigenteCon(columna, valor) {
+      const fila = await tabla.findFirst({
+        where: {
+          eliminadoEn: null,
+          OR: [enColumna(columna, { equals: valor })],
+        },
+      });
+      return fila !== null;
     },
 
     async crear(actor, registro) {

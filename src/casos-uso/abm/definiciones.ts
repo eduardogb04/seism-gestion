@@ -9,11 +9,14 @@ import { z } from "zod";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type { EntidadAbm } from "../../puertos/repositorios/abm.ts";
-import type { DefinicionAbm } from "./definicion.ts";
+import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
+import { CLIENTES } from "./clientes.ts";
+import { type ColumnaAbm, camposDe, type DefinicionAbm } from "./definicion.ts";
 import { GRUPOS } from "./grupos.ts";
 
 export const DEFINICIONES: { readonly [E in EntidadAbm]: DefinicionAbm<E> } = {
   Grupo: GRUPOS,
+  Cliente: CLIENTES,
 };
 
 const esquemaEntidad = z
@@ -42,4 +45,48 @@ export function conDefinicion<T>(
     throw nuevoError(catalogo.DOM_0009, { entidad });
   }
   return aplicar(leida.data, trabajo);
+}
+
+/** Una relación guarda el id: su columna es de texto, y su nombre sale de `campos`. */
+function esColumna<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+  nombre: string,
+): nombre is ColumnaAbm<E> {
+  return Object.hasOwn(definicion.campos, nombre);
+}
+
+/** Las columnas de `definicion` que son una relación con `destino`. */
+function columnasHacia<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+  destino: EntidadAbm,
+): readonly ColumnaAbm<E>[] {
+  return camposDe(definicion).flatMap(([nombre, campo]) =>
+    campo.tipo === "relacion" &&
+    campo.entidad === destino &&
+    esColumna(definicion, nombre)
+      ? [nombre]
+      : [],
+  );
+}
+
+/** ¿Hay algún registro vigente, de cualquier ABM, que apunte al `id` de `destino`? */
+export async function enUso(
+  repos: RepositoriosEnTransaccion,
+  destino: EntidadAbm,
+  id: string,
+): Promise<boolean> {
+  for (const entidad of Object.keys(DEFINICIONES)) {
+    const usado = await conDefinicion(entidad, async (definicion) => {
+      for (const columna of columnasHacia(definicion, destino)) {
+        if (await repos.abm(definicion.entidad).hayVigenteCon(columna, id)) {
+          return true;
+        }
+      }
+      return false;
+    });
+    if (usado) {
+      return true;
+    }
+  }
+  return false;
 }

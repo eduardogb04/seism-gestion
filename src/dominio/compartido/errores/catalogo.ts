@@ -129,6 +129,13 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Volvé al listado y buscalo de nuevo: puede que otra persona lo haya dado de baja recién. Si tendría que estar, avisá con este código.",
   },
+  DOM_0010: {
+    codigo: "DOM-0010",
+    tipo: "persona",
+    descripcion: "No se puede dar de baja: hay registros vigentes que lo usan.",
+    queHacer:
+      "Primero reasigná o dá de baja lo que lo usa (por ejemplo, los clientes de un grupo) y volvé a intentarlo.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",

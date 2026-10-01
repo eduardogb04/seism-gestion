@@ -41,8 +41,12 @@ la integración `base` de `listarSalud`).
 Desde F0-28: `ia-doble/` (doble determinista del puerto de IA: responde por una tabla de casos
 fijada al construirse, error explícito si la pregunta no está), `prisma/uso-ia.ts` y
 `prisma/configuracion.ts` (los repositorios de `src/puertos/repositorios/`), `prisma/fecha-hora.ts`
-(`FechaHora` civil argentina → instante `timestamptz`) y `log/avisos-ia.ts` (el aviso de tope de IA
-por el log, hasta que el puerto de notificaciones esté en `main`). ADR 0026.
+(`FechaHora` civil argentina → instante `timestamptz`). ADR 0026.
+
+Desde M-05: `log/notificaciones.ts` (`crearNotificacionesPorLog`), el adaptador de `Notificaciones`
+de la Fase 0: escribe un `warn` con el `usuarioId` del destinatario (nunca el email) y el mensaje,
+porque el canal real es Fase 1. Pasa la suite de contrato de `tests/contratos/`. Por él salen los
+avisos al administrador (`INF-0002`, `IA-0001`). ADR 0030.
 
 Desde F0-33, `prisma/usuarios.ts` escribe la fila de `auditoria` de cada `crear`
 y `actualizar` (con el `Actor` recibido, en la misma transacción): el `antes` es

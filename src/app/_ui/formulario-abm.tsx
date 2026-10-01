@@ -15,6 +15,7 @@ import { useActionState } from "react";
 import type {
   ErroresPorCampo,
   OpcionDeRelacion,
+  OpcionesPorCampo,
 } from "../../casos-uso/abm/abm.ts";
 import {
   type CampoAbm,
@@ -49,6 +50,8 @@ function Control({
   readonly estado: EstadoFormulario;
   readonly alAbrir: boolean;
 }) {
+  // Un `<select>` no toma de nuevo su `defaultValue` cuando React resetea el
+  // formulario después de la acción: la `key` lo vuelve a armar con lo escrito.
   const comunes = {
     autoFocus: alAbrir,
     etiqueta: campo.etiqueta,
@@ -64,6 +67,7 @@ function Control({
     case "opcion":
       return (
         <Selector
+          key={comunes.defaultValue}
           {...comunes}
           opciones={[
             { valor: "", texto: "Elegí una opción" },
@@ -77,6 +81,7 @@ function Control({
     case "relacion":
       return (
         <Selector
+          key={comunes.defaultValue}
           {...comunes}
           opciones={[{ valor: "", texto: "Ninguno" }, ...elegibles]}
         />
@@ -114,7 +119,7 @@ export function FormularioAbm({
   ) => Promise<EstadoFormulario>;
   readonly campos: readonly (readonly [string, CampoAbm])[];
   /** Por campo de relación, lo que se puede elegir. */
-  readonly elegibles: Readonly<Record<string, readonly OpcionDeRelacion[]>>;
+  readonly elegibles: OpcionesPorCampo;
   readonly inicial: EstadoFormulario;
   readonly enviar: {
     readonly texto: string;

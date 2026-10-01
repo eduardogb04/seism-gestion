@@ -9,7 +9,7 @@
  */
 
 import type { ReactNode } from "react";
-import type { CasosUsoAbm } from "../../../casos-uso/abm/abm.ts";
+import type { OpcionesPorCampo } from "../../../casos-uso/abm/abm.ts";
 import {
   camposDe,
   type DefinicionAbm,
@@ -45,9 +45,7 @@ export type PropsListado = {
 };
 
 /** Lo que se muestra de cada registro que se puede elegir, por id. */
-function etiquetasDe(
-  elegibles: Awaited<ReturnType<CasosUsoAbm["opciones"]>>,
-): ReadonlyMap<string, string> {
+function etiquetasDe(elegibles: OpcionesPorCampo): ReadonlyMap<string, string> {
   return new Map(
     Object.values(elegibles).flatMap((lista) =>
       lista.map(({ valor, texto }) => [valor, texto] as const),

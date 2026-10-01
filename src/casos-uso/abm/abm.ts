@@ -86,6 +86,11 @@ export type OpcionDeRelacion = {
   readonly texto: string;
 };
 
+/** Por campo de relación, lo que se puede elegir. */
+export type OpcionesPorCampo = Readonly<
+  Record<string, readonly OpcionDeRelacion[]>
+>;
+
 export type Listado<E extends EntidadAbm> = {
   readonly registros: readonly RegistroAbm<E>[];
   /** Las celdas de cada registro (por id), en el orden de `definicion.listado`. */
@@ -107,7 +112,7 @@ export type CasosUsoAbm = {
   /** Por cada campo de relación, los registros vigentes que se pueden elegir. */
   opciones<E extends EntidadAbm>(
     definicion: DefinicionAbm<E>,
-  ): Promise<Readonly<Record<string, readonly OpcionDeRelacion[]>>>;
+  ): Promise<OpcionesPorCampo>;
   /** El registro vigente con ese id. `DOM-0009` si no existe o está dado de baja. */
   obtener<E extends EntidadAbm>(
     definicion: DefinicionAbm<E>,

@@ -2,7 +2,8 @@
  * El marco de lo que está detrás del login (F1-02): menú con las secciones que
  * existen y que la persona puede ver, cabecera con su email y *Salir*, y el
  * contenido. Además, `src/app/_ui/` es HTML del servidor: ningún componente
- * lleva `"use client"` (lo exigen `/salud` sin JavaScript y el selector nativo).
+ * lleva `"use client"` (lo exigen `/salud` sin JavaScript y el selector nativo),
+ * salvo el formulario del molde de ABM (F1-03, ADR 0031).
  */
 
 import { readdirSync, readFileSync } from "node:fs";
@@ -35,8 +36,19 @@ describe("Marco", () => {
     expect(marcado).toMatch(/<a [^>]*href="\/salud"[^>]*>Salud</);
   });
 
-  test("quien no es administrador no ve entradas del menú", () => {
+  test("los catálogos van antes que lo que es solo del administrador", () => {
+    const marcado = marcoDe("administrador");
+
+    expect(marcado).toMatch(/<a [^>]*href="\/catalogo\/grupos"[^>]*>Grupos</);
+    expect(marcado.indexOf(">Grupos<")).toBeLessThan(
+      marcado.indexOf(">Usuarios<"),
+    );
+  });
+
+  test("un operador ve Grupos y no ve Usuarios ni Salud", () => {
     const marcado = marcoDe("operador");
+
+    expect(marcado).toMatch(/<a [^>]*href="\/catalogo\/grupos"[^>]*>Grupos</);
 
     expect(marcado).not.toContain("/administracion/usuarios");
     expect(marcado).not.toContain('href="/salud"');
@@ -68,7 +80,7 @@ describe("Marco", () => {
 describe("src/app/_ui/**", () => {
   const CARPETA = path.resolve(import.meta.dirname, "../../src/app/_ui");
 
-  test('ningún componente declara "use client"', () => {
+  test('solo el formulario del molde de ABM declara "use client"', () => {
     const archivos = readdirSync(CARPETA);
     expect(archivos.length).toBeGreaterThanOrEqual(5);
 
@@ -78,6 +90,6 @@ describe("src/app/_ui/**", () => {
       ),
     );
 
-    expect(deCliente).toEqual([]);
+    expect(deCliente).toEqual(["formulario-abm.tsx"]);
   });
 });

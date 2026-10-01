@@ -6,9 +6,10 @@
  *   `GOOGLE_CLIENT_SECRET` y `APP_URL_PUBLICA` (el esquema del entorno ya
  *   exigió las tres).
  * - `IDENTIDAD=falsa` → `identidad-falsa`, que lista `ADMIN_INICIAL_EMAIL` y
- *   dos emails inventados: uno pensado para darlo de alta como operador y otro
- *   que nunca tiene usuario, para ver el rebote (`AUT-0001`). El esquema ya
- *   rechazó la falsa en el servidor.
+ *   tres emails inventados: dos pensados para darlos de alta como operador (el
+ *   e2e de usuarios revoca al suyo, así que el de los catálogos usa el otro) y
+ *   uno que nunca tiene usuario, para ver el rebote (`AUT-0001`). El esquema
+ *   ya rechazó la falsa en el servidor.
  */
 
 import { randomBytes } from "node:crypto";
@@ -23,6 +24,7 @@ import type { Entorno } from "../entorno.ts";
 /** Los emails inventados que la identidad falsa muestra además de `ADMIN_INICIAL_EMAIL`. */
 export const EMAILS_INVENTADOS = [
   "operador@ejemplo.test",
+  "operador.catalogos@ejemplo.test",
   "sin-acceso@ejemplo.test",
 ] as const;
 

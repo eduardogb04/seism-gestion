@@ -9,6 +9,10 @@
  * persona administradora) sino por este camino aparte, con el actor de
  * sistema `db-seed` (ADR 0024).
  *
+ * Desde F1-03, los **datos de demostración**: tres grupos inventados, por el
+ * repositorio del molde de ABM (ADR 0031), con el actor `db-seed` y su
+ * auditoría. En el servidor (`appEntorno`) no van.
+ *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
  * dominio; nada de entorno: la validación de entorno, el reloj del sistema y
  * el permiso para correr en el servidor viven en `scripts/db-seed.ts`, no
@@ -23,6 +27,7 @@
  */
 
 import { crearGeneradorIdCrypto } from "../src/adaptadores/memoria/generador-id.ts";
+import { repositorioAbmPrisma } from "../src/adaptadores/prisma/abm/tablas.ts";
 import type { PrismaClient } from "../src/adaptadores/prisma/generado/client.ts";
 import { crearRepositorioUsuariosPrisma } from "../src/adaptadores/prisma/usuarios.ts";
 import {
@@ -41,6 +46,8 @@ export type OpcionesSemilla = {
   /** `ADMIN_INICIAL_EMAIL`, ya validado como email. */
   readonly adminInicialEmail: string;
   readonly reloj: Reloj;
+  /** `APP_ENTORNO`: los datos de demostración no se siembran en `servidor`. */
+  readonly appEntorno: "local" | "ci" | "servidor";
 };
 
 /** El actor de lo que crea la semilla. */
@@ -89,6 +96,43 @@ export async function sembrar(
     }
   }
   await sembrarAdministradorInicial(prisma, opciones);
+  if (opciones.appEntorno !== "servidor") {
+    await sembrarGruposDeDemostracion(prisma, opciones.reloj);
+  }
+}
+
+/** Inventados y genéricos: no nombran a nadie (AGENTS.md, regla 1). */
+const GRUPOS_DE_DEMOSTRACION = ["Grupo Norte", "Grupo Centro", "Grupo Sur"];
+
+/**
+ * Da de alta cada grupo de demostración si **nunca hubo** uno con ese nombre:
+ * a uno que alguien cambió o dio de baja no lo repone.
+ */
+async function sembrarGruposDeDemostracion(
+  prisma: PrismaClient,
+  reloj: Reloj,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const grupos = repositorioAbmPrisma(tx, "Grupo");
+    for (const nombre of GRUPOS_DE_DEMOSTRACION) {
+      if ((await tx.grupo.findFirst({ where: { nombre } })) !== null) {
+        continue;
+      }
+      await grupos.crear(
+        actor,
+        crearAuditable(
+          {
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+            nombre,
+            observaciones: null,
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
 }
 
 /**

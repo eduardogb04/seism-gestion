@@ -4,7 +4,7 @@
  * Las tres acciones de escritura de `/administracion/usuarios` (F0-32,
  * ADR 0028). Cualquiera puede armar el POST a mano, así que cada una:
  *
- * 1. toma el `Actor` **solo** de la sesión validada (`actorDesdeSesion`): un
+ * 1. toma el `Actor` **solo** de la sesión validada (`conActorDeSesion`): un
  *    campo del formulario nunca dice quién actúa;
  * 2. valida con Zod lo que llega (`formularios.ts`, `AUT-0008`);
  * 3. deja que el caso de uso decida si esa persona puede (`AUT-0003`): ocultar
@@ -15,7 +15,6 @@
  */
 
 import { redirect } from "next/navigation.js";
-import { codigoDeError } from "../../../casos-uso/sesion/errores.ts";
 import {
   datosDeAlta,
   datosDeCambioDeRol,
@@ -23,30 +22,19 @@ import {
 } from "../../../casos-uso/usuarios/formularios.ts";
 import type { Actor } from "../../../dominio/compartido/actor.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import {
-  actorDesdeSesion,
-  DESTINO_SIN_SESION,
-} from "../../(auth)/sesion-actual.ts";
+import { conActorDeSesion } from "../../(auth)/sesion-actual.ts";
 
 const LISTA = "/administracion/usuarios";
 
 async function ejecutar(
   trabajo: (actor: Actor) => Promise<unknown>,
 ): Promise<never> {
-  let destino = LISTA;
-  try {
-    await trabajo(await actorDesdeSesion());
-  } catch (error) {
-    const codigo = codigoDeError(error);
-    if (codigo === null) {
-      throw error;
-    }
-    destino =
-      codigo === "AUT-0002"
-        ? DESTINO_SIN_SESION
-        : `${LISTA}?${new URLSearchParams({ error: codigo })}`;
-  }
-  redirect(destino);
+  const resultado = await conActorDeSesion(trabajo);
+  redirect(
+    resultado.ok
+      ? LISTA
+      : `${LISTA}?${new URLSearchParams({ error: resultado.codigo })}`,
+  );
 }
 
 export async function altaDeUsuario(formulario: FormData): Promise<never> {

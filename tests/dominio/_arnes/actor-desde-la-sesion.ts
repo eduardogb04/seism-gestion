@@ -24,6 +24,8 @@ import ts from "typescript";
 export const FUENTES_DE_ACTOR: readonly string[] = [
   "actorDesdeSesion",
   "accesoDeAdministrador",
+  // De `sesion-actual.ts` (F1-03): corre el trabajo con `actorDesdeSesion()`.
+  "conActorDeSesion",
 ];
 
 const ACTOR_DE_PERSONA_A_MANO = /tipo\s*:\s*["'`]persona["'`]/;

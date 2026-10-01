@@ -18,6 +18,7 @@ type Seccion = {
 
 /** Las pantallas que existen. Una sección nueva se suma acá, cuando exista su página. */
 const SECCIONES: readonly Seccion[] = [
+  { texto: "Grupos", ruta: "/catalogo/grupos", soloAdministrador: false },
   {
     texto: "Usuarios",
     ruta: "/administracion/usuarios",

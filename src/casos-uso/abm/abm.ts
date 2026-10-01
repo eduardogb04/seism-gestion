@@ -44,13 +44,13 @@ import {
   valorDeCampo,
 } from "./definicion.ts";
 
-export const REGISTROS_POR_PAGINA = 25;
+const REGISTROS_POR_PAGINA = 25;
 
 const MENSAJE_UNICO = `${catalogo.DOM_0008.codigo} · ${catalogo.DOM_0008.descripcion}`;
 
 const esquemaId = z.uuid();
 
-export type DependenciasAbm = {
+type DependenciasAbm = {
   readonly transaccional: Transaccional;
   readonly reloj: Reloj;
   readonly generadorId: GeneradorId;
@@ -64,7 +64,7 @@ export type ResultadoEscritura<E extends EntidadAbm> =
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
 /** Los parámetros del listado como llegan en la URL, sin validar. */
-export type ParametrosListado = Readonly<Record<string, unknown>>;
+type ParametrosListado = Readonly<Record<string, unknown>>;
 
 export type Listado<E extends EntidadAbm> = {
   readonly registros: readonly RegistroAbm<E>[];

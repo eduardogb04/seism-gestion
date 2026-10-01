@@ -51,7 +51,7 @@ export async function actorDesdeSesion(): Promise<Actor> {
 }
 
 /** Lo que dejó una acción de escritura: lo que devolvió el caso de uso, o el código con que la rechazó. */
-export type ResultadoDeAccion<T> =
+type ResultadoDeAccion<T> =
   | { readonly ok: true; readonly valor: T }
   | { readonly ok: false; readonly codigo: Codigo };
 

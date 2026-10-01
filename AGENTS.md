@@ -101,7 +101,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run db:migrate` | `scripts/db-migrate.ts`: lee `.env` si existe, **valida el entorno** (el mismo esquema que la app) y recién entonces corre `prisma migrate deploy`, que aplica las migraciones pendientes de `prisma/migrations/` (desde una base vacía o una ya migrada). Si `DATABASE_URL` falta o no es `postgresql://`/`postgres://`, **sale 1** nombrando la variable y Prisma ni se ejecuta. Necesita la base levantada |
 | `npm run db:migrate:down` | `scripts/db-migrate-down.ts`: valida el entorno igual que `db:migrate` y revierte **la última migración aplicada** en la base local de compose: su `down.sql` y el borrado de su fila de `_prisma_migrations`, en una transacción (así `db:migrate` la vuelve a aplicar). Una por corrida. Sale 1 si `DATABASE_URL` no apunta a `localhost` (no ejecuta nada), si no hay migraciones aplicadas o si la reversión falla. Necesita el servicio `postgres` de compose levantado. Ver ADR 0009 |
 | `npm run db:generar` | `prisma generate`: regenera el cliente en `src/adaptadores/prisma/generado/` después de cambiar `prisma/schema.prisma`. No se conecta a ninguna base |
-| `npm run db:seed` | `scripts/db-seed.ts`: valida el entorno igual que `db:migrate` y corre `prisma/seed.ts` (idempotente) con el cliente real de Prisma (`src/adaptadores/prisma/cliente.ts`, con `@prisma/adapter-pg`): las claves de `configuracion` y, desde F0-30, el **primer administrador** con el email de `ADMIN_INICIAL_EMAIL` (obligatoria), si no hay ya un usuario con ese email. Sale 1 sin sembrar nada si `APP_ENTORNO=servidor` y falta `SEED_PERMITIDO=si`. Necesita la base levantada |
+| `npm run db:seed` | `scripts/db-seed.ts`: valida el entorno igual que `db:migrate` y corre `prisma/seed.ts` (idempotente) con el cliente real de Prisma (`src/adaptadores/prisma/cliente.ts`, con `@prisma/adapter-pg`): las claves de `configuracion` y, desde F0-30, el **primer administrador** con el email de `ADMIN_INICIAL_EMAIL` (obligatoria), si no hay ya un usuario con ese email, y, desde F1-03, los datos de demostración (tres grupos inventados), solo con `APP_ENTORNO` `local` o `ci`. Sale 1 sin sembrar nada si `APP_ENTORNO=servidor` y falta `SEED_PERMITIDO=si`. Necesita la base levantada |
 
 Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm run test:dominio
 && npm test && npm run test:extraccion && npm run typecheck:fixtures && npm run lint:fixtures &&
@@ -364,7 +364,7 @@ porqués en el ADR 0008. En corto:
   `ia.costo_estimado_usd.defecto` en `"0.01"`, F0-28) y,
   desde F0-30, el primer administrador (`ADMIN_INICIAL_EMAIL`) si no hay un usuario con ese email,
   con el actor de sistema `db-seed` y su registro de auditoría; a los demás usuarios no los toca
-  (ADR 0024, `tests/casos-uso/usuarios-semilla.test.ts`). Idempotente por clave: si el valor no cambió, no escribe nada, así correrla dos veces deja la
+  (ADR 0024, `tests/casos-uso/usuarios-semilla.test.ts`). Desde F1-03 siembra además los **datos de demostración** (hoy, tres grupos inventados), por el repositorio del molde de ABM y con su auditoría, si `APP_ENTORNO` no es `servidor`; a un grupo que alguien cambió o dio de baja no lo repone. Idempotente por clave: si el valor no cambió, no escribe nada, así correrla dos veces deja la
   base exactamente igual (`id`, `creado_en` y `actualizado_en` incluidos); un test de casos de uso
   la corre dos veces contra un Postgres de Testcontainers y compara. `prisma/seed.ts` importa solo
   de `adaptadores` (el cliente generado y los repositorios) y del dominio: la validación de entorno y el permiso
@@ -1008,6 +1008,43 @@ obliga el compilador, no la disciplina:
   exige `Actor` en la primera posición (`npm run test:dominio`), y `actor-solo-desde-la-sesion.test.ts`
   recorre `src/app/**`.
 
+**...un ABM (F1-03, ADR 0031).** Un catálogo (listar con búsqueda, alta, edición, baja lógica) no
+se escribe a mano: se **declara** y el molde da el resto. En este orden, y el compilador avisa si
+falta un paso:
+
+1. **Los datos**, una entrada en `EntidadesAbm` (`src/puertos/repositorios/abm.ts`): los campos sin
+   `id` ni auditoría. Hoy un campo es `string` o `string | null`.
+2. **El modelo** en `prisma/schema.prisma` con esos campos y las columnas de auditable de `Grupo`
+   (`creadoEn`/`creadoPor`, `actualizadoEn`/`actualizadoPor`, `eliminadoEn`/`eliminadoPor`), y su
+   migración con `down.sql` (*una migración*). **Por cada campo único, el índice va a mano en
+   `migration.sql`** (Prisma no declara índices sobre expresiones, y `migrate diff` no lo cuenta como
+   diferencia): `CREATE UNIQUE INDEX "<tabla>_<columna>_unico" ON "<tabla>" (lower("<columna>"))
+   WHERE ("eliminado_en" IS NULL);`. Sin él, dos altas simultáneas pueden repetir el valor.
+3. **La tabla**, una línea en `src/adaptadores/prisma/abm/tablas.ts`:
+   `crearRepositorioAbmPrisma(cliente, "<Entidad>", cliente.<modelo>)`. Si el modelo no coincide con
+   `EntidadesAbm` o le faltan columnas de auditable, no compila.
+4. **La definición**, `src/casos-uso/abm/<entidad>.ts` (copiá `grupos.ts`): entidad, nombres en
+   pantalla, ruta, campos (`texto` o `textoLargo`), `validacion` (Zod; el mensaje de cada regla es el
+   que ve la persona, y `.trim()` en los textos), `unicos`, `busqueda`, `orden` (la primera es el orden
+   por defecto) y `rolesQueEscriben`. Y su línea en `src/casos-uso/abm/definiciones.ts`.
+5. **Las pantallas**: cuatro `page.tsx` bajo `src/app/catalogo/<entidad>/` (`page.tsx`,
+   `nuevo/page.tsx`, `[id]/page.tsx`, `[id]/baja/page.tsx`), copiadas de `grupos/`: cada una llama a
+   `await sesionExigida()` (`src/app/(auth)/sesion-actual.ts`) **antes que nada** y le pasa la sesión y
+   la definición a `PaginaListado` / `PaginaAlta` / `PaginaEdicion` / `PaginaBaja`
+   (`src/app/catalogo/_abm/paginas.tsx`). `tests/dominio/proteccion-administracion.test.ts` falla si
+   una no la llama. Y la entrada del menú en `SECCIONES` (`src/app/_ui/marco.tsx`).
+6. **Semilla ficticia** en `prisma/seed.ts`, por el repositorio del molde (`repositorioAbmPrisma`),
+   como los grupos de demostración.
+
+No se escribe un puerto, un caso de uso, una acción ni un formulario por entidad, y **los tests del
+molde no se repiten** (`tests/casos-uso/abm.test.ts`, `abm-acciones.test.ts`, `tests/e2e/grupos.spec.ts`):
+un ABM nuevo prueba solo lo que tenga de propio. Un **tipo de campo** que todavía no existe (número,
+fecha, opción, relación) es una variante más de `CampoAbm` (`src/casos-uso/abm/definicion.ts`), con
+su conversión en `valorDeCampo` y su control en `src/app/_ui/formulario-abm.tsx`, que es el **único**
+componente de cliente de `_ui/`. Los casos de uso deciden quién escribe (`AUT-0003`); las pantallas
+solo ocultan los botones. Lo que la persona corrige vuelve al lado del campo (`DOM-0008`: valor único
+repetido); `DOM-0009`: el registro no existe o está dado de baja.
+
 **...un ADR.** Archivo nuevo `docs/adr/NNNN-titulo-corto.md`, con la misma estructura que
 `docs/adr/0001-excepcion-claude-md.md` y `docs/adr/0002-any-explicito-en-typecheck.md`: Contexto ·
 Decisión · Alternativas descartadas · Consecuencias · Cómo se revierte. Numeración correlativa,
@@ -1018,11 +1055,11 @@ estimación; el orden real de creación manda).
 
 ```
 src/dominio          puro; solo importa de sí mismo. Hoy: compartido/reloj.ts (Reloj inyectable y FechaHora, F0-18); desde F0-19: compartido/identificador.ts (Identificador<Marca>, CodigoLegible, que usa el reloj para el año); compartido/historial.ts (ciclos de estado, F0-21); compartido/importe.ts (Importe<Moneda> en centavos, TipoDeCambio y parseo, F0-20); compartido/errores/ (catálogo de errores, ErrorSistema, paraPantalla/paraLog, F0-23); compartido/micro-usd.ts (costos de IA en micro-dólares, F0-28)
-src/casos-uso        orquesta dominio contra puertos. Desde F0-25: salud/listar-salud.ts (listarSalud: última corrida por job con su color —rojo si nunca corrió, si terminó en error o si pasó el doble de su intervalo sin correr—, fallidos pendientes con código y edad, integraciones con su última prueba exitosa y gasto de IA del mes; nunca lanza; F0-26) y salud/hace-cuanto.ts · F0-28: ia/ (interpretar: tope, validación y registro de uso de IA; gastoDelMes) · F0-30: usuarios/ (darDeAlta, revocar, cambiarRol; F0-32: listar, formularios con Zod, roles; revocar y cambiarRol invalidan la caché de sesiones); F0-31: sesion/ (completarSesion, validarSesion con caché de 30 s, cerrarSesion, errores de pantalla; F0-32: invalidarUsuario, acceso.ts con la decisión de acceso de administrador y el actor de la sesión)
-src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa; M-05: el aviso devuelve una promesa y no lanza) y repositorios/ (uso-ia.ts, configuracion.ts); F0-31: identidad.ts · F0-27: almacen-documentos.ts (con la validación de claves)
-src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), ia-doble/ (doble determinista del puerto de IA, F0-28), log/notificaciones.ts (el `Notificaciones` de Fase 0: un warn con el usuarioId, M-05), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts), disco/ y s3/ (F0-27: el almacén de documentos)
+src/casos-uso        orquesta dominio contra puertos. Desde F0-25: salud/listar-salud.ts (listarSalud: última corrida por job con su color —rojo si nunca corrió, si terminó en error o si pasó el doble de su intervalo sin correr—, fallidos pendientes con código y edad, integraciones con su última prueba exitosa y gasto de IA del mes; nunca lanza; F0-26) y salud/hace-cuanto.ts · F0-28: ia/ (interpretar: tope, validación y registro de uso de IA; gastoDelMes) · F0-30: usuarios/ (darDeAlta, revocar, cambiarRol; F0-32: listar, formularios con Zod, roles; revocar y cambiarRol invalidan la caché de sesiones); F0-31: sesion/ (completarSesion, validarSesion con caché de 30 s, cerrarSesion, errores de pantalla; F0-32: invalidarUsuario, acceso.ts con la decisión de acceso de administrador y el actor de la sesión) · F1-03: abm/ (el molde de ABM, ADR 0031: definicion.ts, abm.ts —listar, obtener, crear, guardar, marcarEliminado—, definiciones.ts y una definición por entidad: grupos.ts)
+src/puertos          interfaces. Desde F0-19: secuencias.ts, generador-id.ts; desde F0-22: auditoria.ts; desde F0-29: correo.ts, notificaciones.ts (con sus dobles en tests/contratos/); F0-30: repositorios/ (usuarios.ts, sesiones.ts, transaccion.ts) · F0-25: cola-fallidos.ts, sonda-integracion.ts, repositorios/corridas-worker.ts; F0-28: ia.ts (AdaptadorIa, AvisosIa; M-05: el aviso devuelve una promesa y no lanza) y repositorios/ (uso-ia.ts, configuracion.ts); F0-31: identidad.ts · F0-27: almacen-documentos.ts (con la validación de claves) · F1-03: repositorios/abm.ts (el puerto genérico de los ABM y `EntidadesAbm`; `RepositoriosEnTransaccion.abm` lo entrega por entidad)
+src/adaptadores      implementaciones: prisma, disco, s3, identidad, dobles. Hoy: prisma/generado/ (cliente generado, sin versionar), prisma/cliente.ts (el cliente con el adaptador pg), prisma/{cola-fallidos,corridas-worker,sonda-base}.ts (F0-25), prisma/{usuarios,sesiones,auditoria,transaccion,conversiones}.ts (F0-30), prisma/{uso-ia,configuracion,fecha-hora}.ts (F0-28), prisma/abm/ (F1-03: repositorio.ts, el repositorio de cualquier ABM, y tablas.ts, qué tabla es cada entidad), ia-doble/ (doble determinista del puerto de IA, F0-28), log/notificaciones.ts (el `Notificaciones` de Fase 0: un warn con el usuarioId, M-05), identidad-falsa/ e identidad-google/ (F0-31) y memoria/ (F0-19: secuencias.ts, generador-id.ts; F0-22: auditoria.ts; F0-29: correo.ts, notificaciones.ts), disco/ y s3/ (F0-27: el almacén de documentos)
 src/infraestructura  entorno.ts (Zod) · version.ts · log.ts (pino, redacción, referencia; F0-24) · proceso.ts (excepciones no capturadas → INF-0001 y salida 1) · fallas.ts y reintento.ts (conReintento, F0-25) · arranque/ = punto de armado (worker.ts desde F0-25; avisos.ts —los avisos al administrador por `Notificaciones`, M-05—, armado.ts e identidad.ts, que elige el adaptador según `IDENTIDAD`, desde F0-31; desde F0-27: almacen.ts, que elige disco o s3 según ALMACEN y arma nuevaClaveDocumento con el reloj real; salud.ts —el panel armado con la lista de `JOBS` del worker— e intervalo-cron.ts, desde F0-26)
-src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión), administracion/ (F0-32: inicio y usuarios, protegidos por rol), salud/ (F0-26: el panel `/salud`, HTML del servidor sin JavaScript de cliente, protegido por rol de administrador) · _ui/ (F1-02: el marco, la tarjeta y los componentes —botón, campo, selector, tabla, error en pantalla— de las pantallas: HTML del servidor, sin `"use client"`) · formato/importe.ts (USD 24.315,00, F0-20)
+src/app              Next.js (App Router): página de inicio, layout raíz, api/salud, (auth)/ (F0-31: login, callback, salir, sesión), administracion/ (F0-32: inicio y usuarios, protegidos por rol), salud/ (F0-26: el panel `/salud`, HTML del servidor sin JavaScript de cliente, protegido por rol de administrador) · _ui/ (F1-02: el marco, la tarjeta y los componentes —botón, campo, selector, tabla, error en pantalla— de las pantallas: HTML del servidor, sin `"use client"`; F1-03: `ListadoAbm` y `FormularioAbm`, este último el único de cliente) · catalogo/ (F1-03: _abm/ —las cuatro pantallas y las acciones de cualquier ABM— y una carpeta por entidad: grupos/) · formato/importe.ts (USD 24.315,00, F0-20)
 src/instrumentation.ts  lo levanta Next al arrancar: valida el entorno. Cuenta como app
 src/worker           proceso aparte (F0-25): index.ts (entrada, `npm run worker`) · planificador.ts (croner) · registrar-corrida.ts · jobs.ts (latido)
 tests/               los cuatro niveles (ver *Testing*): dominio (con _arnes/sin-red.ts) · casos-uso (_arnes/: un Postgres para toda la tanda; minio.ts, MinIO para el almacén S3) · extraccion (_arnes/golden.ts) · e2e (Playwright, _arnes/apagar-app.ts) · contratos · fixtures
@@ -1030,7 +1067,7 @@ scripts/             utilidades de los comandos de package.json (sin-any.ts, sin
 next.config.ts       configuración de Next: standalone, versión del build, agentRules
 vitest.config.ts     los tres niveles que corren con Vitest (proyectos dominio, casos-uso, extraccion)
 playwright.config.ts el nivel e2e: Chromium y el webServer que levanta la app con compose
-prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql} · seed.ts (el mecanismo, F0-10; el primer administrador, F0-30)
+prisma/              schema.prisma · migrations/<marca>_<nombre>/{migration.sql, down.sql} · seed.ts (el mecanismo, F0-10; el primer administrador, F0-30; los grupos de demostración, F1-03)
 prisma.config.ts     configuración de la CLI de Prisma: rutas y DATABASE_URL
 docker-compose.yml   servicios locales: Postgres 16, MinIO y minio-init (el bucket; F0-27) y, detrás de perfiles, la app para el e2e (`e2e`) y el worker (`worker`, F0-25)
 Dockerfile           imagen multi-stage de la app y del worker (F0-25: otro comando, misma imagen) · .dockerignore

@@ -35,3 +35,9 @@ actor no compila, y `firmas-de-escritura.test.ts` lista las firmas de esta
 carpeta). Los casos de uso ya no llaman a `auditoria.registrar` para usuarios:
 el repositorio lo hace con el actor que reciben. Ver ADR 0029 y *Cómo se
 agrega...un caso de uso que escribe* en `AGENTS.md`.
+
+Desde F1-03: `abm/`, el molde de ABM (ADR 0031). Un catálogo es una
+`DefinicionAbm` (`grupos.ts` es la primera) y los casos de uso de `abm.ts`
+sirven a todas: `listar`, `obtener`, `crear`, `guardar` y `marcarEliminado`.
+Un ABM nuevo no suma un archivo de casos de uso: suma su definición y su línea
+en `definiciones.ts`.

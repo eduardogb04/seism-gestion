@@ -19,7 +19,7 @@ import type {
 import type { Identificador } from "../../dominio/compartido/identificador.ts";
 
 /** Los datos de cada entidad con ABM, sin el `id` ni la auditoría. */
-export type EntidadesAbm = {
+type EntidadesAbm = {
   readonly Grupo: {
     readonly nombre: string;
     readonly observaciones: string | null;
@@ -34,7 +34,7 @@ export type RegistroDe<D> = Auditable<
   D & { readonly id: Identificador<string> }
 >;
 
-export type ConsultaDe<D> = {
+type ConsultaDe<D> = {
   /** Lo que se busca: contiene, sin distinguir mayúsculas. Vacío no filtra. */
   readonly buscar: string;
   readonly enColumnas: readonly (keyof D & string)[];

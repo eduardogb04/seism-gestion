@@ -10,18 +10,20 @@
  *   `setTimeout`): así un test no duerme y puede afirmar qué esperas se
  *   pidieron.
  * - **Si agota**: encola el fallo en la `ColaFallidos` (origen, código del
- *   último error, carga, intentos), lo loguea en `error` con `INF-0002` (el
- *   aviso al administrador hasta que exista el puerto de notificaciones,
- *   F0-29) y **relanza** un `ErrorSistema` `INF-0002` con el último error
- *   como causa. Nunca devuelve éxito ni `undefined` después de fallar. Si ni
- *   siquiera se puede encolar, lo dice en el log (`encolado: false`) y relanza
- *   igual.
+ *   último error, carga, intentos), lo loguea en `error` con `INF-0002`,
+ *   **avisa a los administradores** por `avisar` (el puerto `Notificaciones`,
+ *   armado en `arranque/avisos.ts`, M-05) y **relanza** un `ErrorSistema`
+ *   `INF-0002` con el último error como causa. Nunca devuelve éxito ni
+ *   `undefined` después de fallar. Si ni siquiera se puede encolar, lo dice en
+ *   el log (`encolado: false`) y relanza igual. Si `avisar` lanza, el aviso
+ *   no tapa nada: la falla se loguea con su código y se relanza `INF-0002`.
  */
 
 import { setTimeout as dormir } from "node:timers/promises";
 import { catalogo } from "../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../dominio/compartido/errores/error-sistema.ts";
 import type { ColaFallidos, ObjetoJson } from "../puertos/cola-fallidos.ts";
+import { type Avisar, mensajeDeError } from "./arranque/avisos.ts";
 import { aErrorSistema, registrarFalla } from "./fallas.ts";
 import type { Log } from "./log.ts";
 
@@ -46,6 +48,8 @@ export type PoliticaReintento = {
 export type DependenciasReintento = {
   readonly cola: ColaFallidos;
   readonly log: Log;
+  /** Cómo se le avisa a los administradores que una operación agotó sus intentos. */
+  readonly avisar: Avisar;
 };
 
 export type ConReintento = <T>(
@@ -108,6 +112,14 @@ export function crearConReintento(deps: DependenciasReintento): ConReintento {
     } catch (errorAlEncolar) {
       registrarFalla(deps.log, agotado, { ...campos, encolado: false });
       registrarFalla(deps.log, errorAlEncolar, { origen: politica.origen });
+    }
+    try {
+      await deps.avisar(agotado.codigo, mensajeDeError(agotado));
+    } catch (errorAlAvisar) {
+      registrarFalla(deps.log, errorAlAvisar, {
+        origen: politica.origen,
+        aviso: agotado.codigo,
+      });
     }
     throw agotado;
   };

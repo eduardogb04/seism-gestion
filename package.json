@@ -32,7 +32,8 @@
     "db:generar": "prisma generate",
     "db:migrate": "node scripts/db-migrate.ts",
     "db:migrate:down": "node scripts/db-migrate-down.ts",
-    "db:seed": "node scripts/db-seed.ts"
+    "db:seed": "node scripts/db-seed.ts",
+    "arrancar": "node scripts/arrancar.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.13",

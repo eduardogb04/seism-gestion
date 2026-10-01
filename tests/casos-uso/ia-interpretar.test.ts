@@ -25,13 +25,14 @@ import {
   type CasoIaDoble,
   crearIaDoble,
 } from "../../src/adaptadores/ia-doble/ia-doble.ts";
-import { crearAvisosIaPorLog } from "../../src/adaptadores/log/avisos-ia.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearLectorConfiguracion } from "../../src/adaptadores/prisma/configuracion.ts";
 import { crearRepositorioUsoIa } from "../../src/adaptadores/prisma/uso-ia.ts";
+import { crearRepositorioUsuariosPrisma } from "../../src/adaptadores/prisma/usuarios.ts";
 import { crearInterpretar } from "../../src/casos-uso/ia/interpretar.ts";
 import { ErrorSistema } from "../../src/dominio/compartido/errores/error-sistema.ts";
 import { RelojFijo } from "../../src/dominio/compartido/reloj.ts";
+import { armarAvisos } from "../../src/infraestructura/arranque/avisos.ts";
 import type { RepositorioUsoIa } from "../../src/puertos/repositorios/uso-ia.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import {
@@ -92,7 +93,10 @@ function armar(usos: RepositorioUsoIa = crearRepositorioUsoIa(db())) {
     usos,
     configuracion: crearLectorConfiguracion(db()),
     reloj: RelojFijo(AHORA),
-    avisos: crearAvisosIaPorLog(capturarLog().log),
+    avisos: armarAvisos({
+      usuarios: crearRepositorioUsuariosPrisma(db()),
+      log: capturarLog().log,
+    }).avisosIa,
   });
   return { doble, interpretar };
 }

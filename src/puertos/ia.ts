@@ -47,10 +47,11 @@ export type AdaptadorIa = {
 };
 
 /**
- * Por dónde sale el aviso de tope superado (`IA-0001`). Hasta que el puerto
- * de notificaciones (F0-29) esté en `main`, lo implementa el log
- * (`src/adaptadores/log/avisos-ia.ts`).
+ * Por dónde sale el aviso de tope superado (`IA-0001`). Lo arma
+ * `src/infraestructura/arranque/avisos.ts` con el puerto `Notificaciones`: un
+ * aviso por administrador activo (M-05). **No lanza**: un aviso que falla no
+ * tapa el `IA-0001` que lanza `interpretar`; la falla queda en el log.
  */
 export type AvisosIa = {
-  topeSuperado(error: ErrorSistema): void;
+  topeSuperado(error: ErrorSistema): Promise<void>;
 };

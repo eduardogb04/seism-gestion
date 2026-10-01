@@ -20,6 +20,10 @@ encola en `fallidos`, loguea con `INF-0002` y relanza). `arranque/worker.ts`
 es el punto de armado del worker: el único lugar desde el que llega a los
 adaptadores. Ver ADR 0025.
 
+Desde M-05, `arranque/avisos.ts` arma los avisos al administrador: `avisar` manda el aviso por
+`Notificaciones` a cada administrador activo y **no lanza** (`conReintento` lo recibe en
+`crearConReintento({ cola, log, avisar })`; `interpretar`, como `AvisosIa`). ADR 0030.
+
 Desde F0-27, `arranque/almacen.ts`: elige el
 almacén de documentos (disco o s3) según `ALMACEN` (ADR 0022).
 

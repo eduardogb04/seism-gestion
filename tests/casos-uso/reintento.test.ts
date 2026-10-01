@@ -15,19 +15,30 @@ import {
   expect,
   test,
 } from "vitest";
+import { crearNotificacionesEnMemoria } from "../../src/adaptadores/memoria/notificaciones.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearColaFallidosPrisma } from "../../src/adaptadores/prisma/cola-fallidos.ts";
+import { crearRepositorioUsuariosPrisma } from "../../src/adaptadores/prisma/usuarios.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
 import {
   ErrorSistema,
   nuevoError,
 } from "../../src/dominio/compartido/errores/error-sistema.ts";
+import { crearAvisarAdministradores } from "../../src/infraestructura/arranque/avisos.ts";
 import { crearLog } from "../../src/infraestructura/log.ts";
 import {
   crearConReintento,
   ESPERAS_POR_DEFECTO,
   INTENTOS_POR_DEFECTO,
 } from "../../src/infraestructura/reintento.ts";
+import type { Notificaciones } from "../../src/puertos/notificaciones.ts";
+import {
+  ADMIN_DOS,
+  ADMIN_UNO,
+  EX_ADMIN,
+  OPERADOR,
+  sembrarUsuarios,
+} from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
@@ -49,6 +60,9 @@ function logEnMemoria() {
     lineas.map((linea) => JSON.parse(linea) as Record<string, unknown>);
   return { log, registros };
 }
+
+/** Un aviso que no hace nada: para los tests que no lo miran. */
+const sinAviso = () => Promise.resolve();
 
 /** Una espera que no duerme: anota cuántos milisegundos le pidieron. */
 function esperaAnotada() {
@@ -98,6 +112,7 @@ describe("conReintento", () => {
     const conReintento = crearConReintento({
       cola: crearColaFallidosPrisma(db),
       log,
+      avisar: sinAviso,
     });
     const espera = esperaAnotada();
     const adaptador = adaptadorQueFallaSiempre(
@@ -135,7 +150,7 @@ describe("conReintento", () => {
       proximoIntento: null,
     });
 
-    // El log dice qué pasó, con código (el aviso al administrador, hasta F0-29).
+    // El log dice qué pasó, con código.
     const lineaError = registros().find((r) => r.level === "error");
     expect(lineaError).toMatchObject({
       codigo: "INF-0002",
@@ -150,6 +165,7 @@ describe("conReintento", () => {
     const conReintento = crearConReintento({
       cola: crearColaFallidosPrisma(db),
       log: logEnMemoria().log,
+      avisar: sinAviso,
     });
     const adaptador = adaptadorQueFallaSiempre(new Error("se cortó"));
 
@@ -170,6 +186,7 @@ describe("conReintento", () => {
     const conReintento = crearConReintento({
       cola: crearColaFallidosPrisma(db),
       log: logEnMemoria().log,
+      avisar: sinAviso,
     });
     const espera = esperaAnotada();
     const adaptador = adaptadorQueFallaSiempre(new Error("caído"));
@@ -194,6 +211,7 @@ describe("conReintento", () => {
     const conReintento = crearConReintento({
       cola: crearColaFallidosPrisma(db),
       log: logEnMemoria().log,
+      avisar: sinAviso,
     });
     const espera = esperaAnotada();
     const adaptador = adaptadorQueFallaSiempre(new Error("caído"));
@@ -215,6 +233,7 @@ describe("conReintento", () => {
     const conReintento = crearConReintento({
       cola: crearColaFallidosPrisma(db),
       log: logEnMemoria().log,
+      avisar: sinAviso,
     });
     const espera = esperaAnotada();
     let llamadas = 0;
@@ -243,6 +262,7 @@ describe("conReintento", () => {
         contarPendientes: () => Promise.resolve(0),
       },
       log,
+      avisar: sinAviso,
     });
 
     await expect(
@@ -256,6 +276,137 @@ describe("conReintento", () => {
     const errores = registros().filter((r) => r.level === "error");
     expect(errores.map((r) => r.codigo)).toContain("INF-0002");
     expect(errores.some((r) => r.encolado === false)).toBe(true);
+  });
+
+  test("si agota, avisa a cada administrador activo con INF-0002 en el mensaje; operadores y revocados no reciben", async () => {
+    const db = cliente();
+    const [uno, dos] = await sembrarUsuarios(db, [
+      ADMIN_UNO,
+      ADMIN_DOS,
+      OPERADOR,
+      EX_ADMIN,
+    ]);
+    const notificaciones = crearNotificacionesEnMemoria();
+    const { log } = logEnMemoria();
+    const conReintento = crearConReintento({
+      cola: crearColaFallidosPrisma(db),
+      log,
+      avisar: crearAvisarAdministradores({
+        notificaciones,
+        usuarios: crearRepositorioUsuariosPrisma(db),
+        log,
+      }),
+    });
+
+    await expect(
+      conReintento(
+        adaptadorQueFallaSiempre(
+          nuevoError(catalogo.ALM_0001, { clave: "documento-inventado.pdf" }),
+        ).enviar,
+        {
+          origen: "prueba.almacen",
+          carga: { clave: "documento-inventado.pdf" },
+          esperar: esperaAnotada().esperar,
+        },
+      ),
+    ).rejects.toMatchObject({ codigo: "INF-0002" });
+
+    const enviados = notificaciones.enviados();
+    expect(enviados.map((envio) => envio.destinatario)).toEqual([
+      { tipo: "persona", usuarioId: uno?.id },
+      { tipo: "persona", usuarioId: dos?.id },
+    ]);
+    for (const envio of enviados) {
+      expect(JSON.stringify(envio.mensaje)).toContain("INF-0002");
+      expect(envio.mensaje.cuerpo).toContain("origen: prueba.almacen");
+      // La carga para reintentar a mano no sale en el aviso.
+      expect(JSON.stringify(envio.mensaje)).not.toContain(
+        "documento-inventado",
+      );
+    }
+  });
+
+  test("si agota y no hay administradores activos, no se envía nada y se loguea un warn con INF-0002", async () => {
+    const db = cliente();
+    await sembrarUsuarios(db, [OPERADOR, EX_ADMIN]);
+    const notificaciones = crearNotificacionesEnMemoria();
+    const { log, registros } = logEnMemoria();
+    const conReintento = crearConReintento({
+      cola: crearColaFallidosPrisma(db),
+      log,
+      avisar: crearAvisarAdministradores({
+        notificaciones,
+        usuarios: crearRepositorioUsuariosPrisma(db),
+        log,
+      }),
+    });
+
+    await expect(
+      conReintento(adaptadorQueFallaSiempre(new Error("caído")).enviar, {
+        origen: "prueba.sin-admin",
+        carga: {},
+        esperar: esperaAnotada().esperar,
+      }),
+    ).rejects.toMatchObject({ codigo: "INF-0002" });
+
+    expect(notificaciones.enviados()).toEqual([]);
+    expect(
+      registros().filter((r) => r.level === "warn" && r.codigo === "INF-0002"),
+    ).toHaveLength(1);
+  });
+
+  test("si enviar lanza, el aviso no tapa nada: se relanza INF-0002, queda la fila y la falla del aviso se loguea con su código", async () => {
+    const db = cliente();
+    await sembrarUsuarios(db, [ADMIN_UNO]);
+    const canalCaido: Notificaciones = {
+      enviar: () => Promise.reject(new Error("canal caído")),
+    };
+    const { log, registros } = logEnMemoria();
+    const conReintento = crearConReintento({
+      cola: crearColaFallidosPrisma(db),
+      log,
+      avisar: crearAvisarAdministradores({
+        notificaciones: canalCaido,
+        usuarios: crearRepositorioUsuariosPrisma(db),
+        log,
+      }),
+    });
+
+    await expect(
+      conReintento(adaptadorQueFallaSiempre(new Error("caído")).enviar, {
+        origen: "prueba.canal-caido",
+        carga: {},
+        esperar: esperaAnotada().esperar,
+      }),
+    ).rejects.toMatchObject({ codigo: "INF-0002" });
+
+    expect(await db.fallido.count()).toBe(1);
+    expect(
+      registros().find((r) => r.level === "error" && r.aviso === "INF-0002"),
+    ).toMatchObject({ codigo: "INF-0001" });
+  });
+
+  test("si la propia función de avisar lanza, conReintento igual relanza INF-0002 y loguea la falla con su código", async () => {
+    const db = cliente();
+    const { log, registros } = logEnMemoria();
+    const conReintento = crearConReintento({
+      cola: crearColaFallidosPrisma(db),
+      log,
+      avisar: () => Promise.reject(new Error("aviso roto")),
+    });
+
+    await expect(
+      conReintento(adaptadorQueFallaSiempre(new Error("caído")).enviar, {
+        origen: "prueba.aviso-roto",
+        carga: {},
+        esperar: esperaAnotada().esperar,
+      }),
+    ).rejects.toMatchObject({ codigo: "INF-0002" });
+
+    expect(await db.fallido.count()).toBe(1);
+    expect(
+      registros().find((r) => r.level === "error" && r.aviso === "INF-0002"),
+    ).toMatchObject({ codigo: "INF-0001", origen: "prueba.aviso-roto" });
   });
 
   test("la cola cuenta solo los pendientes", async () => {

@@ -35,3 +35,21 @@ updates:
     ignore:
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
+
+  # Las imágenes de `docker-compose.yml` también van fijadas por digest
+  # (Postgres en los servicios `postgres` y `postgres-e2e`, MinIO). Dependabot
+  # sube tag y digest de esos dos servicios de Postgres; la tercera copia
+  # (`services` de `.github/workflows/ci.yml`) la cambia una persona, y
+  # `tests/dominio/imagen-postgres.test.ts` falla si no coinciden (M-06).
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Postgres queda en 16.x (las migraciones y el drift se prueban contra esa
+    # versión) y node en Node 24, igual que en el ecosistema `docker`. Subir de
+    # major en cualquiera de los dos es una decisión aparte.
+    ignore:
+      - dependency-name: "postgres"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]

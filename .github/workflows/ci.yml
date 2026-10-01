@@ -8,8 +8,9 @@
 # - `timeout-minutes: 10` es P9: la corrida entera tiene que entrar en 10
 #   minutos; si se pasa, GitHub la corta y el check queda en rojo.
 # - Los controles corren todos aunque falle uno (así se ven todos los rojos
-#   de una vez), pero cualquier paso que falle pone el job en rojo. No hay
-#   `continue-on-error` en ningún paso.
+#   de una vez), pero cualquier paso que falle pone el job en rojo. El único
+#   `continue-on-error` es el primer intento del navegador del e2e, que tiene
+#   su reintento (M-06): si el reintento falla, el job queda en rojo.
 # - Acciones fijadas por SHA de commit completo, con el tag en el comentario.
 #   Dependabot (`github-actions`) propone las subidas.
 
@@ -184,12 +185,25 @@ jobs:
         if: ${{ !cancelled() && steps.imagen.outcome == 'success' }}
         run: npm run imagen:prueba
 
-      # El navegador del e2e (F0-14). Solo Chromium, y cacheado entre corridas:
-      # el paquete pesa unos 170 MB y bajarlo en cada corrida se come parte del
-      # tope de 10 minutos (P9). Con la caché tibia, el paso siguiente no
-      # descarga nada; las librerías del sistema (`--with-deps`) no se cachean,
-      # pero el runner ya trae casi todas. La clave lleva el hash del
-      # `package-lock.json`: subir la versión de Playwright trae una caché nueva.
+      # El navegador del e2e (F0-14, M-06). Solo Chromium, y cacheado entre
+      # corridas: el paquete pesa unos 170 MB y bajarlo en cada corrida se come
+      # parte del tope de 10 minutos (P9). Con la caché en hit, `--with-deps`
+      # no baja el navegador (medido: 0 bytes, el `install` tarda ~4 s); lo
+      # que sigue corriendo son las librerías del sistema, que no se cachean:
+      # `install-deps --dry-run` en un runner nuevo informa 9 paquetes de
+      # fuentes faltantes, así que hacerlas condicionales no ahorra nada.
+      # Ese `apt-get` es lo que se colgó dos veces el 2026-09-30.
+      # Un paso colgado no puede comerse el tope: cada intento tiene su propio
+      # `timeout-minutes` y hay **un** reintento. El primero es el único paso
+      # del workflow con `continue-on-error`: si falla o se cuelga, el
+      # segundo corre igual y, si también falla, el job queda en rojo con
+      # `::error::`. Playwright corre `sudo apt-get`: es root, el corte por
+      # tiempo del paso no lo mata y sigue vivo con el lock de dpkg tomado
+      # (así falló el reintento sin esto: `Could not get lock
+      # /var/lib/dpkg/lock-frontend`). Por eso el intento 2 empieza matando
+      # lo que haya quedado de `apt-get`/`dpkg` y reparando dpkg. La clave de la
+      # caché lleva el hash del `package-lock.json`:
+      # subir la versión de Playwright trae una caché nueva.
       - name: Caché del navegador del e2e
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -197,10 +211,27 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Navegador del e2e (Chromium)
-        id: navegador
+      - name: Navegador del e2e (Chromium), intento 1
+        id: navegador_1
         if: ${{ !cancelled() && steps.dependencias.outcome == 'success' }}
+        timeout-minutes: 2
+        continue-on-error: true
         run: npx playwright install --with-deps chromium
+
+      - name: Navegador del e2e (Chromium), intento 2
+        id: navegador_2
+        if: ${{ !cancelled() && steps.dependencias.outcome == 'success' && steps.navegador_1.outcome != 'success' }}
+        timeout-minutes: 2
+        run: |
+          echo "::warning::el navegador del e2e falló o se colgó en el primer intento; reintentando"
+          sudo pkill -KILL -x apt-get || true
+          sudo pkill -KILL -x dpkg || true
+          sudo pkill -KILL -f /usr/lib/apt/methods || true
+          sudo dpkg --configure -a
+          if ! npx playwright install --with-deps chromium; then
+            echo "::error::no se pudo instalar Chromium para el e2e en dos intentos (ver el log de este paso y del intento 1)"
+            exit 1
+          fi
 
       # F0-14: el camino de humo con navegador contra la app levantada con
       # compose (`npm run e2e:app` reusa la imagen que acaba de construir el
@@ -208,7 +239,7 @@ jobs:
       # job `ci` y no en un job aparte, porque `ci` es el único check que exige
       # la protección de `main` (F0-06).
       - name: test:e2e
-        if: ${{ !cancelled() && steps.navegador.outcome == 'success' && steps.imagen.outcome == 'success' }}
+        if: ${{ !cancelled() && (steps.navegador_1.outcome == 'success' || steps.navegador_2.outcome == 'success') && steps.imagen.outcome == 'success' }}
         run: npm run test:e2e
 
       # gitleaks (P14): segunda red detrás de push protection. Binario de un

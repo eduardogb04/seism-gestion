@@ -102,6 +102,10 @@ Las credenciales son de desarrollo, ficticias, y ya están en `.env.example`.
 la app en `http://localhost:3000`; al terminar imprime con qué email entrar. Se puede correr dos veces (con Ctrl+C
 en el medio). Los pasos sueltos de abajo quedan para cuando haga falta uno solo.
 
+Cada vez que corre, `npm run arrancar` también regenera el cliente de Prisma (así un esquema nuevo después de actualizar
+`main` no rompe la semilla) y borra la caché `.next/dev` (así `next dev` no contesta 404 en rutas que existen). Si dice
+que faltan dependencias o están viejas, corré `npm ci` y volvé a lanzarlo: el script no instala nada.
+
 1. Docker Desktop corriendo.
 2. Parado en la carpeta del repo:
    ```

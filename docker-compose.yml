@@ -24,7 +24,7 @@ services:
     # del Dockerfile (ADR 0006 y 0007): un tag se mueve, un digest no. Se sube
     # a mano: cambiar tag y digest juntos (`docker pull postgres:16.N-alpine`
     # imprime el digest).
-    image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     environment:
       POSTGRES_USER: seism
       POSTGRES_PASSWORD: seism_local
@@ -128,7 +128,7 @@ services:
   # `tests/e2e/_arnes/apagar-app.ts` la borra con sus datos al terminar.
   postgres-e2e:
     profiles: ["e2e"]
-    image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     environment:
       POSTGRES_USER: seism
       POSTGRES_PASSWORD: seism_local

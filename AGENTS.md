@@ -151,9 +151,9 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   si el 1 no salió bien; si el 2 falla, `::error::no se pudo instalar Chromium...` y el check queda en
   rojo. Peor caso: 2 min + 2 min. Con la caché `~/.cache/ms-playwright` en *hit* no se baja nada.
   `test:e2e` corre si alguno de los dos intentos salió bien.
-- **Tope: 10 minutos** (P9, `timeout-minutes` en cada job). Hoy (M-06, 5 corridas medidas) el job `ci`
-  tarda entre 3:14 y 4:11, con el navegador del e2e en ~15 s; la meta de M-06 es quedar por debajo de
-  8 minutos. Si pasa de 10, el check queda en rojo y es un bug de CI.
+- **Tope: 10 minutos** (P9, `timeout-minutes` en cada job). Hoy (M-08, 5 corridas medidas) el job `ci`
+  tarda entre 3:32 y 4:23, con el navegador del e2e entre 0 y 9 s (9 s con la caché en *miss*, bajando
+  Chromium de la CDN de Playwright); la meta es quedar por debajo de 8 minutos. Si pasa de 10, el check queda en rojo y es un bug de CI.
 - **Cómo leer el resultado.** `gh pr checks <N>` lista los checks del PR con su estado y el link a
   la corrida (`gh pr checks <N> --watch` espera a que terminen). Si hay rojo:
   `gh run view <id-de-corrida> --log-failed` muestra solo los pasos que fallaron; el nombre del

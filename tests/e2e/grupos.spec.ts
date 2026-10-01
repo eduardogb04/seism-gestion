@@ -7,11 +7,15 @@
  * 1. ve los grupos de la semilla y da de alta uno;
  * 2. intenta otra alta con el mismo nombre: el mensaje aparece al lado del
  *    campo y lo que escribió sigue en el formulario;
- * 3. lo edita;
- * 4. lo da de baja, con su página de confirmación, y deja de aparecer.
+ * 3. lo edita, con una búsqueda puesta: cancelar o Escape vuelven al listado
+ *    con esa búsqueda;
+ * 4. lo da de baja, con su confirmación, y deja de aparecer.
+ *
+ * Alta, edición y baja son una ventana sobre el listado (F1-09): en cada paso
+ * la ruta sigue siendo `/catalogo/grupos` y la tabla sigue en la página detrás.
  *
  * Y con **JavaScript apagado** el formulario se comporta igual: vuelve con lo
- * escrito y el mensaje, y da de alta.
+ * escrito y el mensaje, da de alta y da de baja.
  *
  * Usa `operador.catalogos@ejemplo.test` y no `operador@ejemplo.test`: a ese lo
  * da de alta y lo revoca `usuarios.spec.ts`. Todo inventado.
@@ -21,7 +25,9 @@ import { type Browser, expect, type Page, test } from "@playwright/test";
 
 const ADMIN = "admin@ejemplo.test";
 const OPERADORA = "operador.catalogos@ejemplo.test";
-const LISTADO = /\/catalogo\/grupos$/;
+/** El listado, con o sin parámetros: nunca otra ruta. */
+const LISTADO = /\/catalogo\/grupos(\?.*)?$/;
+const CON_BUSQUEDA = /[?&]buscar=Grupo(&|$)/;
 
 /** Entra con la identidad falsa como `email` y termina en la página de la sesión. */
 async function entrarComo(page: Page, email: string): Promise<void> {
@@ -56,11 +62,28 @@ function fila(page: Page, nombre: string) {
   return page.getByRole("row", { name: new RegExp(nombre) });
 }
 
+function ventana(page: Page, titulo: string) {
+  return page.getByRole("dialog", { name: titulo });
+}
+
+/** Sigue en el listado y su tabla sigue en la página, detrás de la ventana. */
+async function listadoDetras(page: Page): Promise<void> {
+  await expect(page).toHaveURL(LISTADO);
+  await expect(page.getByRole("table")).toBeVisible();
+}
+
+/** La ventana se cerró y se volvió al listado, sin parámetro de ventana. */
+async function ventanaCerrada(page: Page): Promise<void> {
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page).toHaveURL(LISTADO);
+  await expect(page).not.toHaveURL(/[?&](nuevo|editar|baja)=/);
+}
+
 test.beforeEach(async ({ browser, baseURL }) => {
   await asegurarOperadora(browser, baseURL);
 });
 
-test("una operadora da de alta, edita y da de baja un grupo; un nombre repetido vuelve al formulario con lo escrito", async ({
+test("una operadora da de alta, edita y da de baja un grupo en ventanas sobre el listado; un nombre repetido vuelve a la ventana con lo escrito", async ({
   page,
 }) => {
   await entrarComo(page, OPERADORA);
@@ -77,56 +100,87 @@ test("una operadora da de alta, edita y da de baja un grupo; un nombre repetido 
   // La semilla ficticia.
   await expect(fila(page, "Grupo Centro")).toBeVisible();
 
-  // 1. Alta.
+  // 1. Alta: la ventana abre con el foco en el primer campo.
   await page.getByRole("link", { name: "Alta de grupo" }).click();
-  await expect(page).toHaveURL(/\/catalogo\/grupos\/nuevo$/);
+  await expect(ventana(page, "Alta de grupo")).toHaveAttribute(
+    "aria-modal",
+    "true",
+  );
+  await listadoDetras(page);
+  await expect(page.getByLabel("Nombre")).toBeFocused();
   await page.getByLabel("Nombre").fill("Grupo Este");
   await page.getByLabel("Observaciones").fill("Creado en el e2e");
   await page.getByRole("button", { name: "Guardar" }).click();
-  await expect(page).toHaveURL(LISTADO);
+  await ventanaCerrada(page);
   await expect(fila(page, "Grupo Este")).toContainText("Creado en el e2e");
 
-  // 2. El mismo nombre, con otras mayúsculas: vuelve con el mensaje y lo escrito.
+  // 2. El mismo nombre, con otras mayúsculas: la ventana sigue abierta con el
+  // mensaje al lado del campo y lo escrito.
   await page.getByRole("link", { name: "Alta de grupo" }).click();
   await page.getByLabel("Nombre").fill("grupo ESTE");
   await page.getByLabel("Observaciones").fill("Otra nota");
   await page.getByRole("button", { name: "Guardar" }).click();
-  await expect(page.locator("[data-error-de-campo]")).toHaveText(/DOM-0008/);
+  await expect(
+    ventana(page, "Alta de grupo").locator("[data-error-de-campo]"),
+  ).toHaveText(/DOM-0008/);
   await expect(page.getByLabel("Nombre")).toHaveAccessibleDescription(
     /DOM-0008/,
   );
-  await expect(page).toHaveURL(/\/catalogo\/grupos\/nuevo$/);
+  await listadoDetras(page);
+  await expect(page).toHaveURL(/[?&]nuevo=1/);
   await expect(page.getByLabel("Nombre")).toHaveValue("grupo ESTE");
   await expect(page.getByLabel("Observaciones")).toHaveValue("Otra nota");
   await page.getByRole("link", { name: "Cancelar" }).click();
-  await expect(page).toHaveURL(LISTADO);
+  await ventanaCerrada(page);
   await expect(page.getByRole("row", { name: /grupo este/i })).toHaveCount(1);
 
-  // 3. Edición.
+  // 3. Edición, con una búsqueda puesta: cancelar, Escape y guardar la conservan.
+  await page.getByRole("searchbox", { name: "Buscar" }).fill("Grupo");
+  await page.getByRole("button", { name: "Buscar" }).click();
+  await expect(page).toHaveURL(CON_BUSQUEDA);
   await fila(page, "Grupo Este").getByRole("link", { name: "Editar" }).click();
+  await expect(ventana(page, "Edición de grupo")).toBeVisible();
+  await listadoDetras(page);
+  await expect(page).toHaveURL(CON_BUSQUEDA);
+  await expect(page.getByLabel("Nombre")).toBeFocused();
   await expect(page.getByLabel("Nombre")).toHaveValue("Grupo Este");
   await expect(page.getByLabel("Observaciones")).toHaveValue(
     "Creado en el e2e",
   );
+  await page.getByRole("link", { name: "Cancelar" }).click();
+  await ventanaCerrada(page);
+  await expect(page).toHaveURL(CON_BUSQUEDA);
+  await fila(page, "Grupo Este").getByRole("link", { name: "Editar" }).click();
+  await expect(ventana(page, "Edición de grupo")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await ventanaCerrada(page);
+  await expect(page).toHaveURL(CON_BUSQUEDA);
+  await expect(fila(page, "Grupo Este")).toBeVisible();
+
+  await fila(page, "Grupo Este").getByRole("link", { name: "Editar" }).click();
   await page.getByLabel("Nombre").fill("Grupo Oeste");
   await page.getByRole("button", { name: "Guardar" }).click();
-  await expect(page).toHaveURL(LISTADO);
+  await ventanaCerrada(page);
+  await expect(page).toHaveURL(CON_BUSQUEDA);
   await expect(fila(page, "Grupo Oeste")).toBeVisible();
   await expect(fila(page, "Grupo Este")).toHaveCount(0);
 
-  // 4. Baja: primero la confirmación; cancelar no da de baja nada.
+  // 4. Baja: primero la confirmación, con el foco en Cancelar; cancelar no da
+  // de baja nada.
   await fila(page, "Grupo Oeste")
     .getByRole("link", { name: "Dar de baja" })
     .click();
-  await expect(page).toHaveURL(/\/catalogo\/grupos\/[0-9a-f-]{36}\/baja$/);
-  await expect(page.getByRole("main")).toContainText("Grupo Oeste");
+  await expect(ventana(page, "Baja de grupo")).toContainText("Grupo Oeste");
+  await listadoDetras(page);
+  await expect(page.getByRole("link", { name: "Cancelar" })).toBeFocused();
   await page.getByRole("link", { name: "Cancelar" }).click();
+  await ventanaCerrada(page);
   await expect(fila(page, "Grupo Oeste")).toBeVisible();
   await fila(page, "Grupo Oeste")
     .getByRole("link", { name: "Dar de baja" })
     .click();
   await page.getByRole("button", { name: "Confirmar baja" }).click();
-  await expect(page).toHaveURL(LISTADO);
+  await ventanaCerrada(page);
   await expect(fila(page, "Grupo Centro")).toBeVisible();
   await expect(fila(page, "Grupo Oeste")).toHaveCount(0);
   await expect(page.locator("[data-codigo-error]")).toHaveCount(0);
@@ -135,17 +189,22 @@ test("una operadora da de alta, edita y da de baja un grupo; un nombre repetido 
 test.describe("con JavaScript apagado", () => {
   test.use({ javaScriptEnabled: false });
 
-  test("el formulario vuelve con lo escrito y el mensaje al lado del campo, y da de alta", async ({
+  test("la ventana vuelve con lo escrito y el mensaje al lado del campo, da de alta y da de baja", async ({
     page,
   }) => {
     await entrarComo(page, OPERADORA);
-    await page.goto("/catalogo/grupos/nuevo");
+    await page.goto("/catalogo/grupos");
+    await page.getByRole("link", { name: "Alta de grupo" }).click();
+    await expect(ventana(page, "Alta de grupo")).toBeVisible();
 
     // Un nombre que ya existe (el de la semilla).
     await page.getByLabel("Nombre").fill("grupo centro");
     await page.getByLabel("Observaciones").fill("Escrito sin JavaScript");
     await page.getByRole("button", { name: "Guardar" }).click();
-    await expect(page.locator("[data-error-de-campo]")).toHaveText(/DOM-0008/);
+    await expect(
+      ventana(page, "Alta de grupo").locator("[data-error-de-campo]"),
+    ).toHaveText(/DOM-0008/);
+    await listadoDetras(page);
     await expect(page.getByLabel("Nombre")).toHaveValue("grupo centro");
     await expect(page.getByLabel("Observaciones")).toHaveValue(
       "Escrito sin JavaScript",
@@ -164,9 +223,28 @@ test.describe("con JavaScript apagado", () => {
     // Corregido, da de alta y vuelve al listado.
     await page.getByLabel("Nombre").fill("Grupo Sin Script");
     await page.getByRole("button", { name: "Guardar" }).click();
-    await expect(page).toHaveURL(LISTADO);
+    await ventanaCerrada(page);
     await expect(fila(page, "Grupo Sin Script")).toContainText(
       "Escrito sin JavaScript",
     );
+
+    // La baja, con su confirmación: Cancelar vuelve sin dar de baja nada.
+    await fila(page, "Grupo Sin Script")
+      .getByRole("link", { name: "Dar de baja" })
+      .click();
+    await expect(ventana(page, "Baja de grupo")).toContainText(
+      "Grupo Sin Script",
+    );
+    await listadoDetras(page);
+    await page.getByRole("link", { name: "Cancelar" }).click();
+    await ventanaCerrada(page);
+    await expect(fila(page, "Grupo Sin Script")).toBeVisible();
+    await fila(page, "Grupo Sin Script")
+      .getByRole("link", { name: "Dar de baja" })
+      .click();
+    await page.getByRole("button", { name: "Confirmar baja" }).click();
+    await ventanaCerrada(page);
+    await expect(fila(page, "Grupo Sin Script")).toHaveCount(0);
+    await expect(fila(page, "Grupo Centro")).toBeVisible();
   });
 });

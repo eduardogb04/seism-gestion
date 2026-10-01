@@ -31,11 +31,12 @@ marco: entrar y sus errores) y los componentes de las pantallas (`Boton`,
 servidor: ningún archivo lleva `"use client"`, salvo `formulario-abm.tsx`
 (`tests/dominio/marco.test.ts`).
 
-Desde F1-03 (ADR 0031): `catalogo/`, los ABM. `_abm/` es el molde —las cuatro
-pantallas (`paginas.tsx`) y las acciones (`acciones.ts`) de cualquier ABM— y
-cada entidad tiene su carpeta (`grupos/`) con cuatro `page.tsx` de pocas líneas:
-llaman a `sesionExigida()` antes que nada (los catálogos los ve cualquier usuario
-activo) y le pasan la definición al molde. En `_ui/`, `ListadoAbm` y
-`FormularioAbm`: este es de cliente (`useActionState`) para volver con lo escrito
+Desde F1-03 (ADR 0031): `catalogo/`, los ABM. `_abm/` es el molde —la pantalla
+(`paginas.tsx`) y las acciones (`acciones.ts`) de cualquier ABM— y cada entidad
+tiene su carpeta (`grupos/`) con una `page.tsx` de pocas líneas: llama a
+`sesionExigida()` antes que nada (los catálogos los ve cualquier usuario activo)
+y le pasa la definición al molde. Alta, edición y baja (F1-09) son una `Ventana`
+de `_ui/` sobre ese mismo listado, según `?nuevo=1`, `?editar=<id>` o `?baja=<id>`.
+En `_ui/`, `ListadoAbm` y `FormularioAbm`: este es de cliente (`useActionState`) para volver con lo escrito
 y el mensaje al lado del campo, y funciona igual sin JavaScript. Ver *Cómo se
 agrega...un ABM* en `AGENTS.md`.

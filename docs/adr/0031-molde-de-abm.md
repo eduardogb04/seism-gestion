@@ -71,3 +71,7 @@ Los espacios de los extremos los quita la validación (`.trim()`) antes de guard
 ## Cómo se revierte
 
 Una entidad puede salir del molde sin tocar a las demás: se le escribe su puerto, su adaptador y sus pantallas, y se quitan su entrada de `EntidadesAbm`, `tablas.ts` y `definiciones.ts`; la tabla y sus datos no cambian. Sacar el molde entero es borrar `src/casos-uso/abm/`, `src/adaptadores/prisma/abm/`, `src/puertos/repositorios/abm.ts`, `src/app/catalogo/_abm/` y los dos componentes de `_ui/`, y quitar `abm` de `RepositoriosEnTransaccion`.
+
+## 2026-10-01: las pantallas pasan a ventanas sobre el listado
+
+Pedido en el corte de validación de Grupos (F1-09): alta, edición y baja ya no son páginas aparte sino una ventana sobre el listado, que sigue visible detrás. Las dibuja el servidor según un parámetro de la URL del listado (`?nuevo=1`, `?editar=<id>`, `?baja=<id>`), así que funcionan sin JavaScript, y *Cancelar* y las acciones vuelven a esa misma URL sin el parámetro, con la búsqueda, el orden y la página que tenía (a las acciones les llega ese resto de la URL, que solo cambia parámetros del listado). Quedó una sola `page.tsx` por entidad; `PaginaAlta`, `PaginaEdicion` y `PaginaBaja` y las rutas `nuevo/`, `[id]/` y `[id]/baja/` desaparecen. Lo de arriba sobre las páginas por entidad y el diálogo de confirmación con JavaScript se lee con este cambio: la confirmación de la baja sigue siendo del servidor, ahora dentro de la ventana. Casos de uso, puerto y adaptador no cambian.

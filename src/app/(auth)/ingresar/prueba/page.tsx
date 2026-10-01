@@ -7,6 +7,7 @@
 
 import { notFound, redirect } from "next/navigation.js";
 import { armado } from "../../../../infraestructura/arranque/armado.ts";
+import { Tarjeta } from "../../../_ui/tarjeta.tsx";
 
 type Props = {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -22,13 +23,13 @@ export default async function PantallaDePrueba({ searchParams }: Props) {
     redirect("/ingresar");
   }
   return (
-    <main>
+    <Tarjeta>
       <h1>Identidad de prueba</h1>
-      <p>
+      <p className="mb-4">
         Solo para desarrollo y pruebas: elegí con qué email entrar. En el
         servidor se entra con Google.
       </p>
-      <ul>
+      <ul className="space-y-2">
         {pruebas.emails.map((email) => (
           <li key={email}>
             <a
@@ -42,6 +43,6 @@ export default async function PantallaDePrueba({ searchParams }: Props) {
           </li>
         ))}
       </ul>
-    </main>
+    </Tarjeta>
   );
 }

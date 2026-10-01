@@ -4,27 +4,32 @@
  * hace es exigir administrador (`accesoDeAdministrador`, ADR 0028).
  */
 
+import { ErrorEnPantalla } from "../_ui/error-en-pantalla.tsx";
+import { Marco } from "../_ui/marco.tsx";
+import { Tarjeta } from "../_ui/tarjeta.tsx";
 import { accesoDeAdministrador } from "../(auth)/sesion-actual.ts";
-import { ErrorEnPantalla } from "./error-en-pantalla.tsx";
 
 export default async function Administracion() {
   const acceso = await accesoDeAdministrador();
   if (acceso.tipo === "prohibido") {
     return (
-      <main>
+      <Tarjeta>
         <h1>Administración</h1>
         <ErrorEnPantalla error={acceso.error} />
-      </main>
+      </Tarjeta>
     );
   }
+  const { email, rol } = acceso.sesion.usuario;
   return (
-    <main>
-      <h1>Administración</h1>
-      <ul>
-        <li>
-          <a href="/administracion/usuarios">Usuarios</a>
-        </li>
-      </ul>
-    </main>
+    <Marco email={email} rol={rol} rutaActual="/administracion">
+      <main>
+        <h1>Administración</h1>
+        <ul>
+          <li>
+            <a href="/administracion/usuarios">Usuarios</a>
+          </li>
+        </ul>
+      </main>
+    </Marco>
   );
 }

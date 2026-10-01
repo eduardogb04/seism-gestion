@@ -8,7 +8,10 @@ import type { ErrorDeLogin } from "../../casos-uso/sesion/errores.ts";
 
 export function ErrorEnPantalla({ error }: { readonly error: ErrorDeLogin }) {
   return (
-    <section role="alert">
+    <section
+      role="alert"
+      className="mb-4 rounded border border-red-300 bg-red-50 p-3 text-red-900"
+    >
       <p>
         <strong data-codigo-error>{error.codigo}</strong> · {error.mensaje}
       </p>

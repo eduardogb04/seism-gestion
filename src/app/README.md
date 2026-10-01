@@ -22,3 +22,11 @@ su color, fallidos pendientes, integraciones y gasto de IA). Server Component, s
 `"use client"`, sin `<script>` ni librerías de UI; se recarga con F5. Empieza con
 `await accesoDeAdministrador()` como las páginas de administración; `/api/salud`
 sigue pública. El color lo trae ya decidido `listarSalud`: la página solo lo muestra.
+
+Desde F1-02: `globales.css` (Tailwind 4 por CSS, importado en `layout.tsx`) y
+`_ui/`: `Marco` (menú lateral y cabecera con *Salir*, que cada página de detrás
+del login renderiza después de su control de acceso), `Tarjeta` (pantallas sin
+marco: entrar y sus errores) y los componentes de las pantallas (`Boton`,
+`CampoTexto`, `Selector`, `Tabla`, `ErrorEnPantalla`). Todo es HTML del
+servidor: ningún archivo lleva `"use client"`
+(`tests/dominio/marco.test.ts`).

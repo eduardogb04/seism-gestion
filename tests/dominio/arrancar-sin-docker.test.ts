@@ -1,5 +1,6 @@
 import { type SpawnSyncReturns, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -7,8 +8,8 @@ import { describe, expect, it } from "vitest";
  * F1-01: `npm run arrancar` sin Docker andando sale con un mensaje en
  * castellano, no con una traza, y no deja nada escrito (el chequeo de Docker
  * va antes que crear `.env`). Se corre el script como proceso hijo; no se
- * tira abajo ningún Docker real: o no está en el PATH o su motor apunta a un
- * puerto donde no hay nadie.
+ * tira abajo ningún Docker real: o no está en el PATH o es un ejecutable
+ * falso que sale con 1, igual que el motor caído.
  */
 const RAIZ = process.cwd();
 const ARRANCAR = path.join(RAIZ, "scripts", "arrancar.ts");
@@ -50,12 +51,22 @@ describe("npm run arrancar sin Docker", () => {
     exigirMensajeDeDockerCaido(resultado, existiaEnv);
   });
 
-  it("con el motor de Docker sin responder", () => {
-    const { resultado, existiaEnv } = arrancarCon({
-      PATH: process.env.PATH ?? "",
-      DOCKER_HOST: "tcp://127.0.0.1:1",
-    });
+  // En Windows `spawnSync("docker")` no resuelve un script sin extensión.
+  it.skipIf(process.platform === "win32")(
+    "con un docker que no responde (sale con 1)",
+    () => {
+      const carpeta = mkdtempSync(path.join(tmpdir(), "docker-falso-"));
+      try {
+        const falso = path.join(carpeta, "docker");
+        writeFileSync(falso, "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+        const { resultado, existiaEnv } = arrancarCon({
+          PATH: `${carpeta}${path.delimiter}${process.env.PATH ?? ""}`,
+        });
 
-    exigirMensajeDeDockerCaido(resultado, existiaEnv);
-  });
+        exigirMensajeDeDockerCaido(resultado, existiaEnv);
+      } finally {
+        rmSync(carpeta, { recursive: true, force: true });
+      }
+    },
+  );
 });

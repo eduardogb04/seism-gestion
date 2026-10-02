@@ -78,12 +78,12 @@ type DependenciasPagos = {
   readonly generadorId: GeneradorId;
 };
 
-export type ResultadoPago =
+type ResultadoPago =
   | { readonly ok: true }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
 /** Un pago de la lista de un egreso, listo para mostrarse. */
-export type PagoVisible = {
+type PagoVisible = {
   readonly id: string;
   /** dd/mm/aaaa */
   readonly fecha: string;
@@ -118,7 +118,7 @@ export type DetalleEgreso = {
 };
 
 /** Una fila de *Por pagar*, con todo escrito para mostrarse. */
-export type FilaPorPagarVista = {
+type FilaPorPagarVista = {
   readonly id: string;
   readonly fecha: string;
   readonly concepto: string;
@@ -132,7 +132,7 @@ export type FilaPorPagarVista = {
   readonly atraso: string;
 };
 
-export type ListadoPorPagar = {
+type ListadoPorPagar = {
   readonly filas: readonly FilaPorPagarVista[];
   /** Cuántos egresos hay en todas las páginas. */
   readonly total: number;

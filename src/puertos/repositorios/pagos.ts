@@ -31,7 +31,7 @@ export type DatosPago = {
 };
 
 /** Un egreso con su saldo, como lo muestra *Por pagar*. */
-export type FilaPorPagar = {
+type FilaPorPagar = {
   readonly id: string;
   readonly fecha: string;
   readonly concepto: string;
@@ -43,7 +43,7 @@ export type FilaPorPagar = {
   readonly vencimiento: string | null;
 };
 
-export type ConsultaPorPagar = {
+type ConsultaPorPagar = {
   /** Con `false`, solo los egresos con saldo. */
   readonly incluirPagados: boolean;
   readonly saltear: number;

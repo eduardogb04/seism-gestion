@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes; desde F1-07, los cinco tipos de servicio), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-07, los cinco tipos de servicio; desde F2-02, las cuatro cuentas), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -38,6 +38,7 @@ import { crearAuditable } from "../src/dominio/compartido/auditable.ts";
 import { catalogo } from "../src/dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../src/dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../src/dominio/compartido/identificador.ts";
+import type { Moneda } from "../src/dominio/compartido/importe.ts";
 import type { Reloj } from "../src/dominio/compartido/reloj.ts";
 import type { DatosAbm } from "../src/puertos/repositorios/abm.ts";
 import type { DatosUsuario } from "../src/puertos/repositorios/usuarios.ts";
@@ -101,6 +102,7 @@ export async function sembrar(
     await sembrarGruposDeDemostracion(prisma, opciones.reloj);
     await sembrarClientesDeDemostracion(prisma, opciones.reloj);
     await sembrarTiposDeServicio(prisma, opciones.reloj);
+    await sembrarCuentas(prisma, opciones.reloj);
   }
 }
 
@@ -301,6 +303,57 @@ async function sembrarTiposDeServicio(
           {
             ...datos,
             activo: true,
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
+}
+
+const CUENTAS_DE_DEMOSTRACION: readonly {
+  readonly nombre: string;
+  readonly tipo: "banco" | "efectivo";
+  readonly moneda: Moneda;
+}[] = [
+  {
+    nombre: "Banco Ejemplo Uno — cuenta corriente",
+    tipo: "banco",
+    moneda: "ARS",
+  },
+  {
+    nombre: "Banco Ejemplo Dos — cuenta corriente",
+    tipo: "banco",
+    moneda: "ARS",
+  },
+  { nombre: "Banco Ejemplo Uno — dólares", tipo: "banco", moneda: "USD" },
+  { nombre: "Caja", tipo: "efectivo", moneda: "ARS" },
+];
+
+/** Da de alta cada cuenta si **nunca hubo** una con ese nombre (como los grupos). */
+async function sembrarCuentas(
+  prisma: PrismaClient,
+  reloj: Reloj,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const cuentas = repositorioAbmPrisma(tx, "Cuenta");
+    for (const datos of CUENTAS_DE_DEMOSTRACION) {
+      if (
+        (await tx.cuenta.findFirst({ where: { nombre: datos.nombre } })) !==
+        null
+      ) {
+        continue;
+      }
+      await cuentas.crear(
+        actor,
+        crearAuditable(
+          {
+            ...datos,
+            observaciones: null,
+            activa: true,
             id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
           },
           actor,

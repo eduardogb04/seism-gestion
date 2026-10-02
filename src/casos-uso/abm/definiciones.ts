@@ -11,6 +11,7 @@ import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type { EntidadAbm } from "../../puertos/repositorios/abm.ts";
 import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
 import { CLIENTES } from "./clientes.ts";
+import { CUENTAS } from "./cuentas.ts";
 import { type ColumnaAbm, camposDe, type DefinicionAbm } from "./definicion.ts";
 import { GRUPOS } from "./grupos.ts";
 import { TIPOS_DE_SERVICIO } from "./tipos-de-servicio.ts";
@@ -19,6 +20,7 @@ export const DEFINICIONES: { readonly [E in EntidadAbm]: DefinicionAbm<E> } = {
   Grupo: GRUPOS,
   Cliente: CLIENTES,
   TipoServicio: TIPOS_DE_SERVICIO,
+  Cuenta: CUENTAS,
 };
 
 const esquemaEntidad = z

@@ -11,6 +11,7 @@ import {
 } from "../../dominio/compartido/cuit.ts";
 import type { DefinicionAbm } from "./definicion.ts";
 import { PROVINCIAS } from "./provincias.ts";
+import { obligatorio, opcional } from "./validaciones.ts";
 
 const CONDICIONES_IVA = [
   { valor: "responsable_inscripto", etiqueta: "Responsable Inscripto" },
@@ -19,22 +20,6 @@ const CONDICIONES_IVA = [
   { valor: "consumidor_final", etiqueta: "Consumidor Final" },
   { valor: "no_alcanzado", etiqueta: "No alcanzado" },
 ];
-
-function obligatorio(que: string, maximo: number) {
-  return z
-    .string()
-    .trim()
-    .min(1, `Escribí ${que}.`)
-    .max(maximo, `No puede pasar de ${maximo} caracteres.`);
-}
-
-function opcional(maximo: number) {
-  return z
-    .string()
-    .trim()
-    .max(maximo, `No puede pasar de ${maximo} caracteres.`)
-    .nullable();
-}
 
 const email = z.string().trim().pipe(z.email("Escribí un email válido."));
 

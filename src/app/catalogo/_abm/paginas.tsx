@@ -9,7 +9,10 @@
  */
 
 import type { ReactNode } from "react";
-import type { OpcionesPorCampo } from "../../../casos-uso/abm/abm.ts";
+import type {
+  CambioAbm,
+  OpcionesPorCampo,
+} from "../../../casos-uso/abm/abm.ts";
 import {
   camposDe,
   type DefinicionAbm,
@@ -34,6 +37,7 @@ import {
   type Vista,
 } from "../../_ui/listado-abm.tsx";
 import { Marco } from "../../_ui/marco.tsx";
+import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import {
   crearRegistro,
@@ -67,6 +71,29 @@ function ventanaPedida(
     }
   }
   return null;
+}
+
+/** Cómo cambiaron los campos con historial; sin cambios, nada. */
+function Cambios({ cambios }: { readonly cambios: readonly CambioAbm[] }) {
+  if (cambios.length === 0) {
+    return null;
+  }
+  return (
+    <section className="mt-6">
+      <h3 className="mb-2 font-semibold">Cambios</h3>
+      <Tabla cabeceras={["Cuándo", "Quién", "Campo", "De", "A"]}>
+        {cambios.map(({ cuando, quien, campo, de, a }) => (
+          <tr key={`${cuando}-${campo}-${de}-${a}`}>
+            <td>{cuando}</td>
+            <td>{quien}</td>
+            <td>{campo}</td>
+            <td>{de}</td>
+            <td>{a}</td>
+          </tr>
+        ))}
+      </Tabla>
+    </section>
+  );
 }
 
 async function ContenidoDeVentana<E extends EntidadAbm>({
@@ -105,14 +132,19 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
       const textos = escritoDe(definicion, valor);
       contenido =
         pedida.clave === "editar" ? (
-          <FormularioAbm
-            accion={guardarRegistro.bind(null, entidad, valor.id, vuelta)}
-            campos={camposDe(definicion)}
-            elegibles={elegibles}
-            inicial={{ escrito: textos, errores: {} }}
-            enviar={{ texto: "Guardar", variante: "primario" }}
-            rutaAlCancelar={rutaAlCerrar}
-          />
+          <>
+            <FormularioAbm
+              accion={guardarRegistro.bind(null, entidad, valor.id, vuelta)}
+              campos={camposDe(definicion)}
+              elegibles={elegibles}
+              inicial={{ escrito: textos, errores: {} }}
+              enviar={{ texto: "Guardar", variante: "primario" }}
+              rutaAlCancelar={rutaAlCerrar}
+            />
+            <Cambios
+              cambios={await armado().abm.historial(definicion, valor.id)}
+            />
+          </>
         ) : (
           <>
             <p>Confirmá la baja de {singular}:</p>

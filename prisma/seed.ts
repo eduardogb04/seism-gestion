@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -101,6 +101,7 @@ export async function sembrar(
   if (opciones.appEntorno !== "servidor") {
     await sembrarGruposDeDemostracion(prisma, opciones.reloj);
     await sembrarClientesDeDemostracion(prisma, opciones.reloj);
+    await sembrarSitiosDeDemostracion(prisma, opciones.reloj);
     await sembrarTiposDeServicio(prisma, opciones.reloj);
     await sembrarCentrosDeCosto(prisma, opciones.reloj);
     await sembrarCuentas(prisma, opciones.reloj);
@@ -451,6 +452,111 @@ async function sembrarCentrosDeCosto(
           {
             ...datos,
             activo: true,
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
+}
+
+type DatosSitio = DatosAbm<"Sitio">;
+
+/** Lo común a los sitios de demostración; cada uno cambia lo suyo. */
+const SITIO_BASE: Omit<DatosSitio, "clienteId"> = {
+  nombre: "",
+  provincia: "cordoba",
+  localidad: "Villa Ejemplo",
+  direccion: null,
+  latitud: null,
+  longitud: null,
+  cantidadTanques: 1,
+  capacidadTotalLitros: 20000,
+  observaciones: null,
+};
+
+/** Inventados y evidentemente ficticios; solo el primero lleva coordenadas, redondas. */
+const SITIOS_DE_DEMOSTRACION: readonly {
+  readonly cuit: string;
+  readonly datos: Partial<DatosSitio>;
+}[] = [
+  {
+    cuit: "30000000015",
+    datos: {
+      nombre: "Planta Ejemplo Norte",
+      direccion: "Ruta Ficticia km 10",
+      latitud: -30,
+      longitud: -65,
+      cantidadTanques: 4,
+      capacidadTotalLitros: 120000,
+    },
+  },
+  {
+    cuit: "30000000015",
+    datos: {
+      nombre: "Planta Ejemplo Sur",
+      localidad: "Pueblo Ejemplo",
+      cantidadTanques: 2,
+      capacidadTotalLitros: 40000,
+    },
+  },
+  {
+    cuit: "30000000023",
+    datos: {
+      nombre: "Estación Ejemplo Este",
+      provincia: "santa_fe",
+      localidad: "Pueblo Ejemplo",
+      cantidadTanques: 3,
+      capacidadTotalLitros: 60000,
+    },
+  },
+  {
+    cuit: "30000000023",
+    datos: { nombre: "Depósito Ejemplo", provincia: "santa_fe" },
+  },
+  {
+    cuit: "30000000031",
+    datos: {
+      nombre: "Base Ejemplo Centro",
+      cantidadTanques: 6,
+      capacidadTotalLitros: 250000,
+    },
+  },
+];
+
+/**
+ * Da de alta cada sitio de demostración si **nunca hubo** uno con ese nombre
+ * para ese cliente (como los grupos), siempre que el cliente siga vigente.
+ */
+async function sembrarSitiosDeDemostracion(
+  prisma: PrismaClient,
+  reloj: Reloj,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const sitios = repositorioAbmPrisma(tx, "Sitio");
+    for (const { cuit, datos } of SITIOS_DE_DEMOSTRACION) {
+      const cliente = await tx.cliente.findFirst({
+        where: { cuit, eliminadoEn: null },
+      });
+      const nombre = datos.nombre ?? "";
+      if (
+        cliente === null ||
+        (await tx.sitio.findFirst({
+          where: { clienteId: cliente.id, nombre },
+        })) !== null
+      ) {
+        continue;
+      }
+      await sitios.crear(
+        actor,
+        crearAuditable(
+          {
+            ...SITIO_BASE,
+            ...datos,
+            clienteId: cliente.id,
             id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
           },
           actor,

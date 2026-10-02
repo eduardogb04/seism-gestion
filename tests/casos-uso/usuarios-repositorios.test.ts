@@ -408,9 +408,10 @@ describe("adaptadores Prisma de usuarios, sesiones y auditoría", () => {
       expect(resultado.salida.trim()).toBe("1");
     });
 
-    test("el adaptador solo agrega: no expone nada para cambiar ni quitar filas", () => {
+    test("el adaptador solo agrega y lee: no expone nada para cambiar ni quitar filas", () => {
       expect(Object.keys(crearAuditoriaPrisma(cliente()))).toEqual([
         "registrar",
+        "registrosDe",
       ]);
     });
   });

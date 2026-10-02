@@ -19,6 +19,15 @@ export function crearAuditoriaEnMemoria(): Auditoria & {
       registros.push(registro);
       return Promise.resolve();
     },
+    registrosDe(entidad, id) {
+      return Promise.resolve(
+        registros
+          .filter(
+            (registro) => registro.entidad === entidad && registro.id === id,
+          )
+          .reverse(),
+      );
+    },
     registrados() {
       return [...registros];
     },

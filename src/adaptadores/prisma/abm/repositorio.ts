@@ -54,6 +54,7 @@ type Donde<F> = {
   eliminadoEn?: null;
   id?: { in: string[] };
   OR?: Partial<Record<Columna<F>, FiltroTexto>>[];
+  AND?: Partial<Record<Columna<F>, FiltroTexto>>[];
 };
 
 type Orden<F> = Partial<Record<Columna<F>, "asc" | "desc">> | { id: "asc" };
@@ -207,11 +208,18 @@ export function crearRepositorioAbmPrisma<F extends FilaAuditable>(
       return filas.map(desdeFila);
     },
 
-    async buscarPorValor(columna, valor) {
+    async buscarPorValores(valores) {
       const fila = await tabla.findFirst({
         where: {
           eliminadoEn: null,
-          OR: [enColumna(columna, { equals: valor, mode: "insensitive" })],
+          AND: valores.map(({ columna, valor, exacto }) =>
+            enColumna(
+              columna,
+              exacto
+                ? { equals: valor }
+                : { equals: valor, mode: "insensitive" },
+            ),
+          ),
         },
       });
       return fila === null ? null : desdeFila(fila);

@@ -42,6 +42,18 @@ type EntidadesAbm = {
     readonly emailFacturacion: string | null;
     readonly observaciones: string | null;
   };
+  readonly Sitio: {
+    readonly clienteId: string;
+    readonly nombre: string;
+    readonly provincia: string;
+    readonly localidad: string;
+    readonly direccion: string | null;
+    readonly latitud: number | null;
+    readonly longitud: number | null;
+    readonly cantidadTanques: number;
+    readonly capacidadTotalLitros: number;
+    readonly observaciones: string | null;
+  };
   readonly TipoServicio: {
     readonly nombre: string;
     readonly descripcion: string | null;
@@ -98,10 +110,16 @@ export type RepositorioDe<D> = {
   buscarPorId(id: string): Promise<RegistroDe<D> | null>;
   /** Los que existen de esos ids, también los eliminados, en una sola consulta. */
   buscarPorIds(ids: readonly string[]): Promise<readonly RegistroDe<D>[]>;
-  /** El no eliminado que tiene ese valor en `columna`, sin distinguir mayúsculas. */
-  buscarPorValor(
-    columna: ColumnaDeTexto<D>,
-    valor: string,
+  /**
+   * El no eliminado que tiene **todos** esos valores, sin distinguir
+   * mayúsculas salvo en los `exacto` (un id no es un texto).
+   */
+  buscarPorValores(
+    valores: readonly {
+      readonly columna: ColumnaDeTexto<D>;
+      readonly valor: string;
+      readonly exacto: boolean;
+    }[],
   ): Promise<RegistroDe<D> | null>;
   /** ¿Hay algún no eliminado con exactamente ese valor en `columna`? */
   hayVigenteCon(columna: ColumnaDeTexto<D>, valor: string): Promise<boolean>;

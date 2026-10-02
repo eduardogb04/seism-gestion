@@ -9,9 +9,7 @@
  * Datos inventados. Necesita Docker corriendo.
  */
 
-import { mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { readdir } from "node:fs/promises";
 import {
   afterAll,
   beforeAll,
@@ -20,7 +18,6 @@ import {
   expect,
   test,
 } from "vitest";
-import { crearAlmacenDisco } from "../../src/adaptadores/disco/almacen-documentos.ts";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
@@ -47,6 +44,10 @@ import {
   sembrarUsuarios,
   type UsuarioSembrado,
 } from "./_arnes/administradores.ts";
+import {
+  type AlmacenTemporal,
+  crearAlmacenTemporal,
+} from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import { altaDeServicio, sembrarServicio } from "./_arnes/servicio.ts";
 
@@ -70,7 +71,7 @@ const PDF = new TextEncoder().encode("%PDF-1.4\nCotización de ejemplo\n");
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
 let carpeta = "";
-const carpetas: string[] = [];
+const almacenes: AlmacenTemporal[] = [];
 let almacen: AlmacenDocumentos;
 let usuarios: readonly UsuarioSembrado[];
 let admin: Actor;
@@ -190,16 +191,14 @@ beforeAll(() => {
 
 afterAll(async () => {
   await prisma?.$disconnect();
-  for (const usada of carpetas) {
-    await rm(usada, { recursive: true, force: true });
-  }
+  await Promise.all(almacenes.map((usado) => usado.borrar()));
 });
 
 beforeEach(async () => {
   await limpiarBase();
-  carpeta = await mkdtemp(path.join(tmpdir(), "seism-cotizaciones-"));
-  carpetas.push(carpeta);
-  almacen = crearAlmacenDisco({ directorio: carpeta });
+  const temporal = await crearAlmacenTemporal();
+  almacenes.push(temporal);
+  ({ almacen, carpeta } = temporal);
   usuarios = await sembrarUsuarios(cliente(), [ADMIN_UNO, OPERADOR, EX_ADMIN]);
   admin = persona(0);
   operador = persona(1);

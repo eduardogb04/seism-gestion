@@ -18,6 +18,7 @@
  * Necesita Docker corriendo (RUNBOOK, sección 1).
  */
 
+import { readdir } from "node:fs/promises";
 import {
   afterAll,
   beforeAll,
@@ -32,9 +33,15 @@ import {
   crearFechaHora,
   RelojFijo,
 } from "../../src/dominio/compartido/reloj.ts";
+import { referenciaDesde } from "../../src/puertos/almacen-documentos.ts";
+import {
+  type AlmacenTemporal,
+  crearAlmacenTemporal,
+} from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
+let temporal: AlmacenTemporal | undefined;
 
 /** Desde F0-30 la semilla también pide el administrador inicial (inventado) y el reloj. */
 function opciones(appEntorno: "local" | "ci" | "servidor" = "local") {
@@ -54,7 +61,13 @@ function opciones(appEntorno: "local" | "ci" | "servidor" = "local") {
     adminInicialEmail: "admin@ejemplo.test",
     appEntorno,
     reloj: RelojFijo(fecha.fechaHora),
+    almacen: almacenDePrueba().almacen,
   };
+}
+
+function almacenDePrueba(): AlmacenTemporal {
+  expect(temporal, "el almacén temporal no se armó").toBeDefined();
+  return temporal as AlmacenTemporal;
 }
 
 function cliente(): ReturnType<typeof crearClientePrisma> {
@@ -63,16 +76,20 @@ function cliente(): ReturnType<typeof crearClientePrisma> {
 }
 
 describe("semilla", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     prisma = crearClientePrisma(uriBaseCompartida());
   });
 
   beforeEach(async () => {
     await limpiarBase();
+    // Un almacén limpio por test: cada corrida de la semilla escribe sus PDF.
+    await temporal?.borrar();
+    temporal = await crearAlmacenTemporal();
   });
 
   afterAll(async () => {
     await prisma?.$disconnect();
+    await temporal?.borrar();
   });
 
   test("es idempotente y tarda menos de 2 minutos en una base recién migrada", async () => {
@@ -302,6 +319,68 @@ describe("semilla", () => {
     expect(await db.secuencia.findMany()).toEqual([
       { prefijo: "SRV", anio: 2031, ultimo: 4 },
     ]);
+  });
+
+  test("siembra dos cotizaciones del servicio cotizado, con su PDF en el almacén, sin repetir filas ni archivos, y no en el servidor", async () => {
+    const db = cliente();
+    const { almacen, carpeta } = almacenDePrueba();
+    const archivos = async () =>
+      (await readdir(carpeta, { recursive: true, withFileTypes: true })).filter(
+        (entrada) => entrada.isFile(),
+      ).length;
+    const foto = async () => ({
+      cotizaciones: await db.cotizacion.findMany({
+        orderBy: { version: "asc" },
+      }),
+      documentos: await db.documento.findMany({ orderBy: { nombre: "asc" } }),
+      archivos: await archivos(),
+    });
+
+    await sembrar(db, opciones("servidor"));
+    expect(await foto()).toEqual({
+      cotizaciones: [],
+      documentos: [],
+      archivos: 0,
+    });
+
+    await sembrar(db, opciones());
+    const primeraVez = await foto();
+    await sembrar(db, opciones());
+
+    expect(await foto()).toEqual(primeraVez);
+    expect(primeraVez.archivos).toBe(2);
+    expect(
+      primeraVez.cotizaciones.map(({ version, motivo, importeCentavos }) => [
+        version,
+        motivo === null,
+        importeCentavos,
+      ]),
+    ).toEqual([
+      [1, true, 125_000_000n],
+      [2, false, 118_000_000n],
+    ]);
+    const servicio = await db.servicio.findFirstOrThrow({
+      where: { titulo: "Certificación de camiones — ejemplo" },
+    });
+    expect(
+      primeraVez.cotizaciones.every(
+        ({ servicioId }) => servicioId === servicio.id,
+      ),
+    ).toBe(true);
+    for (const documento of primeraVez.documentos) {
+      const bytes = await almacen.leer(referenciaDesde(documento.referencia));
+      expect(new TextDecoder().decode(bytes.slice(0, 8))).toBe("%PDF-1.4");
+      expect(bytes.length).toBe(documento.tamano);
+      expect(documento).toMatchObject({
+        tipoMime: "application/pdf",
+        creadoPor: { tipo: "sistema", proceso: "db-seed" },
+      });
+    }
+    expect(
+      await db.auditoria.count({
+        where: { entidad: { in: ["Cotizacion", "Documento"] } },
+      }),
+    ).toBe(4);
   });
 
   test("en el servidor no siembra ningún grupo; en ci, sí", async () => {

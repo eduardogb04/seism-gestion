@@ -10,9 +10,7 @@
  * Datos inventados. Necesita Docker corriendo.
  */
 
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import {
   afterAll,
   beforeAll,
@@ -22,7 +20,6 @@ import {
   test,
   vi,
 } from "vitest";
-import { crearAlmacenDisco } from "../../src/adaptadores/disco/almacen-documentos.ts";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
@@ -44,6 +41,10 @@ import {
   sembrarUsuarios,
   type UsuarioSembrado,
 } from "./_arnes/administradores.ts";
+import {
+  type AlmacenTemporal,
+  crearAlmacenTemporal,
+} from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import { sembrarServicio } from "./_arnes/servicio.ts";
 
@@ -76,7 +77,7 @@ const PDF = new TextEncoder().encode("%PDF-1.4\nCotización de ejemplo\n");
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
 let carpeta = "";
-const carpetas: string[] = [];
+const almacenes: AlmacenTemporal[] = [];
 let almacen: AlmacenDocumentos;
 let operador: UsuarioSembrado;
 let servicioId: string;
@@ -102,7 +103,7 @@ function reloj() {
   return RelojFijo(fecha.fechaHora);
 }
 
-/** A dónde redirige una acción o una ruta que tiene que redirigir. */
+/** A dónde redirige una acción que tiene que redirigir. */
 async function destino(accion: Promise<unknown>): Promise<string> {
   try {
     await accion;
@@ -163,16 +164,14 @@ beforeAll(() => {
 
 afterAll(async () => {
   await prisma?.$disconnect();
-  for (const usada of carpetas) {
-    await rm(usada, { recursive: true, force: true });
-  }
+  await Promise.all(almacenes.map((usado) => usado.borrar()));
 });
 
 beforeEach(async () => {
   await limpiarBase();
-  carpeta = await mkdtemp(path.join(tmpdir(), "seism-documentos-"));
-  carpetas.push(carpeta);
-  almacen = crearAlmacenDisco({ directorio: carpeta });
+  const temporal = await crearAlmacenTemporal();
+  almacenes.push(temporal);
+  ({ almacen, carpeta } = temporal);
   const [sembrado] = await sembrarUsuarios(cliente(), [OPERADOR]);
   if (sembrado === undefined) {
     throw new Error("no se sembró el operador");
@@ -360,18 +359,25 @@ describe("GET /documentos/<id>", () => {
     );
   });
 
-  test("sin sesión redirige a AUT-0002 y no devuelve un solo byte", async () => {
+  test("sin sesión es un 401 y no devuelve un solo byte", async () => {
     const documentoId = await cargada();
     cookie.valor = undefined;
 
-    expect(await destino(pedir(documentoId))).toBe(SIN_SESION);
+    const respuesta = await pedir(documentoId);
+
+    expect(respuesta.status).toBe(401);
+    expect(await respuesta.text()).toBe("");
+    expect(respuesta.headers.get("content-type")).toBeNull();
   });
 
   test("con una sesión que ya no vale tampoco", async () => {
     const documentoId = await cargada();
     cookie.valor = "una-sesion-que-nunca-existio";
 
-    expect(await destino(pedir(documentoId))).toBe(SIN_SESION);
+    const respuesta = await pedir(documentoId);
+
+    expect(respuesta.status).toBe(401);
+    expect(await respuesta.text()).toBe("");
   });
 
   test("un nombre hostil no inyecta cabeceras ni lleva comillas, saltos de línea ni barras", async () => {

@@ -34,6 +34,10 @@ import type {
   EstadoUsuario,
   Rol,
 } from "../../src/puertos/repositorios/usuarios.ts";
+import {
+  type AlmacenTemporal,
+  crearAlmacenTemporal,
+} from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
@@ -60,10 +64,13 @@ function fecha(dia: number): FechaHora {
 }
 
 const EMAIL = "Admin.Inicial@Ejemplo.TEST";
+let temporal: AlmacenTemporal | undefined;
 const opciones = (dia = 10) => ({
   adminInicialEmail: EMAIL,
   appEntorno: "servidor" as const,
   reloj: RelojFijo(fecha(dia)),
+  // En el servidor no se siembra ninguna demostración: el almacén no se toca.
+  almacen: (temporal as AlmacenTemporal).almacen,
 });
 
 async function existente(email: string, rol: Rol, estado: EstadoUsuario) {
@@ -97,8 +104,9 @@ async function fotoDeLaBase() {
 }
 
 describe("semilla del administrador inicial", () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     prisma = crearClientePrisma(uriBaseCompartida());
+    temporal = await crearAlmacenTemporal();
   });
 
   beforeEach(async () => {
@@ -107,6 +115,7 @@ describe("semilla del administrador inicial", () => {
 
   afterAll(async () => {
     await prisma?.$disconnect();
+    await temporal?.borrar();
   });
 
   test("da de alta ADMIN_INICIAL_EMAIL como administrador activo, en minúsculas y auditado", async () => {

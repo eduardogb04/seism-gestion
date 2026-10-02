@@ -33,6 +33,7 @@ import {
   ESTADO_INICIAL,
   ESTADOS_SERVICIO,
   type HistorialServicio,
+  PREFIJO_DE_CODIGO,
   transicionesDesde,
 } from "../../dominio/servicios/estados.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
@@ -75,8 +76,6 @@ import {
   ETIQUETAS_DE_ESTADO,
   VALIDACION,
 } from "./formulario.ts";
-
-const PREFIJO = "SRV";
 
 export const ROLES_QUE_ESCRIBEN_SERVICIOS: readonly Rol[] = [
   "administrador",
@@ -138,6 +137,8 @@ export type FormularioDeServicio = {
 
 /** Un cambio de estado, listo para mostrarse. */
 export type CambioDeEstado = {
+  /** 0 es el alta. */
+  readonly posicion: number;
   /** dd/mm/aaaa hh:mm, hora argentina. */
   readonly cuando: string;
   /** Vacío en el alta. */
@@ -416,7 +417,8 @@ export function crearCasosUsoServicios({
               : [["Observaciones", valor.observaciones] as const]),
           ],
           historial: historial.eventos
-            .map(({ de, a, en, actor, origen }) => ({
+            .map(({ de, a, en, actor, origen }, posicion) => ({
+              posicion,
               cuando: cuandoDe(en),
               de: de === null ? "" : ETIQUETAS_DE_ESTADO[de],
               a: ETIQUETAS_DE_ESTADO[a],
@@ -454,8 +456,11 @@ export function crearCasosUsoServicios({
         const ahora = reloj.ahora();
         const enEsteInstante = RelojFijo(ahora);
         const codigo = generarCodigoLegible(enEsteInstante, {
-          prefijo: PREFIJO,
-          secuencia: await repos.secuencias.siguiente(PREFIJO, ahora.anio),
+          prefijo: PREFIJO_DE_CODIGO,
+          secuencia: await repos.secuencias.siguiente(
+            PREFIJO_DE_CODIGO,
+            ahora.anio,
+          ),
         });
         if (!codigo.ok) {
           throw nuevoError(catalogo.DOM_0006, { motivo: codigo.mensaje });

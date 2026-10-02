@@ -424,6 +424,7 @@ describe("cambio de estado", () => {
     expect(detalle.estado).toBe("Adjudicado");
     expect(detalle.historial).toEqual([
       {
+        posicion: 2,
         cuando: "09/07/2031 10:30",
         de: "Cotizado",
         a: "Adjudicado",
@@ -431,6 +432,7 @@ describe("cambio de estado", () => {
         nota: "",
       },
       {
+        posicion: 1,
         cuando: "09/07/2031 10:30",
         de: "Solicitado",
         a: "Cotizado",
@@ -438,6 +440,7 @@ describe("cambio de estado", () => {
         nota: "Se envió",
       },
       {
+        posicion: 0,
         cuando: "09/07/2031 10:30",
         de: "",
         a: "Solicitado",

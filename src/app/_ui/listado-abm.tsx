@@ -6,12 +6,8 @@
  * `baja`) que abre la ventana, sin perder la búsqueda, el orden ni la página.
  */
 
-import type { Listado } from "../../casos-uso/abm/abm.ts";
-import {
-  cabecerasDe,
-  type DefinicionAbm,
-} from "../../casos-uso/abm/definicion.ts";
-import type { EntidadAbm } from "../../puertos/repositorios/abm.ts";
+import type { ReactNode } from "react";
+import type { FiltroListado } from "../../casos-uso/abm/abm.ts";
 import { Boton, clasesDeBoton } from "./boton.tsx";
 import { CampoTexto } from "./campo-texto.tsx";
 import { Enlace } from "./enlace-next.ts";
@@ -27,14 +23,28 @@ export type Vista = {
   readonly filtros: Readonly<Record<string, string>>;
 };
 
+/** Lo que se dibuja de un listado: el de un ABM del molde o el de Servicios (F2-04). */
+export type ListadoVisible = {
+  readonly registros: readonly { readonly valor: { readonly id: string } }[];
+  /** Las celdas de cada registro (por id), en el orden de las cabeceras. */
+  readonly celdas: Readonly<Record<string, readonly string[]>>;
+  readonly total: number;
+  readonly pagina: number;
+  readonly paginas: number;
+  readonly buscar: string;
+  readonly orden: string;
+  readonly direccion: "asc" | "desc";
+  readonly filtros: readonly FiltroListado[];
+};
+
 /** La vista que está mostrando un listado: es lo que se conserva al abrir y cerrar una ventana o cambiar de página. */
-export function vistaDe<E extends EntidadAbm>({
+export function vistaDe({
   buscar,
   orden,
   direccion,
   pagina,
   filtros,
-}: Listado<E>): Vista {
+}: ListadoVisible): Vista {
   return {
     buscar,
     orden,
@@ -76,17 +86,28 @@ export function enlace(
   return `${ruta}?${consultaDe(vista, ventana)}`;
 }
 
-export function ListadoAbm<E extends EntidadAbm>({
-  definicion,
+export function ListadoAbm({
+  ruta,
+  singular,
+  cabeceras,
+  ordenes,
   listado,
   puedeEscribir,
+  acciones,
 }: {
-  readonly definicion: DefinicionAbm<E>;
-  readonly listado: Listado<E>;
+  readonly ruta: string;
+  readonly singular: string;
+  readonly cabeceras: readonly string[];
+  /** Las columnas por las que se ordena, con lo que dice su enlace. */
+  readonly ordenes: readonly {
+    readonly columna: string;
+    readonly etiqueta: string;
+  }[];
+  readonly listado: ListadoVisible;
   readonly puedeEscribir: boolean;
+  /** Lo que se puede hacer con cada registro; `null`: el listado no lleva esa columna. */
+  readonly acciones: ((id: string, vista: Vista) => ReactNode) | null;
 }) {
-  const { ruta, singular } = definicion;
-  const cabeceras = cabecerasDe(definicion);
   const {
     registros,
     celdas,
@@ -136,7 +157,7 @@ export function ListadoAbm<E extends EntidadAbm>({
       </div>
       <p className="mb-2 flex flex-wrap gap-3">
         Ordenar por:
-        {definicion.orden.map((columna) => {
+        {ordenes.map(({ columna, etiqueta }) => {
           const actual = columna === orden;
           const alReves = actual && direccion === "asc" ? "desc" : "asc";
           return (
@@ -149,13 +170,15 @@ export function ListadoAbm<E extends EntidadAbm>({
                 pagina: 1,
               })}
             >
-              {definicion.campos[columna].etiqueta}
+              {etiqueta}
               {actual ? (direccion === "asc" ? " ↑" : " ↓") : ""}
             </a>
           );
         })}
       </p>
-      <Tabla cabeceras={[...cabeceras, ...(puedeEscribir ? ["Acciones"] : [])]}>
+      <Tabla
+        cabeceras={[...cabeceras, ...(acciones === null ? [] : ["Acciones"])]}
+      >
         {registros.map(({ valor }) => {
           return (
             <tr key={valor.id}>
@@ -164,32 +187,13 @@ export function ListadoAbm<E extends EntidadAbm>({
                   {texto}
                 </td>
               ))}
-              {puedeEscribir ? (
+              {acciones === null ? null : (
                 <td>
                   <div className="flex flex-wrap gap-2">
-                    <Enlace
-                      href={enlace(ruta, vista, {
-                        clave: "editar",
-                        valor: valor.id,
-                      })}
-                      scroll={false}
-                      className={clasesDeBoton("secundario")}
-                    >
-                      Editar
-                    </Enlace>
-                    <Enlace
-                      href={enlace(ruta, vista, {
-                        clave: "baja",
-                        valor: valor.id,
-                      })}
-                      scroll={false}
-                      className={clasesDeBoton("peligro")}
-                    >
-                      Dar de baja
-                    </Enlace>
+                    {acciones(valor.id, vista)}
                   </div>
                 </td>
-              ) : null}
+              )}
             </tr>
           );
         })}

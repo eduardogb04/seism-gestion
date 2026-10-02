@@ -372,3 +372,18 @@ export function formatearMonto(importe: Importe<Moneda>): string {
 export function formatearImporte(importe: Importe<Moneda>): string {
   return `${importe.moneda} ${formatearMonto(importe)}`;
 }
+
+/** El valor de un tipo de cambio como se escribe, con sus decimales: `1.184,25`. Lo que `parsearValorTipoDeCambio` vuelve a leer igual. */
+export function formatearValorTipoDeCambio(valor: ValorTipoDeCambio): string {
+  const decimales = valor.denominador.toString().length - 1;
+  const enteros = (valor.numerador / valor.denominador)
+    .toString()
+    .replace(/\B(?=([0-9]{3})+$)/g, ".");
+  if (decimales === 0) {
+    return enteros;
+  }
+  const fraccion = (valor.numerador % valor.denominador)
+    .toString()
+    .padStart(decimales, "0");
+  return `${enteros},${fraccion}`;
+}

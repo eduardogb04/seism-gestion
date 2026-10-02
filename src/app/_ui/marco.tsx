@@ -19,6 +19,7 @@ type Seccion = {
 /** Las pantallas que existen. Una sección nueva se suma acá, cuando exista su página. */
 const SECCIONES: readonly Seccion[] = [
   { texto: "Egresos", ruta: "/egresos", soloAdministrador: false },
+  { texto: "Por pagar", ruta: "/egresos/pagos", soloAdministrador: false },
   { texto: "Grupos", ruta: "/catalogo/grupos", soloAdministrador: false },
   {
     texto: "Clientes y proveedores",

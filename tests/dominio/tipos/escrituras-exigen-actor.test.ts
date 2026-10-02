@@ -24,6 +24,7 @@
 import { expect, test } from "vitest";
 import type { CasosUsoAbm } from "../../../src/casos-uso/abm/abm.ts";
 import type { DefinicionAbm } from "../../../src/casos-uso/abm/definicion.ts";
+import type { CasosUsoPagos } from "../../../src/casos-uso/egresos/pagos.ts";
 import type { CasosUsoUsuarios } from "../../../src/casos-uso/usuarios/usuarios.ts";
 import type { Identificador } from "../../../src/dominio/compartido/identificador.ts";
 import type {
@@ -40,6 +41,7 @@ declare const repositorio: RepositorioUsuarios;
 declare const usuario: Usuario;
 declare const usuarioId: Identificador<"Usuario">;
 declare const casosAbm: CasosUsoAbm;
+declare const casosPagos: CasosUsoPagos;
 declare const definicion: DefinicionAbm<"Grupo">;
 declare const repositorioAbm: RepositorioAbm<"Grupo">;
 declare const registroAbm: RegistroAbm<"Grupo">;
@@ -57,6 +59,10 @@ function casosDeUsoSinActor(): void {
   casosAbm.guardar(definicion, "id", {});
   // @ts-expect-error `marcarEliminado` exige un `Actor` primero.
   casosAbm.marcarEliminado(definicion, "id");
+  // @ts-expect-error `registrarPago` (F2-09) exige un `Actor` primero.
+  casosPagos.registrarPago("id", {});
+  // @ts-expect-error `marcarPagoAnulado` exige un `Actor` primero.
+  casosPagos.marcarPagoAnulado("id");
 }
 
 function repositoriosSinActor(): void {

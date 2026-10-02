@@ -47,9 +47,9 @@ import {
 } from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 
-const HOY = (() => {
+function fechaDelAnio(anio: number) {
   const resultado = crearFechaHora({
-    anio: 2031,
+    anio,
     mes: 7,
     dia: 9,
     hora: 10,
@@ -61,7 +61,9 @@ const HOY = (() => {
     throw new Error(resultado.mensaje);
   }
   return resultado.fechaHora;
-})();
+}
+
+const HOY = fechaDelAnio(2031);
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
 let usuarios: readonly UsuarioSembrado[];
@@ -83,8 +85,8 @@ function dependencias() {
   };
 }
 
-function casos() {
-  return crearCasosUsoServicios(dependencias());
+function casos(reloj = RelojFijo(HOY)) {
+  return crearCasosUsoServicios({ ...dependencias(), reloj });
 }
 
 function persona(indice: number): Actor {
@@ -258,6 +260,29 @@ describe("alta", () => {
         (_, numero) => `SRV-2031-${String(numero + 1).padStart(3, "0")}`,
       ),
     );
+  });
+
+  test("el código lleva el año del reloj y la numeración arranca de nuevo cada año", async () => {
+    const en2031 = RelojFijo(HOY);
+    const en2032 = RelojFijo(fechaDelAnio(2032));
+    const altaEn = async (reloj: ReturnType<typeof RelojFijo>) => {
+      const resultado = await casos(reloj).crear(admin, escritoDeServicio());
+      if (!resultado.ok) {
+        throw new Error(
+          `el alta no pasó: ${JSON.stringify(resultado.errores)}`,
+        );
+      }
+      const fila = await cliente().servicio.findUniqueOrThrow({
+        where: { id: resultado.id },
+      });
+      return fila.codigo;
+    };
+
+    expect(await altaEn(en2031)).toBe("SRV-2031-001");
+    expect(await altaEn(en2031)).toBe("SRV-2031-002");
+    expect(await altaEn(en2032)).toBe("SRV-2032-001");
+    expect(await altaEn(en2032)).toBe("SRV-2032-002");
+    expect(await altaEn(en2031)).toBe("SRV-2031-003");
   });
 
   test("un alta rechazada no gasta número", async () => {
@@ -839,9 +864,23 @@ describe("listado", () => {
       await alta({ titulo: `Servicio de ejemplo ${numero}` });
     }
 
-    const segunda = await casos().listar({ pagina: "2", orden: "codigo" });
+    const primera = await casos().listar({
+      pagina: "1",
+      orden: "codigo",
+      direccion: "asc",
+    });
+    const segunda = await casos().listar({
+      pagina: "2",
+      orden: "codigo",
+      direccion: "asc",
+    });
 
+    expect(primera).toMatchObject({ total: 26, pagina: 1, paginas: 2 });
+    expect(primera.registros).toHaveLength(25);
     expect(segunda).toMatchObject({ total: 26, pagina: 2, paginas: 2 });
     expect(segunda.registros).toHaveLength(1);
+    expect(segunda.celdas[segunda.registros[0]?.valor.id ?? ""]?.[0]).toBe(
+      "SRV-2031-026",
+    );
   });
 });

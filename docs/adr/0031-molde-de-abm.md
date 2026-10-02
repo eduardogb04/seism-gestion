@@ -83,3 +83,7 @@ Clientes y proveedores, el segundo ABM, sumó tres tipos de campo al molde: `opc
 ## 2026-10-01: número, único compuesto e historial (F1-05)
 
 Sitios sumó tres cosas al molde. `numero`: una variante de `CampoAbm` con `decimales` (0 es entero) y `opcional`; se escribe con coma o punto, lo que no es un número vuelve en el campo con lo escrito, el dato es `number` y no se busca ni se ordena por él. `unicos` admite, además de una columna, un grupo que no se repite junto (con su mensaje, al lado de la última columna); la base lo garantiza con un índice único parcial que mezcla la clave foránea y `lower(<texto>)`, y `abm-indices-unicos.test.ts` lo exige igual. Y `historial`: la definición declara los campos cuyos cambios se muestran en la edición, y salen de `auditoria` con un método de lectura nuevo del puerto (`registrosDe`); no hay tabla de historial aparte. Sigue sin entrar la fecha.
+
+## 2026-10-01: fecha, importe, filtros, `soloSi` y dirección del orden (F2-03)
+
+Egresos sumó al molde los tipos `fecha` (un día sin zona horaria) e `importe` (centavos `bigint` y moneda, en dos columnas), los `filtros` del listado (por una relación y por el mes de una fecha), `soloSi` en `relacion` (solo ofrece lo que tiene una casilla marcada) y `direccionInicial` (el sentido del orden por defecto). Una entidad cuyos datos no son los de su fila pasa una `Conversion`. Lo de arriba sobre «todos los datos son texto» se lee con este cambio. Decisión y porqués: ADR 0032.

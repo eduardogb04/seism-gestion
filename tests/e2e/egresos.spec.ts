@@ -81,6 +81,11 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
   // 2. Alta con el monto mal escrito: el mensaje al lado del campo y lo escrito conservado.
   await page.getByRole("link", { name: "Alta de egreso" }).click();
   await expect(ventana(page, "Alta de egreso")).toBeVisible();
+  await expect(page.getByLabel("Fecha", { exact: true })).toHaveAttribute(
+    "type",
+    "date",
+  );
+  await expect(page.getByLabel("Vencimiento")).toHaveAttribute("type", "date");
   await page.getByLabel("Fecha", { exact: true }).fill("2026-11-05");
   await page.getByLabel("Concepto").fill("Alquiler de depósito");
   await ventana(page, "Alta de egreso")
@@ -137,6 +142,11 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
     .getByRole("link", { name: "Editar" })
     .click();
   await expect(ventana(page, "Edición de egreso")).toBeVisible();
+  await expect(page.getByLabel("Fecha", { exact: true })).toHaveAttribute(
+    "type",
+    "date",
+  );
+  await expect(page.getByLabel("Vencimiento")).toHaveAttribute("type", "date");
   await expect(page).toHaveURL(/[?&]centroCostoId=/);
   await expect(page.getByLabel("Importe", { exact: true })).toHaveValue(
     "180.000,00",

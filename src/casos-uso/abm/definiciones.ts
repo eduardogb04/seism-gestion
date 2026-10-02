@@ -10,6 +10,7 @@ import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type { EntidadAbm } from "../../puertos/repositorios/abm.ts";
 import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
+import { CAMIONES } from "./camiones.ts";
 import { CENTROS_DE_COSTO } from "./centros-de-costo.ts";
 import { CLIENTES } from "./clientes.ts";
 import { CUENTAS } from "./cuentas.ts";
@@ -22,6 +23,7 @@ export const DEFINICIONES: { readonly [E in EntidadAbm]: DefinicionAbm<E> } = {
   Grupo: GRUPOS,
   Cliente: CLIENTES,
   Sitio: SITIOS,
+  Camion: CAMIONES,
   TipoServicio: TIPOS_DE_SERVICIO,
   CentroCosto: CENTROS_DE_COSTO,
   Cuenta: CUENTAS,

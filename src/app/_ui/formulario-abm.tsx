@@ -91,7 +91,13 @@ function Control({
         <Selector
           key={comunes.defaultValue}
           {...comunes}
-          opciones={[{ valor: "", texto: "Ninguno" }, ...elegibles]}
+          opciones={[
+            {
+              valor: "",
+              texto: campo.obligatoria === true ? "Elegí…" : "Ninguno",
+            },
+            ...elegibles,
+          ]}
         />
       );
     case "siNo":

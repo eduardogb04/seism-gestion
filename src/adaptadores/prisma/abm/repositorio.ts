@@ -156,7 +156,8 @@ function sinConversion<F extends FilaAuditable>(): Conversion<F, Datos<F>> {
   };
 }
 
-function desdeFila<F extends FilaAuditable, D>(
+/** Una fila de la base como el registro del dominio. */
+export function desdeFila<F extends FilaAuditable, D>(
   fila: F,
   conversion: Paso<F, D>,
 ): RegistroDe<D> {

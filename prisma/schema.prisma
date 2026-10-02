@@ -415,8 +415,9 @@ model Servicio {
   eliminadoEn    DateTime?    @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor   Json?        @map("eliminado_por") @db.JsonB
 
-  eventos ServicioEvento[]
-  sitios  ServicioSitio[]
+  eventos      ServicioEvento[]
+  sitios       ServicioSitio[]
+  cotizaciones Cotizacion[]
 
   @@map("servicios")
 }
@@ -459,4 +460,51 @@ model Secuencia {
 
   @@id([prefijo, anio])
   @@map("secuencias")
+}
+
+// Un archivo adjunto (F2-05, ADR 0035): los bytes están en el almacén y acá
+// queda el metadato. De qué cuelga lo dice la clave foránea del registro
+// dueño (`cotizaciones.documento_id`), no una columna de acá.
+model Documento {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referencia     String
+  nombre         String
+  tipoMime       String    @map("tipo_mime")
+  tamano         Int
+  creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json      @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+
+  cotizaciones Cotizacion[]
+
+  @@map("documentos")
+}
+
+// La cabecera de una cotización de un servicio; el detalle es su documento.
+// La `version` la calcula el caso de uso (la mayor del servicio, también entre
+// las anuladas, más uno) y `(servicio_id, version)` es único.
+model Cotizacion {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId      String    @map("servicio_id") @db.Uuid
+  servicio        Servicio  @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  version         Int
+  fecha           DateTime  @db.Date
+  importeCentavos BigInt    @map("importe_centavos")
+  importeMoneda   String    @map("importe_moneda")
+  motivo          String?
+  observaciones   String?
+  documentoId     String    @map("documento_id") @db.Uuid
+  documento       Documento @relation(fields: [documentoId], references: [id], onDelete: Restrict)
+  creadoEn        DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor       Json      @map("creado_por") @db.JsonB
+  actualizadoEn   DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor  Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn     DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor    Json?     @map("eliminado_por") @db.JsonB
+
+  @@unique([servicioId, version])
+  @@map("cotizaciones")
 }

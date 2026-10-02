@@ -8,6 +8,8 @@
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
 import { repositorioAbmPrisma } from "./abm/tablas.ts";
 import { crearAuditoriaPrisma } from "./auditoria.ts";
+import { crearRepositorioCotizacionesPrisma } from "./cotizaciones.ts";
+import { crearRepositorioDocumentosPrisma } from "./documentos.ts";
 import type { PrismaClient } from "./generado/client.ts";
 import { crearSecuenciasPrisma } from "./secuencias.ts";
 import { crearRepositorioServiciosPrisma } from "./servicios.ts";
@@ -26,6 +28,8 @@ export function crearTransaccionalPrisma(prisma: PrismaClient): Transaccional {
           abm: (entidad) => repositorioAbmPrisma(tx, entidad),
           servicios: crearRepositorioServiciosPrisma(tx),
           secuencias: crearSecuenciasPrisma(tx),
+          documentos: crearRepositorioDocumentosPrisma(tx),
+          cotizaciones: crearRepositorioCotizacionesPrisma(tx),
         }),
       );
     },

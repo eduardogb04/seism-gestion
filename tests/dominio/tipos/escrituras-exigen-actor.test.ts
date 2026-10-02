@@ -24,6 +24,7 @@
 import { expect, test } from "vitest";
 import type { CasosUsoAbm } from "../../../src/casos-uso/abm/abm.ts";
 import type { DefinicionAbm } from "../../../src/casos-uso/abm/definicion.ts";
+import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/cotizaciones.ts";
 import type { CasosUsoServicios } from "../../../src/casos-uso/servicios/servicios.ts";
 import type { CasosUsoUsuarios } from "../../../src/casos-uso/usuarios/usuarios.ts";
 import type { Identificador } from "../../../src/dominio/compartido/identificador.ts";
@@ -32,6 +33,14 @@ import type {
   RegistroAbm,
   RepositorioAbm,
 } from "../../../src/puertos/repositorios/abm.ts";
+import type {
+  Cotizacion,
+  RepositorioCotizaciones,
+} from "../../../src/puertos/repositorios/cotizaciones.ts";
+import type {
+  Documento,
+  RepositorioDocumentos,
+} from "../../../src/puertos/repositorios/documentos.ts";
 import type {
   RepositorioServicios,
   Servicio,
@@ -52,6 +61,11 @@ declare const registroAbm: RegistroAbm<"Grupo">;
 declare const casosServicios: CasosUsoServicios;
 declare const repositorioServicios: RepositorioServicios;
 declare const servicio: Servicio;
+declare const casosCotizaciones: CasosUsoCotizaciones;
+declare const repositorioCotizaciones: RepositorioCotizaciones;
+declare const cotizacion: Cotizacion;
+declare const repositorioDocumentos: RepositorioDocumentos;
+declare const documento: Documento;
 declare const ahora: FechaHora;
 declare const evento: Parameters<RepositorioServicios["agregarEvento"]>[2];
 
@@ -78,6 +92,10 @@ function casosDeUsoSinActor(): void {
   casosServicios.cambiarEstado("id", "cotizado", "");
   // @ts-expect-error `guardarSitios` exige un `Actor` primero.
   casosServicios.guardarSitios("id", []);
+  // @ts-expect-error `crear` de cotizaciones exige un `Actor` primero.
+  casosCotizaciones.crear("id", {}, null);
+  // @ts-expect-error `marcarEliminado` de cotizaciones exige un `Actor` primero.
+  casosCotizaciones.marcarEliminado("id");
 }
 
 function repositoriosSinActor(): void {
@@ -97,6 +115,14 @@ function repositoriosSinActor(): void {
   repositorioServicios.agregarEvento("id", evento);
   // @ts-expect-error `guardarSitios` del repositorio exige un `Actor` primero.
   repositorioServicios.guardarSitios("id", [], ahora);
+  // @ts-expect-error `crear` del repositorio de cotizaciones exige un `Actor` primero.
+  repositorioCotizaciones.crear(cotizacion);
+  // @ts-expect-error `actualizar` del repositorio de cotizaciones exige un `Actor` primero.
+  repositorioCotizaciones.actualizar(cotizacion, "actualizar");
+  // @ts-expect-error `crear` del repositorio de documentos exige un `Actor` primero.
+  repositorioDocumentos.crear(documento);
+  // @ts-expect-error `actualizar` del repositorio de documentos exige un `Actor` primero.
+  repositorioDocumentos.actualizar(documento, "actualizar");
 }
 
 test("las llamadas sin actor no compilan (lo verifica `npm run typecheck`)", () => {

@@ -26,6 +26,7 @@ export const SITIOS: DefinicionAbm<"Sitio"> = {
       etiqueta: "Cliente",
       entidad: "Cliente",
       mostrar: "razonSocial",
+      obligatoria: true,
     },
     nombre: { tipo: "texto", etiqueta: "Nombre" },
     provincia: { tipo: "opcion", etiqueta: "Provincia", opciones: PROVINCIAS },

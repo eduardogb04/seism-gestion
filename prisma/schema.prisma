@@ -249,6 +249,7 @@ model Cliente {
   eliminadoPor     Json?     @map("eliminado_por") @db.JsonB
   sitios           Sitio[]
   egresos          Egreso[]
+  camiones         Camion[]
 
   @@map("clientes")
 }
@@ -280,6 +281,34 @@ model Sitio {
   eliminadoPor         Json?     @map("eliminado_por") @db.JsonB
 
   @@map("sitios")
+}
+
+// Camiones (F1-06): uno por uno, cuelgan del cliente. La patente del tractor es
+// única y la de la cisterna también, pero solo entre las que la tienen (un
+// chasis no lleva): las dos, entre los no eliminados y sin distinguir
+// mayúsculas, por los índices `camiones_patente_tractor_unico` y
+// `camiones_patente_cisterna_unico`, solo en la migración.
+model Camion {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clienteId       String    @map("cliente_id") @db.Uuid
+  cliente         Cliente   @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  tipo            String
+  patenteTractor  String    @map("patente_tractor")
+  marcaTractor    String    @map("marca_tractor")
+  anioTractor     Int       @map("anio_tractor")
+  patenteCisterna String?   @map("patente_cisterna")
+  marcaCisterna   String?   @map("marca_cisterna")
+  anioCisterna    Int?      @map("anio_cisterna")
+  capacidadLitros Int       @map("capacidad_litros")
+  observaciones   String?
+  creadoEn        DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor       Json      @map("creado_por") @db.JsonB
+  actualizadoEn   DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor  Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn     DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor    Json?     @map("eliminado_por") @db.JsonB
+
+  @@map("camiones")
 }
 
 model TipoServicio {

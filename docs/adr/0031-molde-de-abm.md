@@ -87,3 +87,7 @@ Sitios sumó tres cosas al molde. `numero`: una variante de `CampoAbm` con `deci
 ## 2026-10-01: fecha, importe, filtros, `soloSi` y dirección del orden (F2-03)
 
 Egresos sumó al molde los tipos `fecha` (un día sin zona horaria) e `importe` (centavos `bigint` y moneda, en dos columnas), los `filtros` del listado (por una relación y por el mes de una fecha), `soloSi` en `relacion` (solo ofrece lo que tiene una casilla marcada) y `direccionInicial` (el sentido del orden por defecto). Una entidad cuyos datos no son los de su fila pasa una `Conversion`. Lo de arriba sobre «todos los datos son texto» se lee con este cambio. Decisión y porqués: ADR 0032.
+
+## 2026-10-02: relación obligatoria y fecha de hoy en la columna calculada (F1-06)
+
+Camiones usó el molde sin sumar un tipo de campo, pero le pidió dos cosas. La `relacion` admite `obligatoria: true`: la lista dice *Elegí…* en vez de *Ninguno* (la validación sigue siendo la que exige el valor; Sitios lo usa también). Y la columna calculada del listado (`{ etiqueta, de }`) recibe además la fecha de hoy del reloj inyectado, para calcular la antigüedad sin leer la hora por su cuenta: el caso de uso la pasa desde el mismo reloj que usa para auditar. Un obligatorio que depende de otro campo (la cisterna según el tipo) no es un campo nuevo: va en la `validacion`, como lo cruzado de Sitios. Un único que admite vacío (la patente de la cisterna) compara solo los valores cargados, y su índice parcial suma `AND <columna> IS NOT NULL`, que `abm-indices-unicos.test.ts` exige para toda columna que admite `null`.

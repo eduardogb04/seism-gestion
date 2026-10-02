@@ -18,6 +18,7 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
       etiqueta: "Centro de costo",
       entidad: "CentroCosto",
       mostrar: "nombre",
+      obligatoria: true,
       soloSi: "activo",
     },
     proveedorId: {

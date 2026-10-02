@@ -16,6 +16,7 @@ import {
   type Moneda,
   parsearImporte,
 } from "../../dominio/compartido/importe.ts";
+import type { FechaHora } from "../../dominio/compartido/reloj.ts";
 import { esDiaValido } from "../../dominio/compartido/reloj.ts";
 import type {
   ColumnaDeOrden,
@@ -63,7 +64,8 @@ export type CampoAbm =
   /**
    * Un registro vigente de otra entidad, que se elige de una lista y se
    * muestra por su columna `mostrar`: una de las de orden de la entidad
-   * destino. Vacío se guarda como `null`. `soloSi`: una casilla de la entidad
+   * destino. Vacío se guarda como `null`; `obligatoria`: la lista invita a
+   * elegir (*Elegí…*) en vez de ofrecer *Ninguno*. `soloSi`: una casilla de la entidad
    * destino (`activo`) que tiene que estar marcada para poder elegirlo; el que ya
    * estaba elegido sigue valiendo al editar aunque la haya perdido.
    */
@@ -72,6 +74,7 @@ export type CampoAbm =
       readonly etiqueta: string;
       readonly entidad: EntidadAbm;
       readonly mostrar: string;
+      readonly obligatoria?: true;
       readonly soloSi?: string;
     }
   /**
@@ -136,12 +139,12 @@ export type DefinicionAbm<E extends EntidadAbm> = {
    */
   readonly filtros?: readonly ColumnaAbm<E>[];
   readonly rolesQueEscriben: readonly [Rol, ...Rol[]];
-  /** Las columnas del listado: un campo, o una calculada con su etiqueta. */
+  /** Las columnas del listado: un campo, o una calculada con su etiqueta (y la fecha de hoy del reloj). */
   readonly listado: readonly (
     | NombreDeCampo<E>
     | {
         readonly etiqueta: string;
-        readonly de: (datos: DatosAbm<E>) => string;
+        readonly de: (datos: DatosAbm<E>, hoy: FechaHora) => string;
       }
   )[];
   /** Cómo se ve un texto guardado normalizado, en el listado y en el formulario. */
@@ -380,11 +383,12 @@ export function celdasDe<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
   datos: DatosAbm<E>,
   etiquetas: ReadonlyMap<string, string>,
+  hoy: FechaHora,
 ): readonly string[] {
   return definicion.listado.map((columna) =>
     typeof columna === "string"
       ? textoDeCampo(definicion, columna, datos, etiquetas)
-      : columna.de(datos),
+      : columna.de(datos, hoy),
   );
 }
 

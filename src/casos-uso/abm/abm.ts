@@ -600,7 +600,7 @@ export function crearCasosUsoAbm({
           celdas: Object.fromEntries(
             registros.map(({ valor }) => [
               valor.id,
-              celdasDe(definicion, valor, etiquetas),
+              celdasDe(definicion, valor, etiquetas, reloj.ahora()),
             ]),
           ),
           total,

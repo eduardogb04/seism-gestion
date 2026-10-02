@@ -9,6 +9,7 @@
  */
 import type { Auditoria } from "../auditoria.ts";
 import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
+import type { RepositorioPagos } from "./pagos.ts";
 import type { RepositorioSesiones } from "./sesiones.ts";
 import type { RepositorioUsuarios } from "./usuarios.ts";
 
@@ -20,6 +21,8 @@ export type RepositoriosEnTransaccion = {
   readonly auditoria: Auditoria;
   /** El repositorio de cualquier entidad con ABM (F1-03, ADR 0031). */
   abm<E extends EntidadAbm>(entidad: E): RepositorioAbm<E>;
+  /** Los pagos de egresos (F2-09, ADR 0034). */
+  readonly pagos: RepositorioPagos;
 };
 
 export type Transaccional = {

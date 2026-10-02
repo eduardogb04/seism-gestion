@@ -340,6 +340,7 @@ model Cuenta {
   actualizadoPor Json      @map("actualizado_por") @db.JsonB
   eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+  pagos          Pago[]
 
   @@map("cuentas")
 }
@@ -380,6 +381,34 @@ model Egreso {
   actualizadoPor    Json        @map("actualizado_por") @db.JsonB
   eliminadoEn       DateTime?   @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor      Json?       @map("eliminado_por") @db.JsonB
+  pagos             Pago[]
 
   @@map("egresos")
+}
+
+model Pago {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  egresoId          String    @map("egreso_id") @db.Uuid
+  egreso            Egreso    @relation(fields: [egresoId], references: [id], onDelete: Restrict)
+  fecha             DateTime  @db.Date
+  importeCentavos   BigInt    @map("importe_centavos")
+  importeMoneda     String    @map("importe_moneda")
+  cuentaId          String    @map("cuenta_id") @db.Uuid
+  cuenta            Cuenta    @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
+  salidaCentavos    BigInt    @map("salida_centavos")
+  salidaMoneda      String    @map("salida_moneda")
+  cambioNumerador   BigInt?   @map("cambio_numerador")
+  cambioDenominador BigInt?   @map("cambio_denominador")
+  cambioFuente      String?   @map("cambio_fuente")
+  observaciones     String?
+  creadoEn          DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor         Json      @map("creado_por") @db.JsonB
+  actualizadoEn     DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor    Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn       DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor      Json?     @map("eliminado_por") @db.JsonB
+
+  @@index([egresoId])
+  @@index([cuentaId])
+  @@map("pagos")
 }

@@ -77,7 +77,7 @@ export type ArchivoSubido = {
   readonly bytes: Uint8Array;
 };
 
-export type ArchivoValido = ArchivoSubido & { readonly tipoMime: string };
+type ArchivoValido = ArchivoSubido & { readonly tipoMime: string };
 
 type Validado =
   | { readonly ok: true; readonly archivo: ArchivoValido }
@@ -174,7 +174,7 @@ export async function marcarDocumentoEliminado(
   await repos.documentos.actualizar(actor, eliminado.valor, "eliminar");
 }
 
-export type DocumentoDescargable = {
+type DocumentoDescargable = {
   readonly nombre: string;
   readonly tipoMime: string;
   readonly bytes: Uint8Array;

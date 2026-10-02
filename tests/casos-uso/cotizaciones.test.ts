@@ -387,7 +387,7 @@ describe("la segunda cotización y las que siguen", () => {
     expect(versiones.map(({ version }) => version)).toEqual([1, 2, 3]);
   });
 
-  test("dos primeras cotizaciones a la vez: una entra y la otra vuelve pidiendo el motivo, sin error crudo", async () => {
+  test("dos primeras cotizaciones a la vez: una entra y la otra, con un formulario sin el campo del motivo, vuelve con el aviso de reabrirlo, sin error crudo", async () => {
     const resultados = await Promise.all([
       casos().crear(admin, servicioId, escrito(), archivo()),
       casos().crear(admin, servicioId, escrito(), archivo()),
@@ -396,7 +396,7 @@ describe("la segunda cotización y las que siguen", () => {
     expect(resultados.filter(({ ok }) => ok)).toHaveLength(1);
     expect(resultados.find((resultado) => !resultado.ok)).toEqual({
       ok: false,
-      errores: { motivo: "Escribí el motivo de la revisión." },
+      errores: { archivo: expect.stringContaining("volvé a abrirla") },
     });
     expect(await cliente().cotizacion.count()).toBe(1);
   });

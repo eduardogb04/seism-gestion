@@ -8,7 +8,8 @@
  *   «Solicitado», su paso a «Cotizado».
  * - La versión es la mayor del servicio más uno, calculada **dentro** de la
  *   transacción con la fila del servicio tomada: dos altas a la vez se turnan.
- * - El motivo de la revisión se pide desde la segunda.
+ * - El motivo de la revisión se pide desde la segunda. Un formulario que se abrió
+ *   cuando esta era la primera no trae el campo: vuelve con un aviso para reabrirlo.
  * - Lo que la persona corrige (un campo o el archivo) vuelve por campo, no se lanza.
  */
 
@@ -55,6 +56,9 @@ import {
 
 const esquemaId = z.uuid();
 
+const MENSAJE_FORMULARIO_VIEJO =
+  "Mientras tanto se cargó otra cotización de este servicio y esta pide el motivo de la revisión: cerrá la ventana y volvé a abrirla.";
+
 type Dependencias = DependenciasDeAdjuntos & {
   readonly transaccional: Transaccional;
 };
@@ -82,7 +86,7 @@ export type CotizacionListada = {
   readonly quien: string;
 };
 
-export type FormularioDeCotizacion = {
+type FormularioDeCotizacion = {
   readonly campos: CamposAbm;
   /** Lo que trae el formulario al abrirse: la fecha de hoy. */
   readonly escrito: Escrito;
@@ -206,6 +210,10 @@ export function crearCasosUsoCotizaciones({
         await servicioVigente(repos, servicioId);
         const version = await repos.cotizaciones.siguienteVersion(servicioId);
         const conMotivo = version > 1;
+        if (conMotivo && escrito.motivo === undefined) {
+          // El formulario se abrió cuando esta era la primera y no trae el campo: se avisa donde sí hay un campo.
+          return { ok: false, errores: { archivo: MENSAJE_FORMULARIO_VIEJO } };
+        }
         const validado = validarEscrito(
           camposDeCotizacion(conMotivo),
           validacionDeCotizacion(conMotivo),

@@ -40,7 +40,8 @@ columnas de auditable. No hay columnas polimórficas (`tipo_dueño`/`id_dueño`)
   `sesionActual` salió de `sesion-actual.ts` (que sigue haciendo el `redirect` de las páginas).
 - **La versión de una cotización** es la mayor del servicio, también entre las anuladas, más uno, calculada en la
   transacción **después de tomar la fila del servicio** (`SELECT ... FOR UPDATE`): dos altas a la vez se turnan, la
-  segunda ve la versión de la primera y, si no trae motivo, vuelve pidiéndolo. El índice único es la red de seguridad.
+  segunda ve la versión de la primera y, si su formulario se abrió cuando aún era la primera (sin el campo del
+  motivo), vuelve con un aviso para cerrar la ventana y reabrirla. El índice único es la red de seguridad.
   Una cotización no se edita; se anula (baja lógica, con la de su documento) y su número no se reutiliza.
 - **Cargar la primera pasa el servicio de «Solicitado» a «Cotizado»** en la misma transacción y por el camino de
   siempre (`registrarCambioDeEstado`, el que ya usa `cambiarEstado`: el ciclo del dominio decide y se agrega el evento,

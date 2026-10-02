@@ -26,6 +26,10 @@ import {
 } from "../../casos-uso/egresos/pagos.ts";
 import type { Salud } from "../../casos-uso/salud/listar-salud.ts";
 import {
+  type CasosUsoServicios,
+  crearCasosUsoServicios,
+} from "../../casos-uso/servicios/servicios.ts";
+import {
   type CasosUsoSesion,
   crearCasosUsoSesion,
 } from "../../casos-uso/sesion/sesion.ts";
@@ -55,6 +59,7 @@ export type Armado = {
   readonly abm: CasosUsoAbm;
   /** Los pagos de egresos y *Por pagar* (F2-09). */
   readonly pagos: CasosUsoPagos;
+  readonly servicios: CasosUsoServicios;
   /** El panel de salud (`/salud`): `listarSalud` con sus puertos armados. */
   readonly salud: () => Promise<Salud>;
   generarEstadoLogin(): EstadoLogin;
@@ -91,6 +96,7 @@ function armar(): Armado {
     }),
     abm: crearCasosUsoAbm({ transaccional, reloj, generadorId }),
     pagos: crearCasosUsoPagos({ transaccional, reloj, generadorId }),
+    servicios: crearCasosUsoServicios({ transaccional, reloj, generadorId }),
     salud: armarSalud(prisma, reloj),
     generarEstadoLogin,
   };

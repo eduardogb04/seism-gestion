@@ -14,6 +14,7 @@ import type {
   OpcionesPorCampo,
 } from "../../../casos-uso/abm/abm.ts";
 import {
+  cabecerasDe,
   camposDe,
   type DefinicionAbm,
   escritoDe,
@@ -27,6 +28,8 @@ import {
 import type { SesionValida } from "../../../casos-uso/sesion/sesion.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import type { EntidadAbm } from "../../../puertos/repositorios/abm.ts";
+import { clasesDeBoton } from "../../_ui/boton.tsx";
+import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import {
@@ -199,14 +202,50 @@ export async function PaginaListado<E extends EntidadAbm>({
   const vista = vistaDe(listado);
   const pedida = ventanaPedida(parametros);
   const { email, rol } = sesion.usuario;
+  const { ruta } = definicion;
+  const puedeEscribir = definicion.rolesQueEscriben.includes(rol);
   return (
     <Marco email={email} rol={rol} rutaActual={definicion.ruta}>
       <main>
         <h1>{definicion.plural}</h1>
         <ListadoAbm
-          definicion={definicion}
+          ruta={ruta}
+          singular={definicion.singular}
+          cabeceras={cabecerasDe(definicion)}
+          ordenes={definicion.orden.map((columna) => ({
+            columna,
+            etiqueta: definicion.campos[columna].etiqueta,
+          }))}
           listado={listado}
-          puedeEscribir={definicion.rolesQueEscriben.includes(rol)}
+          puedeEscribir={puedeEscribir}
+          acciones={
+            puedeEscribir
+              ? (id, deLaVista) => (
+                  <>
+                    <Enlace
+                      href={enlace(ruta, deLaVista, {
+                        clave: "editar",
+                        valor: id,
+                      })}
+                      scroll={false}
+                      className={clasesDeBoton("secundario")}
+                    >
+                      Editar
+                    </Enlace>
+                    <Enlace
+                      href={enlace(ruta, deLaVista, {
+                        clave: "baja",
+                        valor: id,
+                      })}
+                      scroll={false}
+                      className={clasesDeBoton("peligro")}
+                    >
+                      Dar de baja
+                    </Enlace>
+                  </>
+                )
+              : null
+          }
         />
       </main>
       {pedida === null ? null : (

@@ -27,17 +27,7 @@ import { armado } from "../../../infraestructura/arranque/armado.ts";
 import type { EntidadAbm } from "../../../puertos/repositorios/abm.ts";
 import type { EstadoFormulario } from "../../_ui/formulario-abm.tsx";
 import { conActorDeSesion } from "../../(auth)/sesion-actual.ts";
-
-/** Los campos de texto del formulario, tal cual se escribieron. Lo que agrega React (`$ACTION_...`) no es de la persona. */
-function escritoEn(formulario: FormData): Escrito {
-  const escrito: Record<string, string> = {};
-  for (const [nombre, valor] of formulario) {
-    if (typeof valor === "string" && !nombre.startsWith("$ACTION_")) {
-      escrito[nombre] = valor;
-    }
-  }
-  return escrito;
-}
+import { escritoEn } from "./escrito.ts";
 
 type Escritura =
   | { readonly ok: true }

@@ -69,6 +69,7 @@ describe("/catalogo/** y /egresos", () => {
   const PAGINAS_DE_CATALOGO = [
     ...archivosBajo(path.join(RAIZ, "catalogo")),
     ...archivosBajo(path.join(RAIZ, "egresos")),
+    ...archivosBajo(path.join(RAIZ, "servicios")),
   ].filter((ruta) => ruta.endsWith(`${path.sep}page.tsx`));
 
   test("hay páginas que revisar, y los listados de Grupos y de Egresos son dos de ellas", () => {
@@ -77,6 +78,7 @@ describe("/catalogo/** y /egresos", () => {
     );
     expect(paginas).toContain(path.join("catalogo", "grupos", "page.tsx"));
     expect(paginas).toContain(path.join("egresos", "page.tsx"));
+    expect(paginas).toContain(path.join("servicios", "[id]", "page.tsx"));
   });
 
   test.each(

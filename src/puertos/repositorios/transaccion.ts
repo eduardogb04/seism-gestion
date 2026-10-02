@@ -8,8 +8,10 @@
  * (`$transaction` interactiva).
  */
 import type { Auditoria } from "../auditoria.ts";
+import type { Secuencias } from "../secuencias.ts";
 import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
 import type { RepositorioPagos } from "./pagos.ts";
+import type { RepositorioServicios } from "./servicios.ts";
 import type { RepositorioSesiones } from "./sesiones.ts";
 import type { RepositorioUsuarios } from "./usuarios.ts";
 
@@ -23,6 +25,9 @@ export type RepositoriosEnTransaccion = {
   abm<E extends EntidadAbm>(entidad: E): RepositorioAbm<E>;
   /** Los pagos de egresos (F2-09, ADR 0034). */
   readonly pagos: RepositorioPagos;
+  readonly servicios: RepositorioServicios;
+  /** El número de un código legible nuevo: se da en la transacción del alta (F2-04). */
+  readonly secuencias: Secuencias;
 };
 
 export type Transaccional = {

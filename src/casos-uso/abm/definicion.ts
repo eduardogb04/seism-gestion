@@ -165,10 +165,13 @@ export type Escrito = Readonly<Record<string, string>>;
 /** Lo que dice la casilla marcada: el navegador manda su `value`. */
 export const MARCADA = "si";
 
+/** Campos con su nombre, en el orden en que se muestran. */
+export type CamposAbm = readonly (readonly [string, CampoAbm])[];
+
 /** Los campos con su nombre, en el orden de la definición. */
 export function camposDe<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
-): readonly (readonly [string, CampoAbm])[] {
+): CamposAbm {
   const campos: Readonly<Record<string, CampoAbm>> = definicion.campos;
   return Object.entries(campos);
 }
@@ -245,7 +248,7 @@ export function errorDeFecha(
 }
 
 /** dd/mm/aaaa de un día `aaaa-mm-dd` ya validado. */
-function diaConBarras(dia: string): string {
+export function diaConBarras(dia: string): string {
   const [anio, mes, numero] = dia.split("-");
   return `${numero}/${mes}/${anio}`;
 }

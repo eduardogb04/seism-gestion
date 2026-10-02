@@ -49,6 +49,7 @@ import type {
 } from "../../puertos/repositorios/transaccion.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import {
+  type CamposAbm,
   type ColumnaAbm,
   type ColumnaDeOrdenAbm,
   type ColumnaSiNoAbm,
@@ -65,14 +66,14 @@ import {
 } from "./definicion.ts";
 import { conDefinicion, enUso } from "./definiciones.ts";
 
-const REGISTROS_POR_PAGINA = 25;
+export const REGISTROS_POR_PAGINA = 25;
 
 const MENSAJE_UNICO = `${catalogo.DOM_0008.codigo} · ${catalogo.DOM_0008.descripcion}`;
 
 const MENSAJE_OPCION = "Elegí una de las opciones de la lista.";
 
 /** Prisma toma `take` como entero de 32 bits: el máximo es "todas". */
-const TODAS = 2 ** 31 - 1;
+export const TODAS = 2 ** 31 - 1;
 
 const esquemaId = z.uuid();
 
@@ -182,22 +183,24 @@ export type CasosUsoAbm = {
   ): Promise<void>;
 };
 
-type Validado<E extends EntidadAbm> =
-  | { readonly ok: true; readonly datos: DatosAbm<E> }
+type Validado<D> =
+  | { readonly ok: true; readonly datos: D }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
-function validar<E extends EntidadAbm>(
-  definicion: DefinicionAbm<E>,
+/** Lo escrito en `campos`, convertido y validado: los datos, o el mensaje de cada campo a corregir. */
+export function validarEscrito<D>(
+  campos: CamposAbm,
+  validacion: z.ZodType<D>,
   escrito: Escrito,
-): Validado<E> {
+): Validado<D> {
   const valores = Object.fromEntries(
-    camposDe(definicion).map(([nombre, campo]) => [
+    campos.map(([nombre, campo]) => [
       nombre,
       valorDeCampo(nombre, campo, escrito),
     ]),
   );
   const errores: Record<string, string> = {};
-  for (const [nombre, campo] of camposDe(definicion)) {
+  for (const [nombre, campo] of campos) {
     if (
       campo.tipo === "opcion" &&
       !campo.opciones.some(({ valor }) => valor === valores[nombre])
@@ -223,7 +226,7 @@ function validar<E extends EntidadAbm>(
       }
     }
   }
-  const leido = definicion.validacion.safeParse(valores);
+  const leido = validacion.safeParse(valores);
   if (leido.success && Object.keys(errores).length === 0) {
     return { ok: true, datos: leido.data };
   }
@@ -273,20 +276,18 @@ async function repetidos<E extends EntidadAbm>(
 }
 
 /**
- * Las relaciones de `datos` que apuntan a un registro que no existe, está dado
- * de baja o, si la relación tiene `soloSi`, no cumple esa casilla: salvo que el
- * registro `actual` ya apuntara a él.
+ * Las relaciones de `valores` que apuntan a un registro que no existe, está dado
+ * de baja o, si la relación tiene `soloSi`, no cumple esa casilla: salvo que
+ * `previos` (lo que estaba guardado) ya apuntara a él.
  */
-async function relacionesRotas<E extends EntidadAbm>(
+export async function relacionesRotas(
   repos: RepositoriosEnTransaccion,
-  definicion: DefinicionAbm<E>,
-  datos: DatosAbm<E>,
-  actual: RegistroAbm<E> | null,
+  campos: CamposAbm,
+  valores: ValoresAbm,
+  previos: ValoresAbm,
 ): Promise<ErroresPorCampo> {
-  const valores: ValoresAbm = datos;
-  const previos: ValoresAbm = actual?.valor ?? {};
   const errores: Record<string, string> = {};
-  for (const [nombre, campo] of camposDe(definicion)) {
+  for (const [nombre, campo] of campos) {
     const id = valores[nombre];
     if (campo.tipo !== "relacion" || typeof id !== "string") {
       continue;
@@ -314,7 +315,12 @@ async function erroresDeBase<E extends EntidadAbm>(
   actual: RegistroAbm<E> | null,
 ): Promise<ErroresPorCampo> {
   return {
-    ...(await relacionesRotas(repos, definicion, datos, actual)),
+    ...(await relacionesRotas(
+      repos,
+      camposDe(definicion),
+      datos,
+      actual?.valor ?? {},
+    )),
     ...(await repetidos(
       repos.abm(definicion.entidad),
       definicion,
@@ -407,7 +413,7 @@ function esCasilla<E extends EntidadAbm>(
 }
 
 /** Los registros vigentes de `destino` (si hay `soloSi`, los que lo tienen marcado), por la columna que se muestra. */
-async function opcionesDe<E extends EntidadAbm>(
+export async function opcionesDe<E extends EntidadAbm>(
   repos: RepositoriosEnTransaccion,
   destino: DefinicionAbm<E>,
   mostrar: string,
@@ -448,8 +454,12 @@ function filtrosElegidos<E extends EntidadAbm>(
   );
 }
 
-function parametrosDe<E extends EntidadAbm>(
-  definicion: DefinicionAbm<E>,
+/** La búsqueda, el orden y la página que pide la URL; lo inválido cae a su valor por defecto. */
+export function parametrosDe<O extends string>(
+  definicion: {
+    readonly orden: readonly [O, ...O[]];
+    readonly direccionInicial?: "asc" | "desc";
+  },
   parametros: ParametrosListado,
 ) {
   const leidos = z
@@ -520,7 +530,8 @@ function valoresDe(foto: Readonly<Record<string, unknown>>): ValoresAbm {
   );
 }
 
-function cuandoDe({ anio, mes, dia, hora, minuto }: FechaHora): string {
+/** dd/mm/aaaa hh:mm de una fecha civil argentina. */
+export function cuandoDe({ anio, mes, dia, hora, minuto }: FechaHora): string {
   const dos = (numero: number) => String(numero).padStart(2, "0");
   return `${dos(dia)}/${dos(mes)}/${anio} ${dos(hora)}:${dos(minuto)}`;
 }
@@ -549,6 +560,50 @@ function cambiosDe<E extends EntidadAbm>(
           },
         ],
   );
+}
+
+/** Por campo de relación de `campos`, lo que se puede elegir, más lo que `previos` ya tenía elegido aunque ya no cumpla. */
+export async function elegiblesDe(
+  repos: RepositoriosEnTransaccion,
+  campos: CamposAbm,
+  previos: ValoresAbm,
+): Promise<OpcionesPorCampo> {
+  const opciones: Record<string, readonly OpcionDeRelacion[]> = {};
+  for (const [nombre, campo] of campos) {
+    if (campo.tipo !== "relacion") {
+      continue;
+    }
+    const elegibles = await conDefinicion(campo.entidad, (destino) =>
+      opcionesDe(repos, destino, campo.mostrar, campo.soloSi),
+    );
+    const elegido = previos[nombre];
+    const yaElegido =
+      typeof elegido === "string" &&
+      !elegibles.some(({ valor }) => valor === elegido)
+        ? await repos.abm(campo.entidad).buscarPorIds([elegido])
+        : [];
+    opciones[nombre] = [
+      ...elegibles,
+      ...yaElegido.map(({ valor }) => {
+        const destino: ValoresAbm = valor;
+        return { valor: valor.id, texto: String(destino[campo.mostrar]) };
+      }),
+    ];
+  }
+  return opciones;
+}
+
+/** Cómo se nombra a quien hizo algo: el email de la persona, o el nombre del proceso del sistema. */
+export async function nombresDeActores(
+  repos: RepositoriosEnTransaccion,
+): Promise<(actor: Actor) => string> {
+  const emails = new Map(
+    (await repos.usuarios.listar()).map(({ valor }) => [valor.id, valor.email]),
+  );
+  return (actor) =>
+    actor.tipo === "sistema"
+      ? actor.proceso
+      : (emails.get(actor.usuarioId) ?? actor.usuarioId);
 }
 
 export function crearCasosUsoAbm({
@@ -620,30 +675,7 @@ export function crearCasosUsoAbm({
           id !== undefined && esquemaId.safeParse(id).success
             ? await repos.abm(definicion.entidad).buscarPorId(id)
             : null;
-        const previos: ValoresAbm = editado?.valor ?? {};
-        const opciones: Record<string, readonly OpcionDeRelacion[]> = {};
-        for (const [nombre, campo] of camposDe(definicion)) {
-          if (campo.tipo !== "relacion") {
-            continue;
-          }
-          const elegibles = await conDefinicion(campo.entidad, (destino) =>
-            opcionesDe(repos, destino, campo.mostrar, campo.soloSi),
-          );
-          const elegido = previos[nombre];
-          const yaElegido =
-            typeof elegido === "string" &&
-            !elegibles.some(({ valor }) => valor === elegido)
-              ? await repos.abm(campo.entidad).buscarPorIds([elegido])
-              : [];
-          opciones[nombre] = [
-            ...elegibles,
-            ...yaElegido.map(({ valor }) => {
-              const destino: ValoresAbm = valor;
-              return { valor: valor.id, texto: String(destino[campo.mostrar]) };
-            }),
-          ];
-        }
-        return opciones;
+        return elegiblesDe(repos, camposDe(definicion), editado?.valor ?? {});
       });
     },
 
@@ -656,21 +688,9 @@ export function crearCasosUsoAbm({
           definicion.entidad,
           id,
         );
-        const emails = new Map(
-          (await repos.usuarios.listar()).map(({ valor }) => [
-            valor.id,
-            valor.email,
-          ]),
-        );
+        const quien = await nombresDeActores(repos);
         return registros.flatMap((registro) =>
-          cambiosDe(
-            definicion,
-            registro,
-            registro.actor.tipo === "sistema"
-              ? registro.actor.proceso
-              : (emails.get(registro.actor.usuarioId) ??
-                  registro.actor.usuarioId),
-          ),
+          cambiosDe(definicion, registro, quien(registro.actor)),
         );
       });
     },
@@ -687,7 +707,11 @@ export function crearCasosUsoAbm({
           definicion.rolesQueEscriben,
           catalogo.AUT_0009,
         );
-        const validado = validar(definicion, escrito);
+        const validado = validarEscrito(
+          camposDe(definicion),
+          definicion.validacion,
+          escrito,
+        );
         if (!validado.ok) {
           return validado;
         }
@@ -723,7 +747,11 @@ export function crearCasosUsoAbm({
           catalogo.AUT_0009,
         );
         const actual = await vigente(repos, definicion, id);
-        const validado = validar(definicion, escrito);
+        const validado = validarEscrito(
+          camposDe(definicion),
+          definicion.validacion,
+          escrito,
+        );
         if (!validado.ok) {
           return validado;
         }

@@ -81,7 +81,7 @@ function columnasHacia<E extends EntidadAbm>(
   );
 }
 
-/** ¿Hay algún registro vigente, de cualquier ABM, que apunte al `id` de `destino`? */
+/** ¿Hay algún registro vigente, de cualquier ABM o un servicio, que apunte al `id` de `destino`? */
 export async function enUso(
   repos: RepositoriosEnTransaccion,
   destino: EntidadAbm,
@@ -100,5 +100,6 @@ export async function enUso(
       return true;
     }
   }
-  return false;
+  // Un servicio no es un ABM del molde, pero también usa clientes, tipos y sitios (F2-04).
+  return repos.servicios.usa(destino, id);
 }

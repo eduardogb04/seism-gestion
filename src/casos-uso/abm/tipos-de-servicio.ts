@@ -1,7 +1,13 @@
 /** Tipos de servicio (F1-07): la vertical de cada servicio; de esta lista eligen los servicios. */
 
 import { z } from "zod";
-import type { DefinicionAbm } from "./definicion.ts";
+import type { DefinicionAbm, OpcionAbm } from "./definicion.ts";
+
+/** Las modalidades de un servicio: la del tipo es la que trae por defecto. */
+export const MODALIDADES: readonly OpcionAbm[] = [
+  { valor: "puntual", etiqueta: "Puntual" },
+  { valor: "recurrente", etiqueta: "Recurrente" },
+];
 
 export const TIPOS_DE_SERVICIO: DefinicionAbm<"TipoServicio"> = {
   entidad: "TipoServicio",
@@ -14,10 +20,7 @@ export const TIPOS_DE_SERVICIO: DefinicionAbm<"TipoServicio"> = {
     modalidad: {
       tipo: "opcion",
       etiqueta: "Modalidad por defecto",
-      opciones: [
-        { valor: "puntual", etiqueta: "Puntual" },
-        { valor: "recurrente", etiqueta: "Recurrente" },
-      ],
+      opciones: MODALIDADES,
     },
     activo: { tipo: "siNo", etiqueta: "Activo", marcadaAlCrear: true },
   },

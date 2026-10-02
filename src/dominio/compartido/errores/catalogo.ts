@@ -136,6 +136,14 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Primero reasigná o dá de baja lo que lo usa (por ejemplo, los clientes de un grupo) y volvé a intentarlo.",
   },
+  DOM_0011: {
+    codigo: "DOM-0011",
+    tipo: "persona",
+    descripcion:
+      "El servicio no admite ese cambio en el estado en que está: no se guardó nada.",
+    queHacer:
+      "Abrí el servicio de nuevo y elegí uno de los cambios de estado que ofrece: puede que otra persona lo haya cambiado recién. Un servicio que ya salió de «Solicitado» no se da de baja: se cancela o se cierra con «Cambiar estado».",
+  },
   DOM_0012: {
     codigo: "DOM-0012",
     tipo: "persona",

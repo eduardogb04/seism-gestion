@@ -136,14 +136,18 @@ export function enColumna<C extends string, V>(
   return objeto;
 }
 
+/** Cómo pasan los datos de una entidad entre su fila y el dominio. */
+type Paso<F extends FilaAuditable, D> = {
+  aDatos(fila: Datos<F>): D;
+  aFila(datos: D): Datos<F>;
+};
+
 /**
- * Cómo pasan los datos de una entidad entre su fila y el dominio, para las que
+ * El `Paso` y cómo se consulta por columnas de los datos, para las entidades que
  * tienen fechas o importes. Los miembros son métodos (no propiedades de
  * función) a propósito: `sinConversion` los declara con columnas de texto nada más.
  */
-export type Conversion<F extends FilaAuditable, D> = {
-  aDatos(fila: Datos<F>): D;
-  aFila(datos: D): Datos<F>;
+export type Conversion<F extends FilaAuditable, D> = Paso<F, D> & {
   /** La columna de la fila donde se busca o filtra por texto una de los datos (un día no es de texto). */
   texto(columna: ColumnaDeTexto<D>): Columna<F> | undefined;
   marcada(columna: ColumnaDeSiNo<D>): ColumnaMarcada<F>;
@@ -167,7 +171,7 @@ function sinConversion<F extends FilaAuditable>(): Conversion<F, Datos<F>> {
 
 function desdeFila<F extends FilaAuditable, D>(
   fila: F,
-  conversion: Conversion<F, D>,
+  conversion: Paso<F, D>,
 ): RegistroDe<D> {
   const {
     id,
@@ -255,6 +259,64 @@ async function escribir(
   }
 }
 
+/**
+ * Leer uno y escribir con su auditoría: lo que no depende de cómo se consulta.
+ * Lo usa también una entidad que no es un ABM pero se guarda igual (Servicio, F2-04).
+ */
+export function crearEscrituraPrisma<F extends FilaAuditable, D>(
+  cliente: Prisma.TransactionClient,
+  entidad: string,
+  tabla: Pick<TablaAbm<F>, "findUnique" | "create" | "update">,
+  paso: Paso<F, D>,
+): Pick<RepositorioDe<D>, "buscarPorId" | "crear" | "actualizar"> {
+  const auditoria = crearAuditoriaPrisma(cliente);
+  const aRegistro = (fila: F) => desdeFila(fila, paso);
+  const aFila = (registro: RegistroDe<D>) => ({
+    ...paso.aFila(registro.valor),
+    id: registro.valor.id,
+    ...columnasDeAuditoria(registro),
+  });
+  return {
+    async buscarPorId(id) {
+      const fila = await tabla.findUnique({ where: { id } });
+      return fila === null ? null : aRegistro(fila);
+    },
+
+    async crear(actor, registro) {
+      await escribir(entidad, () => tabla.create({ data: aFila(registro) }));
+      await auditoria.registrar({
+        entidad,
+        id: registro.valor.id,
+        accion: "crear",
+        antes: null,
+        despues: foto(registro),
+        actor,
+        en: registro.creadoEn,
+      });
+    },
+
+    async actualizar(actor, registro, accion) {
+      const { id } = registro.valor;
+      const antes = await tabla.findUnique({ where: { id } });
+      if (antes === null) {
+        throw nuevoError(catalogo.DOM_0009, { entidad, id });
+      }
+      await escribir(entidad, () =>
+        tabla.update({ where: { id }, data: aFila(registro) }),
+      );
+      await auditoria.registrar({
+        entidad,
+        id,
+        accion,
+        antes: foto(aRegistro(antes)),
+        despues: foto(registro),
+        actor,
+        en: registro.actualizadoEn,
+      });
+    },
+  };
+}
+
 /** El repositorio de `entidad` sobre su `tabla`, en la transacción de `cliente`. */
 export function crearRepositorioAbmPrisma<F extends FilaAuditable>(
   cliente: Prisma.TransactionClient,
@@ -276,14 +338,10 @@ export function crearRepositorioConConversion<F extends FilaAuditable, D>(
   tabla: TablaAbm<F>,
   conversion: Conversion<F, D>,
 ): RepositorioDe<D> {
-  const auditoria = crearAuditoriaPrisma(cliente);
   const aRegistro = (fila: F) => desdeFila(fila, conversion);
-  const aFila = (registro: RegistroDe<D>) => ({
-    ...conversion.aFila(registro.valor),
-    id: registro.valor.id,
-    ...columnasDeAuditoria(registro),
-  });
   return {
+    ...crearEscrituraPrisma(cliente, entidad, tabla, conversion),
+
     async listar({
       buscaEn,
       filtros,
@@ -360,11 +418,6 @@ export function crearRepositorioConConversion<F extends FilaAuditable, D>(
       return [...meses];
     },
 
-    async buscarPorId(id) {
-      const fila = await tabla.findUnique({ where: { id } });
-      return fila === null ? null : aRegistro(fila);
-    },
-
     async buscarPorIds(ids) {
       const filas = await tabla.findMany({ where: { id: { in: [...ids] } } });
       return filas.map(aRegistro);
@@ -404,39 +457,6 @@ export function crearRepositorioConConversion<F extends FilaAuditable, D>(
         },
       });
       return fila !== null;
-    },
-
-    async crear(actor, registro) {
-      await escribir(entidad, () => tabla.create({ data: aFila(registro) }));
-      await auditoria.registrar({
-        entidad,
-        id: registro.valor.id,
-        accion: "crear",
-        antes: null,
-        despues: foto(registro),
-        actor,
-        en: registro.creadoEn,
-      });
-    },
-
-    async actualizar(actor, registro, accion) {
-      const { id } = registro.valor;
-      const antes = await tabla.findUnique({ where: { id } });
-      if (antes === null) {
-        throw nuevoError(catalogo.DOM_0009, { entidad, id });
-      }
-      await escribir(entidad, () =>
-        tabla.update({ where: { id }, data: aFila(registro) }),
-      );
-      await auditoria.registrar({
-        entidad,
-        id,
-        accion,
-        antes: foto(aRegistro(antes)),
-        despues: foto(registro),
-        actor,
-        en: registro.actualizadoEn,
-      });
     },
   };
 }

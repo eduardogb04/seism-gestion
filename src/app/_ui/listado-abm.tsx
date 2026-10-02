@@ -15,6 +15,7 @@ import type { EntidadAbm } from "../../puertos/repositorios/abm.ts";
 import { Boton, clasesDeBoton } from "./boton.tsx";
 import { CampoTexto } from "./campo-texto.tsx";
 import { Enlace } from "./enlace-next.ts";
+import { Selector } from "./selector.tsx";
 import { Tabla } from "./tabla.tsx";
 
 export type Vista = {
@@ -22,7 +23,30 @@ export type Vista = {
   readonly orden: string;
   readonly direccion: "asc" | "desc";
   readonly pagina: number;
+  /** Lo elegido en cada filtro, por columna; los que están en "todos" no figuran. */
+  readonly filtros: Readonly<Record<string, string>>;
 };
+
+/** La vista que está mostrando un listado: es lo que se conserva al abrir y cerrar una ventana o cambiar de página. */
+export function vistaDe<E extends EntidadAbm>({
+  buscar,
+  orden,
+  direccion,
+  pagina,
+  filtros,
+}: Listado<E>): Vista {
+  return {
+    buscar,
+    orden,
+    direccion,
+    pagina,
+    filtros: Object.fromEntries(
+      filtros
+        .filter(({ elegido }) => elegido !== "")
+        .map(({ columna, elegido }) => [columna, elegido]),
+    ),
+  };
+}
 
 export type VentanaPedida = {
   readonly clave: "nuevo" | "editar" | "baja";
@@ -31,11 +55,12 @@ export type VentanaPedida = {
 
 /** Lo que va después del `?`: la vista del listado y, si hay, la ventana abierta. */
 export function consultaDe(
-  { buscar, orden, direccion, pagina }: Vista,
+  { buscar, orden, direccion, pagina, filtros }: Vista,
   ventana?: VentanaPedida,
 ): string {
   return new URLSearchParams({
     ...(buscar === "" ? {} : { buscar }),
+    ...filtros,
     orden,
     direccion,
     pagina: String(pagina),
@@ -71,8 +96,9 @@ export function ListadoAbm<E extends EntidadAbm>({
     buscar,
     orden,
     direccion,
+    filtros,
   } = listado;
-  const vista: Vista = { buscar, orden, direccion, pagina };
+  const vista = vistaDe(listado);
   return (
     <>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -83,6 +109,15 @@ export function ListadoAbm<E extends EntidadAbm>({
             name="buscar"
             defaultValue={buscar}
           />
+          {filtros.map(({ columna, etiqueta, opciones, elegido }) => (
+            <Selector
+              key={columna}
+              etiqueta={etiqueta}
+              name={columna}
+              defaultValue={elegido}
+              opciones={[{ valor: "", texto: "Todos" }, ...opciones]}
+            />
+          ))}
           <input type="hidden" name="orden" value={orden} />
           <input type="hidden" name="direccion" value={direccion} />
           <Boton variante="secundario" type="submit">

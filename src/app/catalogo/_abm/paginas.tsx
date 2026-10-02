@@ -34,7 +34,7 @@ import {
   enlace,
   ListadoAbm,
   type VentanaPedida,
-  type Vista,
+  vistaDe,
 } from "../../_ui/listado-abm.tsx";
 import { Marco } from "../../_ui/marco.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
@@ -108,7 +108,10 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
   readonly rutaAlCerrar: string;
 }) {
   const { entidad, singular } = definicion;
-  const elegibles = await armado().abm.opciones(definicion);
+  const elegibles = await armado().abm.opciones(
+    definicion,
+    pedida.clave === "editar" ? pedida.valor : undefined,
+  );
   const titulos = {
     nuevo: `Alta de ${singular}`,
     editar: `Edición de ${singular}`,
@@ -193,8 +196,7 @@ export async function PaginaListado<E extends EntidadAbm>({
 } & PropsListado) {
   const parametros = await searchParams;
   const listado = await armado().abm.listar(definicion, parametros);
-  const { buscar, orden, direccion, pagina } = listado;
-  const vista: Vista = { buscar, orden, direccion, pagina };
+  const vista = vistaDe(listado);
   const pedida = ventanaPedida(parametros);
   const { email, rol } = sesion.usuario;
   return (

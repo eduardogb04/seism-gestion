@@ -21,10 +21,17 @@ import {
   type CampoAbm,
   type Escrito,
   MARCADA,
+  MONEDAS,
+  nombreDeMoneda,
 } from "../../casos-uso/abm/definicion.ts";
 import type { ErrorDeLogin } from "../../casos-uso/sesion/errores.ts";
 import { Boton, clasesDeBoton, type VarianteDeBoton } from "./boton.tsx";
-import { CampoTexto, CampoTextoLargo, CasillaSiNo } from "./campo-texto.tsx";
+import {
+  CampoImporte,
+  CampoTexto,
+  CampoTextoLargo,
+  CasillaSiNo,
+} from "./campo-texto.tsx";
 import { Enlace } from "./enlace-next.ts";
 import { ErrorEnPantalla } from "./error-en-pantalla.tsx";
 import { Selector } from "./selector.tsx";
@@ -64,6 +71,17 @@ function Control({
       return <CampoTexto type="text" {...comunes} />;
     case "textoLargo":
       return <CampoTextoLargo {...comunes} />;
+    case "fecha":
+      return <CampoTexto type="date" {...comunes} />;
+    case "importe":
+      return (
+        <CampoImporte
+          {...comunes}
+          nombreMoneda={nombreDeMoneda(nombre)}
+          monedas={MONEDAS}
+          monedaInicial={estado.escrito[nombreDeMoneda(nombre)] ?? MONEDAS[0]}
+        />
+      );
     case "numero":
       return (
         <CampoTexto

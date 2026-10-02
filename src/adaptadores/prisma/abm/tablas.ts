@@ -25,6 +25,10 @@ const REPOSITORIOS: {
     crearRepositorioAbmPrisma(cliente, "Sitio", cliente.sitio),
   TipoServicio: (cliente) =>
     crearRepositorioAbmPrisma(cliente, "TipoServicio", cliente.tipoServicio),
+  CentroCosto: (cliente) =>
+    crearRepositorioAbmPrisma(cliente, "CentroCosto", cliente.centroCosto),
+  Cuenta: (cliente) =>
+    crearRepositorioAbmPrisma(cliente, "Cuenta", cliente.cuenta),
 };
 
 /** El repositorio de `entidad` en la transacción de `cliente`. */

@@ -47,8 +47,8 @@ Lo que ya vive acá:
 - `compartido/importe.ts` (F0-20) — `Importe<M>` en centavos `bigint` con la moneda
   como tipo literal (`MONEDAS`: sumar ARS con USD no compila), aritmética entera y `repartir`,
   `TipoDeCambio` con valor exacto (fracción de `bigint`, cargado desde texto) y `convertir`,
-  único lugar que redondea (half-up), y `parsearImporte`. El formato para pantalla vive en
-  `src/app/formato/importe.ts`. Ver `docs/adr/0018-importes.md`.
+  único lugar que redondea (half-up), `parsearImporte` y su vuelta, `formatearMonto`/`formatearImporte`
+  (`USD 24.315,00`; F2-03: viven acá porque los usan los casos de uso del molde de ABM). Ver `docs/adr/0018-importes.md`.
 - `compartido/errores/` (F0-23) — el catálogo de errores con código estable
   (`catalogo.ts`: `DOM-0001`..., un código nunca se reutiliza, lo cuida un golden), `ErrorSistema`
   (constructor privado: solo `nuevoError(entrada, detalles, causa?)`, para lanzar en los bordes) y

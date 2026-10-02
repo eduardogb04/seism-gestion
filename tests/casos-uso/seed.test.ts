@@ -158,6 +158,32 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Sitio" } })).toBe(5);
   });
 
+  test("siembra cuatro camiones de demostración (dos semis, un chasis y un otro), no los repite ni repone uno dado de baja, y no en el servidor", async () => {
+    const db = cliente();
+    const tipos = async () =>
+      (await db.camion.findMany({ select: { tipo: true } }))
+        .map(({ tipo }) => tipo)
+        .sort();
+
+    await sembrar(db, opciones("servidor"));
+    expect(await db.camion.count()).toBe(0);
+
+    await sembrar(db, opciones());
+    await db.camion.updateMany({
+      where: { patenteTractor: "ZZ001ZZ" },
+      data: { eliminadoEn: new Date(), eliminadoPor: { tipo: "sistema" } },
+    });
+    await sembrar(db, opciones());
+
+    expect(await tipos()).toEqual([
+      "chasis",
+      "otro",
+      "semi_con_cisterna",
+      "semi_con_cisterna",
+    ]);
+    expect(await db.auditoria.count({ where: { entidad: "Camion" } })).toBe(4);
+  });
+
   test("siembra los cinco tipos de servicio activos, uno solo recurrente, una sola vez y no en el servidor", async () => {
     const db = cliente();
     const tipos = () =>

@@ -8,6 +8,7 @@
  */
 
 import type { z } from "zod";
+import type { FechaHora } from "../../dominio/compartido/reloj.ts";
 import type {
   ColumnaDeTexto,
   DatosAbm,
@@ -52,13 +53,15 @@ export type CampoAbm =
   /**
    * Un registro vigente de otra entidad, que se elige de una lista y se
    * muestra por su columna `mostrar`: una de las de orden de la entidad
-   * destino. Vacío se guarda como `null`.
+   * destino. Vacío se guarda como `null`; `obligatoria`: la lista invita a
+   * elegir (*Elegí…*) en vez de ofrecer *Ninguno*.
    */
   | {
       readonly tipo: "relacion";
       readonly etiqueta: string;
       readonly entidad: EntidadAbm;
       readonly mostrar: string;
+      readonly obligatoria?: true;
     };
 
 /** Los datos de un registro como los lee un recorrido por campos. */
@@ -96,12 +99,12 @@ export type DefinicionAbm<E extends EntidadAbm> = {
   /** Por cuáles se puede ordenar; la primera es el orden por defecto. */
   readonly orden: readonly [ColumnaAbm<E>, ...ColumnaAbm<E>[]];
   readonly rolesQueEscriben: readonly [Rol, ...Rol[]];
-  /** Las columnas del listado: un campo, o una calculada con su etiqueta. */
+  /** Las columnas del listado: un campo, o una calculada con su etiqueta (y la fecha de hoy del reloj). */
   readonly listado: readonly (
     | NombreDeCampo<E>
     | {
         readonly etiqueta: string;
-        readonly de: (datos: DatosAbm<E>) => string;
+        readonly de: (datos: DatosAbm<E>, hoy: FechaHora) => string;
       }
   )[];
   /** Cómo se ve un texto guardado normalizado, en el listado y en el formulario. */
@@ -269,11 +272,12 @@ export function celdasDe<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
   datos: DatosAbm<E>,
   etiquetas: ReadonlyMap<string, string>,
+  hoy: FechaHora,
 ): readonly string[] {
   return definicion.listado.map((columna) =>
     typeof columna === "string"
       ? textoDeCampo(definicion, columna, datos, etiquetas)
-      : columna.de(datos),
+      : columna.de(datos, hoy),
   );
 }
 

@@ -54,6 +54,18 @@ type EntidadesAbm = {
     readonly capacidadTotalLitros: number;
     readonly observaciones: string | null;
   };
+  readonly Camion: {
+    readonly clienteId: string;
+    readonly tipo: string;
+    readonly patenteTractor: string;
+    readonly marcaTractor: string;
+    readonly anioTractor: number;
+    readonly patenteCisterna: string | null;
+    readonly marcaCisterna: string | null;
+    readonly anioCisterna: number | null;
+    readonly capacidadLitros: number;
+    readonly observaciones: string | null;
+  };
   readonly TipoServicio: {
     readonly nombre: string;
     readonly descripcion: string | null;

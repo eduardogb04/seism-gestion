@@ -5,7 +5,8 @@
  * registradas** y, por cada campo de `unicos`, exige en la base migrada un
  * índice único parcial sobre `lower(<columna>)` con `eliminado_en IS NULL`.
  * Un grupo de columnas (F1-05) lleva un solo índice con todas, en su orden; una
- * relación (que guarda un id) va sin `lower`.
+ * relación (que guarda un id) va sin `lower`. Una columna que admite `null`
+ * (F1-06) suma `AND <columna> IS NOT NULL`: el vacío no cuenta como repetido.
  *
  * La tabla y la columna salen de `prisma/schema.prisma`: el modelo se llama
  * como la entidad.
@@ -40,6 +41,7 @@ function enLaBase(modelo: string, campo: string) {
   return {
     tabla: /@@map\("([^"]+)"\)/.exec(cuerpo)?.[1] ?? modelo,
     columna: /@map\("([^"]+)"\)/.exec(linea)?.[1] ?? campo,
+    admiteNull: new RegExp(`^\\s+${campo}\\s+\\w+\\?`).test(linea),
   };
 }
 
@@ -94,19 +96,27 @@ describe("índices únicos de los ABM", () => {
         relacion ? columna : `lower(${columna})`,
       );
 
+      const noNulas = columnas
+        .filter(({ admiteNull }) => admiteNull)
+        .map(({ columna }) => `(${columna} IS NOT NULL)`);
+      const donde =
+        noNulas.length === 0
+          ? "(eliminado_en IS NULL)"
+          : `((eliminado_en IS NULL) AND ${noNulas.join(" AND ")})`;
+
       const indices = await cliente().$queryRaw<{ indexdef: string }[]>`
       select indexdef from pg_indexes where tablename = ${tabla}`;
 
       const escapar = (texto: string) =>
         texto.replaceAll("(", "\\(").replaceAll(")", "\\)");
       const esperado = new RegExp(
-        `^CREATE UNIQUE INDEX .* \\(${escapar(esperadas.join(", "))}\\) WHERE \\(eliminado_en IS NULL\\)$`,
+        `^CREATE UNIQUE INDEX .* \\(${escapar(esperadas.join(", "))}\\) WHERE ${escapar(donde)}$`,
       );
       expect(
         indices
           .map(({ indexdef }) => indexdef.replaceAll('"', ""))
           .filter((definicion) => esperado.test(definicion)),
-        `falta en la migración: CREATE UNIQUE INDEX en "${tabla}" sobre (${esperadas.join(", ")}) WHERE ("eliminado_en" IS NULL), con las columnas con sus nombres de la base`,
+        `falta en la migración: CREATE UNIQUE INDEX en "${tabla}" sobre (${esperadas.join(", ")}) WHERE ${donde}, con las columnas con sus nombres de la base`,
       ).toHaveLength(1);
     },
   );

@@ -48,6 +48,13 @@ type EntidadesAbm = {
     readonly modalidad: string;
     readonly activo: boolean;
   };
+  readonly Cuenta: {
+    readonly nombre: string;
+    readonly tipo: string;
+    readonly moneda: string;
+    readonly observaciones: string | null;
+    readonly activa: boolean;
+  };
   readonly CentroCosto: {
     readonly nombre: string;
     readonly clase: string;

@@ -12,6 +12,7 @@ import type { EntidadAbm } from "../../puertos/repositorios/abm.ts";
 import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
 import { CENTROS_DE_COSTO } from "./centros-de-costo.ts";
 import { CLIENTES } from "./clientes.ts";
+import { CUENTAS } from "./cuentas.ts";
 import { type ColumnaAbm, camposDe, type DefinicionAbm } from "./definicion.ts";
 import { GRUPOS } from "./grupos.ts";
 import { TIPOS_DE_SERVICIO } from "./tipos-de-servicio.ts";
@@ -21,6 +22,7 @@ export const DEFINICIONES: { readonly [E in EntidadAbm]: DefinicionAbm<E> } = {
   Cliente: CLIENTES,
   TipoServicio: TIPOS_DE_SERVICIO,
   CentroCosto: CENTROS_DE_COSTO,
+  Cuenta: CUENTAS,
 };
 
 const esquemaEntidad = z

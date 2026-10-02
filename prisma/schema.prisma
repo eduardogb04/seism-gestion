@@ -158,6 +158,7 @@ model Usuario {
 
   sesiones               Sesion[]
   configuracionesTocadas Configuracion[]
+  serviciosACargo        Servicio[]
 
   @@map("usuarios")
 }
@@ -250,6 +251,7 @@ model Cliente {
   sitios           Sitio[]
   egresos          Egreso[]
   camiones         Camion[]
+  servicios        Servicio[]
 
   @@map("clientes")
 }
@@ -279,6 +281,8 @@ model Sitio {
   actualizadoPor       Json      @map("actualizado_por") @db.JsonB
   eliminadoEn          DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor         Json?     @map("eliminado_por") @db.JsonB
+
+  servicios            ServicioSitio[]
 
   @@map("sitios")
 }
@@ -323,6 +327,8 @@ model TipoServicio {
   actualizadoPor Json      @map("actualizado_por") @db.JsonB
   eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+
+  servicios      Servicio[]
 
   @@map("tipos_servicio")
 }
@@ -382,4 +388,75 @@ model Egreso {
   eliminadoPor      Json?       @map("eliminado_por") @db.JsonB
 
   @@map("egresos")
+}
+
+// Servicios (F2-04, ADR 0033): el acuerdo con el cliente. El `codigo`
+// (`SRV-2026-014`) lo genera el sistema con `secuencias` y es único. El estado
+// no es una columna: es el último evento de `servicios_eventos`.
+model Servicio {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codigo         String       @unique
+  clienteId      String       @map("cliente_id") @db.Uuid
+  cliente        Cliente      @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  tipoServicioId String       @map("tipo_servicio_id") @db.Uuid
+  tipoServicio   TipoServicio @relation(fields: [tipoServicioId], references: [id], onDelete: Restrict)
+  titulo         String
+  modalidad      String
+  responsableId  String       @map("responsable_id") @db.Uuid
+  responsable    Usuario      @relation(fields: [responsableId], references: [id], onDelete: Restrict)
+  fechaPedido    DateTime     @map("fecha_pedido") @db.Date
+  vigenciaDesde  DateTime?    @map("vigencia_desde") @db.Date
+  vigenciaHasta  DateTime?    @map("vigencia_hasta") @db.Date
+  observaciones  String?
+  creadoEn       DateTime     @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json         @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime     @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json         @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime?    @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?        @map("eliminado_por") @db.JsonB
+
+  eventos ServicioEvento[]
+  sitios  ServicioSitio[]
+
+  @@map("servicios")
+}
+
+// Los cambios de estado de un servicio: solo se agregan. La `posicion` (0 es
+// el alta) los ordena, y su clave con el servicio hace que dos cambios
+// simultáneos desde el mismo estado no entren los dos.
+model ServicioEvento {
+  servicioId String   @map("servicio_id") @db.Uuid
+  servicio   Servicio @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  posicion   Int
+  de         String?
+  a          String
+  en         DateTime @db.Timestamptz(3)
+  actor      Json     @db.JsonB
+  nota       String?
+
+  @@id([servicioId, posicion])
+  @@map("servicios_eventos")
+}
+
+// Los sitios que abarca un servicio: el conjunto se reemplaza entero y cómo
+// cambió queda en `auditoria`.
+model ServicioSitio {
+  servicioId String   @map("servicio_id") @db.Uuid
+  servicio   Servicio @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  sitioId    String   @map("sitio_id") @db.Uuid
+  sitio      Sitio    @relation(fields: [sitioId], references: [id], onDelete: Restrict)
+
+  @@id([servicioId, sitioId])
+  @@map("servicios_sitios")
+}
+
+// El último número entregado por prefijo y año (F2-04): de acá sale la
+// secuencia de los códigos legibles (`SRV-2026-014`).
+model Secuencia {
+  prefijo String
+  anio    Int
+  ultimo  Int
+
+  @@id([prefijo, anio])
+  @@map("secuencias")
 }

@@ -38,6 +38,8 @@ const NO_ESCRIBEN: Readonly<Record<string, string>> = {
     "fábrica: arma el objeto de casos de uso de sesión con sus dependencias, no escribe nada",
   crearCasosUsoAbm:
     "fábrica (F1-03): arma los casos de uso del molde de ABM con sus dependencias, no escribe nada",
+  crearCasosUsoServicios:
+    "fábrica (F2-04): arma los casos de uso de servicios con sus dependencias, no escribe nada",
   crearInterpretar:
     "fábrica (F0-28): arma `interpretar` con sus dependencias, no escribe nada",
 };

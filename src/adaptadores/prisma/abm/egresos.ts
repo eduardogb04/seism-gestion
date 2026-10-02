@@ -12,11 +12,11 @@ import type { Egreso as FilaEgreso } from "../generado/client.ts";
 import { type Conversion, enColumna } from "./repositorio.ts";
 
 /** El día de un `Date` de una columna `date`: Prisma lo trae a medianoche UTC. */
-function aDia(fecha: Date): string {
+export function aDia(fecha: Date): string {
   return fecha.toISOString().slice(0, 10);
 }
 
-function deDia(dia: string): Date {
+export function deDia(dia: string): Date {
   return new Date(`${dia}T00:00:00.000Z`);
 }
 

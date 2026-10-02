@@ -283,3 +283,19 @@ model Cuenta {
 
   @@map("cuentas")
 }
+
+model CentroCosto {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre         String
+  clase          String
+  descripcion    String?
+  activo         Boolean
+  creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json      @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+
+  @@map("centros_costo")
+}

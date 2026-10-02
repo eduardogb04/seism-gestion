@@ -23,6 +23,8 @@ const REPOSITORIOS: {
     crearRepositorioAbmPrisma(cliente, "Cliente", cliente.cliente),
   TipoServicio: (cliente) =>
     crearRepositorioAbmPrisma(cliente, "TipoServicio", cliente.tipoServicio),
+  CentroCosto: (cliente) =>
+    crearRepositorioAbmPrisma(cliente, "CentroCosto", cliente.centroCosto),
   Cuenta: (cliente) =>
     crearRepositorioAbmPrisma(cliente, "Cuenta", cliente.cuenta),
 };

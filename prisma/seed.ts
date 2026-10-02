@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -102,6 +102,7 @@ export async function sembrar(
     await sembrarGruposDeDemostracion(prisma, opciones.reloj);
     await sembrarClientesDeDemostracion(prisma, opciones.reloj);
     await sembrarSitiosDeDemostracion(prisma, opciones.reloj);
+    await sembrarCamionesDeDemostracion(prisma, opciones.reloj);
     await sembrarTiposDeServicio(prisma, opciones.reloj);
     await sembrarCentrosDeCosto(prisma, opciones.reloj);
     await sembrarCuentas(prisma, opciones.reloj);
@@ -555,6 +556,103 @@ async function sembrarSitiosDeDemostracion(
         crearAuditable(
           {
             ...SITIO_BASE,
+            ...datos,
+            clienteId: cliente.id,
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
+}
+
+type DatosCamion = DatosAbm<"Camion">;
+
+/** Lo común a los camiones de demostración; cada uno cambia lo suyo. */
+const CAMION_BASE: Omit<DatosCamion, "clienteId" | "patenteTractor"> = {
+  tipo: "semi_con_cisterna",
+  marcaTractor: "Marca Ejemplo",
+  anioTractor: 2018,
+  patenteCisterna: null,
+  marcaCisterna: "Marca Ejemplo",
+  anioCisterna: 2021,
+  capacidadLitros: 30000,
+  observaciones: null,
+};
+
+/** Inventados: patentes `ZZ…ZZ`, marcas genéricas. Dos semis, un chasis y un otro. */
+const CAMIONES_DE_DEMOSTRACION: readonly {
+  readonly cuit: string;
+  readonly datos: Partial<DatosCamion> & Pick<DatosCamion, "patenteTractor">;
+}[] = [
+  {
+    cuit: "30000000015",
+    datos: { patenteTractor: "ZZ001ZZ", patenteCisterna: "ZZ101ZZ" },
+  },
+  {
+    cuit: "30000000015",
+    datos: {
+      patenteTractor: "ZZ002ZZ",
+      patenteCisterna: "ZZ102ZZ",
+      anioTractor: 2012,
+      anioCisterna: 2015,
+      capacidadLitros: 36000,
+    },
+  },
+  {
+    cuit: "30000000023",
+    datos: {
+      patenteTractor: "ZZ003ZZ",
+      tipo: "chasis",
+      anioTractor: 2020,
+      marcaCisterna: null,
+      anioCisterna: null,
+      capacidadLitros: 12000,
+    },
+  },
+  {
+    cuit: "30000000031",
+    datos: {
+      patenteTractor: "ZZ004ZZ",
+      tipo: "otro",
+      marcaCisterna: null,
+      anioCisterna: null,
+      capacidadLitros: 8000,
+      observaciones: "Camión de demostración",
+    },
+  },
+];
+
+/**
+ * Da de alta cada camión de demostración si **nunca hubo** uno con esa patente
+ * de tractor (como los sitios), siempre que el cliente siga vigente.
+ */
+async function sembrarCamionesDeDemostracion(
+  prisma: PrismaClient,
+  reloj: Reloj,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const camiones = repositorioAbmPrisma(tx, "Camion");
+    for (const { cuit, datos } of CAMIONES_DE_DEMOSTRACION) {
+      const cliente = await tx.cliente.findFirst({
+        where: { cuit, eliminadoEn: null },
+      });
+      if (
+        cliente === null ||
+        (await tx.camion.findFirst({
+          where: { patenteTractor: datos.patenteTractor },
+        })) !== null
+      ) {
+        continue;
+      }
+      await camiones.crear(
+        actor,
+        crearAuditable(
+          {
+            ...CAMION_BASE,
             ...datos,
             clienteId: cliente.id,
             id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),

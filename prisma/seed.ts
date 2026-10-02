@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes; desde F1-07, los cinco tipos de servicio), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -101,6 +101,7 @@ export async function sembrar(
     await sembrarGruposDeDemostracion(prisma, opciones.reloj);
     await sembrarClientesDeDemostracion(prisma, opciones.reloj);
     await sembrarTiposDeServicio(prisma, opciones.reloj);
+    await sembrarCentrosDeCosto(prisma, opciones.reloj);
   }
 }
 
@@ -296,6 +297,70 @@ async function sembrarTiposDeServicio(
         continue;
       }
       await tipos.crear(
+        actor,
+        crearAuditable(
+          {
+            ...datos,
+            activo: true,
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
+}
+
+const CENTROS_DE_COSTO_DE_DEMOSTRACION: readonly {
+  readonly nombre: string;
+  readonly clase: string;
+  readonly descripcion: string;
+}[] = [
+  {
+    nombre: "Servicios a clientes",
+    clase: "proyecto",
+    descripcion: "Gastos de los servicios que se facturan a clientes.",
+  },
+  {
+    nombre: "Administración",
+    clase: "gestion_administrativa",
+    descripcion: "Gastos generales de la administración.",
+  },
+  {
+    nombre: "Vehículos",
+    clase: "gestion_administrativa",
+    descripcion: "Combustible, patentes y mantenimiento de los vehículos.",
+  },
+  {
+    nombre: "Capacitaciones",
+    clase: "fuera_de_rentabilidad",
+    descripcion: "Cursos y formación del personal.",
+  },
+  {
+    nombre: "Compra de activos",
+    clase: "fuera_de_rentabilidad",
+    descripcion: "Equipamiento y bienes de uso.",
+  },
+];
+
+/** Da de alta cada centro de costo si **nunca hubo** uno con ese nombre (como los grupos). */
+async function sembrarCentrosDeCosto(
+  prisma: PrismaClient,
+  reloj: Reloj,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const centros = repositorioAbmPrisma(tx, "CentroCosto");
+    for (const datos of CENTROS_DE_COSTO_DE_DEMOSTRACION) {
+      if (
+        (await tx.centroCosto.findFirst({
+          where: { nombre: datos.nombre },
+        })) !== null
+      ) {
+        continue;
+      }
+      await centros.crear(
         actor,
         crearAuditable(
           {

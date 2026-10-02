@@ -48,6 +48,12 @@ type EntidadesAbm = {
     readonly modalidad: string;
     readonly activo: boolean;
   };
+  readonly CentroCosto: {
+    readonly nombre: string;
+    readonly clase: string;
+    readonly descripcion: string | null;
+    readonly activo: boolean;
+  };
 };
 
 export type EntidadAbm = keyof EntidadesAbm;

@@ -5,6 +5,7 @@ import {
   diferenciaEnDias,
   diferenciaEnMilisegundos,
   esAnterior,
+  esDiaValido,
   type FechaHora,
   formatearISO,
   parsearISO,
@@ -446,5 +447,25 @@ describe("propiedades", () => {
       }
       expect(esAnterior(una, una)).toBe(false);
     });
+  });
+});
+
+describe("esDiaValido", () => {
+  it.each([
+    ["2026-10-05", true],
+    ["2028-02-29", true],
+    ["0001-01-01", true],
+    ["2027-02-29", false],
+    ["2026-04-31", false],
+    ["2026-13-01", false],
+    ["2026-00-10", false],
+    ["2026-10-00", false],
+    ["2026-1-5", false],
+    ["05/10/2026", false],
+    ["2026-10-05T00:00", false],
+    ["", false],
+    ["abc", false],
+  ])("%j → %s", (texto, esperado) => {
+    expect(esDiaValido(texto)).toBe(esperado);
   });
 });

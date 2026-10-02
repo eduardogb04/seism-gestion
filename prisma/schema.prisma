@@ -248,6 +248,7 @@ model Cliente {
   eliminadoEn      DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor     Json?     @map("eliminado_por") @db.JsonB
   sitios           Sitio[]
+  egresos          Egreso[]
   camiones         Camion[]
 
   @@map("clientes")
@@ -355,6 +356,30 @@ model CentroCosto {
   actualizadoPor Json      @map("actualizado_por") @db.JsonB
   eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+  egresos        Egreso[]
 
   @@map("centros_costo")
+}
+
+model Egreso {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fecha             DateTime    @db.Date
+  concepto          String
+  centroCostoId     String      @map("centro_costo_id") @db.Uuid
+  centroCosto       CentroCosto @relation(fields: [centroCostoId], references: [id], onDelete: Restrict)
+  proveedorId       String?     @map("proveedor_id") @db.Uuid
+  proveedor         Cliente?    @relation(fields: [proveedorId], references: [id], onDelete: Restrict)
+  numeroComprobante String?     @map("numero_comprobante")
+  importeCentavos   BigInt      @map("importe_centavos")
+  importeMoneda     String      @map("importe_moneda")
+  vencimiento       DateTime?   @db.Date
+  observaciones     String?
+  creadoEn          DateTime    @map("creado_en") @db.Timestamptz(3)
+  creadoPor         Json        @map("creado_por") @db.JsonB
+  actualizadoEn     DateTime    @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor    Json        @map("actualizado_por") @db.JsonB
+  eliminadoEn       DateTime?   @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor      Json?       @map("eliminado_por") @db.JsonB
+
+  @@map("egresos")
 }

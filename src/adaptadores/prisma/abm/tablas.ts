@@ -10,7 +10,11 @@ import type {
   RepositorioAbm,
 } from "../../../puertos/repositorios/abm.ts";
 import type { Prisma } from "../generado/client.ts";
-import { crearRepositorioAbmPrisma } from "./repositorio.ts";
+import { CONVERSION_EGRESO } from "./egresos.ts";
+import {
+  crearRepositorioAbmPrisma,
+  crearRepositorioConConversion,
+} from "./repositorio.ts";
 
 const REPOSITORIOS: {
   readonly [E in EntidadAbm]: (
@@ -31,6 +35,13 @@ const REPOSITORIOS: {
     crearRepositorioAbmPrisma(cliente, "CentroCosto", cliente.centroCosto),
   Cuenta: (cliente) =>
     crearRepositorioAbmPrisma(cliente, "Cuenta", cliente.cuenta),
+  Egreso: (cliente) =>
+    crearRepositorioConConversion(
+      cliente,
+      "Egreso",
+      cliente.egreso,
+      CONVERSION_EGRESO,
+    ),
 };
 
 /** El repositorio de `entidad` en la transacción de `cliente`. */

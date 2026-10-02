@@ -17,6 +17,7 @@ import type {
   Auditable,
 } from "../../dominio/compartido/auditable.ts";
 import type { Identificador } from "../../dominio/compartido/identificador.ts";
+import type { Importe, Moneda } from "../../dominio/compartido/importe.ts";
 
 /** Los datos de cada entidad con ABM, sin el `id` ni la auditoría. */
 type EntidadesAbm = {
@@ -85,6 +86,17 @@ type EntidadesAbm = {
     readonly descripcion: string | null;
     readonly activo: boolean;
   };
+  readonly Egreso: {
+    /** Un día, `aaaa-mm-dd`: sin hora ni zona. */
+    readonly fecha: string;
+    readonly concepto: string;
+    readonly centroCostoId: string;
+    readonly proveedorId: string | null;
+    readonly numeroComprobante: string | null;
+    readonly importe: Importe<Moneda>;
+    readonly vencimiento: string | null;
+    readonly observaciones: string | null;
+  };
 };
 
 export type EntidadAbm = keyof EntidadesAbm;
@@ -94,6 +106,19 @@ export type DatosAbm<E extends EntidadAbm> = EntidadesAbm[E];
 export type ColumnaDeTexto<D> = {
   [C in keyof D & string]: D[C] extends string | null ? C : never;
 }[keyof D & string];
+
+/** Las columnas de `D` con una casilla de sí/no: también se filtra por ellas. */
+export type ColumnaDeSiNo<D> = {
+  [C in keyof D & string]: D[C] extends boolean ? C : never;
+}[keyof D & string];
+
+/** Las columnas de `D` que guardan un importe: se ordena por sus centavos. */
+export type ColumnaDeImporte<D> = {
+  [C in keyof D & string]: D[C] extends Importe<Moneda> ? C : never;
+}[keyof D & string];
+
+/** Por cuáles se puede ordenar un listado. */
+export type ColumnaDeOrden<D> = ColumnaDeTexto<D> | ColumnaDeImporte<D>;
 
 /** Datos `D` con su `id` y quién y cuándo los creó, cambió y dio de baja. */
 export type RegistroDe<D> = Auditable<
@@ -106,7 +131,19 @@ type ConsultaDe<D> = {
     readonly columna: ColumnaDeTexto<D>;
     readonly texto: string;
   }[];
-  readonly orden: ColumnaDeTexto<D>;
+  /** Solo los que tienen exactamente ese valor en cada columna (un id). */
+  readonly filtros: readonly {
+    readonly columna: ColumnaDeTexto<D>;
+    readonly igual: string;
+  }[];
+  /** Solo los que tienen la casilla marcada en cada una de estas columnas. */
+  readonly marcadas: readonly ColumnaDeSiNo<D>[];
+  /** Solo los de un mes (`aaaa-mm`) de una columna de día. Ninguno no filtra. */
+  readonly mes: {
+    readonly columna: ColumnaDeTexto<D>;
+    readonly mes: string;
+  } | null;
+  readonly orden: ColumnaDeOrden<D>;
   readonly direccion: "asc" | "desc";
   readonly saltear: number;
   readonly cantidad: number;
@@ -133,6 +170,8 @@ export type RepositorioDe<D> = {
       readonly exacto: boolean;
     }[],
   ): Promise<RegistroDe<D> | null>;
+  /** Los meses (`aaaa-mm`) de los no eliminados en una columna de día, del más nuevo al más viejo. */
+  mesesCon(columna: ColumnaDeTexto<D>): Promise<readonly string[]>;
   /** ¿Hay algún no eliminado con exactamente ese valor en `columna`? */
   hayVigenteCon(columna: ColumnaDeTexto<D>, valor: string): Promise<boolean>;
   /**

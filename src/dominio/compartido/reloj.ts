@@ -366,3 +366,11 @@ export function RelojFijo(fechaHora: FechaHora): Reloj {
     },
   };
 }
+
+/**
+ * ¿Es `aaaa-mm-dd` un día que existe? Un día sin hora ni zona: la forma en que
+ * se guardan las fechas del molde de ABM. `2027-02-29` no existe.
+ */
+export function esDiaValido(texto: string): boolean {
+  return parsearISO(`${texto}T00:00:00.000`).ok;
+}

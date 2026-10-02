@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas; desde F2-03, seis egresos en pesos y en dólares), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -38,7 +38,10 @@ import { crearAuditable } from "../src/dominio/compartido/auditable.ts";
 import { catalogo } from "../src/dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../src/dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../src/dominio/compartido/identificador.ts";
-import type { Moneda } from "../src/dominio/compartido/importe.ts";
+import {
+  crearImporte,
+  type Moneda,
+} from "../src/dominio/compartido/importe.ts";
 import type { Reloj } from "../src/dominio/compartido/reloj.ts";
 import type { DatosAbm } from "../src/puertos/repositorios/abm.ts";
 import type { DatosUsuario } from "../src/puertos/repositorios/usuarios.ts";
@@ -106,6 +109,7 @@ export async function sembrar(
     await sembrarTiposDeServicio(prisma, opciones.reloj);
     await sembrarCentrosDeCosto(prisma, opciones.reloj);
     await sembrarCuentas(prisma, opciones.reloj);
+    await sembrarEgresos(prisma, opciones.reloj);
   }
 }
 
@@ -655,6 +659,130 @@ async function sembrarCamionesDeDemostracion(
             ...CAMION_BASE,
             ...datos,
             clienteId: cliente.id,
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
+}
+
+/** Inventados: conceptos genéricos y montos redondos, en pesos y en dólares, de dos meses y de distintos centros. */
+const EGRESOS_DE_DEMOSTRACION: readonly {
+  readonly fecha: string;
+  readonly concepto: string;
+  readonly centro: string;
+  readonly cuitProveedor: string | null;
+  readonly numeroComprobante: string | null;
+  readonly centavos: bigint;
+  readonly moneda: Moneda;
+  readonly vencimiento: string | null;
+}[] = [
+  {
+    fecha: "2026-09-03",
+    concepto: "Combustible",
+    centro: "Vehículos",
+    cuitProveedor: null,
+    numeroComprobante: null,
+    centavos: 15_000_000n,
+    moneda: "ARS",
+    vencimiento: null,
+  },
+  {
+    fecha: "2026-09-15",
+    concepto: "Honorarios contables",
+    centro: "Administración",
+    cuitProveedor: "30000000031",
+    numeroComprobante: "0001-00000010",
+    centavos: 50_000_000n,
+    moneda: "ARS",
+    vencimiento: "2026-09-30",
+  },
+  {
+    fecha: "2026-09-22",
+    concepto: "Curso de capacitación",
+    centro: "Capacitaciones",
+    cuitProveedor: "30000000058",
+    numeroComprobante: "0002-00000020",
+    centavos: 80_000n,
+    moneda: "USD",
+    vencimiento: "2026-10-10",
+  },
+  {
+    fecha: "2026-10-01",
+    concepto: "Repuestos para el servicio",
+    centro: "Servicios a clientes",
+    cuitProveedor: "30000000058",
+    numeroComprobante: "0002-00000021",
+    centavos: 32_500_000n,
+    moneda: "ARS",
+    vencimiento: null,
+  },
+  {
+    fecha: "2026-10-05",
+    concepto: "Notebook para el equipo",
+    centro: "Compra de activos",
+    cuitProveedor: null,
+    numeroComprobante: null,
+    centavos: 120_000n,
+    moneda: "USD",
+    vencimiento: null,
+  },
+  {
+    fecha: "2026-10-12",
+    concepto: "Combustible",
+    centro: "Vehículos",
+    cuitProveedor: null,
+    numeroComprobante: null,
+    centavos: 18_000_000n,
+    moneda: "ARS",
+    vencimiento: null,
+  },
+];
+
+/** Da de alta cada egreso de demostración si **nunca hubo** uno con esa fecha y ese concepto. */
+async function sembrarEgresos(
+  prisma: PrismaClient,
+  reloj: Reloj,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const egresos = repositorioAbmPrisma(tx, "Egreso");
+    for (const demo of EGRESOS_DE_DEMOSTRACION) {
+      const centro = await tx.centroCosto.findFirst({
+        where: { nombre: demo.centro, eliminadoEn: null },
+      });
+      const proveedor =
+        demo.cuitProveedor === null
+          ? null
+          : await tx.cliente.findFirst({
+              where: { cuit: demo.cuitProveedor, eliminadoEn: null },
+            });
+      if (
+        centro === null ||
+        (await tx.egreso.findFirst({
+          where: {
+            fecha: new Date(`${demo.fecha}T00:00:00.000Z`),
+            concepto: demo.concepto,
+          },
+        })) !== null
+      ) {
+        continue;
+      }
+      await egresos.crear(
+        actor,
+        crearAuditable(
+          {
+            fecha: demo.fecha,
+            concepto: demo.concepto,
+            centroCostoId: centro.id,
+            proveedorId: proveedor?.id ?? null,
+            numeroComprobante: demo.numeroComprobante,
+            importe: crearImporte(demo.centavos, demo.moneda),
+            vencimiento: demo.vencimiento,
+            observaciones: null,
             id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
           },
           actor,

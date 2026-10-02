@@ -89,9 +89,13 @@ export function actorDesdeJson(valor: Prisma.JsonValue): Actor {
   return { tipo: "sistema", proceso: proceso.valor };
 }
 
+/** JSON no tiene enteros grandes: un `bigint` (los centavos de un importe) se guarda como texto, sin perder un dígito. */
 function aJsonAnidado(valor: unknown): Prisma.InputJsonValue | null {
   if (valor === null) {
     return null;
+  }
+  if (typeof valor === "bigint") {
+    return valor.toString();
   }
   if (
     typeof valor === "string" ||

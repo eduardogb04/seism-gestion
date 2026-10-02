@@ -215,6 +215,34 @@ describe("semilla", () => {
     ]);
   });
 
+  test("siembra seis egresos, en pesos y en dólares y de dos meses, una sola vez y no en el servidor", async () => {
+    const db = cliente();
+    const egresos = () =>
+      db.egreso.findMany({
+        orderBy: [{ fecha: "asc" }, { concepto: "asc" }],
+        select: { fecha: true, importeMoneda: true, proveedorId: true },
+      });
+
+    await sembrar(db, opciones("servidor"));
+    expect(await egresos()).toEqual([]);
+
+    await sembrar(db, opciones());
+    await sembrar(db, opciones());
+
+    const sembrados = await egresos();
+    expect(sembrados).toHaveLength(6);
+    expect(
+      new Set(sembrados.map(({ importeMoneda }) => importeMoneda)),
+    ).toEqual(new Set(["ARS", "USD"]));
+    expect(
+      new Set(sembrados.map(({ fecha }) => fecha.toISOString().slice(0, 7))),
+    ).toEqual(new Set(["2026-09", "2026-10"]));
+    expect(sembrados.some(({ proveedorId }) => proveedorId !== null)).toBe(
+      true,
+    );
+    expect(await db.auditoria.count({ where: { entidad: "Egreso" } })).toBe(6);
+  });
+
   test("en el servidor no siembra ningún grupo; en ci, sí", async () => {
     const db = cliente();
 

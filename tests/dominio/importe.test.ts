@@ -1,12 +1,12 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { formatearMonto } from "../../src/app/formato/importe.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
 import {
   convertir,
   crearImporte,
   crearTipoDeCambio,
   type DatosTipoDeCambio,
+  formatearMonto,
   type Importe,
   MONEDAS,
   type Moneda,

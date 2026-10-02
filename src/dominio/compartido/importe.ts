@@ -13,8 +13,8 @@
  *   lugar del dominio que redondea, con una sola función de redondeo
  *   (`redondearMitadLejosDelCero`, half-up al centavo).
  * - `parsearImporte` lee el texto que escribe el usuario con una regla
- *   explícita (la de `docs/adr/0018-importes.md`). El formato para pantalla
- *   no vive acá: es presentación (`src/app/formato/importe.ts`).
+ *   explícita (la de `docs/adr/0018-importes.md`), y `formatearMonto` y
+ *   `formatearImporte` escriben un importe para pantalla (F2-03).
  *
  * Puro, como todo `src/dominio`: sin `Date`, sin paquetes, sin lanzar por
  * reglas de negocio (devuelve `Resultado`).
@@ -287,7 +287,7 @@ const PATRON_MONTO = new RegExp(`^(-)?${PARTE_ENTERA}(?:,([0-9]{1,2}))?$`);
  * - El formato en inglés (`24,315.00`) se **rechaza**, no se adivina.
  *
  * Se aceptan `24.315,00`, `24315`, `24315,5` y `-24.315,00`. Lo que escribe
- * `formatearMonto` (`src/app/formato/importe.ts`) se vuelve a leer igual
+ * `formatearMonto` (más abajo) se vuelve a leer igual
  * (propiedad de ida y vuelta en `tests/dominio/importe.test.ts`).
  */
 export function parsearImporte<M extends Moneda>(
@@ -354,4 +354,21 @@ function valorInvalido(): Resultado<ValorTipoDeCambio, TipoDeCambioInvalido> {
       campo: "valor",
     }),
   };
+}
+
+/** El monto sin moneda, en castellano: `24.315,00`, `-0,05`. Lo que `parsearImporte` vuelve a leer igual. */
+export function formatearMonto(importe: Importe<Moneda>): string {
+  const negativo = importe.centavos < 0n;
+  const positivo = negativo ? -importe.centavos : importe.centavos;
+  const enteros = (positivo / 100n)
+    .toString()
+    .replace(/\B(?=([0-9]{3})+$)/g, ".");
+  const decimales = (positivo % 100n).toString().padStart(2, "0");
+
+  return `${negativo ? "-" : ""}${enteros},${decimales}`;
+}
+
+/** El monto con su código de moneda adelante: `USD 24.315,00`. */
+export function formatearImporte(importe: Importe<Moneda>): string {
+  return `${importe.moneda} ${formatearMonto(importe)}`;
 }

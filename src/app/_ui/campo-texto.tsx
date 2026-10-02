@@ -81,6 +81,53 @@ export function CasillaSiNo({
   );
 }
 
+/**
+ * Un importe: el monto y, al lado, su moneda, bajo una sola etiqueta y con un
+ * solo mensaje de error. Manda dos controles: `name` (el monto, tal cual se
+ * escribió) y `nombreMoneda`.
+ */
+export function CampoImporte({
+  etiqueta,
+  error,
+  nombreMoneda,
+  monedas,
+  monedaInicial,
+  ...resto
+}: PropsDeCampo &
+  Omit<ComponentProps<"input">, "className" | "id" | "type"> & {
+    readonly nombreMoneda: string;
+    readonly monedas: readonly string[];
+    readonly monedaInicial: string;
+  }) {
+  const id = useId();
+  return (
+    <Campo id={id} etiqueta={etiqueta} error={error}>
+      <div className="flex gap-2">
+        <input
+          {...atributos(id, error)}
+          className={`${atributos(id, error).className} min-w-0 flex-1`}
+          type="text"
+          inputMode="decimal"
+          {...resto}
+        />
+        <select
+          name={nombreMoneda}
+          aria-label={`Moneda de ${etiqueta}`}
+          defaultValue={monedaInicial}
+          key={monedaInicial}
+          className="rounded border border-gray-300 bg-white px-3 py-2"
+        >
+          {monedas.map((moneda) => (
+            <option key={moneda} value={moneda}>
+              {moneda}
+            </option>
+          ))}
+        </select>
+      </div>
+    </Campo>
+  );
+}
+
 export function CampoTextoLargo({
   etiqueta,
   error,

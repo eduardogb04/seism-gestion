@@ -1,16 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  crearImporte,
   formatearImporte,
   formatearMonto,
-} from "../../src/app/formato/importe.ts";
-import { crearImporte } from "../../src/dominio/compartido/importe.ts";
+} from "../../src/dominio/compartido/importe.ts";
 
 /**
  * F0-20 · Formato de un importe para pantalla, en castellano (`USD 24.315,00`).
- * Vive fuera del dominio (`src/app/formato/`): es presentación, no regla de
- * negocio. Va en el nivel dominio porque es una función pura que no necesita
- * nada de afuera (AGENTS.md, *Dónde poner un test nuevo*). La ida y vuelta
- * con el parseo está en `importe.test.ts`.
+ * Vive en el dominio desde F2-03: el listado y el formulario del molde de ABM
+ * son casos de uso y no pueden importar de `src/app`. Es una función pura:
+ * nivel dominio. La ida y vuelta con el parseo está en `importe.test.ts`.
  */
 
 describe("formatearImporte: USD 24.315,00", () => {

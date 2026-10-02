@@ -17,6 +17,9 @@
  * - Una opción fuera de su lista, o una relación con un registro que no existe
  *   o está dado de baja, vuelve en el campo. Dar de baja un registro al que
  *   apunta otro vigente se rechaza con `DOM-0010`.
+ * - Una fecha que no existe o un importe mal escrito vuelven en el campo (F2-03).
+ * - Los `filtros` de la definición (por una relación, por el mes de una fecha)
+ *   llegan en la URL con el nombre de su columna y los resuelve la base.
  * - `historial` lee de `auditoria` cómo cambiaron los campos que la
  *   definición declara (F1-05); no hay una tabla de historial aparte.
  */
@@ -47,10 +50,14 @@ import type {
 import { exigirRol } from "../usuarios/reglas.ts";
 import {
   type ColumnaAbm,
+  type ColumnaDeOrdenAbm,
+  type ColumnaSiNoAbm,
   camposDe,
   celdasDe,
   type DefinicionAbm,
   type Escrito,
+  errorDeFecha,
+  leerImporte,
   leerNumero,
   textoDeCampo,
   type ValoresAbm,
@@ -96,6 +103,14 @@ export type OpcionesPorCampo = Readonly<
   Record<string, readonly OpcionDeRelacion[]>
 >;
 
+/** Un filtro del listado: un selector con lo que se puede elegir y lo elegido ("" es todos). */
+export type FiltroListado = {
+  readonly columna: string;
+  readonly etiqueta: string;
+  readonly opciones: readonly OpcionDeRelacion[];
+  readonly elegido: string;
+};
+
 /** Un cambio de un campo con historial, listo para mostrarse. */
 export type CambioAbm = {
   /** dd/mm/aaaa hh:mm, hora argentina. */
@@ -116,8 +131,9 @@ export type Listado<E extends EntidadAbm> = {
   readonly pagina: number;
   readonly paginas: number;
   readonly buscar: string;
-  readonly orden: ColumnaAbm<E>;
+  readonly orden: ColumnaDeOrdenAbm<E>;
   readonly direccion: "asc" | "desc";
+  readonly filtros: readonly FiltroListado[];
 };
 
 export type CasosUsoAbm = {
@@ -125,9 +141,14 @@ export type CasosUsoAbm = {
     definicion: DefinicionAbm<E>,
     parametros: ParametrosListado,
   ): Promise<Listado<E>>;
-  /** Por cada campo de relación, los registros vigentes que se pueden elegir. */
+  /**
+   * Por cada campo de relación, los registros vigentes que se pueden elegir
+   * (los que cumplen su `soloSi`). Con el `id` del registro que se edita, suma
+   * lo que ya tiene elegido aunque ya no cumpla.
+   */
   opciones<E extends EntidadAbm>(
     definicion: DefinicionAbm<E>,
+    id?: string,
   ): Promise<OpcionesPorCampo>;
   /** El registro vigente con ese id. `DOM-0009` si no existe o está dado de baja. */
   obtener<E extends EntidadAbm>(
@@ -172,7 +193,7 @@ function validar<E extends EntidadAbm>(
   const valores = Object.fromEntries(
     camposDe(definicion).map(([nombre, campo]) => [
       nombre,
-      valorDeCampo(campo, escrito[nombre] ?? ""),
+      valorDeCampo(nombre, campo, escrito),
     ]),
   );
   const errores: Record<string, string> = {};
@@ -185,6 +206,18 @@ function validar<E extends EntidadAbm>(
     }
     if (campo.tipo === "numero") {
       const leido = leerNumero(campo, escrito[nombre] ?? "");
+      if ("error" in leido) {
+        errores[nombre] = leido.error;
+      }
+    }
+    if (campo.tipo === "fecha") {
+      const error = errorDeFecha(campo, escrito[nombre] ?? "");
+      if (error !== undefined) {
+        errores[nombre] = error;
+      }
+    }
+    if (campo.tipo === "importe") {
+      const leido = leerImporte(nombre, escrito);
       if ("error" in leido) {
         errores[nombre] = leido.error;
       }
@@ -239,13 +272,19 @@ async function repetidos<E extends EntidadAbm>(
   return errores;
 }
 
-/** Las relaciones de `datos` que apuntan a un registro que no existe o está dado de baja. */
+/**
+ * Las relaciones de `datos` que apuntan a un registro que no existe, está dado
+ * de baja o, si la relación tiene `soloSi`, no cumple esa casilla: salvo que el
+ * registro `actual` ya apuntara a él.
+ */
 async function relacionesRotas<E extends EntidadAbm>(
   repos: RepositoriosEnTransaccion,
   definicion: DefinicionAbm<E>,
   datos: DatosAbm<E>,
+  actual: RegistroAbm<E> | null,
 ): Promise<ErroresPorCampo> {
   const valores: ValoresAbm = datos;
+  const previos: ValoresAbm = actual?.valor ?? {};
   const errores: Record<string, string> = {};
   for (const [nombre, campo] of camposDe(definicion)) {
     const id = valores[nombre];
@@ -257,6 +296,11 @@ async function relacionesRotas<E extends EntidadAbm>(
       : null;
     if (destino === null || destino.eliminadoEn !== undefined) {
       errores[nombre] = MENSAJE_OPCION;
+    } else if (campo.soloSi !== undefined && id !== previos[nombre]) {
+      const propios: ValoresAbm = destino.valor;
+      if (propios[campo.soloSi] !== true) {
+        errores[nombre] = MENSAJE_OPCION;
+      }
     }
   }
   return errores;
@@ -267,17 +311,30 @@ async function erroresDeBase<E extends EntidadAbm>(
   repos: RepositoriosEnTransaccion,
   definicion: DefinicionAbm<E>,
   datos: DatosAbm<E>,
-  propio: string | null,
+  actual: RegistroAbm<E> | null,
 ): Promise<ErroresPorCampo> {
   return {
-    ...(await relacionesRotas(repos, definicion, datos)),
+    ...(await relacionesRotas(repos, definicion, datos, actual)),
     ...(await repetidos(
       repos.abm(definicion.entidad),
       definicion,
       datos,
-      propio,
+      actual?.valor.id ?? null,
     )),
   };
+}
+
+/** Un importe es el mismo si tiene los mismos centavos en la misma moneda, no por ser el mismo objeto. */
+function mismoValor(
+  a: ValoresAbm[string] | undefined,
+  b: ValoresAbm[string] | undefined,
+): boolean {
+  return typeof a === "object" &&
+    a !== null &&
+    typeof b === "object" &&
+    b !== null
+    ? a.centavos === b.centavos && a.moneda === b.moneda
+    : a === b;
 }
 
 function sinCambios<E extends EntidadAbm>(
@@ -285,8 +342,8 @@ function sinCambios<E extends EntidadAbm>(
   actuales: ValoresAbm,
   nuevos: ValoresAbm,
 ): boolean {
-  return camposDe(definicion).every(
-    ([campo]) => actuales[campo] === nuevos[campo],
+  return camposDe(definicion).every(([campo]) =>
+    mismoValor(actuales[campo], nuevos[campo]),
   );
 }
 
@@ -339,14 +396,29 @@ async function etiquetasDe<E extends EntidadAbm>(
   return etiquetas;
 }
 
-/** Los registros vigentes de `destino`, por la columna que se muestra. */
+/** `nombre` es una casilla de sí/no de `definicion`. */
+function esCasilla<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+  nombre: string,
+): nombre is ColumnaSiNoAbm<E> {
+  return camposDe(definicion).some(
+    ([clave, campo]) => clave === nombre && campo.tipo === "siNo",
+  );
+}
+
+/** Los registros vigentes de `destino` (si hay `soloSi`, los que lo tienen marcado), por la columna que se muestra. */
 async function opcionesDe<E extends EntidadAbm>(
   repos: RepositoriosEnTransaccion,
   destino: DefinicionAbm<E>,
   mostrar: string,
+  soloSi?: string,
 ): Promise<readonly OpcionDeRelacion[]> {
   const { registros } = await repos.abm(destino.entidad).listar({
     buscaEn: [],
+    filtros: [],
+    marcadas:
+      soloSi !== undefined && esCasilla(destino, soloSi) ? [soloSi] : [],
+    mes: null,
     orden:
       destino.orden.find((columna) => columna === mostrar) ?? destino.orden[0],
     direccion: "asc",
@@ -359,18 +431,70 @@ async function opcionesDe<E extends EntidadAbm>(
   });
 }
 
+const esquemaMes = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/);
+
+/** Lo elegido en cada filtro de la URL, por columna; lo que no sirve se descarta. */
+function filtrosElegidos<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+  parametros: ParametrosListado,
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    (definicion.filtros ?? []).flatMap((columna) => {
+      const esquema =
+        definicion.campos[columna].tipo === "fecha" ? esquemaMes : esquemaId;
+      const leido = esquema.safeParse(parametros[columna]);
+      return leido.success ? [[columna, leido.data]] : [];
+    }),
+  );
+}
+
 function parametrosDe<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
   parametros: ParametrosListado,
 ) {
-  return z
+  const leidos = z
     .object({
       buscar: z.string().trim().max(100).catch(""),
-      orden: z.enum(definicion.orden).catch(definicion.orden[0]),
-      direccion: z.enum(["asc", "desc"]).catch("asc"),
+      direccion: z
+        .enum(["asc", "desc"])
+        .catch(definicion.direccionInicial ?? "asc"),
       pagina: z.coerce.number().int().min(1).catch(1),
     })
     .parse(parametros);
+  const orden =
+    definicion.orden.find((columna) => columna === parametros.orden) ??
+    definicion.orden[0];
+  return { ...leidos, orden };
+}
+
+/** Por filtro, lo que se puede elegir: los registros vigentes de la relación, o los meses con registros. */
+async function filtrosDe<E extends EntidadAbm>(
+  repos: RepositoriosEnTransaccion,
+  definicion: DefinicionAbm<E>,
+  elegidos: Readonly<Record<string, string>>,
+): Promise<readonly FiltroListado[]> {
+  const filtros: FiltroListado[] = [];
+  for (const columna of definicion.filtros ?? []) {
+    const campo = definicion.campos[columna];
+    const opciones =
+      campo.tipo === "relacion"
+        ? await conDefinicion(campo.entidad, (destino) =>
+            opcionesDe(repos, destino, campo.mostrar),
+          )
+        : (await repos.abm(definicion.entidad).mesesCon(columna)).map(
+            (mes) => ({
+              valor: mes,
+              texto: `${mes.slice(5)}/${mes.slice(0, 4)}`,
+            }),
+          );
+    filtros.push({
+      columna,
+      etiqueta: campo.tipo === "fecha" ? "Mes" : campo.etiqueta,
+      opciones,
+      elegido: elegidos[columna] ?? "",
+    });
+  }
+  return filtros;
 }
 
 function normalizarBusqueda<E extends EntidadAbm>(
@@ -438,6 +562,12 @@ export function crearCasosUsoAbm({
         definicion,
         parametros,
       );
+      const elegidos = filtrosElegidos(definicion, parametros);
+      const columnaDeMes = (definicion.filtros ?? []).find(
+        (columna) => definicion.campos[columna].tipo === "fecha",
+      );
+      const mes =
+        columnaDeMes === undefined ? undefined : elegidos[columnaDeMes];
       return transaccional.ejecutar(async (repos) => {
         const { registros, total } = await repos
           .abm(definicion.entidad)
@@ -447,6 +577,18 @@ export function crearCasosUsoAbm({
                 normalizarBusqueda(definicion, columna)?.(buscar) ?? buscar;
               return buscar === "" || texto === "" ? [] : [{ columna, texto }];
             }),
+            filtros: (definicion.filtros ?? []).flatMap((columna) => {
+              const igual = elegidos[columna];
+              return definicion.campos[columna].tipo === "relacion" &&
+                igual !== undefined
+                ? [{ columna, igual }]
+                : [];
+            }),
+            marcadas: [],
+            mes:
+              columnaDeMes === undefined || mes === undefined
+                ? null
+                : { columna: columnaDeMes, mes },
             orden,
             direccion,
             saltear: (pagina - 1) * REGISTROS_POR_PAGINA,
@@ -467,19 +609,39 @@ export function crearCasosUsoAbm({
           buscar,
           orden,
           direccion,
+          filtros: await filtrosDe(repos, definicion, elegidos),
         };
       });
     },
 
-    opciones(definicion) {
+    opciones(definicion, id) {
       return transaccional.ejecutar(async (repos) => {
+        const editado =
+          id !== undefined && esquemaId.safeParse(id).success
+            ? await repos.abm(definicion.entidad).buscarPorId(id)
+            : null;
+        const previos: ValoresAbm = editado?.valor ?? {};
         const opciones: Record<string, readonly OpcionDeRelacion[]> = {};
         for (const [nombre, campo] of camposDe(definicion)) {
-          if (campo.tipo === "relacion") {
-            opciones[nombre] = await conDefinicion(campo.entidad, (destino) =>
-              opcionesDe(repos, destino, campo.mostrar),
-            );
+          if (campo.tipo !== "relacion") {
+            continue;
           }
+          const elegibles = await conDefinicion(campo.entidad, (destino) =>
+            opcionesDe(repos, destino, campo.mostrar, campo.soloSi),
+          );
+          const elegido = previos[nombre];
+          const yaElegido =
+            typeof elegido === "string" &&
+            !elegibles.some(({ valor }) => valor === elegido)
+              ? await repos.abm(campo.entidad).buscarPorIds([elegido])
+              : [];
+          opciones[nombre] = [
+            ...elegibles,
+            ...yaElegido.map(({ valor }) => {
+              const destino: ValoresAbm = valor;
+              return { valor: valor.id, texto: String(destino[campo.mostrar]) };
+            }),
+          ];
         }
         return opciones;
       });
@@ -573,7 +735,7 @@ export function crearCasosUsoAbm({
           repos,
           definicion,
           validado.datos,
-          actual.valor.id,
+          actual,
         );
         if (Object.keys(errores).length > 0) {
           return { ok: false, errores };

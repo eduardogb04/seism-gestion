@@ -695,6 +695,22 @@ describe("baja y en uso", () => {
     await abm.marcarEliminado(admin, TIPOS_DE_SERVICIO, tipoId);
     await abm.marcarEliminado(admin, CLIENTES, clienteId);
   });
+
+  test("un cliente que solo tiene el servicio no se da de baja hasta que el servicio se da de baja", async () => {
+    const soloConServicio = await altaDeCliente(
+      "Cliente Sin Sitios S.A.",
+      "30-00000003-1",
+    );
+    const id = await alta({ clienteId: soloConServicio });
+    const abm = crearCasosUsoAbm(dependencias());
+
+    await expect(
+      abm.marcarEliminado(admin, CLIENTES, soloConServicio),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0010.codigo });
+
+    await casos().marcarEliminado(admin, id);
+    await abm.marcarEliminado(admin, CLIENTES, soloConServicio);
+  });
 });
 
 describe("quién escribe", () => {

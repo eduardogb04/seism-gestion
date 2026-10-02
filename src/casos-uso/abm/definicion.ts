@@ -3,7 +3,7 @@
  * de Prisma y su migración, el molde da el listado, el alta, la edición y la
  * baja: los casos de uso (`abm.ts`) y las pantallas leen todo de acá.
  *
- * Un tipo de campo nuevo (número, fecha) es una variante más de `CampoAbm`,
+ * Un tipo de campo nuevo (fecha) es una variante más de `CampoAbm`,
  * con su conversión en `valorDeCampo` y su control en el formulario.
  */
 
@@ -32,6 +32,17 @@ export type CampoAbm =
       readonly etiqueta: string;
       readonly opciones: readonly OpcionAbm[];
     }
+  /**
+   * Un número con hasta `decimales` decimales (0: entero), que se escribe con
+   * coma o con punto. `opcional`: vacío se guarda como `null`. No se busca ni
+   * se ordena por un número.
+   */
+  | {
+      readonly tipo: "numero";
+      readonly etiqueta: string;
+      readonly decimales: number;
+      readonly opcional?: true;
+    }
   /** Una casilla: el dato es un `boolean`. */
   | { readonly tipo: "siNo"; readonly etiqueta: string }
   /**
@@ -47,7 +58,9 @@ export type CampoAbm =
     };
 
 /** Los datos de un registro como los lee un recorrido por campos. */
-export type ValoresAbm = Readonly<Record<string, string | boolean | null>>;
+export type ValoresAbm = Readonly<
+  Record<string, string | boolean | number | null>
+>;
 
 export type NombreDeCampo<E extends EntidadAbm> = keyof DatosAbm<E> & string;
 export type ColumnaAbm<E extends EntidadAbm> = ColumnaDeTexto<DatosAbm<E>>;
@@ -63,8 +76,18 @@ export type DefinicionAbm<E extends EntidadAbm> = {
   readonly campos: { readonly [C in NombreDeCampo<E>]: CampoAbm };
   /** Valida los datos ya convertidos; el mensaje de cada regla es el que ve la persona. */
   readonly validacion: z.ZodType<DatosAbm<E>>;
-  /** No se repiten entre los no eliminados, sin distinguir mayúsculas. */
-  readonly unicos: readonly ColumnaAbm<E>[];
+  /**
+   * No se repiten entre los no eliminados, sin distinguir mayúsculas. Una
+   * columna sola, o un grupo que no se repite **junto** (con su mensaje, que
+   * va al lado de la última).
+   */
+  readonly unicos: readonly (
+    | ColumnaAbm<E>
+    | {
+        readonly columnas: readonly ColumnaAbm<E>[];
+        readonly mensaje: string;
+      }
+  )[];
   readonly busqueda: readonly ColumnaAbm<E>[];
   /** Por cuáles se puede ordenar; la primera es el orden por defecto. */
   readonly orden: readonly [ColumnaAbm<E>, ...ColumnaAbm<E>[]];
@@ -85,6 +108,8 @@ export type DefinicionAbm<E extends EntidadAbm> = {
   readonly normalizarBusqueda?: {
     readonly [C in ColumnaAbm<E>]?: (buscado: string) => string;
   };
+  /** Los campos cuyos cambios se muestran en la edición, leídos de `auditoria`. */
+  readonly historial?: readonly NombreDeCampo<E>[];
 };
 
 /** Lo que la persona escribió en el formulario, por campo. */
@@ -101,11 +126,39 @@ export function camposDe<E extends EntidadAbm>(
   return Object.entries(campos);
 }
 
+const NUMERO = /^-?\d+(?:[.,](\d+))?$/;
+
+/** Lo escrito en un campo `numero`: el número, o lo que la persona tiene que corregir. */
+export function leerNumero(
+  campo: Extract<CampoAbm, { tipo: "numero" }>,
+  escrito: string,
+): { readonly valor: number | null } | { readonly error: string } {
+  const texto = escrito.trim();
+  if (texto === "") {
+    return campo.opcional === true
+      ? { valor: null }
+      : { error: "Escribí un número." };
+  }
+  const partes = NUMERO.exec(texto);
+  if (partes === null) {
+    return { error: "Escribí un número." };
+  }
+  if ((partes[1]?.length ?? 0) > campo.decimales) {
+    return {
+      error:
+        campo.decimales === 0
+          ? "Escribí un número entero, sin decimales."
+          : `Hasta ${campo.decimales} decimales.`,
+    };
+  }
+  return { valor: Number(texto.replace(",", ".")) };
+}
+
 /** De lo escrito al valor que valida la definición. */
 export function valorDeCampo(
   campo: CampoAbm,
   escrito: string,
-): string | boolean | null {
+): string | boolean | number | null {
   switch (campo.tipo) {
     case "texto":
       return campo.opcional === true && escrito.trim() === "" ? null : escrito;
@@ -114,6 +167,10 @@ export function valorDeCampo(
       return escrito.trim() === "" ? null : escrito;
     case "opcion":
       return escrito;
+    case "numero": {
+      const leido = leerNumero(campo, escrito);
+      return "valor" in leido ? leido.valor : escrito;
+    }
     case "siNo":
       return escrito !== "";
   }
@@ -140,6 +197,9 @@ export function escritoDe<E extends EntidadAbm>(
       if (campo.tipo === "siNo") {
         return [nombre, valor === true ? MARCADA : ""];
       }
+      if (typeof valor === "number") {
+        return [nombre, String(valor).replace(".", ",")];
+      }
       const texto = typeof valor === "string" ? valor : "";
       return [nombre, formatoDe(definicion, nombre)?.(texto) ?? texto];
     }),
@@ -150,7 +210,7 @@ export function escritoDe<E extends EntidadAbm>(
  * Cómo se ve un campo en el listado y en la baja. `etiquetas` traduce el id de
  * un registro relacionado a lo que se muestra de él.
  */
-function textoDeCampo<E extends EntidadAbm>(
+export function textoDeCampo<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
   nombre: string,
   datos: ValoresAbm,
@@ -165,6 +225,12 @@ function textoDeCampo<E extends EntidadAbm>(
       return campo.opciones.find((o) => o.valor === valor)?.etiqueta ?? "";
     case "relacion":
       return typeof valor === "string" ? (etiquetas.get(valor) ?? "") : "";
+    case "numero":
+      return typeof valor === "number"
+        ? valor.toLocaleString("es-AR", {
+            maximumFractionDigits: campo.decimales,
+          })
+        : "";
     default:
       return escritoDe(definicion, datos)[nombre] ?? "";
   }

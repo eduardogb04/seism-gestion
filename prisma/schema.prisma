@@ -247,6 +247,36 @@ model Cliente {
   actualizadoPor   Json      @map("actualizado_por") @db.JsonB
   eliminadoEn      DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor     Json?     @map("eliminado_por") @db.JsonB
+  sitios           Sitio[]
 
   @@map("clientes")
+}
+
+// Sitios (F1-05): donde está la instalación de un cliente. Los tanques no son
+// entidades: el sitio lleva la cantidad y la capacidad total, y cómo cambian
+// se lee de `auditoria`. El nombre es único dentro del cliente, entre los no
+// eliminados y sin distinguir mayúsculas: lo garantiza el índice
+// `sitios_cliente_id_nombre_unico`, solo en la migración (Prisma no declara
+// índices sobre expresiones).
+model Sitio {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clienteId            String    @map("cliente_id") @db.Uuid
+  cliente              Cliente   @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  nombre               String
+  provincia            String
+  localidad            String
+  direccion            String?
+  latitud              Float?
+  longitud             Float?
+  cantidadTanques      Int       @map("cantidad_tanques")
+  capacidadTotalLitros Int       @map("capacidad_total_litros")
+  observaciones        String?
+  creadoEn             DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor            Json      @map("creado_por") @db.JsonB
+  actualizadoEn        DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor       Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn          DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor         Json?     @map("eliminado_por") @db.JsonB
+
+  @@map("sitios")
 }

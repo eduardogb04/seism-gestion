@@ -143,12 +143,28 @@ describe("semilla", () => {
     expect(await db.grupo.count()).toBe(3);
   });
 
+  test("siembra cinco sitios de demostración, uno solo con coordenadas, y no los repite ni repone uno dado de baja", async () => {
+    const db = cliente();
+
+    await sembrar(db, opciones());
+    await db.sitio.updateMany({
+      where: { nombre: "Depósito Ejemplo" },
+      data: { eliminadoEn: new Date(), eliminadoPor: { tipo: "sistema" } },
+    });
+    await sembrar(db, opciones());
+
+    expect(await db.sitio.count()).toBe(5);
+    expect(await db.sitio.count({ where: { latitud: { not: null } } })).toBe(1);
+    expect(await db.auditoria.count({ where: { entidad: "Sitio" } })).toBe(5);
+  });
+
   test("en el servidor no siembra ningún grupo; en ci, sí", async () => {
     const db = cliente();
 
     await sembrar(db, opciones("servidor"));
 
     expect(await db.grupo.count()).toBe(0);
+    expect(await db.sitio.count()).toBe(0);
     expect(await db.configuracion.count()).toBeGreaterThan(0);
 
     await sembrar(db, opciones("ci"));

@@ -64,6 +64,14 @@ function Control({
       return <CampoTexto type="text" {...comunes} />;
     case "textoLargo":
       return <CampoTextoLargo {...comunes} />;
+    case "numero":
+      return (
+        <CampoTexto
+          type="text"
+          inputMode={campo.decimales === 0 ? "numeric" : "decimal"}
+          {...comunes}
+        />
+      );
     case "opcion":
       return (
         <Selector

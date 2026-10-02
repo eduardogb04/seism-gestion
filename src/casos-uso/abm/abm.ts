@@ -17,6 +17,8 @@
  * - Una opción fuera de su lista, o una relación con un registro que no existe
  *   o está dado de baja, vuelve en el campo. Dar de baja un registro al que
  *   apunta otro vigente se rechaza con `DOM-0010`.
+ * - `historial` lee de `auditoria` cómo cambiaron los campos que la
+ *   definición declara (F1-05); no hay una tabla de historial aparte.
  */
 
 import { z } from "zod";
@@ -25,11 +27,12 @@ import {
   crearAuditable,
   marcarActualizado,
   marcarEliminado,
+  type RegistroAuditoria,
 } from "../../dominio/compartido/auditable.ts";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
-import type { Reloj } from "../../dominio/compartido/reloj.ts";
+import type { FechaHora, Reloj } from "../../dominio/compartido/reloj.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
 import type {
   DatosAbm,
@@ -48,6 +51,8 @@ import {
   celdasDe,
   type DefinicionAbm,
   type Escrito,
+  leerNumero,
+  textoDeCampo,
   type ValoresAbm,
   valorDeCampo,
 } from "./definicion.ts";
@@ -91,6 +96,17 @@ export type OpcionesPorCampo = Readonly<
   Record<string, readonly OpcionDeRelacion[]>
 >;
 
+/** Un cambio de un campo con historial, listo para mostrarse. */
+export type CambioAbm = {
+  /** dd/mm/aaaa hh:mm, hora argentina. */
+  readonly cuando: string;
+  /** El email de la persona, o el nombre del proceso del sistema. */
+  readonly quien: string;
+  readonly campo: string;
+  readonly de: string;
+  readonly a: string;
+};
+
 export type Listado<E extends EntidadAbm> = {
   readonly registros: readonly RegistroAbm<E>[];
   /** Las celdas de cada registro (por id), en el orden de `definicion.listado`. */
@@ -129,6 +145,14 @@ export type CasosUsoAbm = {
     id: string,
     escrito: Escrito,
   ): Promise<ResultadoEscritura<E>>;
+  /**
+   * Los cambios de los campos con `historial` del registro, del más nuevo al
+   * más viejo. El alta no es un cambio. Sin `historial` declarado, ninguno.
+   */
+  historial<E extends EntidadAbm>(
+    definicion: DefinicionAbm<E>,
+    id: string,
+  ): Promise<readonly CambioAbm[]>;
   /** La baja: lógica, nunca quita la fila. */
   marcarEliminado<E extends EntidadAbm>(
     actor: Actor,
@@ -159,6 +183,12 @@ function validar<E extends EntidadAbm>(
     ) {
       errores[nombre] = MENSAJE_OPCION;
     }
+    if (campo.tipo === "numero") {
+      const leido = leerNumero(campo, escrito[nombre] ?? "");
+      if ("error" in leido) {
+        errores[nombre] = leido.error;
+      }
+    }
   }
   const leido = definicion.validacion.safeParse(valores);
   if (leido.success && Object.keys(errores).length === 0) {
@@ -180,14 +210,30 @@ async function repetidos<E extends EntidadAbm>(
   propio: string | null,
 ): Promise<ErroresPorCampo> {
   const errores: Record<string, string> = {};
-  for (const campo of definicion.unicos) {
-    const valor = datos[campo];
-    if (typeof valor !== "string") {
+  for (const unico of definicion.unicos) {
+    const { columnas, mensaje } =
+      typeof unico === "string"
+        ? { columnas: [unico], mensaje: MENSAJE_UNICO }
+        : unico;
+    const valores = columnas.flatMap((columna) => {
+      const valor = datos[columna];
+      return typeof valor === "string"
+        ? [
+            {
+              columna,
+              valor,
+              exacto: definicion.campos[columna].tipo === "relacion",
+            },
+          ]
+        : [];
+    });
+    const ultima = columnas.at(-1);
+    if (ultima === undefined || valores.length < columnas.length) {
       continue;
     }
-    const otro = await repositorio.buscarPorValor(campo, valor);
+    const otro = await repositorio.buscarPorValores(valores);
     if (otro !== null && otro.valor.id !== propio) {
-      errores[campo] = MENSAJE_UNICO;
+      errores[ultima] = mensaje;
     }
   }
   return errores;
@@ -337,6 +383,50 @@ function normalizarBusqueda<E extends EntidadAbm>(
   return normalizadores[columna];
 }
 
+const SIN_ETIQUETAS: ReadonlyMap<string, string> = new Map();
+
+/** Lo que guardó la auditoría, como valores de un registro: lo demás no es un dato de la definición. */
+function valoresDe(foto: Readonly<Record<string, unknown>>): ValoresAbm {
+  return Object.fromEntries(
+    Object.entries(foto).filter(
+      (entrada): entrada is [string, string | boolean | number | null] =>
+        entrada[1] === null ||
+        ["string", "boolean", "number"].includes(typeof entrada[1]),
+    ),
+  );
+}
+
+function cuandoDe({ anio, mes, dia, hora, minuto }: FechaHora): string {
+  const dos = (numero: number) => String(numero).padStart(2, "0");
+  return `${dos(dia)}/${dos(mes)}/${anio} ${dos(hora)}:${dos(minuto)}`;
+}
+
+/** Los campos con historial que cambiaron entre `antes` y `despues` de un registro de auditoría. */
+function cambiosDe<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+  registro: RegistroAuditoria,
+  quien: string,
+): readonly CambioAbm[] {
+  if (registro.antes === null || registro.despues === null) {
+    return [];
+  }
+  const antes = valoresDe(registro.antes);
+  const despues = valoresDe(registro.despues);
+  return (definicion.historial ?? []).flatMap((nombre) =>
+    antes[nombre] === despues[nombre]
+      ? []
+      : [
+          {
+            cuando: cuandoDe(registro.en),
+            quien,
+            campo: definicion.campos[nombre].etiqueta,
+            de: textoDeCampo(definicion, nombre, antes, SIN_ETIQUETAS),
+            a: textoDeCampo(definicion, nombre, despues, SIN_ETIQUETAS),
+          },
+        ],
+  );
+}
+
 export function crearCasosUsoAbm({
   transaccional,
   reloj,
@@ -392,6 +482,34 @@ export function crearCasosUsoAbm({
           }
         }
         return opciones;
+      });
+    },
+
+    historial(definicion, id) {
+      if ((definicion.historial ?? []).length === 0) {
+        return Promise.resolve([]);
+      }
+      return transaccional.ejecutar(async (repos) => {
+        const registros = await repos.auditoria.registrosDe(
+          definicion.entidad,
+          id,
+        );
+        const emails = new Map(
+          (await repos.usuarios.listar()).map(({ valor }) => [
+            valor.id,
+            valor.email,
+          ]),
+        );
+        return registros.flatMap((registro) =>
+          cambiosDe(
+            definicion,
+            registro,
+            registro.actor.tipo === "sistema"
+              ? registro.actor.proceso
+              : (emails.get(registro.actor.usuarioId) ??
+                  registro.actor.usuarioId),
+          ),
+        );
       });
     },
 

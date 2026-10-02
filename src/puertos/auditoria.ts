@@ -9,4 +9,9 @@ import type { RegistroAuditoria } from "../dominio/compartido/auditable.ts";
 export type Auditoria = {
   /** Suma un registro al historial de auditoría. No hay `eliminar`: el historial solo crece. */
   registrar(registro: RegistroAuditoria): Promise<void>;
+  /** Los registros de una entidad y un id, del más nuevo al más viejo. */
+  registrosDe(
+    entidad: string,
+    id: string,
+  ): Promise<readonly RegistroAuditoria[]>;
 };

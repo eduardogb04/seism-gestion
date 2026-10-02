@@ -4,6 +4,8 @@
  * no dependa de la memoria, este test recorre **todas las definiciones
  * registradas** y, por cada campo de `unicos`, exige en la base migrada un
  * índice único parcial sobre `lower(<columna>)` con `eliminado_en IS NULL`.
+ * Un grupo de columnas (F1-05) lleva un solo índice con todas, en su orden; una
+ * relación (que guarda un id) va sin `lower`.
  *
  * La tabla y la columna salen de `prisma/schema.prisma`: el modelo se llama
  * como la entidad.
@@ -14,6 +16,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { DEFINICIONES } from "../../src/casos-uso/abm/definiciones.ts";
+import type { EntidadAbm } from "../../src/puertos/repositorios/abm.ts";
 import { uriBaseCompartida } from "./_arnes/base.ts";
 
 const ESQUEMA = readFileSync(
@@ -41,8 +44,19 @@ function enLaBase(modelo: string, campo: string) {
 }
 
 const UNICOS = Object.values(DEFINICIONES).flatMap(({ entidad, unicos }) =>
-  unicos.map((campo) => [entidad, campo] as const),
+  unicos.map(
+    (unico) =>
+      [entidad, typeof unico === "string" ? [unico] : unico.columnas] as const,
+  ),
 );
+
+function esRelacion(entidad: EntidadAbm, campo: string): boolean {
+  return (
+    Object.entries(DEFINICIONES[entidad].campos).find(
+      ([nombre]) => nombre === campo,
+    )?.[1].tipo === "relacion"
+  );
+}
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
 
@@ -61,25 +75,38 @@ describe("índices únicos de los ABM", () => {
   });
 
   test("hay campos únicos que revisar, y el nombre de Grupos es uno", () => {
-    expect(UNICOS).toContainEqual(["Grupo", "nombre"]);
+    expect(UNICOS).toContainEqual(["Grupo", ["nombre"]]);
+  });
+
+  test("el grupo de Sitios (cliente y nombre) es uno de los que se revisan", () => {
+    expect(UNICOS).toContainEqual(["Sitio", ["clienteId", "nombre"]]);
   });
 
   test.each(UNICOS)(
-    "%s.%s tiene su índice único parcial en la base",
-    async (entidad, campo) => {
-      const { tabla, columna } = enLaBase(entidad, campo);
+    "%s %j tiene su índice único parcial en la base",
+    async (entidad, campos) => {
+      const columnas = campos.map((campo) => ({
+        ...enLaBase(entidad, campo),
+        relacion: esRelacion(entidad, campo),
+      }));
+      const tabla = columnas[0]?.tabla ?? entidad;
+      const esperadas = columnas.map(({ columna, relacion }) =>
+        relacion ? columna : `lower(${columna})`,
+      );
 
       const indices = await cliente().$queryRaw<{ indexdef: string }[]>`
       select indexdef from pg_indexes where tablename = ${tabla}`;
 
+      const escapar = (texto: string) =>
+        texto.replaceAll("(", "\\(").replaceAll(")", "\\)");
       const esperado = new RegExp(
-        `^CREATE UNIQUE INDEX .* \\(lower\\("?${columna}"?\\)\\) WHERE \\("?eliminado_en"? IS NULL\\)$`,
+        `^CREATE UNIQUE INDEX .* \\(${escapar(esperadas.join(", "))}\\) WHERE \\(eliminado_en IS NULL\\)$`,
       );
       expect(
         indices
-          .map(({ indexdef }) => indexdef)
+          .map(({ indexdef }) => indexdef.replaceAll('"', ""))
           .filter((definicion) => esperado.test(definicion)),
-        `falta en la migración: CREATE UNIQUE INDEX "${tabla}_${columna}_unico" ON "${tabla}" (lower("${columna}")) WHERE ("eliminado_en" IS NULL);`,
+        `falta en la migración: CREATE UNIQUE INDEX en "${tabla}" sobre (${esperadas.join(", ")}) WHERE ("eliminado_en" IS NULL), con las columnas con sus nombres de la base`,
       ).toHaveLength(1);
     },
   );

@@ -140,3 +140,17 @@ export function CampoTextoLargo({
     </Campo>
   );
 }
+
+/** Un archivo a subir (F2-05). El navegador no lo conserva si el formulario vuelve con errores. */
+export function CampoArchivo({
+  etiqueta,
+  error,
+  ...resto
+}: PropsDeCampo & Omit<ComponentProps<"input">, "className" | "id" | "type">) {
+  const id = useId();
+  return (
+    <Campo id={id} etiqueta={etiqueta} error={error}>
+      <input {...atributos(id, error)} type="file" {...resto} />
+    </Campo>
+  );
+}

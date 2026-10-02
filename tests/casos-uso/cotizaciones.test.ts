@@ -24,10 +24,7 @@ import { crearAlmacenDisco } from "../../src/adaptadores/disco/almacen-documento
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
-import { crearCasosUsoAbm } from "../../src/casos-uso/abm/abm.ts";
-import { CLIENTES } from "../../src/casos-uso/abm/clientes.ts";
 import type { Escrito } from "../../src/casos-uso/abm/definicion.ts";
-import { TIPOS_DE_SERVICIO } from "../../src/casos-uso/abm/tipos-de-servicio.ts";
 import {
   type ArchivoSubido,
   TOPE_DE_DOCUMENTO,
@@ -51,6 +48,7 @@ import {
   type UsuarioSembrado,
 } from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
+import { altaDeServicio, sembrarServicio } from "./_arnes/servicio.ts";
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -186,25 +184,6 @@ async function archivosEnElAlmacen(): Promise<number> {
   return todos.filter((entrada) => entrada.isFile()).length;
 }
 
-async function nuevoServicio(titulo: string, deCliente: string) {
-  const [tipo] = await cliente().tipoServicio.findMany();
-  const resultado = await crearCasosUsoServicios(dependencias()).crear(admin, {
-    clienteId: deCliente,
-    tipoServicioId: tipo?.id ?? "",
-    titulo,
-    modalidad: "puntual",
-    responsableId: usuarios[0]?.id ?? "",
-    fechaPedido: "2031-07-01",
-    vigenciaDesde: "",
-    vigenciaHasta: "",
-    observaciones: "",
-  });
-  if (!resultado.ok) {
-    throw new Error(`el alta no pasó: ${JSON.stringify(resultado.errores)}`);
-  }
-  return resultado.id;
-}
-
 beforeAll(() => {
   prisma = crearClientePrisma(uriBaseCompartida());
 });
@@ -225,30 +204,11 @@ beforeEach(async () => {
   admin = persona(0);
   operador = persona(1);
   exAdmin = persona(2);
-  const abm = crearCasosUsoAbm(dependencias());
-  const alta = await abm.crear(admin, CLIENTES, {
-    razonSocial: "Minera Ejemplo S.A.",
-    cuit: "30-00000001-5",
-    condicionIva: "responsable_inscripto",
-    domicilio: "Calle Falsa 123",
-    localidad: "Ciudad Ejemplo",
-    provincia: "cordoba",
-    codigoPostal: "X5000",
-    esCliente: "si",
-    esProveedor: "",
-  });
-  const tipo = await abm.crear(admin, TIPOS_DE_SERVICIO, {
-    nombre: "Auditoría de ejemplo",
-    descripcion: "",
-    modalidad: "puntual",
-    activo: "si",
-  });
-  if (!alta.ok || !tipo.ok) {
-    throw new Error("no se pudo armar la base de la prueba");
-  }
-  servicioId = await nuevoServicio(
-    "Auditoría de ejemplo",
-    alta.registro.valor.id,
+  servicioId = await sembrarServicio(
+    cliente(),
+    dependencias(),
+    admin,
+    usuarios[0]?.id ?? "",
   );
 });
 
@@ -623,9 +583,12 @@ describe("el documento", () => {
 
 describe("el servicio que recibe la cotización", () => {
   test("uno que no existe, o dado de baja, es DOM-0009 y no se escribe nada", async () => {
-    const baja = await nuevoServicio(
+    const baja = await altaDeServicio(
+      cliente(),
+      dependencias(),
+      admin,
+      usuarios[0]?.id ?? "",
       "A dar de baja",
-      (await cliente().cliente.findFirstOrThrow()).id,
     );
     await crearCasosUsoServicios(dependencias()).marcarEliminado(admin, baja);
     const antes = await filas();

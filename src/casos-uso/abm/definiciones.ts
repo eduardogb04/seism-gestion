@@ -13,10 +13,12 @@ import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/trans
 import { CLIENTES } from "./clientes.ts";
 import { type ColumnaAbm, camposDe, type DefinicionAbm } from "./definicion.ts";
 import { GRUPOS } from "./grupos.ts";
+import { TIPOS_DE_SERVICIO } from "./tipos-de-servicio.ts";
 
 export const DEFINICIONES: { readonly [E in EntidadAbm]: DefinicionAbm<E> } = {
   Grupo: GRUPOS,
   Cliente: CLIENTES,
+  TipoServicio: TIPOS_DE_SERVICIO,
 };
 
 const esquemaEntidad = z

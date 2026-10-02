@@ -13,6 +13,7 @@
  * pasa además su `Conversion` (F2-03, ADR 0032).
  */
 
+import { z } from "zod";
 import { catalogo } from "../../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../../dominio/compartido/identificador.ts";
@@ -35,6 +36,18 @@ import { Prisma } from "../generado/client.ts";
 
 /** Código de Prisma para una violación de índice único. */
 const VIOLACION_UNICO = "P2002";
+
+/** Código de Prisma para una restricción de la base (claves foráneas, disparadores `restrict_violation`). */
+const VIOLACION_DE_RESTRICCION = "P2003";
+
+/** El mensaje de los disparadores de pagos (F2-09): la cuenta o el egreso que se da de baja todavía tiene pagos vigentes. */
+const BAJA_CON_PAGOS = "pagos_vigentes_baja";
+
+const esquemaMetaDeRestriccion = z.object({
+  driverAdapterError: z.object({
+    cause: z.object({ originalMessage: z.string() }),
+  }),
+});
 
 /** Las columnas que toda tabla de ABM lleva además de sus datos (las de `usuarios`). */
 type FilaAuditable = {
@@ -220,7 +233,7 @@ function rangoDelMes(mes: string): { gte: Date; lt: Date } {
   };
 }
 
-/** Corre una escritura; si la base rechaza un valor único repetido, `DOM-0008`. */
+/** Corre una escritura; si la base rechaza un valor único repetido, `DOM-0008`; si rechaza una baja porque hay pagos vigentes, `DOM-0010`. */
 async function escribir(
   entidad: string,
   escritura: () => Promise<unknown>,
@@ -233,6 +246,14 @@ async function escribir(
       error.code === VIOLACION_UNICO
     ) {
       throw nuevoError(catalogo.DOM_0008, { entidad }, error);
+    }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === VIOLACION_DE_RESTRICCION &&
+      esquemaMetaDeRestriccion.safeParse(error.meta).data?.driverAdapterError
+        .cause.originalMessage === BAJA_CON_PAGOS
+    ) {
+      throw nuevoError(catalogo.DOM_0010, { entidad }, error);
     }
     throw error;
   }

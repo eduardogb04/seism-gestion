@@ -243,6 +243,46 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Egreso" } })).toBe(6);
   });
 
+  test("siembra tres pagos —uno salda, uno parcial, uno en dólares desde una cuenta en pesos—, una sola vez y no en el servidor", async () => {
+    const db = cliente();
+    const pagos = () =>
+      db.pago.findMany({
+        orderBy: { fecha: "asc" },
+        select: {
+          importeCentavos: true,
+          importeMoneda: true,
+          salidaCentavos: true,
+          salidaMoneda: true,
+          cambioNumerador: true,
+          egreso: { select: { importeCentavos: true } },
+        },
+      });
+
+    await sembrar(db, opciones("servidor"));
+    expect(await pagos()).toEqual([]);
+
+    await sembrar(db, opciones());
+    await sembrar(db, opciones());
+
+    const sembrados = await pagos();
+    expect(sembrados).toHaveLength(3);
+    expect(
+      sembrados.filter((p) => p.importeCentavos === p.egreso.importeCentavos),
+    ).toHaveLength(1);
+    expect(
+      sembrados.filter((p) => p.importeCentavos < p.egreso.importeCentavos),
+    ).toHaveLength(2);
+    const enDolares = sembrados.filter((p) => p.importeMoneda === "USD");
+    expect(enDolares).toEqual([
+      expect.objectContaining({
+        salidaMoneda: "ARS",
+        salidaCentavos: 36_000_000n,
+        cambioNumerador: 1200n,
+      }),
+    ]);
+    expect(await db.auditoria.count({ where: { entidad: "Pago" } })).toBe(3);
+  });
+
   test("siembra cuatro servicios en distintos estados, con su historial y uno con dos sitios, una sola vez y no en el servidor", async () => {
     const db = cliente();
     const servicios = () =>

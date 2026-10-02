@@ -136,6 +136,22 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Primero reasigná o dá de baja lo que lo usa (por ejemplo, los clientes de un grupo) y volvé a intentarlo.",
   },
+  DOM_0012: {
+    codigo: "DOM-0012",
+    tipo: "persona",
+    descripcion:
+      "El pago no se puede registrar: es mayor que lo que falta pagar, no es un importe mayor que cero o no está en la moneda de la deuda.",
+    queHacer:
+      "Corregí el importe: tiene que ser mayor que cero y no pasar del saldo. Si ya se pagó todo, no hay nada más que registrar.",
+  },
+  DOM_0013: {
+    codigo: "DOM-0013",
+    tipo: "persona",
+    descripcion:
+      "El tipo de cambio no corresponde: falta si la cuenta es de otra moneda que la deuda, y no va si las dos monedas son la misma.",
+    queHacer:
+      "Si la cuenta es de otra moneda, cargá el tipo de cambio de ese día y de dónde sale. Si es la misma moneda, dejalo vacío.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",

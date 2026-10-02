@@ -3,12 +3,23 @@
  * de Prisma y su migración, el molde da el listado, el alta, la edición y la
  * baja: los casos de uso (`abm.ts`) y las pantallas leen todo de acá.
  *
- * Un tipo de campo nuevo (fecha) es una variante más de `CampoAbm`,
- * con su conversión en `valorDeCampo` y su control en el formulario.
+ * Un tipo de campo nuevo es una variante más de `CampoAbm`, con su conversión
+ * en `valorDeCampo` y su control en el formulario.
  */
 
 import type { z } from "zod";
+import {
+  formatearImporte,
+  formatearMonto,
+  type Importe,
+  MONEDAS,
+  type Moneda,
+  parsearImporte,
+} from "../../dominio/compartido/importe.ts";
+import { esDiaValido } from "../../dominio/compartido/reloj.ts";
 import type {
+  ColumnaDeOrden,
+  ColumnaDeSiNo,
   ColumnaDeTexto,
   DatosAbm,
   EntidadAbm,
@@ -52,22 +63,44 @@ export type CampoAbm =
   /**
    * Un registro vigente de otra entidad, que se elige de una lista y se
    * muestra por su columna `mostrar`: una de las de orden de la entidad
-   * destino. Vacío se guarda como `null`.
+   * destino. Vacío se guarda como `null`. `soloSi`: una casilla de la entidad
+   * destino (`activo`) que tiene que estar marcada para poder elegirlo; el que ya
+   * estaba elegido sigue valiendo al editar aunque la haya perdido.
    */
   | {
       readonly tipo: "relacion";
       readonly etiqueta: string;
       readonly entidad: EntidadAbm;
       readonly mostrar: string;
-    };
+      readonly soloSi?: string;
+    }
+  /**
+   * Un día, sin hora ni zona: el dato es el texto `aaaa-mm-dd`, se escribe con
+   * el selector de fecha del navegador y se muestra dd/mm/aaaa. `opcional`: vacío es `null`.
+   */
+  | {
+      readonly tipo: "fecha";
+      readonly etiqueta: string;
+      readonly opcional?: true;
+    }
+  /**
+   * Un monto con su moneda, juntos: el dato es un `Importe` (centavos enteros y
+   * moneda). En el formulario son dos controles: el monto, con el nombre del
+   * campo, y la moneda, con `nombreDeMoneda`.
+   */
+  | { readonly tipo: "importe"; readonly etiqueta: string };
 
 /** Los datos de un registro como los lee un recorrido por campos. */
 export type ValoresAbm = Readonly<
-  Record<string, string | boolean | number | null>
+  Record<string, string | boolean | number | null | Importe<Moneda>>
 >;
 
 export type NombreDeCampo<E extends EntidadAbm> = keyof DatosAbm<E> & string;
 export type ColumnaAbm<E extends EntidadAbm> = ColumnaDeTexto<DatosAbm<E>>;
+export type ColumnaDeOrdenAbm<E extends EntidadAbm> = ColumnaDeOrden<
+  DatosAbm<E>
+>;
+export type ColumnaSiNoAbm<E extends EntidadAbm> = ColumnaDeSiNo<DatosAbm<E>>;
 
 export type DefinicionAbm<E extends EntidadAbm> = {
   readonly entidad: E;
@@ -93,8 +126,15 @@ export type DefinicionAbm<E extends EntidadAbm> = {
       }
   )[];
   readonly busqueda: readonly ColumnaAbm<E>[];
-  /** Por cuáles se puede ordenar; la primera es el orden por defecto. */
-  readonly orden: readonly [ColumnaAbm<E>, ...ColumnaAbm<E>[]];
+  /** Por cuáles se puede ordenar (un importe, por su monto); la primera es el orden por defecto. */
+  readonly orden: readonly [ColumnaDeOrdenAbm<E>, ...ColumnaDeOrdenAbm<E>[]];
+  /** En qué sentido se ordena por defecto; sin esto, de menor a mayor. */
+  readonly direccionInicial?: "asc" | "desc";
+  /**
+   * Por qué se filtra el listado, con un selector cada una: una columna de
+   * `relacion` (por ese registro) o de `fecha` (por mes, entre los meses que tienen registros).
+   */
+  readonly filtros?: readonly ColumnaAbm<E>[];
   readonly rolesQueEscriben: readonly [Rol, ...Rol[]];
   /** Las columnas del listado: un campo, o una calculada con su etiqueta. */
   readonly listado: readonly (
@@ -158,26 +198,81 @@ export function leerNumero(
   return { valor: Number(texto.replace(",", ".")) };
 }
 
-/** Lo que trae el formulario de alta antes de escribir: las casillas que vienen marcadas. */
+/** Las monedas que ofrece el control de un campo `importe`: `app` solo llega al dominio por acá. */
+export { MONEDAS };
+
+/** El nombre del control de la moneda de un campo `importe`. */
+export function nombreDeMoneda(nombre: string): string {
+  return `${nombre}Moneda`;
+}
+
+/** El monto escrito y la moneda elegida de un campo `importe`: el importe, o lo que la persona tiene que corregir. */
+export function leerImporte(
+  nombre: string,
+  escrito: Escrito,
+): { readonly valor: Importe<Moneda> } | { readonly error: string } {
+  const moneda = MONEDAS.find(
+    (codigo) => codigo === escrito[nombreDeMoneda(nombre)],
+  );
+  if (moneda === undefined) {
+    return { error: "Elegí la moneda." };
+  }
+  const monto = escrito[nombre] ?? "";
+  if (monto.trim() === "") {
+    return { error: "Escribí el importe." };
+  }
+  const leido = parsearImporte(monto, moneda);
+  return leido.ok
+    ? { valor: leido.valor }
+    : {
+        error:
+          "Escribí el importe con coma para los decimales y, si querés, punto para los miles (por ejemplo 1.234,50).",
+      };
+}
+
+/** Lo que la persona tiene que corregir en un campo `fecha`, si algo. */
+export function errorDeFecha(
+  campo: Extract<CampoAbm, { tipo: "fecha" }>,
+  escrito: string,
+): string | undefined {
+  if (escrito === "") {
+    return campo.opcional === true ? undefined : "Elegí una fecha.";
+  }
+  return esDiaValido(escrito) ? undefined : "Esa fecha no existe.";
+}
+
+/** dd/mm/aaaa de un día `aaaa-mm-dd` ya validado. */
+function diaConBarras(dia: string): string {
+  const [anio, mes, numero] = dia.split("-");
+  return `${numero}/${mes}/${anio}`;
+}
+
+/** Lo que trae el formulario de alta antes de escribir: las casillas que vienen marcadas y la moneda por defecto. */
 export function valoresDeAlta<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
 ): Escrito {
   return Object.fromEntries(
-    camposDe(definicion).flatMap(([nombre, campo]) =>
-      campo.tipo === "siNo" && campo.marcadaAlCrear === true
+    camposDe(definicion).flatMap(([nombre, campo]) => {
+      if (campo.tipo === "importe") {
+        return [[nombreDeMoneda(nombre), MONEDAS[0]]];
+      }
+      return campo.tipo === "siNo" && campo.marcadaAlCrear === true
         ? [[nombre, MARCADA]]
-        : [],
-    ),
+        : [];
+    }),
   );
 }
 
 /** De lo escrito al valor que valida la definición. */
 export function valorDeCampo(
+  nombre: string,
   campo: CampoAbm,
-  escrito: string,
-): string | boolean | number | null {
+  todo: Escrito,
+): ValoresAbm[string] {
+  const escrito = todo[nombre] ?? "";
   switch (campo.tipo) {
     case "texto":
+    case "fecha":
       return campo.opcional === true && escrito.trim() === "" ? null : escrito;
     case "textoLargo":
     case "relacion":
@@ -186,6 +281,10 @@ export function valorDeCampo(
       return escrito;
     case "numero": {
       const leido = leerNumero(campo, escrito);
+      return "valor" in leido ? leido.valor : escrito;
+    }
+    case "importe": {
+      const leido = leerImporte(nombre, todo);
       return "valor" in leido ? leido.valor : escrito;
     }
     case "siNo":
@@ -209,16 +308,22 @@ export function escritoDe<E extends EntidadAbm>(
   datos: ValoresAbm,
 ): Escrito {
   return Object.fromEntries(
-    camposDe(definicion).map(([nombre, campo]) => {
+    camposDe(definicion).flatMap(([nombre, campo]) => {
       const valor = datos[nombre];
       if (campo.tipo === "siNo") {
-        return [nombre, valor === true ? MARCADA : ""];
+        return [[nombre, valor === true ? MARCADA : ""]];
       }
       if (typeof valor === "number") {
-        return [nombre, String(valor).replace(".", ",")];
+        return [[nombre, String(valor).replace(".", ",")]];
+      }
+      if (typeof valor === "object" && valor !== null) {
+        return [
+          [nombre, formatearMonto(valor)],
+          [nombreDeMoneda(nombre), valor.moneda],
+        ];
       }
       const texto = typeof valor === "string" ? valor : "";
-      return [nombre, formatoDe(definicion, nombre)?.(texto) ?? texto];
+      return [[nombre, formatoDe(definicion, nombre)?.(texto) ?? texto]];
     }),
   );
 }
@@ -247,6 +352,12 @@ export function textoDeCampo<E extends EntidadAbm>(
         ? valor.toLocaleString("es-AR", {
             maximumFractionDigits: campo.decimales,
           })
+        : "";
+    case "fecha":
+      return typeof valor === "string" ? diaConBarras(valor) : "";
+    case "importe":
+      return typeof valor === "object" && valor !== null
+        ? formatearImporte(valor)
         : "";
     default:
       return escritoDe(definicion, datos)[nombre] ?? "";

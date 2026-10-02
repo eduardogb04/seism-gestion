@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas; desde F2-03, seis egresos en pesos y en dólares), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas; desde F2-03, seis egresos en pesos y en dólares; desde F2-09, tres pagos de esos egresos), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -29,6 +29,7 @@
 import { crearGeneradorIdCrypto } from "../src/adaptadores/memoria/generador-id.ts";
 import { repositorioAbmPrisma } from "../src/adaptadores/prisma/abm/tablas.ts";
 import type { PrismaClient } from "../src/adaptadores/prisma/generado/client.ts";
+import { crearRepositorioPagosPrisma } from "../src/adaptadores/prisma/pagos.ts";
 import { crearRepositorioUsuariosPrisma } from "../src/adaptadores/prisma/usuarios.ts";
 import {
   type Actor,
@@ -40,6 +41,7 @@ import { nuevoError } from "../src/dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../src/dominio/compartido/identificador.ts";
 import {
   crearImporte,
+  type Importe,
   type Moneda,
 } from "../src/dominio/compartido/importe.ts";
 import type { Reloj } from "../src/dominio/compartido/reloj.ts";
@@ -110,6 +112,7 @@ export async function sembrar(
     await sembrarCentrosDeCosto(prisma, opciones.reloj);
     await sembrarCuentas(prisma, opciones.reloj);
     await sembrarEgresos(prisma, opciones.reloj);
+    await sembrarPagos(prisma, opciones.reloj);
   }
 }
 
@@ -784,6 +787,93 @@ async function sembrarEgresos(
             vencimiento: demo.vencimiento,
             observaciones: null,
             id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
+}
+
+/** Inventados. Uno salda su egreso, otro lo deja a medias y el tercero es en dólares, pagado desde una cuenta en pesos con un tipo de cambio redondo. */
+const PAGOS_DE_DEMOSTRACION: readonly {
+  readonly fechaDelEgreso: string;
+  readonly conceptoDelEgreso: string;
+  readonly cuenta: string;
+  readonly fecha: string;
+  readonly importe: Importe<Moneda>;
+  readonly salida: Importe<Moneda>;
+  readonly cambioValor: { numerador: bigint; denominador: bigint } | null;
+  readonly cambioFuente: string | null;
+}[] = [
+  {
+    fechaDelEgreso: "2026-09-03",
+    conceptoDelEgreso: "Combustible",
+    cuenta: "Caja",
+    fecha: "2026-09-05",
+    importe: crearImporte(15_000_000n, "ARS"),
+    salida: crearImporte(15_000_000n, "ARS"),
+    cambioValor: null,
+    cambioFuente: null,
+  },
+  {
+    fechaDelEgreso: "2026-09-15",
+    conceptoDelEgreso: "Honorarios contables",
+    cuenta: "Banco Ejemplo Uno — cuenta corriente",
+    fecha: "2026-09-28",
+    importe: crearImporte(20_000_000n, "ARS"),
+    salida: crearImporte(20_000_000n, "ARS"),
+    cambioValor: null,
+    cambioFuente: null,
+  },
+  {
+    fechaDelEgreso: "2026-09-22",
+    conceptoDelEgreso: "Curso de capacitación",
+    cuenta: "Banco Ejemplo Dos — cuenta corriente",
+    fecha: "2026-10-02",
+    importe: crearImporte(30_000n, "USD"),
+    salida: crearImporte(36_000_000n, "ARS"),
+    cambioValor: { numerador: 1200n, denominador: 1n },
+    cambioFuente: "Cotización de ejemplo",
+  },
+];
+
+/** Carga cada pago de demostración si **nunca hubo** un pago de ese egreso (uno anulado cuenta: no lo repone). */
+async function sembrarPagos(prisma: PrismaClient, reloj: Reloj): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const pagos = crearRepositorioPagosPrisma(tx);
+    for (const demo of PAGOS_DE_DEMOSTRACION) {
+      const egreso = await tx.egreso.findFirst({
+        where: {
+          fecha: new Date(`${demo.fechaDelEgreso}T00:00:00.000Z`),
+          concepto: demo.conceptoDelEgreso,
+        },
+      });
+      const cuenta = await tx.cuenta.findFirst({
+        where: { nombre: demo.cuenta, eliminadoEn: null },
+      });
+      if (
+        egreso === null ||
+        cuenta === null ||
+        (await tx.pago.findFirst({ where: { egresoId: egreso.id } })) !== null
+      ) {
+        continue;
+      }
+      await pagos.crear(
+        actor,
+        crearAuditable(
+          {
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+            egresoId: egreso.id,
+            fecha: demo.fecha,
+            importe: demo.importe,
+            cuentaId: cuenta.id,
+            salida: demo.salida,
+            cambioValor: demo.cambioValor,
+            cambioFuente: demo.cambioFuente,
+            observaciones: null,
           },
           actor,
           reloj,

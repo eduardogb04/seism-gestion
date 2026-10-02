@@ -243,6 +243,67 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Egreso" } })).toBe(6);
   });
 
+  test("siembra cuatro servicios en distintos estados, con su historial y uno con dos sitios, una sola vez y no en el servidor", async () => {
+    const db = cliente();
+    const servicios = () =>
+      db.servicio.findMany({
+        orderBy: { codigo: "asc" },
+        include: {
+          eventos: { orderBy: { posicion: "asc" } },
+          sitios: true,
+          responsable: true,
+        },
+      });
+
+    await sembrar(db, opciones("servidor"));
+    expect(await servicios()).toEqual([]);
+
+    await sembrar(db, opciones());
+    await sembrar(db, opciones());
+
+    const sembrados = await servicios();
+    expect(
+      sembrados.map(({ codigo, modalidad, eventos, sitios, vigenciaDesde }) => [
+        codigo,
+        modalidad,
+        eventos.map(({ a }) => a),
+        sitios.length,
+        vigenciaDesde !== null,
+      ]),
+    ).toEqual([
+      ["SRV-2031-001", "puntual", ["solicitado"], 2, false],
+      ["SRV-2031-002", "puntual", ["solicitado", "cotizado"], 0, false],
+      [
+        "SRV-2031-003",
+        "recurrente",
+        ["solicitado", "cotizado", "adjudicado", "vigente"],
+        0,
+        true,
+      ],
+      [
+        "SRV-2031-004",
+        "puntual",
+        ["solicitado", "cotizado", "adjudicado", "vigente", "cerrado"],
+        0,
+        false,
+      ],
+    ]);
+    for (const { eventos, responsable } of sembrados) {
+      expect(eventos.map(({ de }) => de)).toEqual([
+        null,
+        ...eventos.slice(0, -1).map(({ a }) => a),
+      ]);
+      expect(responsable.email).toBe("admin@ejemplo.test");
+    }
+    // Cuatro altas y el cambio de sitios de uno.
+    expect(await db.auditoria.count({ where: { entidad: "Servicio" } })).toBe(
+      5,
+    );
+    expect(await db.secuencia.findMany()).toEqual([
+      { prefijo: "SRV", anio: 2031, ultimo: 4 },
+    ]);
+  });
+
   test("en el servidor no siembra ningún grupo; en ci, sí", async () => {
     const db = cliente();
 

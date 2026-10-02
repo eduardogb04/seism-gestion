@@ -15,6 +15,9 @@ import {
 } from "../compartido/historial.ts";
 import { diferenciaEnDias, type FechaHora } from "../compartido/reloj.ts";
 
+/** El prefijo del código legible de un servicio: `SRV-2026-014`. */
+export const PREFIJO_DE_CODIGO = "SRV";
+
 export const ESTADOS_SERVICIO = [
   "solicitado",
   "cotizado",

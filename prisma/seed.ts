@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas; desde F2-03, seis egresos en pesos y en dólares), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas; desde F2-03, seis egresos en pesos y en dólares; desde F2-04, cuatro servicios en distintos estados, por su repositorio), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -29,6 +29,8 @@
 import { crearGeneradorIdCrypto } from "../src/adaptadores/memoria/generador-id.ts";
 import { repositorioAbmPrisma } from "../src/adaptadores/prisma/abm/tablas.ts";
 import type { PrismaClient } from "../src/adaptadores/prisma/generado/client.ts";
+import { crearSecuenciasPrisma } from "../src/adaptadores/prisma/secuencias.ts";
+import { crearRepositorioServiciosPrisma } from "../src/adaptadores/prisma/servicios.ts";
 import { crearRepositorioUsuariosPrisma } from "../src/adaptadores/prisma/usuarios.ts";
 import {
   type Actor,
@@ -37,12 +39,21 @@ import {
 import { crearAuditable } from "../src/dominio/compartido/auditable.ts";
 import { catalogo } from "../src/dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../src/dominio/compartido/errores/error-sistema.ts";
-import { identificadorDesde } from "../src/dominio/compartido/identificador.ts";
+import {
+  generarCodigoLegible,
+  identificadorDesde,
+} from "../src/dominio/compartido/identificador.ts";
 import {
   crearImporte,
   type Moneda,
 } from "../src/dominio/compartido/importe.ts";
-import type { Reloj } from "../src/dominio/compartido/reloj.ts";
+import { type Reloj, RelojFijo } from "../src/dominio/compartido/reloj.ts";
+import {
+  cicloServicio,
+  ESTADO_INICIAL,
+  type EstadoServicio,
+  PREFIJO_DE_CODIGO,
+} from "../src/dominio/servicios/estados.ts";
 import type { DatosAbm } from "../src/puertos/repositorios/abm.ts";
 import type { DatosUsuario } from "../src/puertos/repositorios/usuarios.ts";
 
@@ -110,6 +121,7 @@ export async function sembrar(
     await sembrarCentrosDeCosto(prisma, opciones.reloj);
     await sembrarCuentas(prisma, opciones.reloj);
     await sembrarEgresos(prisma, opciones.reloj);
+    await sembrarServicios(prisma, opciones);
   }
 }
 
@@ -789,6 +801,148 @@ async function sembrarEgresos(
           reloj,
         ),
       );
+    }
+  });
+}
+
+/** Inventados: `estados` son los cambios después del alta, en orden. */
+const SERVICIOS_DE_DEMOSTRACION: readonly {
+  readonly cuit: string;
+  readonly tipo: string;
+  readonly titulo: string;
+  readonly fechaPedido: string;
+  readonly vigencia: readonly [desde: string, hasta: string] | null;
+  readonly estados: readonly EstadoServicio[];
+  readonly sitios: readonly string[];
+}[] = [
+  {
+    cuit: "30000000015",
+    tipo: "Auditoría de tanques",
+    titulo: "Auditoría de tanques — ejemplo",
+    fechaPedido: "2026-09-28",
+    vigencia: null,
+    estados: [],
+    sitios: ["Planta Ejemplo Norte", "Planta Ejemplo Sur"],
+  },
+  {
+    cuit: "30000000023",
+    tipo: "Certificación de camiones",
+    titulo: "Certificación de camiones — ejemplo",
+    fechaPedido: "2026-09-15",
+    vigencia: null,
+    estados: ["cotizado"],
+    sitios: [],
+  },
+  {
+    cuit: "30000000031",
+    tipo: "Servicio de operación / alquiler de tanques",
+    titulo: "Operación de tanques — ejemplo",
+    fechaPedido: "2026-08-03",
+    vigencia: ["2026-09-01", "2027-08-31"],
+    estados: ["cotizado", "adjudicado", "vigente"],
+    sitios: [],
+  },
+  {
+    cuit: "30000000015",
+    tipo: "Informes",
+    titulo: "Informe técnico — ejemplo",
+    fechaPedido: "2026-07-06",
+    vigencia: null,
+    estados: ["cotizado", "adjudicado", "vigente", "cerrado"],
+    sitios: [],
+  },
+];
+
+/**
+ * Da de alta cada servicio de demostración si **nunca hubo** uno con ese título
+ * para ese cliente, con el administrador inicial de responsable, su código de
+ * la secuencia y su historial de estados, por las reglas del ciclo.
+ */
+async function sembrarServicios(
+  prisma: PrismaClient,
+  { adminInicialEmail, reloj }: OpcionesSemilla,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const servicios = crearRepositorioServiciosPrisma(tx);
+    const secuencias = crearSecuenciasPrisma(tx);
+    const responsable =
+      await crearRepositorioUsuariosPrisma(tx).buscarPorEmail(
+        adminInicialEmail,
+      );
+    const ahora = reloj.ahora();
+    for (const demo of SERVICIOS_DE_DEMOSTRACION) {
+      const cliente = await tx.cliente.findFirst({
+        where: { cuit: demo.cuit, eliminadoEn: null },
+      });
+      const tipo = await tx.tipoServicio.findFirst({
+        where: { nombre: demo.tipo, eliminadoEn: null },
+      });
+      if (
+        responsable === null ||
+        cliente === null ||
+        tipo === null ||
+        (await tx.servicio.findFirst({
+          where: { clienteId: cliente.id, titulo: demo.titulo },
+        })) !== null
+      ) {
+        continue;
+      }
+      const codigo = generarCodigoLegible(RelojFijo(ahora), {
+        prefijo: PREFIJO_DE_CODIGO,
+        secuencia: await secuencias.siguiente(PREFIJO_DE_CODIGO, ahora.anio),
+      });
+      if (!codigo.ok) {
+        throw nuevoError(catalogo.DOM_0006, { motivo: codigo.mensaje });
+      }
+      const id = identificadorDesde<string>(crearGeneradorIdCrypto().generar());
+      await servicios.crear(
+        actor,
+        crearAuditable(
+          {
+            id,
+            codigo: codigo.codigo,
+            clienteId: cliente.id,
+            tipoServicioId: tipo.id,
+            titulo: demo.titulo,
+            modalidad: demo.vigencia === null ? "puntual" : "recurrente",
+            responsableId: responsable.valor.id,
+            fechaPedido: demo.fechaPedido,
+            vigenciaDesde: demo.vigencia?.[0] ?? null,
+            vigenciaHasta: demo.vigencia?.[1] ?? null,
+            observaciones: null,
+          },
+          actor,
+          RelojFijo(ahora),
+        ),
+      );
+      const marca = { en: ahora, actor, origen: null };
+      let historial = cicloServicio.crear(ESTADO_INICIAL, marca);
+      for (const estado of demo.estados) {
+        const siguiente = cicloServicio.agregar(historial, estado, marca);
+        if (!siguiente.ok) {
+          throw nuevoError(catalogo.DOM_0011, { titulo: demo.titulo, estado });
+        }
+        historial = siguiente.valor;
+      }
+      for (const [posicion, evento] of historial.eventos.entries()) {
+        await servicios.agregarEvento(actor, id, { ...evento, posicion });
+      }
+      const sitios = await tx.sitio.findMany({
+        where: {
+          clienteId: cliente.id,
+          nombre: { in: [...demo.sitios] },
+          eliminadoEn: null,
+        },
+      });
+      if (sitios.length > 0) {
+        await servicios.guardarSitios(
+          actor,
+          id,
+          sitios.map((sitio) => sitio.id),
+          ahora,
+        );
+      }
     }
   });
 }

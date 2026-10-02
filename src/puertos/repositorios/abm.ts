@@ -54,6 +54,12 @@ type EntidadesAbm = {
     readonly capacidadTotalLitros: number;
     readonly observaciones: string | null;
   };
+  readonly TipoServicio: {
+    readonly nombre: string;
+    readonly descripcion: string | null;
+    readonly modalidad: string;
+    readonly activo: boolean;
+  };
 };
 
 export type EntidadAbm = keyof EntidadesAbm;

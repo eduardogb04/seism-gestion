@@ -158,6 +158,37 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Sitio" } })).toBe(5);
   });
 
+  test("siembra los cinco tipos de servicio activos, uno solo recurrente, una sola vez y no en el servidor", async () => {
+    const db = cliente();
+    const tipos = () =>
+      db.tipoServicio.findMany({
+        orderBy: { nombre: "asc" },
+        select: { nombre: true, modalidad: true, activo: true },
+      });
+
+    await sembrar(db, opciones("servidor"));
+    expect(await tipos()).toEqual([]);
+
+    await sembrar(db, opciones());
+    await sembrar(db, opciones());
+
+    expect(await tipos()).toEqual([
+      { nombre: "Auditoría de tanques", modalidad: "puntual", activo: true },
+      {
+        nombre: "Certificación de camiones",
+        modalidad: "puntual",
+        activo: true,
+      },
+      { nombre: "Informes", modalidad: "puntual", activo: true },
+      { nombre: "Logística", modalidad: "puntual", activo: true },
+      {
+        nombre: "Servicio de operación / alquiler de tanques",
+        modalidad: "recurrente",
+        activo: true,
+      },
+    ]);
+  });
+
   test("en el servidor no siembra ningún grupo; en ci, sí", async () => {
     const db = cliente();
 

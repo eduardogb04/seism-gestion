@@ -9,7 +9,10 @@
  *    formulario; lo corrige y se guarda;
  * 3. filtra por centro de costo y por mes;
  * 4. edita uno con el filtro puesto: el filtro se conserva;
- * 5. da de baja el que creó.
+ * 5. da de baja el que creó;
+ * 6. entra a la pantalla de un egreso desde su fila del listado, donde están sus pagos;
+ * 7. le baja el importe por debajo de lo pagado: el mensaje vuelve al lado del
+ *    importe y lo escrito sigue en el formulario.
  *
  * Usa `operador.catalogos@ejemplo.test`, como los otros catálogos (la identidad falsa no ofrece más). Todo inventado.
  */
@@ -170,5 +173,37 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
   await page.getByRole("button", { name: "Confirmar baja" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(fila(page, /Alquiler de depósito/)).toHaveCount(0);
+  await expect(page.locator("[data-codigo-error]")).toHaveCount(0);
+
+  // 6. Cada fila lleva a la pantalla del egreso, con sus pagos.
+  await page.goto("/egresos");
+  await fila(page, /03\/09\/2026/)
+    .getByRole("link", { name: "03/09/2026" })
+    .click();
+  await expect(page).toHaveURL(/\/egresos\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { name: "Pagos" })).toBeVisible();
+  await expect(page.getByText("ARS 150.000,00").first()).toBeVisible();
+
+  // 7. Editar un egreso con pagos, por debajo de lo pagado: el mensaje al lado del importe.
+  await page.goto("/egresos");
+  await fila(page, /03\/09\/2026/)
+    .getByRole("link", { name: "Editar" })
+    .click();
+  await expect(ventana(page, "Edición de egreso")).toBeVisible();
+  await page.getByLabel("Concepto").fill("Combustible de septiembre");
+  await page.getByLabel("Importe", { exact: true }).fill("100.000,00");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(
+    ventana(page, "Edición de egreso").locator("[data-error-de-campo]"),
+  ).toHaveText(/lo ya pagado \(ARS 150\.000,00\)/);
+  await expect(
+    page.getByLabel("Importe", { exact: true }),
+  ).toHaveAccessibleDescription(/lo ya pagado/);
+  await expect(page.getByLabel("Importe", { exact: true })).toHaveValue(
+    "100.000,00",
+  );
+  await expect(page.getByLabel("Concepto")).toHaveValue(
+    "Combustible de septiembre",
+  );
   await expect(page.locator("[data-codigo-error]")).toHaveCount(0);
 });

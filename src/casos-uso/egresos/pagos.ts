@@ -479,15 +479,18 @@ export function crearCasosUsoPagos({
           }
         }
 
+        // Sin fecha válida el tipo de cambio no se puede cargar (es "del día"): no se mira.
         const valorEscrito = (escrito.tipoDeCambio ?? "").trim();
         const valorLeido =
-          valorEscrito === "" ? null : parsearValorTipoDeCambio(valorEscrito);
+          valorEscrito === "" || errores.fecha !== undefined
+            ? null
+            : parsearValorTipoDeCambio(valorEscrito);
         if (valorLeido?.ok === false) {
           errores.tipoDeCambio =
             "Escribí el tipo de cambio con coma para los decimales (por ejemplo 1.184,25).";
         }
         const cambio: CambioCargado | null =
-          valorLeido?.ok === true && errores.fecha === undefined
+          valorLeido?.ok === true
             ? {
                 valor: valorLeido.valor,
                 fuente: escrito.fuenteDelCambio ?? "",
@@ -501,6 +504,7 @@ export function crearCasosUsoPagos({
         if (
           importe !== null &&
           cuenta !== null &&
+          errores.fecha === undefined &&
           errores.tipoDeCambio === undefined
         ) {
           const convertido = importeEnCuenta(

@@ -29,6 +29,7 @@ export default async function Servicios({ searchParams }: PropsListado) {
           ordenes={listado.ordenes}
           listado={listado}
           puedeEscribir={puedeEscribir}
+          sinCortar="Código"
           acciones={(id) => (
             <Enlace
               href={`${RUTA}/${id}`}

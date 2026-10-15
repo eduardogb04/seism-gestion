@@ -84,6 +84,13 @@ test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizad
     "Cerrado",
   );
 
+  // El código no se parte en dos renglones a 1366 px.
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const codigo = fila(page, /Informe técnico — ejemplo/).getByRole("cell", {
+    name: /^SRV-\d{4}-\d{3}$/,
+  });
+  await expect(codigo).toHaveCSS("white-space", "nowrap");
+
   await page.getByLabel("Estado").selectOption({ label: "Vigente" });
   await page.getByRole("button", { name: "Buscar" }).click();
   await expect(page).toHaveURL(/[?&]estado=vigente(&|$)/);

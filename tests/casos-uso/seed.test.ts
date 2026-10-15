@@ -260,6 +260,29 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Egreso" } })).toBe(6);
   });
 
+  test("el egreso de un centro de proyecto dice de qué servicio es y lleva su comprobante; los demás, ninguno", async () => {
+    const db = cliente();
+
+    await sembrar(db, opciones());
+
+    const egresos = await db.egreso.findMany({
+      include: { centroCosto: true, servicio: true, comprobante: true },
+    });
+    const deProyecto = egresos.filter(
+      ({ centroCosto }) => centroCosto.clase === "proyecto",
+    );
+    expect(deProyecto).toHaveLength(1);
+    expect(deProyecto[0]?.servicio?.titulo).toBe(
+      "Operación de tanques — ejemplo",
+    );
+    expect(deProyecto[0]?.comprobante?.tipoMime).toBe("application/pdf");
+    expect(
+      egresos
+        .filter(({ centroCosto }) => centroCosto.clase !== "proyecto")
+        .every(({ servicioId }) => servicioId === null),
+    ).toBe(true);
+  });
+
   test("siembra tres pagos —uno salda, uno parcial, uno en dólares desde una cuenta en pesos—, una sola vez y no en el servidor", async () => {
     const db = cliente();
     const pagos = () =>
@@ -391,8 +414,8 @@ describe("semilla", () => {
     await sembrar(db, opciones());
 
     expect(await foto()).toEqual(primeraVez);
-    // Dos cotizaciones y el PDF de una factura (F2-06).
-    expect(primeraVez.archivos).toBe(3);
+    // Dos cotizaciones, el PDF de una factura (F2-06) y el comprobante del egreso de proyecto (F2-08).
+    expect(primeraVez.archivos).toBe(4);
     expect(
       primeraVez.cotizaciones.map(({ version, motivo, importeCentavos }) => [
         version,
@@ -420,12 +443,12 @@ describe("semilla", () => {
         creadoPor: { tipo: "sistema", proceso: "db-seed" },
       });
     }
-    // Las dos cotizaciones y sus dos PDF, más el PDF de la factura (F2-06).
+    // Las dos cotizaciones y sus dos PDF, el PDF de la factura (F2-06) y el comprobante del egreso (F2-08).
     expect(
       await db.auditoria.count({
         where: { entidad: { in: ["Cotizacion", "Documento"] } },
       }),
-    ).toBe(5);
+    ).toBe(6);
   });
 
   test("siembra una orden de compra y tres facturas del servicio vigente (la tercera, en dólares, es de F2-07), con el PDF de una, sin repetir filas, y no en el servidor", async () => {

@@ -44,6 +44,7 @@ import {
   type CampoAbm,
   type Escrito,
   errorDeFecha,
+  textoDeServicio,
 } from "../abm/definicion.ts";
 import { EGRESOS } from "../abm/egresos.ts";
 import {
@@ -59,6 +60,7 @@ import {
   type TextosDeSaldo,
   TODAS,
 } from "../compartido/movimientos.ts";
+import { tamanoLegible } from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 
 const PAGOS_POR_PAGINA = 25;
@@ -99,6 +101,12 @@ export type DetalleEgreso = {
     readonly etiqueta: string;
     readonly valor: string;
   }[];
+  /** El comprobante adjunto, si tiene: lo que hace falta para ofrecer su descarga. */
+  readonly comprobante: {
+    readonly id: string;
+    readonly nombre: string;
+    readonly tamano: string;
+  } | null;
   readonly total: string;
   readonly pagado: string;
   readonly saldo: string;
@@ -234,11 +242,29 @@ export function crearCasosUsoPagos({
           datos.proveedorId === null
             ? null
             : await repos.abm("Cliente").buscarPorId(datos.proveedorId);
+        const servicio =
+          datos.servicioId === null
+            ? null
+            : await repos.servicios.buscarPorId(datos.servicioId);
+        const comprobante =
+          datos.comprobanteId === null
+            ? null
+            : await repos.documentos.buscarPorId(datos.comprobanteId);
         return {
           concepto: datos.concepto,
           datos: [
             { etiqueta: "Fecha", valor: diaConBarras(datos.fecha) },
             { etiqueta: "Centro de costo", valor: centro?.valor.nombre ?? "" },
+            {
+              etiqueta: "Servicio",
+              valor:
+                servicio === null
+                  ? ""
+                  : textoDeServicio(
+                      servicio.valor.codigo,
+                      servicio.valor.titulo,
+                    ),
+            },
             {
               etiqueta: "Proveedor",
               valor: proveedor?.valor.razonSocial ?? "",
@@ -253,6 +279,14 @@ export function crearCasosUsoPagos({
             },
             { etiqueta: "Observaciones", valor: datos.observaciones ?? "" },
           ],
+          comprobante:
+            comprobante === null || comprobante.eliminadoEn !== undefined
+              ? null
+              : {
+                  id: comprobante.valor.id,
+                  nombre: comprobante.valor.nombre,
+                  tamano: tamanoLegible(comprobante.valor.tamano),
+                },
           total: formatearImporte(saldo.total),
           pagado: formatearImporte(saldo.pagado),
           saldo: formatearImporte(saldo.saldo),

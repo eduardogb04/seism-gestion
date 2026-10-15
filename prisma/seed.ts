@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas; desde F2-03, seis egresos en pesos y en dólares; desde F2-09, tres pagos de esos egresos; desde F2-04, cuatro servicios en distintos estados, por su repositorio; desde F2-05, dos cotizaciones de uno de ellos, con su PDF generado en el almacén; desde F2-06, una orden de compra y dos facturas de otro; desde F2-07, una factura en dólares y dos cobros), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas; desde F2-03, seis egresos en pesos y en dólares; desde F2-09, tres pagos de esos egresos; desde F2-04, cuatro servicios en distintos estados, por su repositorio; desde F2-05, dos cotizaciones de uno de ellos, con su PDF generado en el almacén; desde F2-06, una orden de compra y dos facturas de otro; desde F2-07, una factura en dólares y dos cobros; desde F2-08, el egreso de proyecto dice de qué servicio es y lleva su comprobante), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -28,6 +28,7 @@
 
 import { crearGeneradorIdCrypto } from "../src/adaptadores/memoria/generador-id.ts";
 import { repositorioAbmPrisma } from "../src/adaptadores/prisma/abm/tablas.ts";
+import { crearRepositorioDocumentosPrisma } from "../src/adaptadores/prisma/documentos.ts";
 import type { PrismaClient } from "../src/adaptadores/prisma/generado/client.ts";
 import { crearRepositorioPagosPrisma } from "../src/adaptadores/prisma/pagos.ts";
 import { crearSecuenciasPrisma } from "../src/adaptadores/prisma/secuencias.ts";
@@ -56,11 +57,14 @@ import {
   type EstadoServicio,
   PREFIJO_DE_CODIGO,
 } from "../src/dominio/servicios/estados.ts";
-import type { AlmacenDocumentos } from "../src/puertos/almacen-documentos.ts";
+import {
+  type AlmacenDocumentos,
+  referenciaDesde,
+} from "../src/puertos/almacen-documentos.ts";
 import type { DatosAbm } from "../src/puertos/repositorios/abm.ts";
 import type { DatosUsuario } from "../src/puertos/repositorios/usuarios.ts";
 import { sembrarCobros } from "./seed-cobros.ts";
-import { sembrarCotizaciones } from "./seed-cotizaciones.ts";
+import { pdfDeUnaLinea, sembrarCotizaciones } from "./seed-cotizaciones.ts";
 import { sembrarOrdenesYFacturas } from "./seed-ordenes-y-facturas.ts";
 
 /** Lo que la semilla necesita de afuera: lo arma `scripts/db-seed.ts`. */
@@ -128,9 +132,9 @@ export async function sembrar(
     await sembrarTiposDeServicio(prisma, opciones.reloj);
     await sembrarCentrosDeCosto(prisma, opciones.reloj);
     await sembrarCuentas(prisma, opciones.reloj);
-    await sembrarEgresos(prisma, opciones.reloj);
-    await sembrarPagos(prisma, opciones.reloj);
     await sembrarServicios(prisma, opciones);
+    await sembrarEgresos(prisma, opciones);
+    await sembrarPagos(prisma, opciones.reloj);
     await sembrarCotizaciones(prisma, actorSemilla(), opciones);
     await sembrarOrdenesYFacturas(prisma, actorSemilla(), opciones);
     await sembrarCobros(prisma, actorSemilla(), opciones);
@@ -703,6 +707,10 @@ const EGRESOS_DE_DEMOSTRACION: readonly {
   readonly centavos: bigint;
   readonly moneda: Moneda;
   readonly vencimiento: string | null;
+  /** El título de un servicio de demostración: lo llevan los de un centro de proyecto (F2-08). */
+  readonly servicio?: string;
+  /** El nombre del PDF de comprobante, generado en código. */
+  readonly comprobante?: string;
 }[] = [
   {
     fecha: "2026-09-03",
@@ -743,6 +751,8 @@ const EGRESOS_DE_DEMOSTRACION: readonly {
     centavos: 32_500_000n,
     moneda: "ARS",
     vencimiento: null,
+    servicio: "Operación de tanques — ejemplo",
+    comprobante: "factura-0002-00000021.pdf",
   },
   {
     fecha: "2026-10-05",
@@ -766,14 +776,18 @@ const EGRESOS_DE_DEMOSTRACION: readonly {
   },
 ];
 
-/** Da de alta cada egreso de demostración si **nunca hubo** uno con esa fecha y ese concepto. */
+/**
+ * Da de alta cada egreso de demostración si **nunca hubo** uno con esa fecha y
+ * ese concepto. Va después de los servicios: los de proyecto dicen de cuál son.
+ */
 async function sembrarEgresos(
   prisma: PrismaClient,
-  reloj: Reloj,
+  { reloj, almacen }: OpcionesSemilla,
 ): Promise<void> {
   const actor = actorSemilla();
   await prisma.$transaction(async (tx) => {
     const egresos = repositorioAbmPrisma(tx, "Egreso");
+    const documentos = crearRepositorioDocumentosPrisma(tx);
     for (const demo of EGRESOS_DE_DEMOSTRACION) {
       const centro = await tx.centroCosto.findFirst({
         where: { nombre: demo.centro, eliminadoEn: null },
@@ -795,6 +809,38 @@ async function sembrarEgresos(
       ) {
         continue;
       }
+      const servicio =
+        demo.servicio === undefined
+          ? null
+          : await tx.servicio.findFirst({
+              where: { titulo: demo.servicio, eliminadoEn: null },
+            });
+      let comprobanteId: string | null = null;
+      if (servicio !== null && demo.comprobante !== undefined) {
+        const bytes = pdfDeUnaLinea("Comprobante de ejemplo");
+        const id = identificadorDesde<string>(
+          crearGeneradorIdCrypto().generar(),
+        );
+        comprobanteId = id;
+        await documentos.crear(
+          actor,
+          crearAuditable(
+            {
+              id,
+              referencia: await almacen.guardar(
+                referenciaDesde(`documentos/semilla/egreso-${servicio.id}`),
+                bytes,
+                "application/pdf",
+              ),
+              nombre: demo.comprobante,
+              tipoMime: "application/pdf",
+              tamano: bytes.length,
+            },
+            actor,
+            reloj,
+          ),
+        );
+      }
       await egresos.crear(
         actor,
         crearAuditable(
@@ -806,6 +852,8 @@ async function sembrarEgresos(
             numeroComprobante: demo.numeroComprobante,
             importe: crearImporte(demo.centavos, demo.moneda),
             vencimiento: demo.vencimiento,
+            servicioId: servicio?.id ?? null,
+            comprobanteId,
             observaciones: null,
             id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
           },

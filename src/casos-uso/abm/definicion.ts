@@ -84,6 +84,18 @@ export type CampoAbm =
       readonly soloSi?: string;
     }
   /**
+   * Un servicio vigente, que se elige de una lista por código y título (F2-08).
+   * Vacío se guarda como `null`. No es una `relacion`: un servicio no es un ABM
+   * del molde, su repositorio es otro.
+   */
+  | { readonly tipo: "servicio"; readonly etiqueta: string }
+  /**
+   * El id del documento adjunto (F2-08). Nunca sale del texto del formulario
+   * (si no, se podría enlazar el documento de otro): lo pone el caso de uso con
+   * el archivo subido, que el formulario lleva aparte.
+   */
+  | { readonly tipo: "archivo"; readonly etiqueta: string }
+  /**
    * Un día, sin hora ni zona: el dato es el texto `aaaa-mm-dd`, se escribe con
    * el selector de fecha del navegador y se muestra dd/mm/aaaa. `opcional`: vacío es `null`.
    */
@@ -166,13 +178,14 @@ export type DefinicionAbm<E extends EntidadAbm> = {
   /** A dónde lleva cada fila del listado (por su id); sin esto, el listado no enlaza las filas. */
   readonly rutaDeFila?: (id: string) => string;
   /**
-   * Lo que solo otra tabla sabe y rechaza una edición, por campo (un egreso con
-   * pagos no baja de lo pagado). Lo corre `guardar` antes de escribir, con la
-   * transacción abierta; sin errores, devuelve `{}`.
+   * Lo que solo otra tabla sabe y rechaza un alta o una edición, por campo (un
+   * egreso con pagos no baja de lo pagado; uno de proyecto lleva servicio). Lo
+   * corren `crear` y `guardar` antes de escribir, con la transacción abierta;
+   * `actual` es `null` en el alta. Sin errores, devuelve `{}`.
    */
-  readonly rechazosAlEditar?: (
+  readonly rechazosAlGuardar?: (
     repos: RepositoriosEnTransaccion,
-    actual: RegistroAbm<E>,
+    actual: RegistroAbm<E> | null,
     nuevos: DatosAbm<E>,
   ) => Promise<Readonly<Record<string, string>>>;
 };
@@ -271,6 +284,11 @@ export function diaConBarras(dia: string): string {
   return `${numero}/${mes}/${anio}`;
 }
 
+/** Cómo se nombra un servicio donde se lo elige o se lo cita: `SRV-2031-001 · Título`. */
+export function textoDeServicio(codigo: string, titulo: string): string {
+  return `${codigo} · ${titulo}`;
+}
+
 /** Lo que trae el formulario de alta antes de escribir: las casillas que vienen marcadas y la moneda por defecto. */
 export function valoresDeAlta<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
@@ -300,7 +318,10 @@ export function valorDeCampo(
       return campo.opcional === true && escrito.trim() === "" ? null : escrito;
     case "textoLargo":
     case "relacion":
+    case "servicio":
       return escrito.trim() === "" ? null : escrito;
+    case "archivo":
+      return null;
     case "opcion":
       return campo.opcional === true && escrito === "" ? null : escrito;
     case "numero": {
@@ -370,7 +391,10 @@ export function textoDeCampo<E extends EntidadAbm>(
     case "opcion":
       return campo.opciones.find((o) => o.valor === valor)?.etiqueta ?? "";
     case "relacion":
+    case "servicio":
       return typeof valor === "string" ? (etiquetas.get(valor) ?? "") : "";
+    case "archivo":
+      return typeof valor === "string" ? "Adjunto" : "";
     case "numero":
       return typeof valor === "number"
         ? valor.toLocaleString("es-AR", {

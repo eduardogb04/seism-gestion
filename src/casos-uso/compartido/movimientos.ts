@@ -117,15 +117,18 @@ export function movimientoEnCuenta({
   readonly errores: ErroresPorCampo;
 } {
   const errores: Record<string, string> = {};
+  // Sin fecha válida el tipo de cambio no se puede cargar (es "del día"): no se mira.
   const valorEscrito = (escrito.tipoDeCambio ?? "").trim();
   const valorLeido =
-    valorEscrito === "" ? null : parsearValorTipoDeCambio(valorEscrito);
+    valorEscrito === "" || !diaValido
+      ? null
+      : parsearValorTipoDeCambio(valorEscrito);
   if (valorLeido?.ok === false) {
     errores.tipoDeCambio =
       "Escribí el tipo de cambio con coma para los decimales (por ejemplo 1.184,25).";
   }
   const cambio: CambioCargado | null =
-    valorLeido?.ok === true && diaValido
+    valorLeido?.ok === true
       ? {
           valor: valorLeido.valor,
           fuente: escrito.fuenteDelCambio ?? "",
@@ -139,6 +142,7 @@ export function movimientoEnCuenta({
   if (
     importe !== null &&
     monedaDeLaCuenta !== null &&
+    diaValido &&
     errores.tipoDeCambio === undefined
   ) {
     const convertido = importeEnCuenta(importe, monedaDeLaCuenta, cambio);

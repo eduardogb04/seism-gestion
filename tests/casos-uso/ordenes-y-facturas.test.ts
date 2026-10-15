@@ -886,6 +886,28 @@ describe("el servicio que tiene órdenes de compra o facturas", () => {
       ).eliminadoEn,
     ).not.toBeNull();
   });
+
+  test("con solo una factura sin orden en «Solicitado» no se da de baja (DOM-0010); anulada la factura, sí", async () => {
+    const baja = () =>
+      crearCasosUsoServicios(dependencias()).marcarEliminado(admin, servicioId);
+    const factura = await cargarFactura();
+    expect(await estado()).toBe("solicitado");
+    expect(await cliente().ordenCompra.count()).toBe(0);
+
+    await expect(baja()).rejects.toMatchObject({
+      codigo: catalogo.DOM_0010.codigo,
+    });
+    await facturas().marcarEliminado(admin, factura);
+
+    await baja();
+    expect(
+      (
+        await cliente().servicio.findUniqueOrThrow({
+          where: { id: servicioId },
+        })
+      ).eliminadoEn,
+    ).not.toBeNull();
+  });
 });
 
 describe("anular una orden y cargar una factura de esa orden a la vez", () => {

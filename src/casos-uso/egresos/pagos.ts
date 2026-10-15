@@ -559,6 +559,12 @@ export function crearCasosUsoPagos({
 
     marcarPagoAnulado(actor, pagoId) {
       return transaccional.ejecutar(async (repos) => {
+        await exigirRol(
+          repos.usuarios,
+          actor,
+          EGRESOS.rolesQueEscriben,
+          catalogo.AUT_0009,
+        );
         const registro = esquemaId.safeParse(pagoId).success
           ? await repos.pagos.buscarPorId(pagoId)
           : null;

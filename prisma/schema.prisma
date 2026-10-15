@@ -347,6 +347,7 @@ model Cuenta {
   eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
   pagos          Pago[]
+  cobros         Cobro[]
 
   @@map("cuentas")
 }
@@ -592,6 +593,40 @@ model Factura {
   actualizadoPor  Json         @map("actualizado_por") @db.JsonB
   eliminadoEn     DateTime?    @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor    Json?        @map("eliminado_por") @db.JsonB
+  cobros          Cobro[]
 
   @@map("facturas")
+}
+
+// Un cobro de una factura (F2-07, ADR 0037). El importe y la retención están en
+// la **moneda de la factura**: los dos cancelan deuda. `entrada` es lo que
+// entró a la cuenta (`importe` en la moneda de la cuenta); el tipo de cambio se
+// carga a mano solo si la cuenta es de otra moneda. Ningún cobro existe sin
+// factura. *Cobrada* no se guarda: es saldo cero.
+model Cobro {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  facturaId         String    @map("factura_id") @db.Uuid
+  factura           Factura   @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  fecha             DateTime  @db.Date
+  importeCentavos   BigInt    @map("importe_centavos")
+  importeMoneda     String    @map("importe_moneda")
+  retencionCentavos BigInt?   @map("retencion_centavos")
+  cuentaId          String    @map("cuenta_id") @db.Uuid
+  cuenta            Cuenta    @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
+  entradaCentavos   BigInt    @map("entrada_centavos")
+  entradaMoneda     String    @map("entrada_moneda")
+  cambioNumerador   BigInt?   @map("cambio_numerador")
+  cambioDenominador BigInt?   @map("cambio_denominador")
+  cambioFuente      String?   @map("cambio_fuente")
+  observaciones     String?
+  creadoEn          DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor         Json      @map("creado_por") @db.JsonB
+  actualizadoEn     DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor    Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn       DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor      Json?     @map("eliminado_por") @db.JsonB
+
+  @@index([facturaId])
+  @@index([cuentaId])
+  @@map("cobros")
 }

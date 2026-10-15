@@ -27,12 +27,22 @@ export type DatosFactura = {
 
 export type Factura = RegistroDe<DatosFactura>;
 
+/** Una factura con lo del servicio que la pantalla *Por cobrar* muestra. */
+export type FacturaConServicio = {
+  readonly factura: Factura;
+  readonly servicioCodigo: string;
+  /** La razón social del cliente del servicio. */
+  readonly cliente: string;
+};
+
 export type RepositorioFacturas = Pick<
   RepositorioDe<DatosFactura>,
   "buscarPorId" | "crear" | "actualizar"
 > & {
   /** Las no anuladas de un servicio, de la más nueva a la más vieja. */
   listarDe(servicioId: string): Promise<readonly Factura[]>;
+  /** Las no anuladas de todos los servicios, por vencimiento y número. */
+  vigentesConServicio(): Promise<readonly FacturaConServicio[]>;
   /** Si hay una factura vigente con ese número (sin distinguir mayúsculas), de cualquier servicio. */
   existeNumero(numero: string): Promise<boolean>;
 };

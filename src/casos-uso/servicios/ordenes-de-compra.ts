@@ -61,6 +61,7 @@ import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
   registrarCambioDeEstado,
   servicioVigente,
+  servicioVigenteBloqueado,
 } from "./servicios.ts";
 
 const esquemaId = z.uuid();
@@ -260,6 +261,8 @@ export function crearCasosUsoOrdenesDeCompra({
             id,
           });
         }
+        // Con la fila del servicio tomada, una factura de esta orden no se carga a la vez.
+        await servicioVigenteBloqueado(repos, actual.valor.servicioId);
         const facturas = await repos.facturas.listarDe(actual.valor.servicioId);
         if (facturas.some(({ valor }) => valor.ordenCompraId === id)) {
           throw nuevoError(catalogo.DOM_0014, { id });

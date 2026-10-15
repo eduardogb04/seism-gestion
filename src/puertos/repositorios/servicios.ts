@@ -90,6 +90,12 @@ export type RepositorioServicios = Pick<
     sitioIds: readonly string[],
     en: FechaHora,
   ): Promise<void>;
+  /**
+   * Toma la fila del servicio (`FOR UPDATE`) hasta que termine la transacción: lo que
+   * cuelga de un servicio y se decide mirando otras filas suyas (una factura contra su
+   * orden, la baja contra sus órdenes y facturas) se turna en vez de cruzarse.
+   */
+  bloquear(id: string): Promise<void>;
   /** ¿Hay algún servicio no eliminado que use ese registro (su cliente, su tipo, uno de sus sitios)? */
   usa(entidad: EntidadAbm, id: string): Promise<boolean>;
 };

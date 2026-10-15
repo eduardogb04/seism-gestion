@@ -859,3 +859,64 @@ describe("anular", () => {
     ).rejects.toMatchObject({ codigo: catalogo.AUT_0009.codigo });
   });
 });
+
+describe("el servicio que tiene órdenes de compra o facturas", () => {
+  test("no se da de baja con una factura vigente (aunque siga en «Solicitado»), con una orden vigente, y sí cuando ya no tiene ninguna", async () => {
+    const baja = () =>
+      crearCasosUsoServicios(dependencias()).marcarEliminado(admin, servicioId);
+    const factura = await cargarFactura();
+    const orden = await cargarOrden();
+    expect(await estado()).toBe("solicitado");
+
+    await expect(baja()).rejects.toMatchObject({
+      codigo: catalogo.DOM_0010.codigo,
+    });
+    await facturas().marcarEliminado(admin, factura);
+    await expect(baja()).rejects.toMatchObject({
+      codigo: catalogo.DOM_0010.codigo,
+    });
+    await ordenes().marcarEliminado(admin, orden);
+
+    await baja();
+    expect(
+      (
+        await cliente().servicio.findUniqueOrThrow({
+          where: { id: servicioId },
+        })
+      ).eliminadoEn,
+    ).not.toBeNull();
+  });
+});
+
+describe("anular una orden y cargar una factura de esa orden a la vez", () => {
+  test("nunca queda una factura vigente apuntando a una orden anulada", async () => {
+    for (let vuelta = 0; vuelta < 12; vuelta++) {
+      const orden = await cargarOrden({ numero: `OC-carrera-${vuelta}` });
+
+      const [anulada, cargada] = await Promise.allSettled([
+        ordenes().marcarEliminado(admin, orden),
+        facturas().crear(
+          admin,
+          servicioId,
+          escritoDeFactura({
+            numero: `0000-carrera-${vuelta}`,
+            ordenCompraId: orden,
+          }),
+          null,
+        ),
+      ]);
+
+      const huerfanas = await cliente().factura.count({
+        where: {
+          eliminadoEn: null,
+          ordenCompra: { eliminadoEn: { not: null } },
+        },
+      });
+      expect(huerfanas, `vuelta ${vuelta}`).toBe(0);
+      // Una de las dos gana: o se anuló la orden y la factura volvió con su mensaje, o se facturó y la orden no se anuló (DOM-0014).
+      const seAnulo = anulada.status === "fulfilled";
+      const seFacturo = cargada.status === "fulfilled" && cargada.value.ok;
+      expect(seAnulo !== seFacturo, `vuelta ${vuelta}`).toBe(true);
+    }
+  });
+});

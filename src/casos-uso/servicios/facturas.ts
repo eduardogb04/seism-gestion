@@ -60,7 +60,11 @@ import {
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
 import { etiquetaDeAlicuota, OPCIONES_DE_ALICUOTA } from "./iva-de-factura.ts";
-import { ROLES_QUE_ESCRIBEN_SERVICIOS, servicioVigente } from "./servicios.ts";
+import {
+  ROLES_QUE_ESCRIBEN_SERVICIOS,
+  servicioVigente,
+  servicioVigenteBloqueado,
+} from "./servicios.ts";
 
 const esquemaId = z.uuid();
 
@@ -243,7 +247,8 @@ export function crearCasosUsoFacturas({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        await servicioVigente(repos, servicioId);
+        // Con la fila del servicio tomada, la orden elegida no puede anularse a la vez.
+        await servicioVigenteBloqueado(repos, servicioId);
         const validado = validarEscrito(
           camposDeFactura(await ordenesParaElegir(repos, servicioId)),
           VALIDACION,

@@ -1110,7 +1110,9 @@ se llama a `registrarCambioDeEstado` (`servicios.ts`), el mismo camino que `camb
 la transacción tomando la fila del servicio. Órdenes de compra y facturas (F2-06, ADR 0036) son los otros dos: su documento es
 opcional (`validarAdjuntoOpcional` y compañía, en `comprobantes.ts`), la orden pasa el servicio a «Adjudicado» solo si el
 ciclo lo permite desde su estado, y lo que se calcula con lo escrito (el IVA) se muestra al lado de los campos con
-`useEscritoEnVivo` de `FormularioAbm` y un hijo de cliente, sin repetir la cuenta del dominio.
+`useEscritoEnVivo` de `FormularioAbm` y un hijo de cliente, sin repetir la cuenta del dominio. Lo que se decide mirando otras filas del servicio (una factura contra su orden, la baja contra sus órdenes y facturas) toma
+antes la fila del servicio con `servicioVigenteBloqueado` (`RepositorioServicios.bloquear`), y un servicio con órdenes o
+facturas vigentes no se da de baja (`DOM-0010`).
 
 ### Cómo se agrega...un archivo adjunto a un registro (F2-05, ADR 0035).
 

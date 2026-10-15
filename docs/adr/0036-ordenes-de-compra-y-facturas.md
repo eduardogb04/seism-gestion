@@ -75,10 +75,14 @@ IVA, exacto, sin un segundo redondeo.
   guardan su alícuota y no se recalculan con otra.
 - Una factura de otra moneda que su orden no baja el saldo hasta que haya tipo de cambio: se ve, no se pierde.
 - Queda por decidir cómo se cobra (F2-07) lo facturado en otra moneda; este ADR deja el total con IVA calculable.
-- **Un cruce sin cerrar:** una factura que se carga a la vez que se anula su orden puede quedar apuntando a una orden
-  anulada (no hay bloqueo entre las dos). La base no lo impide; la pantalla no la ofrece anulada y el saldo ya no la
-  cuenta. Si molesta, se toma la fila del servicio en las dos escrituras, como en `siguienteVersion` de las
-  cotizaciones.
+- **El cruce factura ↔ anulación de su orden está cerrado.** Cargar una factura, anular una orden y dar de baja un
+  servicio toman la fila del servicio (`RepositorioServicios.bloquear`, `FOR UPDATE`, como `siguienteVersion` de las
+  cotizaciones) y vuelven a mirarla ya con el bloqueo (`servicioVigenteBloqueado`); la factura valida su orden después
+  de tomarla, así que nunca queda una factura vigente apuntando a una orden anulada (si la orden se anuló antes, vuelve
+  el error de campo en la orden; si la factura entró antes, la anulación da `DOM-0014`). Lo prueba un test de
+  concurrencia (`tests/casos-uso/ordenes-y-facturas.test.ts`).
+- **Un servicio con órdenes de compra o facturas vigentes no se da de baja**, cualquiera sea su estado (`DOM-0010`,
+  después de la regla del estado): una factura puede cargarse en «Solicitado», donde la baja estaba permitida.
 - Lo hacen cumplir `tests/dominio/factura.test.ts` y `orden-compra.test.ts` (propiedades), `tests/casos-uso/ordenes-y-facturas.test.ts`
   (contra Postgres) y `tests/e2e/ordenes-y-facturas.spec.ts`.
 

@@ -19,9 +19,12 @@ export const CAMPO_ARCHIVO = "archivo";
 export async function archivoSubidoEn(
   formulario: FormData,
 ): Promise<ArchivoSubido | null> {
-  // Sin archivo elegido el navegador manda una parte sin nombre; uno vacío elegido sí tiene nombre.
+  // Sin archivo elegido el navegador manda una parte vacía y, según la versión de
+  // Node, llega sin nombre o con uno sin extensión; un archivo vacío elegido sí
+  // tiene la suya (`validarArchivo` dice que está vacío).
   const subido = formulario.get(CAMPO_ARCHIVO);
-  return subido instanceof File && subido.name !== ""
+  return subido instanceof File &&
+    !(subido.size === 0 && !subido.name.includes("."))
     ? {
         nombre: subido.name,
         bytes: new Uint8Array(await subido.arrayBuffer()),

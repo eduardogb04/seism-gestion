@@ -22,6 +22,7 @@ const CABECERAS = [
   "Fecha",
   "Importe",
   "Motivo de la revisión",
+  "Observaciones",
   "Documento",
   "Cargada por",
 ];
@@ -122,6 +123,9 @@ export async function Cotizaciones({
               <td>{cotizacion.fecha}</td>
               <td>{cotizacion.importe}</td>
               <td className="whitespace-pre-line">{cotizacion.motivo}</td>
+              <td className="whitespace-pre-line">
+                {cotizacion.observaciones}
+              </td>
               <td>
                 <EnlaceDeDescarga {...cotizacion.documento} />
               </td>

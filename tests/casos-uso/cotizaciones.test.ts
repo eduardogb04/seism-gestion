@@ -619,6 +619,7 @@ describe("listar", () => {
         importe: "9.500,50",
         importeMoneda: "USD",
         motivo: "Bajó el precio",
+        observaciones: "Incluye el flete de ejemplo",
       },
       archivo("revision.pdf"),
       operador,
@@ -631,10 +632,15 @@ describe("listar", () => {
       fecha: "05/07/2031",
       importe: "USD 9.500,50",
       motivo: "Bajó el precio",
+      observaciones: "Incluye el flete de ejemplo",
       documento: { nombre: "revision.pdf", tamano: `${PDF.length} bytes` },
       quien: "operador@ejemplo.test",
     });
-    expect(lista[1]).toMatchObject({ fecha: "01/07/2031", motivo: "" });
+    expect(lista[1]).toMatchObject({
+      fecha: "01/07/2031",
+      motivo: "",
+      observaciones: "",
+    });
   });
 });
 

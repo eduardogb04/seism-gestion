@@ -107,6 +107,7 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
   );
   await nueva.getByLabel("Fecha").fill("2026-10-12");
   await nueva.getByLabel("Importe", { exact: true }).fill("12.500,00");
+  await nueva.getByLabel("Observaciones").fill("Sin flete de ejemplo");
   await nueva.getByLabel("Documento").setInputFiles({
     name: "cotizacion-v1.pdf",
     mimeType: "application/pdf",
@@ -121,9 +122,12 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
   await expect(primera.getByRole("cell").nth(1)).toHaveText("12/10/2026");
   await expect(primera.getByRole("cell").nth(2)).toHaveText("ARS 12.500,00");
   await expect(primera.getByRole("cell").nth(4)).toHaveText(
+    "Sin flete de ejemplo",
+  );
+  await expect(primera.getByRole("cell").nth(5)).toHaveText(
     "cotizacion-v1.pdf (2,0 MB)",
   );
-  await expect(primera.getByRole("cell").nth(5)).toHaveText(OPERADORA);
+  await expect(primera.getByRole("cell").nth(6)).toHaveText(OPERADORA);
   const historial = page
     .getByRole("table")
     .filter({ has: page.getByRole("columnheader", { name: "Quién" }) });

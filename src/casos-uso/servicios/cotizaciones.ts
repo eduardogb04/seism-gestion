@@ -77,6 +77,8 @@ export type CotizacionListada = {
   readonly importe: string;
   /** Vacío en la primera. */
   readonly motivo: string;
+  /** Vacío si no tiene. */
+  readonly observaciones: string;
   readonly documento: {
     readonly id: string;
     readonly nombre: string;
@@ -176,6 +178,7 @@ export function crearCasosUsoCotizaciones({
             fecha: diaConBarras(valor.fecha),
             importe: formatearImporte(valor.importe),
             motivo: valor.motivo ?? "",
+            observaciones: valor.observaciones ?? "",
             documento: {
               id: documento.id,
               nombre: documento.nombre,

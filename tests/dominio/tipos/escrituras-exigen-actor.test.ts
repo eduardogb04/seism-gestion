@@ -24,8 +24,8 @@
 import { expect, test } from "vitest";
 import type { CasosUsoAbm } from "../../../src/casos-uso/abm/abm.ts";
 import type { DefinicionAbm } from "../../../src/casos-uso/abm/definicion.ts";
-import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/cotizaciones.ts";
 import type { CasosUsoPagos } from "../../../src/casos-uso/egresos/pagos.ts";
+import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/cotizaciones.ts";
 import type { CasosUsoServicios } from "../../../src/casos-uso/servicios/servicios.ts";
 import type { CasosUsoUsuarios } from "../../../src/casos-uso/usuarios/usuarios.ts";
 import type { Identificador } from "../../../src/dominio/compartido/identificador.ts";

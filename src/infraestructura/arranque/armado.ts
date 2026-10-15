@@ -24,6 +24,7 @@ import {
   type CasosUsoDocumentos,
   crearCasosUsoDocumentos,
 } from "../../casos-uso/documentos/documentos.ts";
+import {
   type CasosUsoPagos,
   crearCasosUsoPagos,
 } from "../../casos-uso/egresos/pagos.ts";

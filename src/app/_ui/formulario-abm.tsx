@@ -97,7 +97,10 @@ function Control({
           key={comunes.defaultValue}
           {...comunes}
           opciones={[
-            { valor: "", texto: "Elegí una opción" },
+            {
+              valor: "",
+              texto: campo.opcional === true ? "Ninguna" : "Elegí una opción",
+            },
             ...campo.opciones.map(({ valor, etiqueta }) => ({
               valor,
               texto: etiqueta,

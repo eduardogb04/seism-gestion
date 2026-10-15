@@ -15,7 +15,7 @@ import {
 import { restarEnMoneda, sumarEnMoneda } from "../compartido/saldo.ts";
 
 /** Una factura vigente: su total con IVA y lo que se le cobró (con retenciones). */
-export interface FacturaParaAvance {
+interface FacturaParaAvance {
   readonly total: Importe<Moneda>;
   readonly cobrado: Importe<Moneda>;
 }

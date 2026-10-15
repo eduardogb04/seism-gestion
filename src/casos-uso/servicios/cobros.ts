@@ -157,7 +157,7 @@ export type LineaDeAvance = {
 };
 
 /** Una fila de *Por cobrar*, con todo escrito para mostrarse. */
-export type FilaPorCobrar = {
+type FilaPorCobrar = {
   readonly servicioId: string;
   /** El código del servicio: `SRV-2026-014`. */
   readonly servicio: string;

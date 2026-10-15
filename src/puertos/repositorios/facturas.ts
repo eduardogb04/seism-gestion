@@ -28,7 +28,7 @@ export type DatosFactura = {
 export type Factura = RegistroDe<DatosFactura>;
 
 /** Una factura con lo del servicio que la pantalla *Por cobrar* muestra. */
-export type FacturaConServicio = {
+type FacturaConServicio = {
   readonly factura: Factura;
   readonly servicioCodigo: string;
   /** La razón social del cliente del servicio. */

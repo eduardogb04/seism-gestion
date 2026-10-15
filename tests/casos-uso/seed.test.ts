@@ -428,7 +428,7 @@ describe("semilla", () => {
     ).toBe(5);
   });
 
-  test("siembra una orden de compra y dos facturas del servicio vigente, con el PDF de una, sin repetir filas, y no en el servidor", async () => {
+  test("siembra una orden de compra y tres facturas del servicio vigente (la tercera, en dólares, es de F2-07), con el PDF de una, sin repetir filas, y no en el servidor", async () => {
     const db = cliente();
     const foto = async () => ({
       ordenes: await db.ordenCompra.findMany(),
@@ -473,12 +473,57 @@ describe("semilla", () => {
     ).toEqual([
       ["0000-00000001", 40_000_000n, 210, true, true],
       ["0000-00000002", 25_000_000n, 105, true, false],
+      ["0000-00000003", 1_000_000n, 210, false, false],
     ]);
+    expect(primeraVez.facturas[2]?.importeMoneda).toBe("USD");
     expect(
       await db.auditoria.count({
         where: { entidad: { in: ["OrdenCompra", "Factura"] } },
       }),
-    ).toBe(3);
+    ).toBe(4);
+  });
+
+  test("siembra dos cobros, uno con retención en pesos y uno en pesos de una factura en dólares con su tipo de cambio, sin repetir filas, y no en el servidor", async () => {
+    const db = cliente();
+    const foto = () => db.cobro.findMany({ orderBy: { fecha: "asc" } });
+
+    await sembrar(db, opciones("servidor"));
+    expect(await foto()).toEqual([]);
+
+    await sembrar(db, opciones());
+    const primeraVez = await foto();
+    await sembrar(db, opciones());
+
+    expect(await foto()).toEqual(primeraVez);
+    const [enPesos, enDolares] = primeraVez;
+    expect(primeraVez).toHaveLength(2);
+    expect(enPesos).toMatchObject({
+      importeCentavos: 20_000_000n,
+      importeMoneda: "ARS",
+      retencionCentavos: 800_000n,
+      entradaCentavos: 20_000_000n,
+      entradaMoneda: "ARS",
+      cambioNumerador: null,
+      creadoPor: { tipo: "sistema", proceso: "db-seed" },
+    });
+    expect(enDolares).toMatchObject({
+      importeCentavos: 500_000n,
+      importeMoneda: "USD",
+      retencionCentavos: null,
+      entradaCentavos: 600_000_000n,
+      entradaMoneda: "ARS",
+      cambioNumerador: 1200n,
+      cambioDenominador: 1n,
+      cambioFuente: "Cotización de ejemplo",
+    });
+    const factura = await db.factura.findUniqueOrThrow({
+      where: { id: enDolares?.facturaId ?? "" },
+    });
+    expect(factura).toMatchObject({
+      numero: "0000-00000003",
+      importeMoneda: "USD",
+    });
+    expect(await db.auditoria.count({ where: { entidad: "Cobro" } })).toBe(2);
   });
 
   test("en el servidor no siembra ningún grupo; en ci, sí", async () => {

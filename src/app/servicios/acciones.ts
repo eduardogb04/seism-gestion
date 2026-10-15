@@ -189,6 +189,36 @@ export async function anularFactura(
   });
 }
 
+/** Cobrar una factura del servicio. */
+export async function cobrarFactura(
+  servicioId: string,
+  facturaId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const cobrada = await armado().cobros.registrar(
+      actor,
+      facturaId,
+      escritoEn(formulario),
+    );
+    return cobrada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cobrada;
+  });
+}
+
+/** La anulación de un cobro, ya confirmada. */
+export async function anularCobro(
+  servicioId: string,
+  cobroId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    await armado().cobros.marcarAnulado(actor, cobroId);
+    return { ok: true, ruta: `${RUTA}/${servicioId}` };
+  });
+}
+
 async function enElServicio(
   id: string,
   trabajo: (actor: Actor) => Promise<void>,

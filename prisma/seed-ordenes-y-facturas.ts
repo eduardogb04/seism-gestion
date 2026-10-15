@@ -108,12 +108,13 @@ export async function sembrarOrdenesYFacturas(
           bytes,
           "application/pdf",
         );
-        documentoId = identificadorDesde<string>(generadorId.generar());
+        const id = identificadorDesde<string>(generadorId.generar());
+        documentoId = id;
         await documentos.crear(
           actor,
           crearAuditable(
             {
-              id: documentoId,
+              id,
               referencia,
               nombre: `factura-${factura.numero}.pdf`,
               tipoMime: "application/pdf",

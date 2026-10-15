@@ -137,6 +137,7 @@ function Control({
         />
       );
     case "relacion":
+    case "servicio":
       return (
         <Selector
           key={comunes.defaultValue}
@@ -144,7 +145,10 @@ function Control({
           opciones={[
             {
               valor: "",
-              texto: campo.obligatoria === true ? "Elegí…" : "Ninguno",
+              texto:
+                campo.tipo === "relacion" && campo.obligatoria === true
+                  ? "Elegí…"
+                  : "Ninguno",
             },
             ...elegibles,
           ]}
@@ -161,6 +165,8 @@ function Control({
           error={comunes.error}
         />
       );
+    case "archivo":
+      return null;
   }
 }
 
@@ -188,11 +194,13 @@ export function FormularioAbm({
   readonly elegibles: OpcionesPorCampo;
   readonly inicial: EstadoFormulario;
   /** Un campo de archivo al final (F2-05): su error vuelve en `errores[nombre]`. */
-  readonly archivo?: {
-    readonly nombre: string;
-    readonly etiqueta: string;
-    readonly accept: string;
-  };
+  readonly archivo?:
+    | {
+        readonly nombre: string;
+        readonly etiqueta: string;
+        readonly accept: string;
+      }
+    | undefined;
   /** Algo más después de los campos (F2-06): una vista de lo que se calcula con ellos. */
   readonly children?: ReactNode;
   readonly enviar: {
@@ -224,20 +232,22 @@ export function FormularioAbm({
         <ErrorEnPantalla error={estado.error} />
       )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {campos.map(([nombre, campo], posicion) => (
-          <div
-            key={nombre}
-            className={campo.tipo === "textoLargo" ? "md:col-span-2" : ""}
-          >
-            <Control
-              nombre={nombre}
-              campo={campo}
-              elegibles={elegibles[nombre] ?? []}
-              estado={estado}
-              alAbrir={posicion === 0}
-            />
-          </div>
-        ))}
+        {campos
+          .filter(([, campo]) => campo.tipo !== "archivo")
+          .map(([nombre, campo], posicion) => (
+            <div
+              key={nombre}
+              className={campo.tipo === "textoLargo" ? "md:col-span-2" : ""}
+            >
+              <Control
+                nombre={nombre}
+                campo={campo}
+                elegibles={elegibles[nombre] ?? []}
+                estado={estado}
+                alAbrir={posicion === 0}
+              />
+            </div>
+          ))}
         {archivo === undefined ? null : (
           <div className="md:col-span-2">
             <CampoArchivo

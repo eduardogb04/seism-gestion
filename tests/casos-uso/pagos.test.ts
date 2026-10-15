@@ -166,7 +166,7 @@ describe("pagos de egresos", () => {
     emailAdmin = sembrado.email;
     centroId = await alta(CENTROS_DE_COSTO, {
       nombre: "Administración",
-      clase: "proyecto",
+      clase: "gestion_administrativa",
       descripcion: "",
       activo: "si",
     });

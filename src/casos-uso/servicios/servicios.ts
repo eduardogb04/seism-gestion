@@ -598,9 +598,10 @@ export function crearCasosUsoServicios({
         }
         if (
           (await repos.ordenesCompra.listarDe(id)).length > 0 ||
-          (await repos.facturas.listarDe(id)).length > 0
+          (await repos.facturas.listarDe(id)).length > 0 ||
+          (await repos.abm("Egreso").hayVigenteCon("servicioId", id))
         ) {
-          throw nuevoError(catalogo.DOM_0010, { id });
+          throw nuevoError(catalogo.DOM_0010, { entidad: "Servicio", id });
         }
         const eliminado = marcarEliminado(actual, actor, reloj);
         if (!eliminado.ok) {

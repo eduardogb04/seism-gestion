@@ -14,6 +14,7 @@ import {
 } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
+import { EnlaceDeDescarga } from "../../_ui/enlace-de-descarga.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
@@ -38,6 +39,18 @@ function Resumen({ detalle }: { readonly detalle: DetalleEgreso }) {
             <dd className="whitespace-pre-line">{valor}</dd>
           </div>
         ))}
+        {detalle.comprobante === null ? null : (
+          <div className="contents">
+            <dt className="font-medium">Comprobante adjunto</dt>
+            <dd>
+              <EnlaceDeDescarga
+                id={detalle.comprobante.id}
+                nombre={detalle.comprobante.nombre}
+                tamano={detalle.comprobante.tamano}
+              />
+            </dd>
+          </div>
+        )}
       </dl>
       <p className="mb-4 flex flex-wrap gap-x-6 gap-y-1 text-lg">
         <span>

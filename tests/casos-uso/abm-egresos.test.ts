@@ -89,7 +89,7 @@ async function alta<E extends EntidadAbm>(
 function altaDeCentro(nombre: string, activo = true): Promise<string> {
   return alta(CENTROS_DE_COSTO, {
     nombre,
-    clase: "proyecto",
+    clase: "gestion_administrativa",
     descripcion: "",
     activo: activo ? "si" : "",
   });
@@ -615,7 +615,7 @@ describe("egresos y los tipos de campo que trajeron", () => {
       const id = await altaDeEgreso(centro);
       await casos().guardar(admin, CENTROS_DE_COSTO, centro, {
         nombre: "Se va a desactivar",
-        clase: "proyecto",
+        clase: "gestion_administrativa",
         descripcion: "",
         activo: "",
       });

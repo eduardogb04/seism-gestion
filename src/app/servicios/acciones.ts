@@ -12,13 +12,12 @@
 
 import { redirect } from "next/navigation.js";
 import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
-import type { ArchivoSubido } from "../../casos-uso/documentos/documentos.ts";
 import { pantallaDeCodigo } from "../../casos-uso/sesion/errores.ts";
 import type { Actor } from "../../dominio/compartido/actor.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
 import type { EstadoFormulario } from "../_ui/formulario-abm.tsx";
 import { conActorDeSesion } from "../(auth)/sesion-actual.ts";
-import { escritoEn } from "../catalogo/_abm/escrito.ts";
+import { archivoSubidoEn, escritoEn } from "../catalogo/_abm/escrito.ts";
 
 const RUTA = "/servicios";
 
@@ -79,30 +78,13 @@ export async function darDeBajaServicio(
   });
 }
 
-/** El nombre del campo de archivo de un formulario con documento. */
-const CAMPO_ARCHIVO = "archivo";
-
-/** El archivo que vino en el formulario, o `null` si no se eligió ninguno. */
-async function archivoDe(formulario: FormData): Promise<ArchivoSubido | null> {
-  const subido = formulario.get(CAMPO_ARCHIVO);
-  // Sin archivo elegido el navegador manda una parte vacía, sin nombre; al
-  // decodificarla, Next le pone «blob». Uno vacío que se eligió trae su nombre.
-  return subido instanceof File &&
-    !(subido.size === 0 && (subido.name === "" || subido.name === "blob"))
-    ? {
-        nombre: subido.name,
-        bytes: new Uint8Array(await subido.arrayBuffer()),
-      }
-    : null;
-}
-
 /** Cargar una cotización con su documento: vuelve a la pantalla del servicio. */
 export async function cargarCotizacion(
   servicioId: string,
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  const archivo = await archivoDe(formulario);
+  const archivo = await archivoSubidoEn(formulario);
   return escribir(formulario, async (actor) => {
     const cargada = await armado().cotizaciones.crear(
       actor,
@@ -133,7 +115,7 @@ export async function cargarOrdenDeCompra(
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  const archivo = await archivoDe(formulario);
+  const archivo = await archivoSubidoEn(formulario);
   return escribir(formulario, async (actor) => {
     const cargada = await armado().ordenesDeCompra.crear(
       actor,
@@ -164,7 +146,7 @@ export async function cargarFactura(
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  const archivo = await archivoDe(formulario);
+  const archivo = await archivoSubidoEn(formulario);
   return escribir(formulario, async (actor) => {
     const cargada = await armado().facturas.crear(
       actor,

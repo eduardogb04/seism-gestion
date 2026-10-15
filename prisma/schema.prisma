@@ -380,6 +380,10 @@ model Egreso {
   importeCentavos   BigInt      @map("importe_centavos")
   importeMoneda     String      @map("importe_moneda")
   vencimiento       DateTime?   @db.Date
+  servicioId        String?     @map("servicio_id") @db.Uuid
+  servicio          Servicio?   @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  comprobanteId     String?     @map("comprobante_id") @db.Uuid
+  comprobante       Documento?  @relation(fields: [comprobanteId], references: [id], onDelete: Restrict)
   observaciones     String?
   creadoEn          DateTime    @map("creado_en") @db.Timestamptz(3)
   creadoPor         Json        @map("creado_por") @db.JsonB
@@ -449,6 +453,7 @@ model Servicio {
   cotizaciones  Cotizacion[]
   ordenesCompra OrdenCompra[]
   facturas      Factura[]
+  egresos       Egreso[]
 
   @@map("servicios")
 }
@@ -512,6 +517,7 @@ model Documento {
   cotizaciones  Cotizacion[]
   ordenesCompra OrdenCompra[]
   facturas      Factura[]
+  egresos       Egreso[]
 
   @@map("documentos")
 }

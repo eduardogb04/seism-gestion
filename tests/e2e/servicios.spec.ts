@@ -137,7 +137,11 @@ test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizad
   await expect(page.getByLabel("Planta Ejemplo Sur")).not.toBeChecked();
   await expect(page.getByLabel("Estación Ejemplo Este")).toHaveCount(0);
   await page.getByLabel("Planta Ejemplo Norte").check();
-  await page.getByRole("button", { name: "Guardar sitios" }).click();
+  // Recargar antes de que termine el POST lo cancela: se espera su respuesta.
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "POST"),
+    page.getByRole("button", { name: "Guardar sitios" }).click(),
+  ]);
   await page.reload();
   await expect(page.getByLabel("Planta Ejemplo Norte")).toBeChecked();
   await expect(page.getByLabel("Planta Ejemplo Sur")).not.toBeChecked();

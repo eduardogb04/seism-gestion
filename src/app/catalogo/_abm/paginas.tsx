@@ -21,6 +21,7 @@ import {
   textosDe,
   valoresDeAlta,
 } from "../../../casos-uso/abm/definicion.ts";
+import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
 import {
   codigoDeError,
   pantallaDeCodigo,
@@ -47,6 +48,7 @@ import {
   darDeBajaRegistro,
   guardarRegistro,
 } from "./acciones.ts";
+import { CAMPO_ARCHIVO } from "./escrito.ts";
 
 export type PropsListado = {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -99,6 +101,16 @@ function Cambios({ cambios }: { readonly cambios: readonly CambioAbm[] }) {
   );
 }
 
+/** El campo de archivo del formulario, si la definición adjunta uno. */
+function archivoDe<E extends EntidadAbm>(definicion: DefinicionAbm<E>) {
+  const campo = camposDe(definicion).find(
+    ([, { tipo }]) => tipo === "archivo",
+  )?.[1];
+  return campo === undefined
+    ? undefined
+    : { nombre: CAMPO_ARCHIVO, etiqueta: campo.etiqueta, accept: ACEPTA };
+}
+
 async function ContenidoDeVentana<E extends EntidadAbm>({
   definicion,
   pedida,
@@ -128,6 +140,7 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
           accion={crearRegistro.bind(null, entidad, vuelta)}
           campos={camposDe(definicion)}
           elegibles={elegibles}
+          archivo={archivoDe(definicion)}
           inicial={{ escrito: valoresDeAlta(definicion), errores: {} }}
           enviar={{ texto: "Guardar", variante: "primario" }}
           rutaAlCancelar={rutaAlCerrar}
@@ -143,6 +156,7 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
               accion={guardarRegistro.bind(null, entidad, valor.id, vuelta)}
               campos={camposDe(definicion)}
               elegibles={elegibles}
+              archivo={archivoDe(definicion)}
               inicial={{ escrito: textos, errores: {} }}
               enviar={{ texto: "Guardar", variante: "primario" }}
               rutaAlCancelar={rutaAlCerrar}

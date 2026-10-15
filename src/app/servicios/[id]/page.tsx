@@ -30,6 +30,7 @@ import {
   guardarSitiosDeServicio,
 } from "../acciones.ts";
 import { Cotizaciones } from "./cotizaciones.tsx";
+import { Egresos } from "./egresos.tsx";
 import { Facturas } from "./facturas.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
 
@@ -256,6 +257,7 @@ export default async function Servicio({ params, searchParams }: Props) {
           puedeEscribir={puedeEscribir}
           parametros={parametros}
         />
+        <Egresos servicioId={servicio.id} />
         <Sitios servicio={servicio} puedeEscribir={puedeEscribir} />
         <Historial historial={servicio.historial} />
       </main>

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { MONEDAS } from "../../dominio/compartido/importe.ts";
 import { rechazosPorPagos } from "../egresos/edicion-con-pagos.ts";
+import { rechazosPorServicio } from "../egresos/servicio-del-egreso.ts";
 import type { DefinicionAbm } from "./definicion.ts";
 import { obligatorio, opcional } from "./validaciones.ts";
 
@@ -22,6 +23,7 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
       obligatoria: true,
       soloSi: "activo",
     },
+    servicioId: { tipo: "servicio", etiqueta: "Servicio" },
     proveedorId: {
       tipo: "relacion",
       etiqueta: "Proveedor",
@@ -37,11 +39,13 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
     importe: { tipo: "importe", etiqueta: "Importe" },
     vencimiento: { tipo: "fecha", etiqueta: "Vencimiento", opcional: true },
     observaciones: { tipo: "textoLargo", etiqueta: "Observaciones" },
+    comprobanteId: { tipo: "archivo", etiqueta: "Comprobante" },
   },
   validacion: z.object({
     fecha: z.string(),
     concepto: obligatorio("el concepto", 200),
     centroCostoId: z.string("Elegí un centro de costo."),
+    servicioId: z.string().nullable(),
     proveedorId: z.string().nullable(),
     numeroComprobante: opcional(40),
     importe: z.object({
@@ -50,6 +54,7 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
     }),
     vencimiento: z.string().nullable(),
     observaciones: opcional(1000),
+    comprobanteId: z.string().nullable(),
   }),
   unicos: [],
   busqueda: ["concepto", "numeroComprobante"],
@@ -58,7 +63,10 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
   filtros: ["centroCostoId", "fecha"],
   rolesQueEscriben: ["administrador", "operador"],
   rutaDeFila: (id) => `/egresos/${id}`,
-  rechazosAlEditar: rechazosPorPagos,
+  rechazosAlGuardar: async (repos, actual, nuevos) => ({
+    ...(actual === null ? {} : await rechazosPorPagos(repos, actual, nuevos)),
+    ...(await rechazosPorServicio(repos, nuevos)),
+  }),
   listado: [
     "fecha",
     "concepto",

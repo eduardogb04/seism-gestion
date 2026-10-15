@@ -21,13 +21,14 @@ import type {
   Escrito,
 } from "../../../casos-uso/abm/definicion.ts";
 import { conDefinicion } from "../../../casos-uso/abm/definiciones.ts";
+import type { ArchivoSubido } from "../../../casos-uso/documentos/documentos.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
 import type { Actor } from "../../../dominio/compartido/actor.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import type { EntidadAbm } from "../../../puertos/repositorios/abm.ts";
 import type { EstadoFormulario } from "../../_ui/formulario-abm.tsx";
 import { conActorDeSesion } from "../../(auth)/sesion-actual.ts";
-import { escritoEn } from "./escrito.ts";
+import { archivoSubidoEn, escritoEn } from "./escrito.ts";
 
 type Escritura =
   | { readonly ok: true }
@@ -41,12 +42,14 @@ async function escribir(
     actor: Actor,
     definicion: DefinicionAbm<E>,
     escrito: Escrito,
+    archivo: ArchivoSubido | null,
   ) => Promise<Escritura>,
 ): Promise<EstadoFormulario> {
   const escrito = escritoEn(formulario);
+  const archivo = await archivoSubidoEn(formulario);
   const resultado = await conActorDeSesion((actor) =>
     conDefinicion(entidad, async (definicion) => {
-      const escritura = await trabajo(actor, definicion, escrito);
+      const escritura = await trabajo(actor, definicion, escrito, archivo);
       return escritura.ok
         ? { ruta: `${definicion.ruta}?${vuelta}` }
         : { errores: escritura.errores };
@@ -67,8 +70,12 @@ export async function crearRegistro(
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  return escribir(entidad, vuelta, formulario, (actor, definicion, escrito) =>
-    armado().abm.crear(actor, definicion, escrito),
+  return escribir(
+    entidad,
+    vuelta,
+    formulario,
+    (actor, definicion, escrito, archivo) =>
+      armado().abm.crear(actor, definicion, escrito, archivo),
   );
 }
 
@@ -79,8 +86,12 @@ export async function guardarRegistro(
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  return escribir(entidad, vuelta, formulario, (actor, definicion, escrito) =>
-    armado().abm.guardar(actor, definicion, id, escrito),
+  return escribir(
+    entidad,
+    vuelta,
+    formulario,
+    (actor, definicion, escrito, archivo) =>
+      armado().abm.guardar(actor, definicion, id, escrito, archivo),
   );
 }
 

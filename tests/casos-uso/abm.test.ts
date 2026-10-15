@@ -23,6 +23,7 @@ import {
   test,
 } from "vitest";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
+import { crearAuditoriaPrisma } from "../../src/adaptadores/prisma/auditoria.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
 import { crearCasosUsoAbm } from "../../src/casos-uso/abm/abm.ts";
@@ -371,8 +372,12 @@ describe("molde de ABM, con Grupos", () => {
         nombre: "Grupo Norte",
         eliminadoPor: operador,
       });
+      // Las dos altas y la baja comparten el instante de la auditoría (`en` es
+      // `actualizadoEn`, y la baja no lo mueve): ningún orden entre ellas está garantizado.
       const registros = await auditoriaDeGrupos();
-      expect(registros.at(-1)).toMatchObject({
+      const baja = registros.find(({ accion }) => accion === "eliminar");
+      expect(registros).toHaveLength(3);
+      expect(baja).toMatchObject({
         entidadId: id,
         accion: "eliminar",
         antes: { id, nombre: "Grupo Norte", observaciones: null },
@@ -383,7 +388,7 @@ describe("molde de ABM, con Grupos", () => {
         },
         actor: operador,
       });
-      expect(registros.at(-1)?.antes).not.toHaveProperty("eliminadoEn");
+      expect(baja?.antes).not.toHaveProperty("eliminadoEn");
       const listado = await casos().listar(GRUPOS, {});
       expect(listado.total).toBe(1);
       expect(listado.registros.map(({ valor }) => valor.nombre)).toEqual([
@@ -409,6 +414,36 @@ describe("molde de ABM, con Grupos", () => {
         casos().marcarEliminado(admin, GRUPOS, id),
       ).rejects.toMatchObject({ codigo: "DOM-0009" });
       expect(await filas()).toEqual(antes);
+    });
+  });
+
+  describe("historial de auditoría", () => {
+    test("registros del mismo instante salen siempre en el mismo orden: el de su `id`, descendente", async () => {
+      const id = identificadorDesde<string>("grupo-con-empate");
+      const auditoria = crearAuditoriaPrisma(cliente());
+      for (const n of [1, 2, 3, 4, 5, 6]) {
+        await auditoria.registrar({
+          entidad: "Grupo",
+          id,
+          accion: "actualizar",
+          antes: { n },
+          despues: { n },
+          actor: operador,
+          en: AYER,
+        });
+      }
+
+      const esperado = (
+        await cliente().auditoria.findMany({
+          where: { entidad: "Grupo" },
+          orderBy: { id: "desc" },
+        })
+      ).map(({ despues }) => despues);
+      const leido = (await auditoria.registrosDe("Grupo", id)).map(
+        ({ despues }) => despues,
+      );
+
+      expect(leido).toEqual(esperado);
     });
   });
 

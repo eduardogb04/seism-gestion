@@ -84,9 +84,11 @@ const CAMPO_ARCHIVO = "archivo";
 
 /** El archivo que vino en el formulario, o `null` si no se eligió ninguno. */
 async function archivoDe(formulario: FormData): Promise<ArchivoSubido | null> {
-  // Sin archivo elegido el navegador manda una parte sin nombre; uno vacío elegido sí tiene nombre.
   const subido = formulario.get(CAMPO_ARCHIVO);
-  return subido instanceof File && subido.name !== ""
+  // Sin archivo elegido el navegador manda una parte vacía, sin nombre; al
+  // decodificarla, Next le pone «blob». Uno vacío que se eligió trae su nombre.
+  return subido instanceof File &&
+    !(subido.size === 0 && (subido.name === "" || subido.name === "blob"))
     ? {
         nombre: subido.name,
         bytes: new Uint8Array(await subido.arrayBuffer()),

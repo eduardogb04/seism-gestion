@@ -28,6 +28,8 @@ import {
   TOPE_DE_DOCUMENTO,
 } from "../../src/casos-uso/documentos/documentos.ts";
 import { crearCasosUsoCotizaciones } from "../../src/casos-uso/servicios/cotizaciones.ts";
+import { crearCasosUsoFacturas } from "../../src/casos-uso/servicios/facturas.ts";
+import { crearCasosUsoOrdenesDeCompra } from "../../src/casos-uso/servicios/ordenes-de-compra.ts";
 import { crearCasosUsoSesion } from "../../src/casos-uso/sesion/sesion.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
 import {
@@ -66,9 +68,12 @@ vi.mock("../../src/infraestructura/arranque/armado.ts", () => ({
   armado: () => punto.armado,
 }));
 
-const { cargarCotizacion, anularCotizacion } = await import(
-  "../../src/app/servicios/acciones.ts"
-);
+const {
+  cargarCotizacion,
+  anularCotizacion,
+  cargarOrdenDeCompra,
+  cargarFactura,
+} = await import("../../src/app/servicios/acciones.ts");
 const { GET } = await import("../../src/app/documentos/[id]/route.ts");
 
 const SIN_SESION = "/ingresar/error?codigo=AUT-0002";
@@ -189,6 +194,16 @@ beforeEach(async () => {
   punto.armado = {
     sesion,
     cotizaciones: crearCasosUsoCotizaciones({
+      ...dependencias,
+      almacen,
+      nuevaClave: nuevaClaveDocumento,
+    }),
+    ordenesDeCompra: crearCasosUsoOrdenesDeCompra({
+      ...dependencias,
+      almacen,
+      nuevaClave: nuevaClaveDocumento,
+    }),
+    facturas: crearCasosUsoFacturas({
       ...dependencias,
       almacen,
       nuevaClave: nuevaClaveDocumento,
@@ -324,6 +339,96 @@ describe("cargar una cotización desde el formulario", () => {
       (await anularCotizacion(servicioId, "no-es-un-id", VACIO, formulario({})))
         .error?.codigo,
     ).toBe(catalogo.DOM_0009.codigo);
+  });
+});
+
+describe("órdenes de compra y facturas desde el formulario: el documento es opcional", () => {
+  const ORDEN = {
+    numero: "OC-1",
+    fecha: "2031-07-01",
+    importe: "1.000,00",
+    importeMoneda: "ARS",
+    observaciones: "",
+  };
+  const FACTURA = {
+    numero: "0000-0001",
+    fecha: "2031-07-08",
+    vencimiento: "2031-08-08",
+    importe: "400,00",
+    importeMoneda: "ARS",
+    alicuota: "210",
+    ordenCompraId: "",
+  };
+  // Lo que manda el navegador cuando no se eligió ningún archivo, ya decodificado por Next.
+  const SIN_ELEGIR = new File([], "blob");
+
+  test("sin archivo elegido se guarda sin documento y vuelve a la pantalla del servicio", async () => {
+    const conOrden = formulario(ORDEN);
+    conOrden.set("archivo", SIN_ELEGIR);
+    const conFactura = formulario(FACTURA);
+    conFactura.set("archivo", SIN_ELEGIR);
+
+    expect(
+      await destino(cargarOrdenDeCompra(servicioId, VACIO, conOrden)),
+    ).toBe(`/servicios/${servicioId}`);
+    expect(await destino(cargarFactura(servicioId, VACIO, conFactura))).toBe(
+      `/servicios/${servicioId}`,
+    );
+
+    expect(await cliente().ordenCompra.findFirstOrThrow()).toMatchObject({
+      documentoId: null,
+      creadoPor: { tipo: "persona", usuarioId: operador.id },
+    });
+    expect(await cliente().factura.findFirstOrThrow()).toMatchObject({
+      documentoId: null,
+    });
+    expect(await cliente().documento.count()).toBe(0);
+  });
+
+  test("con archivo, lo guarda; uno que no se admite vuelve con su mensaje y lo escrito", async () => {
+    await destino(
+      cargarFactura(
+        servicioId,
+        VACIO,
+        formulario(FACTURA, { nombre: "factura.pdf", bytes: PDF }),
+      ),
+    );
+    expect((await cliente().documento.findFirstOrThrow()).nombre).toBe(
+      "factura.pdf",
+    );
+
+    const estado = await cargarOrdenDeCompra(
+      servicioId,
+      VACIO,
+      formulario(ORDEN, { nombre: "programa.exe", bytes: PDF }),
+    );
+
+    expect(estado.errores.archivo).toContain("Solo se admiten PDF");
+    expect(estado.escrito).toMatchObject({ numero: "OC-1" });
+    expect(await cliente().ordenCompra.count()).toBe(0);
+  });
+
+  test("sin sesión, AUT-0002 y no se guarda nada", async () => {
+    cookie.valor = undefined;
+
+    expect(
+      await destino(cargarOrdenDeCompra(servicioId, VACIO, formulario(ORDEN))),
+    ).toBe(SIN_SESION);
+    expect(
+      await destino(cargarFactura(servicioId, VACIO, formulario(FACTURA))),
+    ).toBe(SIN_SESION);
+
+    expect(await cliente().ordenCompra.count()).toBe(0);
+    expect(await cliente().factura.count()).toBe(0);
+  });
+
+  test("en una cotización, el documento sigue siendo obligatorio: una parte vacía se lee como «no se eligió»", async () => {
+    const datos = formulario(CAMPOS);
+    datos.set("archivo", SIN_ELEGIR);
+
+    expect(
+      (await cargarCotizacion(servicioId, VACIO, datos)).errores.archivo,
+    ).toContain("Elegí el documento");
   });
 });
 

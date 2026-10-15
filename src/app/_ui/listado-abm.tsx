@@ -94,6 +94,8 @@ export function ListadoAbm({
   listado,
   puedeEscribir,
   acciones,
+  rutaDeFila,
+  sinCortar,
 }: {
   readonly ruta: string;
   readonly singular: string;
@@ -107,6 +109,10 @@ export function ListadoAbm({
   readonly puedeEscribir: boolean;
   /** Lo que se puede hacer con cada registro; `null`: el listado no lleva esa columna. */
   readonly acciones: ((id: string, vista: Vista) => ReactNode) | null;
+  /** A dónde lleva la primera celda de cada fila; sin esto, es texto. */
+  readonly rutaDeFila?: ((id: string) => string) | undefined;
+  /** La cabecera de una columna cuyo texto no se parte en dos renglones (un código). */
+  readonly sinCortar?: string;
 }) {
   const {
     registros,
@@ -183,8 +189,19 @@ export function ListadoAbm({
           return (
             <tr key={valor.id}>
               {(celdas[valor.id] ?? []).map((texto, posicion) => (
-                <td key={cabeceras[posicion]} className="whitespace-pre-line">
-                  {texto}
+                <td
+                  key={cabeceras[posicion]}
+                  className={
+                    cabeceras[posicion] === sinCortar
+                      ? "whitespace-nowrap"
+                      : "whitespace-pre-line"
+                  }
+                >
+                  {posicion === 0 && rutaDeFila !== undefined ? (
+                    <Enlace href={rutaDeFila(valor.id)}>{texto}</Enlace>
+                  ) : (
+                    texto
+                  )}
                 </td>
               ))}
               {acciones === null ? null : (

@@ -759,12 +759,14 @@ export function crearCasosUsoAbm({
           return { ok: true, registro: actual };
         }
         const repositorio = repos.abm(definicion.entidad);
-        const errores = await erroresDeBase(
-          repos,
-          definicion,
-          validado.datos,
-          actual,
-        );
+        const errores = {
+          ...(await erroresDeBase(repos, definicion, validado.datos, actual)),
+          ...(await definicion.rechazosAlEditar?.(
+            repos,
+            actual,
+            validado.datos,
+          )),
+        };
         if (Object.keys(errores).length > 0) {
           return { ok: false, errores };
         }

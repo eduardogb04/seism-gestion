@@ -32,7 +32,11 @@ import {
   RelojFijo,
 } from "../../src/dominio/compartido/reloj.ts";
 import type { EntidadAbm } from "../../src/puertos/repositorios/abm.ts";
-import { ADMIN_UNO, sembrarUsuarios } from "./_arnes/administradores.ts";
+import {
+  ADMIN_UNO,
+  EX_ADMIN,
+  sembrarUsuarios,
+} from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 
 const HOY = (() => {
@@ -53,6 +57,7 @@ const HOY = (() => {
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
 let admin: Actor;
+let revocado: Actor;
 let emailAdmin: string;
 let centroId: string;
 
@@ -149,11 +154,15 @@ describe("pagos de egresos", () => {
 
   beforeEach(async () => {
     await limpiarBase();
-    const [sembrado] = await sembrarUsuarios(cliente(), [ADMIN_UNO]);
-    if (sembrado === undefined) {
-      throw new Error("falta el administrador sembrado");
+    const [sembrado, ex] = await sembrarUsuarios(cliente(), [
+      ADMIN_UNO,
+      EX_ADMIN,
+    ]);
+    if (sembrado === undefined || ex === undefined) {
+      throw new Error("faltan los usuarios sembrados");
     }
     admin = { tipo: "persona", usuarioId: sembrado.id };
+    revocado = { tipo: "persona", usuarioId: ex.id };
     emailAdmin = sembrado.email;
     centroId = await alta(CENTROS_DE_COSTO, {
       nombre: "Administración",
@@ -379,6 +388,33 @@ describe("pagos de egresos", () => {
       expect(await cantidadDePagos()).toBe(0);
     });
 
+    test("con la fecha inválida, el único mensaje es el de la fecha, haya o no tipo de cambio escrito", async () => {
+      const egreso = await altaDeEgreso({
+        importe: "100,00",
+        importeMoneda: "USD",
+      });
+      const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
+
+      for (const tipoDeCambio of ["1.184,25", "abc"]) {
+        const resultado = await pagos().registrarPago(
+          admin,
+          egreso,
+          pago(cuenta, {
+            importe: "50,00",
+            fecha: "2031-02-30",
+            tipoDeCambio,
+            fuenteDelCambio: "Fuente de prueba",
+          }),
+        );
+
+        expect(resultado.ok).toBe(false);
+        if (!resultado.ok) {
+          expect(Object.keys(resultado.errores)).toEqual(["fecha"]);
+        }
+      }
+      expect(await cantidadDePagos()).toBe(0);
+    });
+
     test("monedas iguales con tipo de cambio: sobra, DOM-0013", async () => {
       const egreso = await altaDeEgreso();
       const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
@@ -558,6 +594,23 @@ describe("pagos de egresos", () => {
       ).rejects.toMatchObject({
         codigo: catalogo.DOM_0009.codigo,
       });
+    });
+
+    test("sin un usuario activo con rol que escriba: AUT-0009 y el pago sigue vigente", async () => {
+      const egreso = await altaDeEgreso();
+      const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
+      await pagado(egreso, cuenta);
+      const fila = await cliente().pago.findFirstOrThrow();
+
+      await expect(
+        pagos().marcarPagoAnulado(revocado, fila.id),
+      ).rejects.toMatchObject({ codigo: catalogo.AUT_0009.codigo });
+
+      const guardado = await cliente().pago.findUniqueOrThrow({
+        where: { id: fila.id },
+      });
+      expect(guardado.eliminadoEn).toBeNull();
+      expect((await pagos().detalle(egreso)).pagos).toHaveLength(1);
     });
 
     test("un pago anulado libera el cupo: se puede volver a pagar ese importe", async () => {
@@ -780,7 +833,7 @@ describe("pagos de egresos", () => {
       });
     });
 
-    test("el egreso no baja de lo ya pagado ni cambia de moneda, pero sí se puede subir o editar otra cosa", async () => {
+    test("el egreso no baja de lo ya pagado ni cambia de moneda: el mensaje vuelve al lado del importe y no se escribe nada", async () => {
       const egreso = await altaDeEgreso();
       const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
       await pagado(egreso, cuenta, { importe: "400,00" });
@@ -798,16 +851,51 @@ describe("pagos de egresos", () => {
           ...cambios,
         });
 
-      await expect(edicion({ importe: "399,99" })).rejects.toMatchObject({
-        code: "P2003",
+      const menor = await edicion({ importe: "399,99", concepto: "Otro" });
+      expect(menor).toEqual({
+        ok: false,
+        errores: {
+          importe: expect.stringContaining("ARS 400,00"),
+        },
       });
-      await expect(edicion({ importeMoneda: "USD" })).rejects.toMatchObject({
-        code: "P2003",
+      const otraMoneda = await edicion({ importeMoneda: "USD" });
+      expect(otraMoneda).toEqual({
+        ok: false,
+        errores: { importe: expect.stringContaining("moneda") },
       });
+      const sinCambios = await cliente().egreso.findUniqueOrThrow({
+        where: { id: egreso },
+      });
+      expect(sinCambios.concepto).toBe("Combustible");
+      expect(sinCambios.importeCentavos).toBe(100000n);
+      expect(sinCambios.importeMoneda).toBe("ARS");
+
       expect((await edicion({ importe: "400,00" })).ok).toBe(true);
       expect(
         (await edicion({ importe: "2.000,00", concepto: "Otro" })).ok,
       ).toBe(true);
+    });
+
+    test("con todos los pagos anulados, el egreso sí baja de importe y cambia de moneda", async () => {
+      const egreso = await altaDeEgreso();
+      const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
+      await pagado(egreso, cuenta, { importe: "400,00" });
+      const fila = await cliente().pago.findFirstOrThrow();
+      await pagos().marcarPagoAnulado(admin, fila.id);
+
+      const resultado = await abm().guardar(admin, EGRESOS, egreso, {
+        fecha: "2031-06-01",
+        concepto: "Combustible",
+        centroCostoId: centroId,
+        proveedorId: "",
+        numeroComprobante: "",
+        importe: "100,00",
+        importeMoneda: "USD",
+        vencimiento: "",
+        observaciones: "",
+      });
+
+      expect(resultado.ok).toBe(true);
     });
   });
 });

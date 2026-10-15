@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { MONEDAS } from "../../dominio/compartido/importe.ts";
+import { rechazosPorPagos } from "../egresos/edicion-con-pagos.ts";
 import type { DefinicionAbm } from "./definicion.ts";
 import { obligatorio, opcional } from "./validaciones.ts";
 
@@ -56,6 +57,8 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
   direccionInicial: "desc",
   filtros: ["centroCostoId", "fecha"],
   rolesQueEscriben: ["administrador", "operador"],
+  rutaDeFila: (id) => `/egresos/${id}`,
+  rechazosAlEditar: rechazosPorPagos,
   listado: [
     "fecha",
     "concepto",

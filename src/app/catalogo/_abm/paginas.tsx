@@ -218,6 +218,7 @@ export async function PaginaListado<E extends EntidadAbm>({
           }))}
           listado={listado}
           puedeEscribir={puedeEscribir}
+          rutaDeFila={definicion.rutaDeFila}
           acciones={
             puedeEscribir
               ? (id, deLaVista) => (

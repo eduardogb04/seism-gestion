@@ -24,7 +24,9 @@ import type {
   ColumnaDeTexto,
   DatosAbm,
   EntidadAbm,
+  RegistroAbm,
 } from "../../puertos/repositorios/abm.ts";
+import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
 import type { Rol } from "../../puertos/repositorios/usuarios.ts";
 
 export type OpcionAbm = { readonly valor: string; readonly etiqueta: string };
@@ -157,6 +159,18 @@ export type DefinicionAbm<E extends EntidadAbm> = {
   };
   /** Los campos cuyos cambios se muestran en la edición, leídos de `auditoria`. */
   readonly historial?: readonly NombreDeCampo<E>[];
+  /** A dónde lleva cada fila del listado (por su id); sin esto, el listado no enlaza las filas. */
+  readonly rutaDeFila?: (id: string) => string;
+  /**
+   * Lo que solo otra tabla sabe y rechaza una edición, por campo (un egreso con
+   * pagos no baja de lo pagado). Lo corre `guardar` antes de escribir, con la
+   * transacción abierta; sin errores, devuelve `{}`.
+   */
+  readonly rechazosAlEditar?: (
+    repos: RepositoriosEnTransaccion,
+    actual: RegistroAbm<E>,
+    nuevos: DatosAbm<E>,
+  ) => Promise<Readonly<Record<string, string>>>;
 };
 
 /** Lo que la persona escribió en el formulario, por campo. */

@@ -29,7 +29,8 @@ del login renderiza después de su control de acceso), `Tarjeta` (pantallas sin
 marco: entrar y sus errores) y los componentes de las pantallas (`Boton`,
 `CampoTexto`, `Selector`, `Tabla`, `ErrorEnPantalla`). Todo es HTML del
 servidor: ningún archivo lleva `"use client"`, salvo `formulario-abm.tsx`
-(`tests/dominio/marco.test.ts`).
+(`tests/dominio/marco.test.ts`); fuera de `_ui/`, solo `servicios/[id]/iva-en-vivo.tsx` (F2-06: el IVA
+de una factura al lado de sus campos mientras se carga).
 
 Desde F1-03 (ADR 0031): `catalogo/`, los ABM. `_abm/` es el molde —la pantalla
 (`paginas.tsx`) y las acciones (`acciones.ts`) de cualquier ABM— y cada entidad

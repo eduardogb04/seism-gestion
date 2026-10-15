@@ -47,7 +47,7 @@ const COTIZACIONES = [
 ] as const;
 
 /** Un PDF de una página con una línea de texto, con su tabla de referencias cruzadas. */
-function pdfDeUnaLinea(texto: string): Uint8Array {
+export function pdfDeUnaLinea(texto: string): Uint8Array {
   const flujo = `BT /F1 12 Tf 20 50 Td (${texto}) Tj ET`;
   const objetos = [
     "<< /Type /Catalog /Pages 2 0 R >>",

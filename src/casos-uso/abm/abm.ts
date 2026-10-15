@@ -203,6 +203,7 @@ export function validarEscrito<D>(
   for (const [nombre, campo] of campos) {
     if (
       campo.tipo === "opcion" &&
+      !(campo.opcional === true && valores[nombre] === null) &&
       !campo.opciones.some(({ valor }) => valor === valores[nombre])
     ) {
       errores[nombre] = MENSAJE_OPCION;

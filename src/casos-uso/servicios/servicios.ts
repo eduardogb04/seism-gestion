@@ -213,6 +213,20 @@ export async function servicioVigente(
   return servicio;
 }
 
+/**
+ * El servicio vigente, con su fila tomada hasta el fin de la transacción
+ * (`RepositorioServicios.bloquear`): se vuelve a mirar ya con el bloqueo, porque
+ * otra transacción pudo darlo de baja mientras esta esperaba.
+ */
+export async function servicioVigenteBloqueado(
+  repos: RepositoriosEnTransaccion,
+  id: string,
+): Promise<Servicio> {
+  await servicioVigente(repos, id);
+  await repos.servicios.bloquear(id);
+  return servicioVigente(repos, id);
+}
+
 export async function historialDe(
   repos: RepositoriosEnTransaccion,
   id: string,
@@ -577,10 +591,16 @@ export function crearCasosUsoServicios({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        const actual = await servicioVigente(repos, id);
+        const actual = await servicioVigenteBloqueado(repos, id);
         const estado = cicloServicio.estadoActual(await historialDe(repos, id));
         if (!admiteBaja(estado)) {
           throw nuevoError(catalogo.DOM_0011, { id, estado });
+        }
+        if (
+          (await repos.ordenesCompra.listarDe(id)).length > 0 ||
+          (await repos.facturas.listarDe(id)).length > 0
+        ) {
+          throw nuevoError(catalogo.DOM_0010, { id });
         }
         const eliminado = marcarEliminado(actual, actor, reloj);
         if (!eliminado.ok) {

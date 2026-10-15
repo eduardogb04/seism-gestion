@@ -4,7 +4,7 @@
  * Las acciones de escritura de Servicios (F2-04, ADR 0033). El `Actor` sale
  * solo de la sesión, y si esa persona puede escribir lo decide el caso de uso.
  *
- * Las del formulario (alta, edición, baja, cargar y anular una cotización) devuelven su estado, como las del
+ * Las del formulario (alta, edición, baja, cargar y anular una cotización, una orden de compra o una factura) devuelven su estado, como las del
  * molde de ABM. El cambio de estado y los sitios son formularios sin
  * JavaScript: si el caso de uso los rechaza, vuelven a la pantalla del servicio
  * con el código del error en la URL.
@@ -12,6 +12,7 @@
 
 import { redirect } from "next/navigation.js";
 import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
+import type { ArchivoSubido } from "../../casos-uso/documentos/documentos.ts";
 import { pantallaDeCodigo } from "../../casos-uso/sesion/errores.ts";
 import type { Actor } from "../../dominio/compartido/actor.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
@@ -78,8 +79,22 @@ export async function darDeBajaServicio(
   });
 }
 
-/** El nombre del campo de archivo del formulario de una cotización. */
+/** El nombre del campo de archivo de un formulario con documento. */
 const CAMPO_ARCHIVO = "archivo";
+
+/** El archivo que vino en el formulario, o `null` si no se eligió ninguno. */
+async function archivoDe(formulario: FormData): Promise<ArchivoSubido | null> {
+  const subido = formulario.get(CAMPO_ARCHIVO);
+  // Sin archivo elegido el navegador manda una parte vacía, sin nombre; al
+  // decodificarla, Next le pone «blob». Uno vacío que se eligió trae su nombre.
+  return subido instanceof File &&
+    !(subido.size === 0 && (subido.name === "" || subido.name === "blob"))
+    ? {
+        nombre: subido.name,
+        bytes: new Uint8Array(await subido.arrayBuffer()),
+      }
+    : null;
+}
 
 /** Cargar una cotización con su documento: vuelve a la pantalla del servicio. */
 export async function cargarCotizacion(
@@ -87,15 +102,7 @@ export async function cargarCotizacion(
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  // Sin archivo elegido el navegador manda una parte sin nombre; uno vacío elegido sí tiene nombre.
-  const subido = formulario.get(CAMPO_ARCHIVO);
-  const archivo =
-    subido instanceof File && subido.name !== ""
-      ? {
-          nombre: subido.name,
-          bytes: new Uint8Array(await subido.arrayBuffer()),
-        }
-      : null;
+  const archivo = await archivoDe(formulario);
   return escribir(formulario, async (actor) => {
     const cargada = await armado().cotizaciones.crear(
       actor,
@@ -116,6 +123,68 @@ export async function anularCotizacion(
 ): Promise<EstadoFormulario> {
   return escribir(formulario, async (actor) => {
     await armado().cotizaciones.marcarEliminado(actor, id);
+    return { ok: true, ruta: `${RUTA}/${servicioId}` };
+  });
+}
+
+/** Cargar una orden de compra, con su documento si se eligió uno. */
+export async function cargarOrdenDeCompra(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoDe(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargada = await armado().ordenesDeCompra.crear(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+      archivo,
+    );
+    return cargada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargada;
+  });
+}
+
+/** La anulación, ya confirmada. */
+export async function anularOrdenDeCompra(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    await armado().ordenesDeCompra.marcarEliminado(actor, id);
+    return { ok: true, ruta: `${RUTA}/${servicioId}` };
+  });
+}
+
+/** Cargar una factura, con su documento si se eligió uno. */
+export async function cargarFactura(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoDe(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargada = await armado().facturas.crear(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+      archivo,
+    );
+    return cargada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargada;
+  });
+}
+
+/** La anulación, ya confirmada. */
+export async function anularFactura(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    await armado().facturas.marcarEliminado(actor, id);
     return { ok: true, ruta: `${RUTA}/${servicioId}` };
   });
 }

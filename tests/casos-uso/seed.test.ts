@@ -372,7 +372,10 @@ describe("semilla", () => {
       cotizaciones: await db.cotizacion.findMany({
         orderBy: { version: "asc" },
       }),
-      documentos: await db.documento.findMany({ orderBy: { nombre: "asc" } }),
+      documentos: await db.documento.findMany({
+        where: { nombre: { startsWith: "cotizacion" } },
+        orderBy: { nombre: "asc" },
+      }),
       archivos: await archivos(),
     });
 
@@ -388,7 +391,8 @@ describe("semilla", () => {
     await sembrar(db, opciones());
 
     expect(await foto()).toEqual(primeraVez);
-    expect(primeraVez.archivos).toBe(2);
+    // Dos cotizaciones y el PDF de una factura (F2-06).
+    expect(primeraVez.archivos).toBe(3);
     expect(
       primeraVez.cotizaciones.map(({ version, motivo, importeCentavos }) => [
         version,
@@ -416,11 +420,65 @@ describe("semilla", () => {
         creadoPor: { tipo: "sistema", proceso: "db-seed" },
       });
     }
+    // Las dos cotizaciones y sus dos PDF, más el PDF de la factura (F2-06).
     expect(
       await db.auditoria.count({
         where: { entidad: { in: ["Cotizacion", "Documento"] } },
       }),
-    ).toBe(4);
+    ).toBe(5);
+  });
+
+  test("siembra una orden de compra y dos facturas del servicio vigente, con el PDF de una, sin repetir filas, y no en el servidor", async () => {
+    const db = cliente();
+    const foto = async () => ({
+      ordenes: await db.ordenCompra.findMany(),
+      facturas: await db.factura.findMany({ orderBy: { numero: "asc" } }),
+    });
+
+    await sembrar(db, opciones("servidor"));
+    expect(await foto()).toEqual({ ordenes: [], facturas: [] });
+
+    await sembrar(db, opciones());
+    const primeraVez = await foto();
+    await sembrar(db, opciones());
+
+    expect(await foto()).toEqual(primeraVez);
+    const [orden] = primeraVez.ordenes;
+    expect(primeraVez.ordenes).toHaveLength(1);
+    expect(orden).toMatchObject({
+      importeCentavos: 100_000_000n,
+      importeMoneda: "ARS",
+      documentoId: null,
+    });
+    const servicio = await db.servicio.findFirstOrThrow({
+      where: { titulo: "Operación de tanques — ejemplo" },
+    });
+    expect(orden?.servicioId).toBe(servicio.id);
+    expect(
+      primeraVez.facturas.map(
+        ({
+          numero,
+          importeCentavos,
+          alicuotaIva,
+          ordenCompraId,
+          documentoId,
+        }) => [
+          numero,
+          importeCentavos,
+          alicuotaIva,
+          ordenCompraId === orden?.id,
+          documentoId !== null,
+        ],
+      ),
+    ).toEqual([
+      ["0000-00000001", 40_000_000n, 210, true, true],
+      ["0000-00000002", 25_000_000n, 105, true, false],
+    ]);
+    expect(
+      await db.auditoria.count({
+        where: { entidad: { in: ["OrdenCompra", "Factura"] } },
+      }),
+    ).toBe(3);
   });
 
   test("en el servidor no siembra ningún grupo; en ci, sí", async () => {

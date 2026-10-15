@@ -34,6 +34,14 @@ import {
   crearCasosUsoCotizaciones,
 } from "../../casos-uso/servicios/cotizaciones.ts";
 import {
+  type CasosUsoFacturas,
+  crearCasosUsoFacturas,
+} from "../../casos-uso/servicios/facturas.ts";
+import {
+  type CasosUsoOrdenesDeCompra,
+  crearCasosUsoOrdenesDeCompra,
+} from "../../casos-uso/servicios/ordenes-de-compra.ts";
+import {
   type CasosUsoServicios,
   crearCasosUsoServicios,
 } from "../../casos-uso/servicios/servicios.ts";
@@ -70,6 +78,9 @@ export type Armado = {
   readonly pagos: CasosUsoPagos;
   readonly servicios: CasosUsoServicios;
   readonly cotizaciones: CasosUsoCotizaciones;
+  /** Las órdenes de compra y las facturas de un servicio (F2-06). */
+  readonly ordenesDeCompra: CasosUsoOrdenesDeCompra;
+  readonly facturas: CasosUsoFacturas;
   /** Bajar un documento adjunto, de cualquier registro (F2-05). */
   readonly documentos: CasosUsoDocumentos;
   /** El panel de salud (`/salud`): `listarSalud` con sus puertos armados. */
@@ -111,6 +122,20 @@ function armar(): Armado {
     pagos: crearCasosUsoPagos({ transaccional, reloj, generadorId }),
     servicios: crearCasosUsoServicios({ transaccional, reloj, generadorId }),
     cotizaciones: crearCasosUsoCotizaciones({
+      transaccional,
+      reloj,
+      generadorId,
+      almacen,
+      nuevaClave: nuevaClaveDocumento,
+    }),
+    ordenesDeCompra: crearCasosUsoOrdenesDeCompra({
+      transaccional,
+      reloj,
+      generadorId,
+      almacen,
+      nuevaClave: nuevaClaveDocumento,
+    }),
+    facturas: crearCasosUsoFacturas({
       transaccional,
       reloj,
       generadorId,

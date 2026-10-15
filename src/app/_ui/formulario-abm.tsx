@@ -11,7 +11,13 @@
  */
 
 import { useRouter } from "next/navigation.js";
-import { useActionState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useActionState,
+  useContext,
+  useState,
+} from "react";
 import type {
   ErroresPorCampo,
   OpcionDeRelacion,
@@ -36,6 +42,28 @@ import {
 import { Enlace } from "./enlace-next.ts";
 import { ErrorEnPantalla } from "./error-en-pantalla.tsx";
 import { Selector } from "./selector.tsx";
+
+const EscritoEnVivo = createContext<Escrito>({});
+
+/**
+ * Lo escrito en el formulario que contiene a quien la llama, al día con cada
+ * tecla (F2-06): lo que se calcula con los campos y se muestra al lado.
+ */
+export function useEscritoEnVivo(): Escrito {
+  return useContext(EscritoEnVivo);
+}
+
+/** El nombre y el valor del control que cambió. El DOM no está en los tipos de este proyecto: se mira lo que trae. */
+function controlDe(destino: unknown): readonly [string, string] | null {
+  return typeof destino === "object" &&
+    destino !== null &&
+    "name" in destino &&
+    typeof destino.name === "string" &&
+    "value" in destino &&
+    typeof destino.value === "string"
+    ? [destino.name, destino.value]
+    : null;
+}
 
 export type EstadoFormulario = {
   readonly escrito: Escrito;
@@ -97,7 +125,10 @@ function Control({
           key={comunes.defaultValue}
           {...comunes}
           opciones={[
-            { valor: "", texto: "Elegí una opción" },
+            {
+              valor: "",
+              texto: campo.opcional === true ? "Ninguna" : "Elegí una opción",
+            },
             ...campo.opciones.map(({ valor, etiqueta }) => ({
               valor,
               texto: etiqueta,
@@ -144,6 +175,7 @@ export function FormularioAbm({
   elegibles,
   inicial,
   archivo,
+  children,
   enviar: { texto, variante },
   rutaAlCancelar,
 }: {
@@ -161,6 +193,8 @@ export function FormularioAbm({
     readonly etiqueta: string;
     readonly accept: string;
   };
+  /** Algo más después de los campos (F2-06): una vista de lo que se calcula con ellos. */
+  readonly children?: ReactNode;
   readonly enviar: {
     readonly texto: string;
     readonly variante: VarianteDeBoton;
@@ -169,9 +203,16 @@ export function FormularioAbm({
 }) {
   const [estado, alEnviar, enviando] = useActionState(accion, inicial);
   const router = useRouter();
+  const [tecleado, tecleo] = useState<Escrito>({});
   return (
     <form
       action={alEnviar}
+      onInput={(evento) => {
+        const control = controlDe(evento.target);
+        if (control !== null) {
+          tecleo((previo) => ({ ...previo, [control[0]]: control[1] }));
+        }
+      }}
       onKeyDown={(evento) => {
         if (evento.key === "Escape") {
           router.push(rutaAlCancelar, { scroll: false });
@@ -208,6 +249,9 @@ export function FormularioAbm({
           </div>
         )}
       </div>
+      <EscritoEnVivo value={{ ...estado.escrito, ...tecleado }}>
+        {children}
+      </EscritoEnVivo>
       <div className="flex flex-wrap gap-3">
         <Boton variante={variante} type="submit" disabled={enviando}>
           {texto}

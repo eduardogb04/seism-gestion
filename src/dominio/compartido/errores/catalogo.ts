@@ -160,6 +160,14 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Si la cuenta es de otra moneda, cargá el tipo de cambio de ese día y de dónde sale. Si es la misma moneda, dejalo vacío.",
   },
+  DOM_0014: {
+    codigo: "DOM-0014",
+    tipo: "persona",
+    descripcion:
+      "La orden de compra no se puede anular: tiene facturas vigentes.",
+    queHacer:
+      "Primero anulá las facturas de esa orden de compra y volvé a intentarlo.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",

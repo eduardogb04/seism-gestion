@@ -149,6 +149,12 @@
     "queHacer": "Si la cuenta es de otra moneda, cargá el tipo de cambio de ese día y de dónde sale. Si es la misma moneda, dejalo vacío.",
     "tipo": "persona"
   },
+  "DOM_0014": {
+    "codigo": "DOM-0014",
+    "descripcion": "La orden de compra no se puede anular: tiene facturas vigentes.",
+    "queHacer": "Primero anulá las facturas de esa orden de compra y volvé a intentarlo.",
+    "tipo": "persona"
+  },
   "IA_0001": {
     "codigo": "IA-0001",
     "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",

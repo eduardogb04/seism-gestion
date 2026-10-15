@@ -26,6 +26,8 @@ import type { CasosUsoAbm } from "../../../src/casos-uso/abm/abm.ts";
 import type { DefinicionAbm } from "../../../src/casos-uso/abm/definicion.ts";
 import type { CasosUsoPagos } from "../../../src/casos-uso/egresos/pagos.ts";
 import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/cotizaciones.ts";
+import type { CasosUsoFacturas } from "../../../src/casos-uso/servicios/facturas.ts";
+import type { CasosUsoOrdenesDeCompra } from "../../../src/casos-uso/servicios/ordenes-de-compra.ts";
 import type { CasosUsoServicios } from "../../../src/casos-uso/servicios/servicios.ts";
 import type { CasosUsoUsuarios } from "../../../src/casos-uso/usuarios/usuarios.ts";
 import type { Identificador } from "../../../src/dominio/compartido/identificador.ts";
@@ -42,6 +44,14 @@ import type {
   Documento,
   RepositorioDocumentos,
 } from "../../../src/puertos/repositorios/documentos.ts";
+import type {
+  Factura,
+  RepositorioFacturas,
+} from "../../../src/puertos/repositorios/facturas.ts";
+import type {
+  OrdenCompra,
+  RepositorioOrdenesCompra,
+} from "../../../src/puertos/repositorios/ordenes-de-compra.ts";
 import type {
   RepositorioServicios,
   Servicio,
@@ -68,6 +78,12 @@ declare const repositorioCotizaciones: RepositorioCotizaciones;
 declare const cotizacion: Cotizacion;
 declare const repositorioDocumentos: RepositorioDocumentos;
 declare const documento: Documento;
+declare const casosOrdenes: CasosUsoOrdenesDeCompra;
+declare const casosFacturas: CasosUsoFacturas;
+declare const repositorioOrdenes: RepositorioOrdenesCompra;
+declare const ordenCompra: OrdenCompra;
+declare const repositorioFacturas: RepositorioFacturas;
+declare const factura: Factura;
 declare const ahora: FechaHora;
 declare const evento: Parameters<RepositorioServicios["agregarEvento"]>[2];
 
@@ -102,6 +118,14 @@ function casosDeUsoSinActor(): void {
   casosCotizaciones.crear("id", {}, null);
   // @ts-expect-error `marcarEliminado` de cotizaciones exige un `Actor` primero.
   casosCotizaciones.marcarEliminado("id");
+  // @ts-expect-error `crear` de órdenes de compra exige un `Actor` primero.
+  casosOrdenes.crear("id", {}, null);
+  // @ts-expect-error `marcarEliminado` de órdenes de compra exige un `Actor` primero.
+  casosOrdenes.marcarEliminado("id");
+  // @ts-expect-error `crear` de facturas exige un `Actor` primero.
+  casosFacturas.crear("id", {}, null);
+  // @ts-expect-error `marcarEliminado` de facturas exige un `Actor` primero.
+  casosFacturas.marcarEliminado("id");
 }
 
 function repositoriosSinActor(): void {
@@ -129,6 +153,14 @@ function repositoriosSinActor(): void {
   repositorioDocumentos.crear(documento);
   // @ts-expect-error `actualizar` del repositorio de documentos exige un `Actor` primero.
   repositorioDocumentos.actualizar(documento, "actualizar");
+  // @ts-expect-error `crear` del repositorio de órdenes de compra exige un `Actor` primero.
+  repositorioOrdenes.crear(ordenCompra);
+  // @ts-expect-error `actualizar` del repositorio de órdenes de compra exige un `Actor` primero.
+  repositorioOrdenes.actualizar(ordenCompra, "actualizar");
+  // @ts-expect-error `crear` del repositorio de facturas exige un `Actor` primero.
+  repositorioFacturas.crear(factura);
+  // @ts-expect-error `actualizar` del repositorio de facturas exige un `Actor` primero.
+  repositorioFacturas.actualizar(factura, "actualizar");
 }
 
 test("las llamadas sin actor no compilan (lo verifica `npm run typecheck`)", () => {

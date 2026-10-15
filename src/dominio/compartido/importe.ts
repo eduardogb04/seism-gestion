@@ -243,7 +243,7 @@ export function convertir<De extends Moneda, A extends Exclude<Moneda, De>>(
  * divisor` (divisor positivo) al entero más cercano; en la mitad exacta se
  * aleja del cero (`1,5 → 2`, `-1,5 → -2`). Todo en `bigint`.
  */
-function redondearMitadLejosDelCero(
+export function redondearMitadLejosDelCero(
   dividendo: bigint,
   divisor: bigint,
 ): bigint {

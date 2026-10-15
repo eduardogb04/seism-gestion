@@ -6,7 +6,10 @@ import {
   MONEDAS,
   type Moneda,
 } from "../../src/dominio/compartido/importe.ts";
-import { avancePorMoneda } from "../../src/dominio/servicios/avance.ts";
+import {
+  avancePorMoneda,
+  sumaPorMoneda,
+} from "../../src/dominio/servicios/avance.ts";
 import { propiedad } from "./_arnes/propiedad.ts";
 
 /**
@@ -56,6 +59,16 @@ describe("avancePorMoneda: ejemplos", () => {
       cobrado: usd(0n),
       pendiente: usd(500n),
     });
+  });
+});
+
+describe("sumaPorMoneda", () => {
+  it("suma cada moneda por su lado y deja las monedas en su orden", () => {
+    expect(sumaPorMoneda([usd(100n), ars(5n), usd(250n), ars(10n)])).toEqual([
+      ars(15n),
+      usd(350n),
+    ]);
+    expect(sumaPorMoneda([])).toEqual([]);
   });
 });
 

@@ -1,11 +1,13 @@
 /**
  * Lo que repiten los pagos de egresos (F2-09) y los cobros de facturas (F2-07),
  * que usan la misma regla de saldo y el mismo tipo de cambio (`saldo.ts`): los
- * mensajes que ve la persona, el paso de importe a lo que movió la cuenta y los
- * días de atraso de un vencimiento. Cada uno aporta solo lo suyo: cómo se llama
+ * mensajes que ve la persona, el paso de importe a lo que movió la cuenta, los
+ * días de atraso de un vencimiento, los campos del formulario y las cuentas que
+ * se pueden elegir. Cada uno aporta solo lo suyo: cómo se llama
  * la deuda y de dónde salen el importe y la cuenta.
  */
 
+import { z } from "zod";
 import type { Actor } from "../../dominio/compartido/actor.ts";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
@@ -28,8 +30,10 @@ import {
   type PagoRechazado,
   type Saldo,
 } from "../../dominio/compartido/saldo.ts";
-import type { ErroresPorCampo } from "../abm/abm.ts";
-import type { Escrito } from "../abm/definicion.ts";
+import type { RegistroAbm } from "../../puertos/repositorios/abm.ts";
+import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
+import type { ErroresPorCampo, OpcionDeRelacion } from "../abm/abm.ts";
+import type { CampoAbm, Escrito } from "../abm/definicion.ts";
 
 /** Cómo se nombra la deuda en los mensajes. */
 export type TextosDeSaldo = {
@@ -63,14 +67,14 @@ export function monedaDe(texto: string): Moneda {
 
 export function mensajeDeSaldo(
   motivo: PagoRechazado["motivo"],
-  saldo: Saldo<Moneda>,
+  { saldo }: Pick<Saldo<Moneda>, "saldo">,
   { verbo, deLaDeuda }: TextosDeSaldo,
 ): string {
   switch (motivo) {
     case "no-positivo":
       return "El importe tiene que ser mayor que cero.";
     case "supera-saldo":
-      return `${catalogo.DOM_0012.codigo} · El importe supera lo que falta ${verbo}: quedan ${formatearImporte(saldo.saldo)}.`;
+      return `${catalogo.DOM_0012.codigo} · El importe supera lo que falta ${verbo}: quedan ${formatearImporte(saldo)}.`;
     case "otra-moneda":
       return `El importe no está en la moneda ${deLaDeuda}.`;
   }
@@ -163,4 +167,82 @@ function dias(cantidad: number): string {
 export function atrasoDe(hoy: FechaHora, vencimiento: string): string {
   const atrasado = diferenciaEnDias(hoy, aFechaHora(vencimiento));
   return atrasado > 0 ? dias(atrasado) : "";
+}
+
+/** Prisma toma `take` como entero de 32 bits: el máximo es "todas". */
+export const TODAS = 2 ** 31 - 1;
+
+export const MENSAJE_IMPORTE_ILEGIBLE =
+  "Escribí el importe con coma para los decimales y, si querés, punto para los miles (por ejemplo 1.234,50).";
+
+export const MENSAJE_CUENTA = "Elegí una cuenta activa.";
+
+const esquemaId = z.uuid();
+
+/** Los campos del formulario de un pago o un cobro, con el importe en la moneda de la deuda. */
+export function camposDeMovimiento(
+  moneda: Moneda,
+): readonly (readonly [string, CampoAbm])[] {
+  return [
+    ["fecha", { tipo: "fecha", etiqueta: "Fecha" }],
+    ["importe", { tipo: "texto", etiqueta: `Importe (${moneda})` }],
+    [
+      "cuentaId",
+      {
+        tipo: "relacion",
+        etiqueta: "Cuenta",
+        entidad: "Cuenta",
+        mostrar: "nombre",
+        obligatoria: true,
+      },
+    ],
+    [
+      "tipoDeCambio",
+      {
+        tipo: "texto",
+        etiqueta: "Tipo de cambio (solo si la cuenta es de otra moneda)",
+        opcional: true,
+      },
+    ],
+    [
+      "fuenteDelCambio",
+      { tipo: "texto", etiqueta: "Fuente del tipo de cambio", opcional: true },
+    ],
+    ["observaciones", { tipo: "textoLargo", etiqueta: "Observaciones" }],
+  ];
+}
+
+/** La cuenta con ese id si existe, no está dada de baja y está activa. */
+export async function cuentaElegible(
+  repos: RepositoriosEnTransaccion,
+  id: string,
+): Promise<RegistroAbm<"Cuenta"> | null> {
+  const registro = esquemaId.safeParse(id).success
+    ? await repos.abm("Cuenta").buscarPorId(id)
+    : null;
+  return registro === null ||
+    registro.eliminadoEn !== undefined ||
+    !registro.valor.activa
+    ? null
+    : registro;
+}
+
+/** Las cuentas activas, para elegir a cuál entra o de cuál sale. */
+export async function cuentasActivas(
+  repos: RepositoriosEnTransaccion,
+): Promise<readonly OpcionDeRelacion[]> {
+  const { registros } = await repos.abm("Cuenta").listar({
+    buscaEn: [],
+    filtros: [],
+    marcadas: ["activa"],
+    mes: null,
+    orden: "nombre",
+    direccion: "asc",
+    saltear: 0,
+    cantidad: TODAS,
+  });
+  return registros.map(({ valor }) => ({
+    valor: valor.id,
+    texto: `${valor.nombre} · ${valor.moneda}`,
+  }));
 }

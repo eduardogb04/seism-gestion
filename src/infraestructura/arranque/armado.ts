@@ -30,6 +30,10 @@ import {
 } from "../../casos-uso/egresos/pagos.ts";
 import type { Salud } from "../../casos-uso/salud/listar-salud.ts";
 import {
+  type CasosUsoCobros,
+  crearCasosUsoCobros,
+} from "../../casos-uso/servicios/cobros.ts";
+import {
   type CasosUsoCotizaciones,
   crearCasosUsoCotizaciones,
 } from "../../casos-uso/servicios/cotizaciones.ts";
@@ -81,6 +85,8 @@ export type Armado = {
   /** Las órdenes de compra y las facturas de un servicio (F2-06). */
   readonly ordenesDeCompra: CasosUsoOrdenesDeCompra;
   readonly facturas: CasosUsoFacturas;
+  /** Los cobros de las facturas, el avance y *Por cobrar* (F2-07). */
+  readonly cobros: CasosUsoCobros;
   /** Bajar un documento adjunto, de cualquier registro (F2-05). */
   readonly documentos: CasosUsoDocumentos;
   /** El panel de salud (`/salud`): `listarSalud` con sus puertos armados. */
@@ -142,6 +148,7 @@ function armar(): Armado {
       almacen,
       nuevaClave: nuevaClaveDocumento,
     }),
+    cobros: crearCasosUsoCobros({ transaccional, reloj, generadorId }),
     documentos: crearCasosUsoDocumentos({ transaccional, almacen }),
     salud: armarSalud(prisma, reloj),
     generarEstadoLogin,

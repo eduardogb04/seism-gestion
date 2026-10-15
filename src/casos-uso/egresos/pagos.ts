@@ -48,19 +48,21 @@ import {
 import { EGRESOS } from "../abm/egresos.ts";
 import {
   atrasoDe,
+  camposDeMovimiento,
+  cuentaElegible,
+  cuentasActivas,
+  MENSAJE_CUENTA,
+  MENSAJE_IMPORTE_ILEGIBLE,
   mensajeDeSaldo,
   monedaDe,
   movimientoEnCuenta,
   type TextosDeSaldo,
-} from "../compartido/saldos.ts";
+  TODAS,
+} from "../compartido/movimientos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 
 const PAGOS_POR_PAGINA = 25;
-/** Prisma toma `take` como entero de 32 bits: el máximo es "todas". */
-const TODAS = 2 ** 31 - 1;
 const MAXIMO_OBSERVACIONES = 1000;
-
-const MENSAJE_CUENTA = "Elegí una cuenta activa.";
 
 const esquemaId = z.uuid();
 
@@ -155,38 +157,6 @@ function diaConBarras(dia: string): string {
   return `${numero}/${mes}/${anio}`;
 }
 
-function camposDePago(
-  moneda: Moneda,
-): readonly (readonly [string, CampoAbm])[] {
-  return [
-    ["fecha", { tipo: "fecha", etiqueta: "Fecha" }],
-    ["importe", { tipo: "texto", etiqueta: `Importe (${moneda})` }],
-    [
-      "cuentaId",
-      {
-        tipo: "relacion",
-        etiqueta: "Cuenta",
-        entidad: "Cuenta",
-        mostrar: "nombre",
-        obligatoria: true,
-      },
-    ],
-    [
-      "tipoDeCambio",
-      {
-        tipo: "texto",
-        etiqueta: "Tipo de cambio (solo si la cuenta es de otra moneda)",
-        opcional: true,
-      },
-    ],
-    [
-      "fuenteDelCambio",
-      { tipo: "texto", etiqueta: "Fuente del tipo de cambio", opcional: true },
-    ],
-    ["observaciones", { tipo: "textoLargo", etiqueta: "Observaciones" }],
-  ];
-}
-
 async function egresoVigente(
   repos: RepositoriosEnTransaccion,
   id: string,
@@ -198,20 +168,6 @@ async function egresoVigente(
     throw nuevoError(catalogo.DOM_0009, { entidad: "Egreso", id });
   }
   return registro;
-}
-
-async function cuentaElegible(
-  repos: RepositoriosEnTransaccion,
-  id: string,
-): Promise<RegistroAbm<"Cuenta"> | null> {
-  const registro = esquemaId.safeParse(id).success
-    ? await repos.abm("Cuenta").buscarPorId(id)
-    : null;
-  return registro === null ||
-    registro.eliminadoEn !== undefined ||
-    !registro.valor.activa
-    ? null
-    : registro;
 }
 
 /** El saldo de un egreso con sus pagos vigentes, del más viejo al más nuevo. */
@@ -278,16 +234,6 @@ export function crearCasosUsoPagos({
           datos.proveedorId === null
             ? null
             : await repos.abm("Cliente").buscarPorId(datos.proveedorId);
-        const { registros: activas } = await repos.abm("Cuenta").listar({
-          buscaEn: [],
-          filtros: [],
-          marcadas: ["activa"],
-          mes: null,
-          orden: "nombre",
-          direccion: "asc",
-          saltear: 0,
-          cantidad: TODAS,
-        });
         return {
           concepto: datos.concepto,
           datos: [
@@ -327,11 +273,8 @@ export function crearCasosUsoPagos({
                 ? creadoPor.proceso
                 : (emails.get(creadoPor.usuarioId) ?? creadoPor.usuarioId),
           })),
-          cuentas: activas.map(({ valor }) => ({
-            valor: valor.id,
-            texto: `${valor.nombre} · ${valor.moneda}`,
-          })),
-          campos: camposDePago(datos.importe.moneda),
+          cuentas: await cuentasActivas(repos),
+          campos: camposDeMovimiento(datos.importe.moneda),
         };
       });
     },
@@ -422,8 +365,7 @@ export function crearCasosUsoPagos({
         const leido = parsearImporte(escrito.importe ?? "", moneda);
         let importe: Importe<Moneda> | null = null;
         if (!leido.ok) {
-          errores.importe =
-            "Escribí el importe con coma para los decimales y, si querés, punto para los miles (por ejemplo 1.234,50).";
+          errores.importe = MENSAJE_IMPORTE_ILEGIBLE;
         } else {
           const { saldo } = await saldoDelEgreso(repos, egreso);
           const nuevo = pagar(saldo, leido.valor);

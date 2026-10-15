@@ -40,6 +40,15 @@ function sumaEn(
     .reduce(sumarEnMoneda, crearImporte(0n, moneda));
 }
 
+/** El total de cada moneda que aparece, en el orden de `MONEDAS`: sin convertir. */
+export function sumaPorMoneda(
+  importes: readonly Importe<Moneda>[],
+): readonly Importe<Moneda>[] {
+  return MONEDAS.filter((moneda) =>
+    importes.some((importe) => importe.moneda === moneda),
+  ).map((moneda) => sumaEn(moneda, importes));
+}
+
 /** Una línea por cada moneda que aparece, en el orden de `MONEDAS`. */
 export function avancePorMoneda(
   ordenes: readonly Importe<Moneda>[],

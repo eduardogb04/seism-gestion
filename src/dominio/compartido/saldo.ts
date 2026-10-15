@@ -35,11 +35,11 @@ import type { FechaHora } from "./reloj.ts";
  * se comprueba en ejecución (`otra-moneda`) antes de operar, y estas dos
  * firmas dicen que ambos lados son de la misma `M`.
  */
-const sumarEnMoneda = sumar as <M extends Moneda>(
+export const sumarEnMoneda = sumar as <M extends Moneda>(
   a: Importe<M>,
   b: Importe<M>,
 ) => Importe<M>;
-const restarEnMoneda = restar as <M extends Moneda>(
+export const restarEnMoneda = restar as <M extends Moneda>(
   a: Importe<M>,
   b: Importe<M>,
 ) => Importe<M>;

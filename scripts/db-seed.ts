@@ -21,6 +21,7 @@ import process from "node:process";
 import { sembrar } from "../prisma/seed.ts";
 import { crearClientePrisma } from "../src/adaptadores/prisma/cliente.ts";
 import { crearRelojSistema } from "../src/adaptadores/reloj/sistema.ts";
+import { crearAlmacenDocumentos } from "../src/infraestructura/arranque/almacen.ts";
 import { exigirEntornoValido } from "../src/infraestructura/entorno.ts";
 
 const PROCESO = "db:seed";
@@ -43,6 +44,7 @@ try {
   await sembrar(prisma, {
     adminInicialEmail: entorno.ADMIN_INICIAL_EMAIL,
     reloj: crearRelojSistema(),
+    almacen: crearAlmacenDocumentos(entorno),
     appEntorno: entorno.APP_ENTORNO,
   });
   process.stdout.write(`${PROCESO}: listo.\n`);

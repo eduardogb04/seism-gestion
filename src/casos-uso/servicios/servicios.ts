@@ -32,6 +32,7 @@ import {
   cicloServicio,
   ESTADO_INICIAL,
   ESTADOS_SERVICIO,
+  type EstadoServicio,
   type HistorialServicio,
   PREFIJO_DE_CODIGO,
   transicionesDesde,
@@ -198,7 +199,8 @@ export type CasosUsoServicios = {
   ): Promise<void>;
 };
 
-async function vigente(
+/** El servicio vigente con ese id; `DOM-0009` si no existe o está dado de baja. */
+export async function servicioVigente(
   repos: RepositoriosEnTransaccion,
   id: string,
 ): Promise<Servicio> {
@@ -211,7 +213,7 @@ async function vigente(
   return servicio;
 }
 
-async function historialDe(
+export async function historialDe(
   repos: RepositoriosEnTransaccion,
   id: string,
 ): Promise<HistorialServicio> {
@@ -223,6 +225,42 @@ async function historialDe(
     });
   }
   return { eventos: [alta, ...cambios] };
+}
+
+/**
+ * Le pide el cambio al ciclo del dominio y agrega el evento que devuelve: es la
+ * única forma de cambiar el estado de un servicio (la usa también cargar una
+ * cotización). `DOM-0011` si el ciclo no declara la transición.
+ */
+export async function registrarCambioDeEstado(
+  actor: Actor,
+  repos: RepositoriosEnTransaccion,
+  reloj: Reloj,
+  id: string,
+  destino: EstadoServicio,
+  nota: string | null,
+): Promise<void> {
+  const historial = await historialDe(repos, id);
+  const resultado = cicloServicio.agregar(historial, destino, {
+    en: reloj.ahora(),
+    actor,
+    origen: nota,
+  });
+  if (!resultado.ok) {
+    throw nuevoError(catalogo.DOM_0011, {
+      id,
+      de: resultado.error.de,
+      a: resultado.error.a,
+    });
+  }
+  const posicion = historial.eventos.length;
+  const evento = resultado.valor.eventos[posicion];
+  if (evento === undefined) {
+    throw nuevoError(catalogo.INF_0001, {
+      motivo: "el historial no agregó el evento",
+    });
+  }
+  await repos.servicios.agregarEvento(actor, id, { ...evento, posicion });
 }
 
 /** Los usuarios activos, por email, y el que ya era responsable aunque ya no lo esté. */
@@ -344,7 +382,8 @@ export function crearCasosUsoServicios({
 
     formulario(id) {
       return transaccional.ejecutar(async (repos) => {
-        const actual = id === undefined ? null : await vigente(repos, id);
+        const actual =
+          id === undefined ? null : await servicioVigente(repos, id);
         const guardado: ValoresAbm = actual?.valor ?? {
           modalidad: "puntual",
         };
@@ -366,7 +405,7 @@ export function crearCasosUsoServicios({
 
     ver(id) {
       return transaccional.ejecutar(async (repos) => {
-        const { valor } = await vigente(repos, id);
+        const { valor } = await servicioVigente(repos, id);
         const historial = await historialDe(repos, id);
         const estado = cicloServicio.estadoActual(historial);
         const quien = await nombresDeActores(repos);
@@ -495,7 +534,7 @@ export function crearCasosUsoServicios({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        const actual = await vigente(repos, id);
+        const actual = await servicioVigente(repos, id);
         const leido = await leer(repos, escrito, actual);
         if (!leido.ok) {
           return leido;
@@ -538,7 +577,7 @@ export function crearCasosUsoServicios({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        const actual = await vigente(repos, id);
+        const actual = await servicioVigente(repos, id);
         const estado = cicloServicio.estadoActual(await historialDe(repos, id));
         if (!admiteBaja(estado)) {
           throw nuevoError(catalogo.DOM_0011, { id, estado });
@@ -559,36 +598,20 @@ export function crearCasosUsoServicios({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        await vigente(repos, id);
+        await servicioVigente(repos, id);
         const destino = esquemaEstado.safeParse(a);
         const leida = esquemaNota.safeParse(nota);
         if (!destino.success || !leida.success) {
           throw nuevoError(catalogo.DOM_0011, { id, a });
         }
-        const historial = await historialDe(repos, id);
-        const resultado = cicloServicio.agregar(historial, destino.data, {
-          en: reloj.ahora(),
+        await registrarCambioDeEstado(
           actor,
-          origen: leida.data === "" ? null : leida.data,
-        });
-        if (!resultado.ok) {
-          throw nuevoError(catalogo.DOM_0011, {
-            id,
-            de: resultado.error.de,
-            a: resultado.error.a,
-          });
-        }
-        const posicion = historial.eventos.length;
-        const evento = resultado.valor.eventos[posicion];
-        if (evento === undefined) {
-          throw nuevoError(catalogo.INF_0001, {
-            motivo: "el historial no agregó el evento",
-          });
-        }
-        await repos.servicios.agregarEvento(actor, id, {
-          ...evento,
-          posicion,
-        });
+          repos,
+          reloj,
+          id,
+          destino.data,
+          leida.data === "" ? null : leida.data,
+        );
       });
     },
 
@@ -600,7 +623,7 @@ export function crearCasosUsoServicios({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        const { valor } = await vigente(repos, id);
+        const { valor } = await servicioVigente(repos, id);
         const pedidos = [...new Set(sitioIds)].sort();
         const sitios = pedidos.every(
           (sitioId) => esquemaId.safeParse(sitioId).success,

@@ -9,7 +9,7 @@ import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { FormularioSalir } from "../../_ui/formulario-salir.tsx";
 import { Marco } from "../../_ui/marco.tsx";
 import { Tarjeta } from "../../_ui/tarjeta.tsx";
-import { sesionActual } from "../sesion-actual.ts";
+import { sesionActual } from "../sesion-de-cookie.ts";
 
 export default async function SesionActual() {
   await connection();

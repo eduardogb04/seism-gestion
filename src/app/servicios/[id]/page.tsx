@@ -1,6 +1,6 @@
 /**
  * La pantalla de un servicio (F2-04, ADR 0033): sus datos, el cambio de
- * estado, los sitios que abarca y su historial. La edición (`?editar=1`) y la
+ * estado, sus cotizaciones (F2-05), los sitios que abarca y su historial. La edición (`?editar=1`) y la
  * baja (`?baja=1`) son ventanas sobre esta misma pantalla, como en los ABM.
  */
 
@@ -29,6 +29,7 @@ import {
   guardarServicio,
   guardarSitiosDeServicio,
 } from "../acciones.ts";
+import { Cotizaciones } from "./cotizaciones.tsx";
 
 const LISTADO = "/servicios";
 
@@ -235,6 +236,12 @@ export default async function Servicio({ params, searchParams }: Props) {
             <CambiarEstado servicio={servicio} />
           </>
         ) : null}
+        <Cotizaciones
+          servicioId={servicio.id}
+          ruta={ruta}
+          puedeEscribir={puedeEscribir}
+          parametros={parametros}
+        />
         <Sitios servicio={servicio} puedeEscribir={puedeEscribir} />
         <Historial historial={servicio.historial} />
       </main>

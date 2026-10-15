@@ -1,7 +1,6 @@
 /**
- * La sesión actual, del lado del servidor (F0-31): lee la cookie
- * `seism_sesion` y la valida **contra la base** (caché de 30 s como máximo,
- * `src/casos-uso/sesion/`). `null` si no hay sesión o no valida.
+ * La sesión actual, del lado del servidor (F0-31, `sesion-de-cookie.ts`): lee
+ * la cookie `seism_sesion` y la valida **contra la base**.
  *
  * Desde F0-32 (ADR 0028) también es la protección del panel:
  *
@@ -20,7 +19,6 @@
  *   sesión; sin sesión, redirige a `AUT-0002`.
  */
 
-import { cookies } from "next/headers.js";
 import { redirect } from "next/navigation.js";
 import {
   type Acceso,
@@ -28,22 +26,13 @@ import {
   evaluarAccesoDeAdministrador,
 } from "../../casos-uso/sesion/acceso.ts";
 import { codigoDeError } from "../../casos-uso/sesion/errores.ts";
-import {
-  type SesionValida,
-  sesionDesdeCookie,
-} from "../../casos-uso/sesion/sesion.ts";
+import type { SesionValida } from "../../casos-uso/sesion/sesion.ts";
 import type { Actor } from "../../dominio/compartido/actor.ts";
 import type { Codigo } from "../../dominio/compartido/errores/catalogo.ts";
-import { armado } from "../../infraestructura/arranque/armado.ts";
-import { COOKIE_SESION } from "./cookies.ts";
+import { sesionActual } from "./sesion-de-cookie.ts";
 
 /** A dónde va quien no tiene sesión válida: a ver `AUT-0002` y volver a entrar. */
 export const DESTINO_SIN_SESION = "/ingresar/error?codigo=AUT-0002";
-
-export async function sesionActual(): Promise<SesionValida | null> {
-  const almacen = await cookies();
-  return sesionDesdeCookie(almacen.get(COOKIE_SESION)?.value, armado().sesion);
-}
 
 /** El `Actor` de la persona con sesión, o `AUT-0002` si no la hay. */
 export async function actorDesdeSesion(): Promise<Actor> {

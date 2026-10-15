@@ -10,6 +10,8 @@
 import type { Auditoria } from "../auditoria.ts";
 import type { Secuencias } from "../secuencias.ts";
 import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
+import type { RepositorioCotizaciones } from "./cotizaciones.ts";
+import type { RepositorioDocumentos } from "./documentos.ts";
 import type { RepositorioPagos } from "./pagos.ts";
 import type { RepositorioServicios } from "./servicios.ts";
 import type { RepositorioSesiones } from "./sesiones.ts";
@@ -28,6 +30,9 @@ export type RepositoriosEnTransaccion = {
   readonly servicios: RepositorioServicios;
   /** El número de un código legible nuevo: se da en la transacción del alta (F2-04). */
   readonly secuencias: Secuencias;
+  /** Los archivos adjuntos (F2-05): el registro dueño los crea en su misma transacción. */
+  readonly documentos: RepositorioDocumentos;
+  readonly cotizaciones: RepositorioCotizaciones;
 };
 
 export type Transaccional = {

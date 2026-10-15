@@ -27,6 +27,7 @@ import {
 import type { ErrorDeLogin } from "../../casos-uso/sesion/errores.ts";
 import { Boton, clasesDeBoton, type VarianteDeBoton } from "./boton.tsx";
 import {
+  CampoArchivo,
   CampoImporte,
   CampoTexto,
   CampoTextoLargo,
@@ -142,6 +143,7 @@ export function FormularioAbm({
   campos,
   elegibles,
   inicial,
+  archivo,
   enviar: { texto, variante },
   rutaAlCancelar,
 }: {
@@ -153,6 +155,12 @@ export function FormularioAbm({
   /** Por campo de relación, lo que se puede elegir. */
   readonly elegibles: OpcionesPorCampo;
   readonly inicial: EstadoFormulario;
+  /** Un campo de archivo al final (F2-05): su error vuelve en `errores[nombre]`. */
+  readonly archivo?: {
+    readonly nombre: string;
+    readonly etiqueta: string;
+    readonly accept: string;
+  };
   readonly enviar: {
     readonly texto: string;
     readonly variante: VarianteDeBoton;
@@ -189,6 +197,16 @@ export function FormularioAbm({
             />
           </div>
         ))}
+        {archivo === undefined ? null : (
+          <div className="md:col-span-2">
+            <CampoArchivo
+              etiqueta={archivo.etiqueta}
+              name={archivo.nombre}
+              accept={archivo.accept}
+              error={estado.errores[archivo.nombre]}
+            />
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap gap-3">
         <Boton variante={variante} type="submit" disabled={enviando}>

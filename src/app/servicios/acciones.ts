@@ -4,7 +4,7 @@
  * Las acciones de escritura de Servicios (F2-04, ADR 0033). El `Actor` sale
  * solo de la sesión, y si esa persona puede escribir lo decide el caso de uso.
  *
- * Las del formulario (alta, edición, baja) devuelven su estado, como las del
+ * Las del formulario (alta, edición, baja, cargar y anular una cotización) devuelven su estado, como las del
  * molde de ABM. El cambio de estado y los sitios son formularios sin
  * JavaScript: si el caso de uso los rechaza, vuelven a la pantalla del servicio
  * con el código del error en la URL.
@@ -75,6 +75,48 @@ export async function darDeBajaServicio(
   return escribir(formulario, async (actor) => {
     await armado().servicios.marcarEliminado(actor, id);
     return { ok: true, ruta: RUTA };
+  });
+}
+
+/** El nombre del campo de archivo del formulario de una cotización. */
+const CAMPO_ARCHIVO = "archivo";
+
+/** Cargar una cotización con su documento: vuelve a la pantalla del servicio. */
+export async function cargarCotizacion(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  // Sin archivo elegido el navegador manda una parte sin nombre; uno vacío elegido sí tiene nombre.
+  const subido = formulario.get(CAMPO_ARCHIVO);
+  const archivo =
+    subido instanceof File && subido.name !== ""
+      ? {
+          nombre: subido.name,
+          bytes: new Uint8Array(await subido.arrayBuffer()),
+        }
+      : null;
+  return escribir(formulario, async (actor) => {
+    const cargada = await armado().cotizaciones.crear(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+      archivo,
+    );
+    return cargada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargada;
+  });
+}
+
+/** La anulación, ya confirmada. */
+export async function anularCotizacion(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    await armado().cotizaciones.marcarEliminado(actor, id);
+    return { ok: true, ruta: `${RUTA}/${servicioId}` };
   });
 }
 

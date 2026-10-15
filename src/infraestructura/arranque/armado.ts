@@ -21,10 +21,18 @@ import { crearTransaccionalPrisma } from "../../adaptadores/prisma/transaccion.t
 import { crearRelojSistema } from "../../adaptadores/reloj/sistema.ts";
 import { type CasosUsoAbm, crearCasosUsoAbm } from "../../casos-uso/abm/abm.ts";
 import {
+  type CasosUsoDocumentos,
+  crearCasosUsoDocumentos,
+} from "../../casos-uso/documentos/documentos.ts";
+import {
   type CasosUsoPagos,
   crearCasosUsoPagos,
 } from "../../casos-uso/egresos/pagos.ts";
 import type { Salud } from "../../casos-uso/salud/listar-salud.ts";
+import {
+  type CasosUsoCotizaciones,
+  crearCasosUsoCotizaciones,
+} from "../../casos-uso/servicios/cotizaciones.ts";
 import {
   type CasosUsoServicios,
   crearCasosUsoServicios,
@@ -41,6 +49,7 @@ import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type { EstadoLogin, Identidad } from "../../puertos/identidad.ts";
 import { type Entorno, validarEntorno } from "../entorno.ts";
+import { crearAlmacenDocumentos, nuevaClaveDocumento } from "./almacen.ts";
 import {
   elegirIdentidad,
   generarEstadoLogin,
@@ -60,6 +69,9 @@ export type Armado = {
   /** Los pagos de egresos y *Por pagar* (F2-09). */
   readonly pagos: CasosUsoPagos;
   readonly servicios: CasosUsoServicios;
+  readonly cotizaciones: CasosUsoCotizaciones;
+  /** Bajar un documento adjunto, de cualquier registro (F2-05). */
+  readonly documentos: CasosUsoDocumentos;
   /** El panel de salud (`/salud`): `listarSalud` con sus puertos armados. */
   readonly salud: () => Promise<Salud>;
   generarEstadoLogin(): EstadoLogin;
@@ -83,6 +95,7 @@ function armar(): Armado {
   const transaccional = crearTransaccionalPrisma(prisma);
   const sesion = crearCasosUsoSesion({ transaccional, reloj });
   const generadorId = crearGeneradorIdCrypto();
+  const almacen = crearAlmacenDocumentos(entorno);
   return {
     appEntorno: entorno.APP_ENTORNO,
     identidad,
@@ -97,6 +110,14 @@ function armar(): Armado {
     abm: crearCasosUsoAbm({ transaccional, reloj, generadorId }),
     pagos: crearCasosUsoPagos({ transaccional, reloj, generadorId }),
     servicios: crearCasosUsoServicios({ transaccional, reloj, generadorId }),
+    cotizaciones: crearCasosUsoCotizaciones({
+      transaccional,
+      reloj,
+      generadorId,
+      almacen,
+      nuevaClave: nuevaClaveDocumento,
+    }),
+    documentos: crearCasosUsoDocumentos({ transaccional, almacen }),
     salud: armarSalud(prisma, reloj),
     generarEstadoLogin,
   };

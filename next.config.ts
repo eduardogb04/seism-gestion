@@ -16,6 +16,12 @@
  *   ese bloque (leer la documentación de Next que viene en
  *   `node_modules/next/dist/docs/`) ya está dicho ahí (ADR 0005).
  *
+ * - `experimental.serverActions.bodySizeLimit`: las Server Actions cortan el
+ *   cuerpo en 1 MB por defecto. Un documento adjunto puede pesar hasta 10 MB
+ *   (`TOPE_DE_DOCUMENTO`, F2-05): el tope de Next queda apenas arriba, para que
+ *   el rechazo de un archivo de más de 10 MB lo dé el caso de uso con su mensaje
+ *   (ADR 0035). Un cuerpo que pase de acá, Next lo corta con un error genérico.
+ *
  * El entorno (`APP_ENTORNO`...) NO se valida acá: se valida al arrancar, en
  * `src/instrumentation.ts`, para que compilar no necesite `.env`.
  */
@@ -42,7 +48,11 @@ function leerShaGit(): string | undefined {
 }
 
 export default function configuracion(fase: string): NextConfig {
-  const config: NextConfig = { output: "standalone", agentRules: false };
+  const config: NextConfig = {
+    output: "standalone",
+    agentRules: false,
+    experimental: { serverActions: { bodySizeLimit: "11mb" } },
+  };
 
   if (fase === PHASE_PRODUCTION_BUILD || fase === PHASE_DEVELOPMENT_SERVER) {
     const resultado = resolverVersion(process.env.APP_VERSION, leerShaGit);

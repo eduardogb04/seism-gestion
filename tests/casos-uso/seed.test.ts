@@ -260,6 +260,29 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Egreso" } })).toBe(6);
   });
 
+  test("el egreso de un centro de proyecto dice de qué servicio es y lleva su comprobante; los demás, ninguno", async () => {
+    const db = cliente();
+
+    await sembrar(db, opciones());
+
+    const egresos = await db.egreso.findMany({
+      include: { centroCosto: true, servicio: true, comprobante: true },
+    });
+    const deProyecto = egresos.filter(
+      ({ centroCosto }) => centroCosto.clase === "proyecto",
+    );
+    expect(deProyecto).toHaveLength(1);
+    expect(deProyecto[0]?.servicio?.titulo).toBe(
+      "Operación de tanques — ejemplo",
+    );
+    expect(deProyecto[0]?.comprobante?.tipoMime).toBe("application/pdf");
+    expect(
+      egresos
+        .filter(({ centroCosto }) => centroCosto.clase !== "proyecto")
+        .every(({ servicioId }) => servicioId === null),
+    ).toBe(true);
+  });
+
   test("siembra tres pagos —uno salda, uno parcial, uno en dólares desde una cuenta en pesos—, una sola vez y no en el servidor", async () => {
     const db = cliente();
     const pagos = () =>
@@ -388,7 +411,8 @@ describe("semilla", () => {
     await sembrar(db, opciones());
 
     expect(await foto()).toEqual(primeraVez);
-    expect(primeraVez.archivos).toBe(2);
+    // Las dos cotizaciones y el comprobante del egreso de proyecto (F2-08).
+    expect(primeraVez.archivos).toBe(3);
     expect(
       primeraVez.cotizaciones.map(({ version, motivo, importeCentavos }) => [
         version,
@@ -416,11 +440,12 @@ describe("semilla", () => {
         creadoPor: { tipo: "sistema", proceso: "db-seed" },
       });
     }
+    // Dos cotizaciones con su documento, y el documento del comprobante del egreso.
     expect(
       await db.auditoria.count({
         where: { entidad: { in: ["Cotizacion", "Documento"] } },
       }),
-    ).toBe(4);
+    ).toBe(5);
   });
 
   test("en el servidor no siembra ningún grupo; en ci, sí", async () => {

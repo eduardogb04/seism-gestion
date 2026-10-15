@@ -4,7 +4,7 @@
  * Las acciones de escritura de Servicios (F2-04, ADR 0033). El `Actor` sale
  * solo de la sesión, y si esa persona puede escribir lo decide el caso de uso.
  *
- * Las del formulario (alta, edición, baja, cargar y anular una cotización) devuelven su estado, como las del
+ * Las del formulario (alta, edición, baja, cargar y anular una cotización, una orden de compra o una factura) devuelven su estado, como las del
  * molde de ABM. El cambio de estado y los sitios son formularios sin
  * JavaScript: si el caso de uso los rechaza, vuelven a la pantalla del servicio
  * con el código del error en la URL.
@@ -105,6 +105,68 @@ export async function anularCotizacion(
 ): Promise<EstadoFormulario> {
   return escribir(formulario, async (actor) => {
     await armado().cotizaciones.marcarEliminado(actor, id);
+    return { ok: true, ruta: `${RUTA}/${servicioId}` };
+  });
+}
+
+/** Cargar una orden de compra, con su documento si se eligió uno. */
+export async function cargarOrdenDeCompra(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargada = await armado().ordenesDeCompra.crear(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+      archivo,
+    );
+    return cargada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargada;
+  });
+}
+
+/** La anulación, ya confirmada. */
+export async function anularOrdenDeCompra(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    await armado().ordenesDeCompra.marcarEliminado(actor, id);
+    return { ok: true, ruta: `${RUTA}/${servicioId}` };
+  });
+}
+
+/** Cargar una factura, con su documento si se eligió uno. */
+export async function cargarFactura(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargada = await armado().facturas.crear(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+      archivo,
+    );
+    return cargada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargada;
+  });
+}
+
+/** La anulación, ya confirmada. */
+export async function anularFactura(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    await armado().facturas.marcarEliminado(actor, id);
     return { ok: true, ruta: `${RUTA}/${servicioId}` };
   });
 }

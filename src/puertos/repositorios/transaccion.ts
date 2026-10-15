@@ -12,6 +12,8 @@ import type { Secuencias } from "../secuencias.ts";
 import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
 import type { RepositorioCotizaciones } from "./cotizaciones.ts";
 import type { RepositorioDocumentos } from "./documentos.ts";
+import type { RepositorioFacturas } from "./facturas.ts";
+import type { RepositorioOrdenesCompra } from "./ordenes-de-compra.ts";
 import type { RepositorioPagos } from "./pagos.ts";
 import type { RepositorioServicios } from "./servicios.ts";
 import type { RepositorioSesiones } from "./sesiones.ts";
@@ -33,6 +35,8 @@ export type RepositoriosEnTransaccion = {
   /** Los archivos adjuntos (F2-05): el registro dueño los crea en su misma transacción. */
   readonly documentos: RepositorioDocumentos;
   readonly cotizaciones: RepositorioCotizaciones;
+  readonly ordenesCompra: RepositorioOrdenesCompra;
+  readonly facturas: RepositorioFacturas;
 };
 
 export type Transaccional = {

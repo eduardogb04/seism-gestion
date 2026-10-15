@@ -40,11 +40,15 @@ export type CampoAbm =
     }
   /** Varias líneas, opcional: vacío se guarda como `null`. */
   | { readonly tipo: "textoLargo"; readonly etiqueta: string }
-  /** Uno de una lista fija; la columna guarda el `valor`. */
+  /**
+   * Uno de una lista fija; la columna guarda el `valor`. `opcional`: la lista
+   * ofrece *Ninguna* y vacío es `null`.
+   */
   | {
       readonly tipo: "opcion";
       readonly etiqueta: string;
       readonly opciones: readonly OpcionAbm[];
+      readonly opcional?: true;
     }
   /**
    * Un número con hasta `decimales` decimales (0: entero), que se escribe con
@@ -319,7 +323,7 @@ export function valorDeCampo(
     case "archivo":
       return null;
     case "opcion":
-      return escrito;
+      return campo.opcional === true && escrito === "" ? null : escrito;
     case "numero": {
       const leido = leerNumero(campo, escrito);
       return "valor" in leido ? leido.valor : escrito;

@@ -394,6 +394,21 @@ describe("la baja de un servicio con egresos", () => {
     expect(fila.eliminadoEn).toBeNull();
   });
 
+  test("el alta de un egreso y la baja del servicio a la vez: nunca queda un egreso vigente en un servicio dado de baja", async () => {
+    await Promise.allSettled([
+      casos().crear(admin, EGRESOS, escrito(proyecto, { servicioId })),
+      servicios().marcarEliminado(admin, servicioId),
+    ]);
+
+    const servicio = await cliente().servicio.findUniqueOrThrow({
+      where: { id: servicioId },
+    });
+    const vigentes = await cliente().egreso.count({
+      where: { servicioId, eliminadoEn: null },
+    });
+    expect(servicio.eliminadoEn === null || vigentes === 0).toBe(true);
+  });
+
   test("con el egreso dado de baja, el servicio sí se da de baja", async () => {
     const id = await alta(proyecto, { servicioId });
     await casos().marcarEliminado(admin, EGRESOS, id);

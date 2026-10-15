@@ -221,6 +221,10 @@ export function crearRepositorioServiciosPrisma(
       });
     },
 
+    async bloquear(id) {
+      await cliente.$queryRaw`SELECT 1 FROM "servicios" WHERE "id" = ${id}::uuid FOR UPDATE`;
+    },
+
     async usa(entidad, id) {
       const donde: Prisma.ServicioWhereInput | null =
         entidad === "Cliente"

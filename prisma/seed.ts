@@ -10,7 +10,7 @@
  * sistema `db-seed` (ADR 0024).
  *
  * Desde F1-03, los **datos de demostración**: tres grupos inventados (y, desde
- * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas; desde F2-03, seis egresos en pesos y en dólares; desde F2-09, tres pagos de esos egresos; desde F2-04, cuatro servicios en distintos estados, por su repositorio; desde F2-05, dos cotizaciones de uno de ellos, con su PDF generado en el almacén; desde F2-08, el egreso de proyecto dice de qué servicio es y lleva su comprobante), por el repositorio del molde de ABM (ADR 0031), con
+ * F1-04, cuatro clientes; desde F1-05, cinco sitios; desde F1-06, cuatro camiones; desde F1-07, los cinco tipos de servicio; desde F2-01, los cinco centros de costo; desde F2-02, las cuatro cuentas; desde F2-03, seis egresos en pesos y en dólares; desde F2-09, tres pagos de esos egresos; desde F2-04, cuatro servicios en distintos estados, por su repositorio; desde F2-05, dos cotizaciones de uno de ellos, con su PDF generado en el almacén; desde F2-06, una orden de compra y dos facturas de otro; desde F2-08, el egreso de proyecto dice de qué servicio es y lleva su comprobante), por el repositorio del molde de ABM (ADR 0031), con
  * el actor `db-seed` y su auditoría. En el servidor (`appEntorno`) no van.
  *
  * Importa de `adaptadores` (el cliente de Prisma y los repositorios) y del
@@ -64,6 +64,7 @@ import {
 import type { DatosAbm } from "../src/puertos/repositorios/abm.ts";
 import type { DatosUsuario } from "../src/puertos/repositorios/usuarios.ts";
 import { pdfDeUnaLinea, sembrarCotizaciones } from "./seed-cotizaciones.ts";
+import { sembrarOrdenesYFacturas } from "./seed-ordenes-y-facturas.ts";
 
 /** Lo que la semilla necesita de afuera: lo arma `scripts/db-seed.ts`. */
 export type OpcionesSemilla = {
@@ -134,6 +135,7 @@ export async function sembrar(
     await sembrarEgresos(prisma, opciones);
     await sembrarPagos(prisma, opciones.reloj);
     await sembrarCotizaciones(prisma, actorSemilla(), opciones);
+    await sembrarOrdenesYFacturas(prisma, actorSemilla(), opciones);
   }
 }
 

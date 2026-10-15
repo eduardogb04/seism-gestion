@@ -219,6 +219,7 @@ export function validarEscrito<D>(
   for (const [nombre, campo] of campos) {
     if (
       campo.tipo === "opcion" &&
+      !(campo.opcional === true && valores[nombre] === null) &&
       !campo.opciones.some(({ valor }) => valor === valores[nombre])
     ) {
       errores[nombre] = MENSAJE_OPCION;
@@ -306,10 +307,7 @@ export async function relacionesRotas(
   for (const [nombre, campo] of campos) {
     const id = valores[nombre];
     if (campo.tipo === "servicio" && typeof id === "string") {
-      const servicio = esquemaId.safeParse(id).success
-        ? await repos.servicios.buscarPorId(id)
-        : null;
-      if (servicio === null || servicio.eliminadoEn !== undefined) {
+      if (!(await servicioBloqueado(repos, id))) {
         errores[nombre] = MENSAJE_OPCION;
       }
     }
@@ -449,6 +447,28 @@ async function vigente<E extends EntidadAbm>(
     throw nuevoError(catalogo.DOM_0009, { entidad, id });
   }
   return registro;
+}
+
+/**
+ * ¿Existe el servicio y está vigente? Con su fila tomada hasta el fin de la
+ * transacción, como la baja del servicio (`servicioVigenteBloqueado`): un
+ * egreso no se le imputa a un servicio que se está dando de baja.
+ */
+async function servicioBloqueado(
+  repos: RepositoriosEnTransaccion,
+  id: string,
+): Promise<boolean> {
+  const vigente = async () => {
+    const servicio = esquemaId.safeParse(id).success
+      ? await repos.servicios.buscarPorId(id)
+      : null;
+    return servicio !== null && servicio.eliminadoEn === undefined;
+  };
+  if (!(await vigente())) {
+    return false;
+  }
+  await repos.servicios.bloquear(id);
+  return vigente();
 }
 
 /** Los servicios vigentes por código, como se ofrecen en un selector: `SRV-2031-001 · Título`. */

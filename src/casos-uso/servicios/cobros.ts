@@ -462,7 +462,11 @@ export function crearCasosUsoCobros({
         if (observaciones.length > MAXIMO_OBSERVACIONES) {
           errores.observaciones = `No puede pasar de ${MAXIMO_OBSERVACIONES} caracteres.`;
         }
-        const cuenta = await cuentaElegible(repos, escrito.cuentaId ?? "");
+        const cuentaId = escrito.cuentaId ?? "";
+        if (esquemaId.safeParse(cuentaId).success) {
+          await repos.cobros.bloquearCuenta(cuentaId);
+        }
+        const cuenta = await cuentaElegible(repos, cuentaId);
         if (cuenta === null) {
           errores.cuentaId = MENSAJE_CUENTA;
         }

@@ -556,7 +556,74 @@ describe("anular un cobro", () => {
   });
 });
 
+describe("mientras hay cobros vigentes (la base lo impide)", () => {
+  test("la cuenta no se puede dar de baja: DOM-0010; sin cobros vigentes, sí", async () => {
+    const factura = await cargarFactura();
+    const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
+    await cobrado(factura, cuenta);
+    const abm = crearCasosUsoAbm(dependencias());
+
+    await expect(
+      abm.marcarEliminado(admin, CUENTAS, cuenta),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0010.codigo });
+
+    const { id } = await cliente().cobro.findFirstOrThrow();
+    await cobros().marcarAnulado(admin, id);
+    await abm.marcarEliminado(admin, CUENTAS, cuenta);
+    const guardada = await cliente().cuenta.findUniqueOrThrow({
+      where: { id: cuenta },
+    });
+    expect(guardada.eliminadoEn).not.toBeNull();
+  });
+});
+
 describe("dos cobros a la vez", () => {
+  test("registrar un cobro toma la fila de la cuenta: una baja que llega en medio espera", async () => {
+    const factura = await cargarFactura();
+    const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
+    const real = crearTransaccionalPrisma(cliente());
+    const tomadas: string[] = [];
+    const conEspia = crearCasosUsoCobros({
+      ...dependencias(),
+      transaccional: {
+        ejecutar: (trabajo) =>
+          real.ejecutar((repos) =>
+            trabajo({
+              ...repos,
+              cobros: {
+                ...repos.cobros,
+                bloquearCuenta: (id) => {
+                  tomadas.push(id);
+                  return repos.cobros.bloquearCuenta(id);
+                },
+              },
+            }),
+          ),
+      },
+    });
+    await conEspia.registrar(admin, factura, cobro(cuenta));
+    expect(tomadas).toEqual([cuenta]);
+
+    // La fila tomada hace esperar a la baja hasta que termine la transacción del cobro.
+    let baja: Promise<unknown> = Promise.resolve();
+    let terminoAntes = true;
+    await real.ejecutar(async (repos) => {
+      await repos.cobros.bloquearCuenta(cuenta);
+      baja = crearCasosUsoAbm(dependencias())
+        .marcarEliminado(admin, CUENTAS, cuenta)
+        .then(
+          () => undefined,
+          () => undefined,
+        );
+      terminoAntes = await Promise.race([
+        baja.then(() => true),
+        new Promise<boolean>((resolver) => setTimeout(resolver, 400, false)),
+      ]);
+    });
+    await baja;
+    expect(terminoAntes).toBe(false);
+  });
+
   test("cinco cobros de 400 sobre un saldo de 1.210 al mismo tiempo: se aceptan tres y el saldo nunca queda negativo", async () => {
     const factura = await cargarFactura();
     const cuenta = await altaDeCuenta("Caja en pesos", "ARS");

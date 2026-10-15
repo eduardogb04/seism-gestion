@@ -22,6 +22,12 @@
  *   el rechazo de un archivo de más de 10 MB lo dé el caso de uso con su mensaje
  *   (ADR 0035). Un cuerpo que pase de acá, Next lo corta con un error genérico.
  *
+ * - `allowedDevOrigins`: `next dev` solo deja que el navegador cargue sus recursos
+ *   (el cliente de HMR, la hidratación) desde `localhost`. Abierta en
+ *   `http://127.0.0.1:3000`, la página llega pero ningún componente de cliente se
+ *   hidrata (el IVA de una factura no se actualiza al escribir): sin error visible.
+ *   El e2e de `npm run test:e2e` ya entra por 127.0.0.1.
+ *
  * El entorno (`APP_ENTORNO`...) NO se valida acá: se valida al arrancar, en
  * `src/instrumentation.ts`, para que compilar no necesite `.env`.
  */
@@ -51,6 +57,7 @@ export default function configuracion(fase: string): NextConfig {
   const config: NextConfig = {
     output: "standalone",
     agentRules: false,
+    allowedDevOrigins: ["127.0.0.1"],
     experimental: { serverActions: { bodySizeLimit: "11mb" } },
   };
 

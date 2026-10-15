@@ -190,7 +190,7 @@ principal*, dice cómo).
 Next.js 16 (App Router) en `src/app/`. **Esta versión cambió mucho respecto de lo que conocen los
 modelos:** antes de escribir código de Next, leé la guía que corresponda en
 `node_modules/next/dist/docs/` (viene con el paquete y coincide con la versión instalada).
-`next.config.ts` tiene `agentRules: false` para que `next dev` no escriba su propio bloque en este
+`next.config.ts` tiene `allowedDevOrigins: ["127.0.0.1"]` (sin esto, `next dev` abierto por 127.0.0.1 no hidrata ningún componente de cliente, sin error visible) y `agentRules: false` para que `next dev` no escriba su propio bloque en este
 archivo (ADR 0005).
 
 - **Levantar en local.** Copiá `.env.example` a `.env` (`.env` está en `.gitignore`: nunca entra
@@ -1112,7 +1112,7 @@ opcional (`validarAdjuntoOpcional` y compañía, en `comprobantes.ts`), la orden
 ciclo lo permite desde su estado, y lo que se calcula con lo escrito (el IVA) se muestra al lado de los campos con
 `useEscritoEnVivo` de `FormularioAbm` y un hijo de cliente, sin repetir la cuenta del dominio. Lo que se decide mirando otras filas del servicio (una factura contra su orden, la baja contra sus órdenes y facturas) toma
 antes la fila del servicio con `servicioVigenteBloqueado` (`RepositorioServicios.bloquear`), y un servicio con órdenes o
-facturas vigentes no se da de baja (`DOM-0010`). Los cobros (F2-07, ADR 0037) cuelgan de una factura, no del servicio: `registrar` toma esa misma fila, una factura con cobros vigentes no se anula (`DOM-0016`), y la regla de saldo, el tipo de cambio y los mensajes son los de los pagos (`saldo.ts`, `casos-uso/compartido/movimientos.ts`).
+facturas vigentes no se da de baja (`DOM-0010`). Los cobros (F2-07, ADR 0037) cuelgan de una factura, no del servicio: `registrar` toma esa misma fila, una factura con cobros vigentes no se anula (`DOM-0016`), una cuenta con cobros vigentes no se da de baja (`DOM-0010`, disparador), y la regla de saldo, el tipo de cambio y los mensajes son los de los pagos (`saldo.ts`, `casos-uso/compartido/movimientos.ts`).
 
 ### Cómo se agrega...un archivo adjunto a un registro (F2-05, ADR 0035).
 

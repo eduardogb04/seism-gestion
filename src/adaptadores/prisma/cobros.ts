@@ -86,6 +86,10 @@ export function crearRepositorioCobrosPrisma(
       paso,
     ),
 
+    async bloquearCuenta(cuentaId) {
+      await cliente.$queryRaw`SELECT 1 FROM cuentas WHERE id = ${cuentaId}::uuid FOR SHARE`;
+    },
+
     async listarDe(facturaIds) {
       const filas = await cliente.cobro.findMany({
         where: { facturaId: { in: [...facturaIds] }, eliminadoEn: null },

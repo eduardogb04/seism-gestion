@@ -52,7 +52,7 @@ cuenta.** El saldo es `total con IVA − Σ (importe + retención)` de los cobro
 - Se gana una sola regla de saldo para pagos y cobros, y un avance que no mezcla monedas ni bases de IVA.
 - *Por cobrar* trae todas las facturas vigentes y filtra en el caso de uso, sin paginar: alcanza para el volumen de la empresa; si
   creciera, se pagina ahí (no cambia el dominio).
-- Dar de baja una cuenta con cobros vigentes no se impide (los pagos sí lo impiden con disparadores): no se pidió en esta tarea.
+- Mientras haya cobros vigentes, la cuenta no se da de baja: un disparador (migración `20261015130000_cuentas_con_cobros`) lo rechaza como los de los pagos, la baja vuelve como `DOM-0010`, y registrar un cobro toma la fila de la cuenta (`FOR SHARE`) para que una baja en curso espere.
 - Lo hace cumplir `tests/dominio/cobro.test.ts` y `avance.test.ts` (propiedades, 1000 corridas), `tests/casos-uso/cobros.test.ts`
   (incluida la concurrencia) y `tests/e2e/cobros.spec.ts`.
 

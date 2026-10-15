@@ -39,4 +39,9 @@ export type RepositorioCobros = Pick<
 > & {
   /** Los no anulados de esas facturas, del más viejo al más nuevo. */
   listarDe(facturaIds: readonly string[]): Promise<readonly Cobro[]>;
+  /**
+   * Para registrar un cobro: toma la fila de la cuenta hasta que termine la transacción, así
+   * una baja de la cuenta en curso espera y ve el cobro.
+   */
+  bloquearCuenta(cuentaId: string): Promise<void>;
 };

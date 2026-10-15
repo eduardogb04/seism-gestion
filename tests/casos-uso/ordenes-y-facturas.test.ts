@@ -27,6 +27,7 @@ import { crearCasosUsoOrdenesDeCompra } from "../../src/casos-uso/servicios/orde
 import { crearCasosUsoServicios } from "../../src/casos-uso/servicios/servicios.ts";
 import type { Actor } from "../../src/dominio/compartido/actor.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
+import { identificadorDesde } from "../../src/dominio/compartido/identificador.ts";
 import {
   crearFechaHora,
   RelojFijo,
@@ -492,7 +493,9 @@ describe("cargar una factura", () => {
           ...existente,
           valor: {
             ...existente.valor,
-            id: "11111111-1111-4111-8111-111111111111",
+            id: identificadorDesde<string>(
+              "11111111-1111-4111-8111-111111111111",
+            ),
           },
         });
       },
@@ -635,6 +638,14 @@ describe("cargar una factura", () => {
       ["105", "10,5 %"],
       ["0", "0 %"],
     ]);
+  });
+
+  test("sin ninguna orden de compra, el formulario propone pesos y no ofrece órdenes", async () => {
+    const { campos, escrito } = await facturas().formulario(servicioId);
+
+    expect(escrito).toMatchObject({ importeMoneda: "ARS" });
+    const orden = campos.find(([nombre]) => nombre === "ordenCompraId")?.[1];
+    expect(orden?.tipo === "opcion" ? orden.opciones : undefined).toEqual([]);
   });
 
   test("quien no es administrador ni operador activo no carga; un servicio que no existe es DOM-0009", async () => {

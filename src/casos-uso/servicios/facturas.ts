@@ -20,7 +20,7 @@ import {
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
-import { formatearImporte } from "../../dominio/compartido/importe.ts";
+import { formatearImporte, MONEDAS } from "../../dominio/compartido/importe.ts";
 import { esDiaValido, formatearISO } from "../../dominio/compartido/reloj.ts";
 import {
   ALICUOTA_POR_DEFECTO,
@@ -229,9 +229,7 @@ export function crearCasosUsoFacturas({
             fecha: formatearISO(reloj.ahora()).slice(0, 10),
             alicuota: String(ALICUOTA_POR_DEFECTO),
             // La factura no hereda la moneda de su orden: se propone la de la última.
-            ...(masNueva === undefined
-              ? {}
-              : { [nombreDeMoneda("importe")]: masNueva.moneda }),
+            [nombreDeMoneda("importe")]: masNueva?.moneda ?? MONEDAS[0],
           },
         };
       });

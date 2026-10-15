@@ -17,7 +17,7 @@ import type { Actor } from "../../dominio/compartido/actor.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
 import type { EstadoFormulario } from "../_ui/formulario-abm.tsx";
 import { conActorDeSesion } from "../(auth)/sesion-actual.ts";
-import { escritoEn } from "../catalogo/_abm/escrito.ts";
+import { archivoSubidoEn, escritoEn } from "../catalogo/_abm/escrito.ts";
 
 const RUTA = "/servicios";
 
@@ -78,24 +78,13 @@ export async function darDeBajaServicio(
   });
 }
 
-/** El nombre del campo de archivo del formulario de una cotización. */
-const CAMPO_ARCHIVO = "archivo";
-
 /** Cargar una cotización con su documento: vuelve a la pantalla del servicio. */
 export async function cargarCotizacion(
   servicioId: string,
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  // Sin archivo elegido el navegador manda una parte sin nombre; uno vacío elegido sí tiene nombre.
-  const subido = formulario.get(CAMPO_ARCHIVO);
-  const archivo =
-    subido instanceof File && subido.name !== ""
-      ? {
-          nombre: subido.name,
-          bytes: new Uint8Array(await subido.arrayBuffer()),
-        }
-      : null;
+  const archivo = await archivoSubidoEn(formulario);
   return escribir(formulario, async (actor) => {
     const cargada = await armado().cotizaciones.crear(
       actor,

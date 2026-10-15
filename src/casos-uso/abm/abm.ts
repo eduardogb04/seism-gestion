@@ -18,6 +18,10 @@
  *   o está dado de baja, vuelve en el campo. Dar de baja un registro al que
  *   apunta otro vigente se rechaza con `DOM-0010`.
  * - Una fecha que no existe o un importe mal escrito vuelven en el campo (F2-03).
+ * - Una definición con un campo `archivo` (F2-08) admite un archivo adjunto
+ *   opcional: se valida y se guarda en la misma transacción, después de todas
+ *   las demás reglas; sin archivo, el alta no enlaza ninguno y la edición
+ *   conserva el que había.
  * - Los `filtros` de la definición (por una relación, por el mes de una fecha)
  *   llegan en la URL con el nombre de su columna y los resuelve la base.
  * - `historial` lee de `auditoria` cómo cambiaron los campos que la
@@ -47,6 +51,12 @@ import type {
   RepositoriosEnTransaccion,
   Transaccional,
 } from "../../puertos/repositorios/transaccion.ts";
+import {
+  type ArchivoSubido,
+  type DependenciasDeAdjuntos,
+  registrarDocumento,
+  validarArchivo,
+} from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import {
   type CamposAbm,
@@ -81,6 +91,8 @@ type DependenciasAbm = {
   readonly transaccional: Transaccional;
   readonly reloj: Reloj;
   readonly generadorId: GeneradorId;
+  /** Dónde se guardan los archivos: solo hace falta con una definición que tenga un campo `archivo`. */
+  readonly adjuntos?: Pick<DependenciasDeAdjuntos, "almacen" | "nuevaClave">;
 };
 
 /** El mensaje que va al lado de cada campo que la persona tiene que corregir. */
@@ -156,16 +168,19 @@ export type CasosUsoAbm = {
     definicion: DefinicionAbm<E>,
     id: string,
   ): Promise<RegistroAbm<E>>;
+  /** `archivo`: el adjunto elegido en el formulario, `null` si no se eligió ninguno. */
   crear<E extends EntidadAbm>(
     actor: Actor,
     definicion: DefinicionAbm<E>,
     escrito: Escrito,
+    archivo?: ArchivoSubido | null,
   ): Promise<ResultadoEscritura<E>>;
   guardar<E extends EntidadAbm>(
     actor: Actor,
     definicion: DefinicionAbm<E>,
     id: string,
     escrito: Escrito,
+    archivo?: ArchivoSubido | null,
   ): Promise<ResultadoEscritura<E>>;
   /**
    * Los cambios de los campos con `historial` del registro, del más nuevo al
@@ -289,6 +304,14 @@ export async function relacionesRotas(
   const errores: Record<string, string> = {};
   for (const [nombre, campo] of campos) {
     const id = valores[nombre];
+    if (campo.tipo === "servicio" && typeof id === "string") {
+      const servicio = esquemaId.safeParse(id).success
+        ? await repos.servicios.buscarPorId(id)
+        : null;
+      if (servicio === null || servicio.eliminadoEn !== undefined) {
+        errores[nombre] = MENSAJE_OPCION;
+      }
+    }
     if (campo.tipo !== "relacion" || typeof id !== "string") {
       continue;
     }
@@ -353,6 +376,66 @@ function sinCambios<E extends EntidadAbm>(
   );
 }
 
+type Adjunto = ReturnType<typeof validarArchivo>;
+
+/** El nombre del campo `archivo` de la definición, si tiene uno. */
+function campoDeArchivo<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+): string | undefined {
+  return camposDe(definicion).find(
+    ([, campo]) => campo.tipo === "archivo",
+  )?.[0];
+}
+
+/** El archivo elegido, validado. Sin archivo, o sin campo `archivo` en la definición, `null`. */
+function adjuntoElegido<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+  archivo: ArchivoSubido | null,
+): Adjunto | null {
+  return archivo !== null && campoDeArchivo(definicion) !== undefined
+    ? validarArchivo(archivo)
+    : null;
+}
+
+/** El mensaje de un archivo rechazado, al lado del campo `archivo` del formulario. */
+function errorDeAdjunto(adjunto: Adjunto | null): ErroresPorCampo {
+  return adjunto !== null && !adjunto.ok ? { archivo: adjunto.mensaje } : {};
+}
+
+/** Los datos con el campo `archivo` como lo tenía el registro que se edita: el formulario nunca lo escribe. */
+function conArchivoPrevio<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+  datos: DatosAbm<E>,
+  previos: ValoresAbm,
+): DatosAbm<E> {
+  const campo = campoDeArchivo(definicion);
+  return campo === undefined ? datos : { ...datos, [campo]: previos[campo] };
+}
+
+/** Guarda el archivo elegido (si lo hay) y devuelve los datos con el id de su documento. */
+async function conArchivoNuevo<E extends EntidadAbm>(
+  actor: Actor,
+  repos: RepositoriosEnTransaccion,
+  definicion: DefinicionAbm<E>,
+  adjuntos: DependenciasDeAdjuntos | undefined,
+  adjunto: Adjunto | null,
+  datos: DatosAbm<E>,
+): Promise<DatosAbm<E>> {
+  const campo = campoDeArchivo(definicion);
+  if (campo === undefined || adjunto === null || !adjunto.ok) {
+    return datos;
+  }
+  if (adjuntos === undefined) {
+    throw nuevoError(catalogo.INF_0001, {
+      motivo: "una definición con archivo se armó sin el almacén de documentos",
+    });
+  }
+  return {
+    ...datos,
+    [campo]: await registrarDocumento(actor, repos, adjuntos, adjunto.archivo),
+  };
+}
+
 async function vigente<E extends EntidadAbm>(
   repos: RepositoriosEnTransaccion,
   { entidad }: DefinicionAbm<E>,
@@ -365,6 +448,25 @@ async function vigente<E extends EntidadAbm>(
     throw nuevoError(catalogo.DOM_0009, { entidad, id });
   }
   return registro;
+}
+
+/** Los servicios vigentes por código, como se ofrecen en un selector: `SRV-2031-001 · Título`. */
+async function serviciosOfrecidos(
+  repos: RepositoriosEnTransaccion,
+): Promise<readonly OpcionDeRelacion[]> {
+  const { filas } = await repos.servicios.listar({
+    buscar: "",
+    estado: null,
+    clienteId: null,
+    orden: "codigo",
+    direccion: "asc",
+    saltear: 0,
+    cantidad: TODAS,
+  });
+  return filas.map(({ id, codigo, titulo }) => ({
+    valor: id,
+    texto: `${codigo} · ${titulo}`,
+  }));
 }
 
 /** Lo que se muestra de cada registro relacionado con `registros`, por id, en una sola consulta por campo. */
@@ -570,6 +672,9 @@ export async function elegiblesDe(
 ): Promise<OpcionesPorCampo> {
   const opciones: Record<string, readonly OpcionDeRelacion[]> = {};
   for (const [nombre, campo] of campos) {
+    if (campo.tipo === "servicio") {
+      opciones[nombre] = await serviciosOfrecidos(repos);
+    }
     if (campo.tipo !== "relacion") {
       continue;
     }
@@ -610,7 +715,10 @@ export function crearCasosUsoAbm({
   transaccional,
   reloj,
   generadorId,
+  adjuntos,
 }: DependenciasAbm): CasosUsoAbm {
+  const paraAdjuntar =
+    adjuntos === undefined ? undefined : { ...adjuntos, reloj, generadorId };
   return {
     listar(definicion, parametros) {
       const { buscar, orden, direccion, pagina } = parametrosDe(
@@ -699,7 +807,7 @@ export function crearCasosUsoAbm({
       return transaccional.ejecutar((repos) => vigente(repos, definicion, id));
     },
 
-    crear(actor, definicion, escrito) {
+    crear(actor, definicion, escrito, archivo = null) {
       return transaccional.ejecutar(async (repos) => {
         await exigirRol(
           repos.usuarios,
@@ -712,22 +820,36 @@ export function crearCasosUsoAbm({
           definicion.validacion,
           escrito,
         );
+        const adjunto = adjuntoElegido(definicion, archivo);
         if (!validado.ok) {
-          return validado;
+          return {
+            ok: false,
+            errores: { ...validado.errores, ...errorDeAdjunto(adjunto) },
+          };
         }
         const repositorio = repos.abm(definicion.entidad);
-        const errores = await erroresDeBase(
-          repos,
-          definicion,
-          validado.datos,
-          null,
-        );
+        const errores = {
+          ...errorDeAdjunto(adjunto),
+          ...(await erroresDeBase(repos, definicion, validado.datos, null)),
+          ...(await definicion.rechazosAlGuardar?.(
+            repos,
+            null,
+            validado.datos,
+          )),
+        };
         if (Object.keys(errores).length > 0) {
           return { ok: false, errores };
         }
         const registro = crearAuditable(
           {
-            ...validado.datos,
+            ...(await conArchivoNuevo(
+              actor,
+              repos,
+              definicion,
+              paraAdjuntar,
+              adjunto,
+              validado.datos,
+            )),
             id: identificadorDesde<string>(generadorId.generar()),
           },
           actor,
@@ -738,7 +860,7 @@ export function crearCasosUsoAbm({
       });
     },
 
-    guardar(actor, definicion, id, escrito) {
+    guardar(actor, definicion, id, escrito, archivo = null) {
       return transaccional.ejecutar(async (repos) => {
         await exigirRol(
           repos.usuarios,
@@ -752,27 +874,43 @@ export function crearCasosUsoAbm({
           definicion.validacion,
           escrito,
         );
+        const adjunto = adjuntoElegido(definicion, archivo);
         if (!validado.ok) {
-          return validado;
+          return {
+            ok: false,
+            errores: { ...validado.errores, ...errorDeAdjunto(adjunto) },
+          };
         }
-        if (sinCambios(definicion, actual.valor, validado.datos)) {
+        const datos = conArchivoPrevio(
+          definicion,
+          validado.datos,
+          actual.valor,
+        );
+        if (adjunto === null && sinCambios(definicion, actual.valor, datos)) {
           return { ok: true, registro: actual };
         }
         const repositorio = repos.abm(definicion.entidad);
         const errores = {
-          ...(await erroresDeBase(repos, definicion, validado.datos, actual)),
-          ...(await definicion.rechazosAlEditar?.(
-            repos,
-            actual,
-            validado.datos,
-          )),
+          ...errorDeAdjunto(adjunto),
+          ...(await erroresDeBase(repos, definicion, datos, actual)),
+          ...(await definicion.rechazosAlGuardar?.(repos, actual, datos)),
         };
         if (Object.keys(errores).length > 0) {
           return { ok: false, errores };
         }
         const cambiado = marcarActualizado(
           actual,
-          { ...validado.datos, id: actual.valor.id },
+          {
+            ...(await conArchivoNuevo(
+              actor,
+              repos,
+              definicion,
+              paraAdjuntar,
+              adjunto,
+              datos,
+            )),
+            id: actual.valor.id,
+          },
           actor,
           reloj,
         );

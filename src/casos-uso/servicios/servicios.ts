@@ -582,6 +582,9 @@ export function crearCasosUsoServicios({
         if (!admiteBaja(estado)) {
           throw nuevoError(catalogo.DOM_0011, { id, estado });
         }
+        if (await repos.abm("Egreso").hayVigenteCon("servicioId", id)) {
+          throw nuevoError(catalogo.DOM_0010, { entidad: "Servicio", id });
+        }
         const eliminado = marcarEliminado(actual, actor, reloj);
         if (!eliminado.ok) {
           throw nuevoError(catalogo.DOM_0009, { entidad: "Servicio", id });

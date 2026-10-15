@@ -95,6 +95,10 @@ type EntidadesAbm = {
     readonly numeroComprobante: string | null;
     readonly importe: Importe<Moneda>;
     readonly vencimiento: string | null;
+    /** El servicio al que se imputa (F2-08): obligatorio si el centro es de proyecto. */
+    readonly servicioId: string | null;
+    /** El documento del comprobante adjunto (F2-08). */
+    readonly comprobanteId: string | null;
     readonly observaciones: string | null;
   };
 };

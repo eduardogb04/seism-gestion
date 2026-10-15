@@ -107,7 +107,12 @@ function armar(): Armado {
       generadorId,
       sesiones: sesion,
     }),
-    abm: crearCasosUsoAbm({ transaccional, reloj, generadorId }),
+    abm: crearCasosUsoAbm({
+      transaccional,
+      reloj,
+      generadorId,
+      adjuntos: { almacen, nuevaClave: nuevaClaveDocumento },
+    }),
     pagos: crearCasosUsoPagos({ transaccional, reloj, generadorId }),
     servicios: crearCasosUsoServicios({ transaccional, reloj, generadorId }),
     cotizaciones: crearCasosUsoCotizaciones({

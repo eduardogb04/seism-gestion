@@ -24,6 +24,9 @@ import {
   type CasosUsoDocumentos,
   crearCasosUsoDocumentos,
 } from "../../casos-uso/documentos/documentos.ts";
+  type CasosUsoPagos,
+  crearCasosUsoPagos,
+} from "../../casos-uso/egresos/pagos.ts";
 import type { Salud } from "../../casos-uso/salud/listar-salud.ts";
 import {
   type CasosUsoCotizaciones,
@@ -62,6 +65,8 @@ export type Armado = {
   readonly usuarios: CasosUsoUsuarios;
   /** Los casos de uso del molde de ABM (F1-03): sirven a todos los catálogos. */
   readonly abm: CasosUsoAbm;
+  /** Los pagos de egresos y *Por pagar* (F2-09). */
+  readonly pagos: CasosUsoPagos;
   readonly servicios: CasosUsoServicios;
   readonly cotizaciones: CasosUsoCotizaciones;
   /** Bajar un documento adjunto, de cualquier registro (F2-05). */
@@ -102,6 +107,7 @@ function armar(): Armado {
       sesiones: sesion,
     }),
     abm: crearCasosUsoAbm({ transaccional, reloj, generadorId }),
+    pagos: crearCasosUsoPagos({ transaccional, reloj, generadorId }),
     servicios: crearCasosUsoServicios({ transaccional, reloj, generadorId }),
     cotizaciones: crearCasosUsoCotizaciones({
       transaccional,

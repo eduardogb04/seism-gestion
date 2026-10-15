@@ -71,6 +71,7 @@ import {
   leerImporte,
   leerNumero,
   textoDeCampo,
+  textoDeServicio,
   type ValoresAbm,
   valorDeCampo,
 } from "./definicion.ts";
@@ -465,7 +466,7 @@ async function serviciosOfrecidos(
   });
   return filas.map(({ id, codigo, titulo }) => ({
     valor: id,
-    texto: `${codigo} · ${titulo}`,
+    texto: textoDeServicio(codigo, titulo),
   }));
 }
 

@@ -280,6 +280,11 @@ export function diaConBarras(dia: string): string {
   return `${numero}/${mes}/${anio}`;
 }
 
+/** Cómo se nombra un servicio donde se lo elige o se lo cita: `SRV-2031-001 · Título`. */
+export function textoDeServicio(codigo: string, titulo: string): string {
+  return `${codigo} · ${titulo}`;
+}
+
 /** Lo que trae el formulario de alta antes de escribir: las casillas que vienen marcadas y la moneda por defecto. */
 export function valoresDeAlta<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,

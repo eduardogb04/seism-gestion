@@ -34,6 +34,10 @@ import {
   crearCasosUsoCotizaciones,
 } from "../../casos-uso/servicios/cotizaciones.ts";
 import {
+  type CasosUsoEgresosDeServicio,
+  crearCasosUsoEgresosDeServicio,
+} from "../../casos-uso/servicios/egresos.ts";
+import {
   type CasosUsoServicios,
   crearCasosUsoServicios,
 } from "../../casos-uso/servicios/servicios.ts";
@@ -69,6 +73,7 @@ export type Armado = {
   /** Los pagos de egresos y *Por pagar* (F2-09). */
   readonly pagos: CasosUsoPagos;
   readonly servicios: CasosUsoServicios;
+  readonly egresosDeServicio: CasosUsoEgresosDeServicio;
   readonly cotizaciones: CasosUsoCotizaciones;
   /** Bajar un documento adjunto, de cualquier registro (F2-05). */
   readonly documentos: CasosUsoDocumentos;
@@ -115,6 +120,7 @@ function armar(): Armado {
     }),
     pagos: crearCasosUsoPagos({ transaccional, reloj, generadorId }),
     servicios: crearCasosUsoServicios({ transaccional, reloj, generadorId }),
+    egresosDeServicio: crearCasosUsoEgresosDeServicio({ transaccional }),
     cotizaciones: crearCasosUsoCotizaciones({
       transaccional,
       reloj,

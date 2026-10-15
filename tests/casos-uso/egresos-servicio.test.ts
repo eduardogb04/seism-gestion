@@ -23,6 +23,8 @@ import { CENTROS_DE_COSTO } from "../../src/casos-uso/abm/centros-de-costo.ts";
 import type { Escrito } from "../../src/casos-uso/abm/definicion.ts";
 import { EGRESOS } from "../../src/casos-uso/abm/egresos.ts";
 import type { ArchivoSubido } from "../../src/casos-uso/documentos/documentos.ts";
+import { crearCasosUsoPagos } from "../../src/casos-uso/egresos/pagos.ts";
+import { crearCasosUsoEgresosDeServicio } from "../../src/casos-uso/servicios/egresos.ts";
 import { crearCasosUsoServicios } from "../../src/casos-uso/servicios/servicios.ts";
 import type { Actor } from "../../src/dominio/compartido/actor.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
@@ -402,5 +404,50 @@ describe("la baja de un servicio con egresos", () => {
       where: { id: servicioId },
     });
     expect(fila.eliminadoEn).not.toBeNull();
+  });
+});
+
+describe("lo que se ve del servicio y del egreso", () => {
+  test("el servicio lista sus egresos vigentes y suma un total por moneda, sin convertir", async () => {
+    await alta(proyecto, { servicioId, concepto: "Repuestos" });
+    await alta(proyecto, {
+      servicioId,
+      concepto: "Flete",
+      importe: "500,50",
+    });
+    await alta(proyecto, {
+      servicioId,
+      concepto: "Licencia",
+      importe: "20,00",
+      importeMoneda: "USD",
+    });
+    const anulado = await alta(proyecto, { servicioId, concepto: "Error" });
+    await casos().marcarEliminado(admin, EGRESOS, anulado);
+
+    const { egresos, totales } = await crearCasosUsoEgresosDeServicio({
+      transaccional: crearTransaccionalPrisma(cliente()),
+    }).listar(servicioId);
+
+    expect(egresos.map(({ concepto }) => concepto).sort()).toEqual([
+      "Flete",
+      "Licencia",
+      "Repuestos",
+    ]);
+    expect(egresos[0]?.centroCosto).toBe("Proyecto de ejemplo");
+    expect(totales).toEqual(["ARS 1.735,00", "USD 20,00"]);
+  });
+
+  test("el detalle del egreso dice su servicio y ofrece su comprobante", async () => {
+    const id = await alta(proyecto, { servicioId }, archivo());
+    const servicio = await cliente().servicio.findUniqueOrThrow({
+      where: { id: servicioId },
+    });
+
+    const detalle = await crearCasosUsoPagos(dependencias()).detalle(id);
+
+    expect(
+      detalle.datos.find(({ etiqueta }) => etiqueta === "Servicio")?.valor,
+    ).toBe(`${servicio.codigo} · ${servicio.titulo}`);
+    expect(detalle.comprobante).toMatchObject({ nombre: "factura.pdf" });
   });
 });

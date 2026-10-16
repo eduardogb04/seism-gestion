@@ -9,16 +9,23 @@
  *
  * `webServer` corre `npm run e2e:app`, que levanta el servicio `app` del
  * perfil `e2e` de `docker-compose.yml` (la imagen que se publica, no
- * `next dev`) y espera su `HEALTHCHECK`; `globalTeardown` lo apaga. En local,
- * si ya hay algo escuchando en el puerto (por ejemplo `npm run dev`),
- * Playwright lo reusa; en CI nunca.
+ * `next dev`) y espera su `HEALTHCHECK`; `globalTeardown` lo apaga.
+ *
+ * Cada copia del repo (cada worktree) corre su e2e con su propio proyecto de
+ * compose y un puerto libre, así dos e2e a la vez no se pisan: la config los
+ * fija en el entorno, y de ahí los heredan `e2e:app`, el teardown y los
+ * workers (que vuelven a cargar este archivo y encuentran los mismos valores).
  */
 
 import process from "node:process";
 import { defineConfig, devices } from "@playwright/test";
+import { nombreProyecto, puertoLibre } from "./scripts/lib/instancia.ts";
+
+process.env.COMPOSE_PROJECT_NAME = nombreProyecto();
+process.env.E2E_PUERTO ??= String(await puertoLibre());
 
 /** Donde escucha la app del perfil `e2e` (`docker-compose.yml`). */
-const URL_BASE = "http://127.0.0.1:3000";
+const URL_BASE = `http://127.0.0.1:${process.env.E2E_PUERTO}`;
 
 /** CI lo define solo; en la máquina de cualquiera no está. */
 const EN_CI = process.env.CI !== undefined && process.env.CI !== "";
@@ -49,7 +56,7 @@ export default defineConfig({
     url: `${URL_BASE}/api/salud`,
     // Construir la imagen la primera vez tarda; después es levantar y listo.
     timeout: 300_000,
-    reuseExistingServer: !EN_CI,
+    reuseExistingServer: false,
     stdout: "pipe",
     stderr: "pipe",
   },

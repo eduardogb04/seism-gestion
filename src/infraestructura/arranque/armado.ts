@@ -21,6 +21,10 @@ import { crearTransaccionalPrisma } from "../../adaptadores/prisma/transaccion.t
 import { crearRelojSistema } from "../../adaptadores/reloj/sistema.ts";
 import { type CasosUsoAbm, crearCasosUsoAbm } from "../../casos-uso/abm/abm.ts";
 import {
+  type CasosUsoClientesDeGrupo,
+  crearCasosUsoClientesDeGrupo,
+} from "../../casos-uso/abm/clientes-de-grupo.ts";
+import {
   type CasosUsoDocumentos,
   crearCasosUsoDocumentos,
 } from "../../casos-uso/documentos/documentos.ts";
@@ -90,6 +94,8 @@ export type Armado = {
   readonly usuarios: CasosUsoUsuarios;
   /** Los casos de uso del molde de ABM (F1-03): sirven a todos los catálogos. */
   readonly abm: CasosUsoAbm;
+  /** Los clientes de un grupo vistos desde el grupo (F3-09). */
+  readonly clientesDeGrupo: CasosUsoClientesDeGrupo;
   /** Los pagos de egresos y *Por pagar* (F2-09). */
   readonly pagos: CasosUsoPagos;
   readonly servicios: CasosUsoServicios;
@@ -147,6 +153,7 @@ function armar(): Armado {
       generadorId,
       adjuntos: { almacen, nuevaClave: nuevaClaveDocumento },
     }),
+    clientesDeGrupo: crearCasosUsoClientesDeGrupo({ transaccional, reloj }),
     pagos: crearCasosUsoPagos({ transaccional, reloj, generadorId }),
     servicios: crearCasosUsoServicios({ transaccional, reloj, generadorId }),
     egresosDeServicio: crearCasosUsoEgresosDeServicio({ transaccional }),

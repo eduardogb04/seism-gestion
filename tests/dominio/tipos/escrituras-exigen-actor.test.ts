@@ -23,6 +23,7 @@
 
 import { expect, test } from "vitest";
 import type { CasosUsoAbm } from "../../../src/casos-uso/abm/abm.ts";
+import type { CasosUsoClientesDeGrupo } from "../../../src/casos-uso/abm/clientes-de-grupo.ts";
 import type { DefinicionAbm } from "../../../src/casos-uso/abm/definicion.ts";
 import type { CasosUsoPagos } from "../../../src/casos-uso/egresos/pagos.ts";
 import type { CasosUsoCobros } from "../../../src/casos-uso/servicios/cobros.ts";
@@ -76,6 +77,7 @@ declare const repositorio: RepositorioUsuarios;
 declare const usuario: Usuario;
 declare const usuarioId: Identificador<"Usuario">;
 declare const casosAbm: CasosUsoAbm;
+declare const casosClientesDeGrupo: CasosUsoClientesDeGrupo;
 declare const casosPagos: CasosUsoPagos;
 declare const definicion: DefinicionAbm<"Grupo">;
 declare const repositorioAbm: RepositorioAbm<"Grupo">;
@@ -116,6 +118,10 @@ function casosDeUsoSinActor(): void {
   casosAbm.guardar(definicion, "id", {});
   // @ts-expect-error `marcarEliminado` exige un `Actor` primero.
   casosAbm.marcarEliminado(definicion, "id");
+  // @ts-expect-error `agregarClienteAGrupo` (F3-09) exige un `Actor` primero.
+  casosClientesDeGrupo.agregarClienteAGrupo("grupo", "cliente", false);
+  // @ts-expect-error `sacarClienteDeGrupo` exige un `Actor` primero.
+  casosClientesDeGrupo.sacarClienteDeGrupo("grupo", "cliente");
   // @ts-expect-error `registrarPago` (F2-09) exige un `Actor` primero.
   casosPagos.registrarPago("id", {});
   // @ts-expect-error `marcarPagoAnulado` exige un `Actor` primero.

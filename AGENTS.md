@@ -96,8 +96,8 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run limites` | dependency-cruiser (`.dependency-cruiser.cjs`) sobre `src/`, `tests/` y `scripts/`: los límites entre capas, `no-circular` y `no-orphans`, todos en `error`. Ver *Límites de arquitectura* |
 | `npm run limites:fixtures` | Prueba negativa de `limites`: corre dependency-cruiser sobre cada carpeta de `tests/fixtures/limites/` (una por regla), por separado. Sale 0 si cada una fue rechazada por **su** regla y desde los archivos esperados; 1 si alguna pasó, la rechazó otra regla, o hay una regla sin fixture |
 | `npm run verificar` | `scripts/verificar.ts` (M-01): corre `typecheck`, `lint`, `limites`, `test` y los `*:fixtures` que haya en `package.json`, en ese orden, una línea `✔`/`✘ <paso> (<segundos> s)` por paso; si uno falla, muestra sus últimas 60 líneas y para (sale ≠ 0). La salida completa de cada paso queda en `.verificar/<paso>.log`. `-- --seguir` corre todos igual y suma cuántos fallaron. Usalo durante el desarrollo en vez de los cuatro comandos sueltos |
-| `npm run imagen` | Construye la imagen Docker: `docker build` multi-stage con `--build-arg APP_VERSION` (el SHA corto de git, o `APP_VERSION` si está definida). Sin etiqueta, `seism-gestion:local`; `-- <etiqueta>...` construye con las que le pases (es lo que hace CI al publicar). Necesita Docker corriendo, no necesita `npm ci` |
-| `npm run imagen:prueba` | Levanta esa imagen, espera el `HEALTHCHECK`, pide `/` y `/api/salud`, compara la versión con la del build, verifica que no lleve `.env` ni variables de más y que entre en el tope de tamaño. Sus contenedores se llaman `<proyecto>-prueba*` (el proyecto de abajo) y publican en un puerto libre. Informa **todas** las verificaciones que fallaron. `-- <etiqueta>` para probar otra |
+| `npm run imagen` | Construye la imagen Docker: `docker build` multi-stage con `--build-arg APP_VERSION` (el SHA corto de git, o `APP_VERSION` si está definida). Sin etiqueta, dos: `seism-gestion:local` (la de compose y el RUNBOOK) y `<proyecto>:local` (la de esta copia del repo, ver *Testing*); `-- <etiqueta>...` construye con las que le pases (es lo que hace CI al publicar). Necesita Docker corriendo, no necesita `npm ci` |
+| `npm run imagen:prueba` | Levanta esa imagen, espera el `HEALTHCHECK`, pide `/` y `/api/salud`, compara la versión con la del build, verifica que no lleve `.env` ni variables de más y que entre en el tope de tamaño. Prueba por defecto `<proyecto>:local` (la que construyó `npm run imagen` en esta copia); sus contenedores se llaman `<proyecto>-prueba*` (el proyecto de abajo) y publican en un puerto libre. Informa **todas** las verificaciones que fallaron. `-- <etiqueta>` para probar otra |
 | `npm run db:migrate` | `scripts/db-migrate.ts`: lee `.env` si existe, **valida el entorno** (el mismo esquema que la app) y recién entonces corre `prisma migrate deploy`, que aplica las migraciones pendientes de `prisma/migrations/` (desde una base vacía o una ya migrada). Si `DATABASE_URL` falta o no es `postgresql://`/`postgres://`, **sale 1** nombrando la variable y Prisma ni se ejecuta. Necesita la base levantada |
 | `npm run db:migrate:down` | `scripts/db-migrate-down.ts`: valida el entorno igual que `db:migrate` y revierte **la última migración aplicada** en la base local de compose: su `down.sql` y el borrado de su fila de `_prisma_migrations`, en una transacción (así `db:migrate` la vuelve a aplicar). Una por corrida. Sale 1 si `DATABASE_URL` no apunta a `localhost` (no ejecuta nada), si no hay migraciones aplicadas o si la reversión falla. Necesita el servicio `postgres` de compose levantado. Ver ADR 0009 |
 | `npm run db:generar` | `prisma generate`: regenera el cliente en `src/adaptadores/prisma/generado/` después de cambiar `prisma/schema.prisma`. No se conecta a ninguna base |
@@ -474,13 +474,14 @@ esos contenedores (la app y su `postgres-e2e`, descartable, con puerto elegido p
 
 **Dos e2e a la vez no se pisan (M-13).** `scripts/lib/instancia.ts` da el nombre del proyecto de
 compose, `COMPOSE_PROJECT_NAME` si está definida o `seism-` más un hash corto de la ruta absoluta
-de la copia del repo, y un puerto libre. `playwright.config.ts` fija las dos cosas en el entorno
+de la copia del repo, la etiqueta de imagen `<proyecto>:local` y un puerto libre. `playwright.config.ts` fija las dos cosas en el entorno
 (`COMPOSE_PROJECT_NAME`, `E2E_PUERTO`) y de ahí las heredan `e2e:app`, el teardown y la URL base de
-Playwright; `imagen:prueba` usa el mismo nombre para sus contenedores. Cada worktree tiene así sus
+Playwright; `e2e:app` construye y compose levanta `<proyecto>:local` (así dos worktrees de ramas distintas no se pisan la imagen); `imagen:prueba` usa el mismo nombre para sus contenedores y esa imagen. Cada worktree tiene así sus
 contenedores, y el teardown borra solo los de su proyecto. `npm run arrancar` y `npm run dev`, y
 el servicio `postgres` de `docker-compose.yml`, siguen en el proyecto `seism-gestion` y en los
 puertos 3000 y 5432. Lo que sigue compartido entre worktrees: Docker (CPU y memoria) y la etiqueta
-`seism-gestion:local` de la imagen. Chromium únicamente, sin
+`seism-gestion:local`, que construye `npm run imagen` para compose y el RUNBOOK: ni el e2e ni
+`imagen:prueba` la usan. Chromium únicamente, sin
 reintentos. La primera vez hay que instalar el navegador: `npx playwright install chromium`
 (RUNBOOK, sección 16).
 

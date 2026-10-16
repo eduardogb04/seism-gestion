@@ -65,7 +65,7 @@ export function crearRepositorioOrdenesCompraPrisma(
     async listarDe(servicioId) {
       const filas = await cliente.ordenCompra.findMany({
         where: { servicioId, eliminadoEn: null },
-        orderBy: [{ fecha: "desc" }, { creadoEn: "desc" }],
+        orderBy: [{ fecha: "desc" }, { creadoEn: "desc" }, { id: "desc" }],
       });
       return filas.map((fila) => desdeFila(fila, paso));
     },

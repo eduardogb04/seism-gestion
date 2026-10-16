@@ -26,7 +26,7 @@ export function crearColaFallidosPrisma(prisma: PrismaClient): ColaFallidos {
     async listarPendientes(limite) {
       const filas = await prisma.fallido.findMany({
         where: { resueltoEn: null },
-        orderBy: { creadoEn: "asc" },
+        orderBy: [{ creadoEn: "asc" }, { id: "asc" }],
         take: limite,
         select: { id: true, origen: true, codigoError: true, creadoEn: true },
       });

@@ -1,5 +1,7 @@
 # ADR 0033 — Servicios: fuera del molde de ABM, con sus piezas
 
+> Reemplazado en el ciclo de estados por el ADR 0039.
+
 **Fecha:** 2026-10-02
 **Estado:** Aprobado
 **Tarea:** F2-04

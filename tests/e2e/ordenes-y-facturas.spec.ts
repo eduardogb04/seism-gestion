@@ -2,7 +2,7 @@
  * Órdenes de compra y facturas de un servicio (F2-06, ADR 0036), en un
  * navegador de verdad contra la imagen que se publica. Lo recorre una
  * operadora, que el administrador da de alta acá mismo, sobre un servicio que
- * ella crea y pasa a «Cotizado»:
+ * ella crea y pasa a «Cotizado» cargándole una cotización (F3-01):
  *
  * 1. carga una orden de compra de 1.000,00 sin IVA: el servicio pasa a
  *    «Adjudicado» y la orden muestra todo por facturar;
@@ -96,7 +96,7 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
 }) => {
   await entrarComo(page, OPERADORA);
 
-  // Un servicio nuevo que pasa a «Cotizado»: ahí la orden de compra lo adjudica.
+  // Un servicio nuevo que pasa a «Cotizado» con su cotización: ahí la orden de compra lo adjudica.
   await page.goto("/servicios");
   await page.getByRole("link", { name: "Alta de servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
@@ -111,7 +111,17 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   await alta.getByLabel("Fecha de pedido").fill("2026-10-10");
   await alta.getByRole("button", { name: "Guardar" }).click();
   await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
-  await page.getByRole("button", { name: "Pasar a «Cotizado»" }).click();
+  await page.getByRole("link", { name: "Nueva cotización" }).click();
+  const cotizacion = ventana(page, "Nueva cotización");
+  await cotizacion.getByLabel("Fecha").fill("2026-10-11");
+  await cotizacion.getByLabel("Importe", { exact: true }).fill("1.000,00");
+  await cotizacion.getByLabel("Documento").setInputFiles({
+    name: "cotizacion.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\nCotización de ejemplo\n"),
+  });
+  await cotizacion.getByRole("button", { name: "Cargar" }).click();
+  await expect(ventana(page, "Nueva cotización")).toHaveCount(0);
   const estado = page.locator("[data-estado-del-servicio]");
   await expect(estado).toHaveText("Cotizado");
   await expect(

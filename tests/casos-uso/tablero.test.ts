@@ -10,10 +10,13 @@
  * Reloj fijo: 09/07/2031. Servicio A = SRV-2031-001, servicio B = SRV-2031-002.
  */
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
+import { TableroDeInicio } from "../../src/app/_ui/tablero-de-inicio.tsx";
 import { crearCasosUsoAbm } from "../../src/casos-uso/abm/abm.ts";
 import { CENTROS_DE_COSTO } from "../../src/casos-uso/abm/centros-de-costo.ts";
 import { CUENTAS } from "../../src/casos-uso/abm/cuentas.ts";
@@ -931,5 +934,132 @@ describe("cada número cierra con la suma del listado al que lleva", () => {
         sumaDe(fila.moneda, deLosEgresos.map(sinIvaDe)),
       );
     }
+  });
+});
+
+/** El inicio dibujado con los números de la base sembrada: lo que se ve, no el dato intermedio. */
+async function inicioDibujado(mes?: string): Promise<string> {
+  const resultado = await tablero().tablero(mes === undefined ? {} : { mes });
+  return renderToStaticMarkup(
+    createElement(TableroDeInicio, { tablero: resultado }),
+  );
+}
+
+function cifraVista(html: string, id: string): string | undefined {
+  return new RegExp(`data-cifra="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
+}
+
+function subtotalVisto(html: string, id: string): string | undefined {
+  return new RegExp(`data-subtotal="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
+}
+
+function celdasDeLaFila(html: string, que: string): string[] | undefined {
+  return [...html.matchAll(/<tr[^>]*>(.*?)<\/tr>/g)]
+    .map(([, fila]) =>
+      [...(fila ?? "").matchAll(/<t[dh][^>]*>(.*?)<\/t[dh]>/g)].map(
+        ([, celda]) => (celda ?? "").replace(/<[^>]+>/g, ""),
+      ),
+    )
+    .find((celdas) => celdas.join("|").startsWith(que));
+}
+
+describe("lo que se ve en el inicio", () => {
+  test("cada cifra del mes está en su lugar y con su valor, en pesos y en dólares", async () => {
+    const html = await inicioDibujado();
+
+    const vistas = Object.fromEntries(
+      ["ARS", "USD"].flatMap((moneda) =>
+        [
+          "facturado-sin-iva",
+          "facturado-con-iva",
+          "cobrado",
+          "egresos",
+          "pagado",
+          "resultado-de-caja",
+          "resultado-devengado",
+        ].map((clave) => [
+          `${moneda}-${clave}`,
+          cifraVista(html, `${moneda}-${clave}`),
+        ]),
+      ),
+    );
+
+    expect(vistas).toEqual({
+      "ARS-facturado-sin-iva": "ARS 3.001,50",
+      "ARS-facturado-con-iva": "ARS 3.421,83",
+      "ARS-cobrado": "ARS 1.421,00",
+      "ARS-egresos": "ARS 2.150,00",
+      "ARS-pagado": "ARS 500,00",
+      "ARS-resultado-de-caja": "ARS 921,00",
+      "ARS-resultado-devengado": "ARS 1.851,50",
+      "USD-facturado-sin-iva": "USD 1.100,00",
+      "USD-facturado-con-iva": "USD 1.310,00",
+      "USD-cobrado": "USD 300,00",
+      "USD-egresos": "USD 100,00",
+      "USD-pagado": "USD 30,00",
+      "USD-resultado-de-caja": "USD 270,00",
+      "USD-resultado-devengado": "USD 1.000,00",
+    });
+  });
+
+  test("los pendientes con su vencido, la rentabilidad y los egresos por centro con sus subtotales", async () => {
+    const html = await inicioDibujado();
+
+    expect(celdasDeLaFila(html, "ARS|ARS 3.050,83")).toEqual([
+      "ARS",
+      "ARS 3.050,83",
+      "ARS 1.139,00",
+      "ARS 1.670,00",
+      "ARS 200,00",
+    ]);
+    expect(celdasDeLaFila(html, "USD|USD 1.010,00")).toEqual([
+      "USD",
+      "USD 1.010,00",
+      "USD 100,00",
+      "USD 70,00",
+      "USD 20,00",
+    ]);
+    expect(
+      celdasDeLaFila(html, "SRV-2031-001 · Auditoría de ejemplo|ARS"),
+    ).toEqual([
+      "SRV-2031-001 · Auditoría de ejemplo",
+      "ARS",
+      "ARS 2.201,00",
+      "ARS 640,00",
+      "ARS 1.561,00",
+    ]);
+    expect(
+      celdasDeLaFila(html, "SRV-2031-002 · Servicio B de ejemplo|ARS"),
+    ).toEqual([
+      "SRV-2031-002 · Servicio B de ejemplo",
+      "ARS",
+      "ARS 2.000,50",
+      "ARS 250,00",
+      "ARS 1.750,50",
+    ]);
+    expect(
+      [
+        "ARS-proyecto",
+        "ARS-gestion_administrativa",
+        "ARS-fuera_de_rentabilidad",
+        "USD-proyecto",
+        "USD-gestion_administrativa",
+        "USD-fuera_de_rentabilidad",
+      ].map((id) => subtotalVisto(html, id)),
+    ).toEqual([
+      "ARS 850,00",
+      "ARS 300,00",
+      "ARS 1.000,00",
+      "USD 80,00",
+      "USD 20,00",
+      "USD 0,00",
+    ]);
+    expect(cifraVista(html, "ARS-proyecto-Obra de ejemplo")).toBe("ARS 850,00");
+    expect(
+      cifraVista(html, "ARS-gestion_administrativa-Oficina de ejemplo"),
+    ).toBe("ARS 300,00");
+    expect(
+      cifraVista(html, "ARS-fuera_de_rentabilidad-Inversión de ejemplo"),
+    ).toBe("ARS 1.000,00");
   });
 });

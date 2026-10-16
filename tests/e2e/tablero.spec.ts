@@ -7,7 +7,12 @@
  * 2. en octubre de 2026 hay números de la semilla; al hacer clic en
  *    *Facturado sin IVA* se abre el listado de esas facturas, con filas, y su
  *    total es el mismo número que tenía el tablero;
- * 3. lo mismo con *Pagado*, y un mes inválido avisa y muestra el actual.
+ * 3. lo mismo con *Pagado* y con *Cobrado*, los pendientes de cobro y de pago
+ *    son los saldos que suman *Por cobrar* y *Por pagar*, y un mes inválido
+ *    avisa y muestra el actual. Los números exactos de cada cifra, en pesos y
+ *    en dólares, los afirma `tests/casos-uso/tablero.test.ts` dibujando la
+ *    pantalla: acá la semilla comparte base con los otros recorridos y sus
+ *    altas del día cambian los pendientes.
  *
  * Todo inventado (`@ejemplo.test`).
  */
@@ -90,6 +95,45 @@ test("octubre de 2026 trae números de la semilla y cada uno lleva a un listado 
   await expect(page.locator("[data-total]")).toHaveText(
     `Total pagado: ${numeroPagado}`,
   );
+});
+
+test("octubre de 2026: Cobrado lleva al listado de cobros y los pendientes son los saldos de Por cobrar y Por pagar", async ({
+  page,
+}) => {
+  await entrarComo(page, ADMIN);
+  await page.goto("/?mes=2026-10");
+  const cobrado = page
+    .locator('[data-cifra$="-cobrado"]')
+    .filter({ hasNotText: CERO })
+    .first();
+  const numeroCobrado = (await cobrado.innerText()).trim();
+  expect(numeroCobrado).toMatch(/^(ARS|USD) [0-9.]+,[0-9]{2}$/);
+  await cobrado.click();
+
+  await expect(page).toHaveURL(/\/servicios\/cobros\?mes=2026-10&moneda=/);
+  expect(await page.locator("tbody tr").count()).toBeGreaterThan(0);
+  await expect(page.locator("[data-total]")).toHaveText(
+    `Total cobrado: ${numeroCobrado}`,
+  );
+
+  for (const moneda of ["ARS", "USD"]) {
+    await page.goto("/?mes=2026-10");
+    const porCobrar = (
+      await page.locator(`[data-cifra="${moneda}-por-cobrar"]`).innerText()
+    ).trim();
+    const porPagar = (
+      await page.locator(`[data-cifra="${moneda}-por-pagar"]`).innerText()
+    ).trim();
+
+    await page.goto("/servicios/por-cobrar");
+    await expect(page.locator("[data-saldos-por-moneda]")).toContainText(
+      porCobrar,
+    );
+    await page.goto("/egresos/pagos");
+    await expect(page.locator("[data-saldos-por-moneda]")).toContainText(
+      porPagar,
+    );
+  }
 });
 
 test("un mes inválido avisa y muestra el actual", async ({ page }) => {

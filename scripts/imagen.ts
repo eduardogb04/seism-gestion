@@ -182,7 +182,8 @@ async function verificarRespuestas(version: string): Promise<string[]> {
   const inicio = await fetch(`${base}/`);
   const html = await inicio.text();
   console.log(`GET / → ${inicio.status}`);
-  if (!inicio.ok || !html.includes("SeisM")) {
+  // Sin sesión el inicio redirige a la pantalla que explica AUT-0002 (F2-10).
+  if (!inicio.ok || !html.includes("AUT-0002")) {
     problemas.push(`GET / devolvió ${inicio.status} y un cuerpo inesperado.`);
   }
 

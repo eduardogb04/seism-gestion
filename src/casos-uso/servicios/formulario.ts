@@ -13,15 +13,27 @@ import { MODALIDADES } from "../abm/tipos-de-servicio.ts";
 import { obligatorio, opcional } from "../abm/validaciones.ts";
 
 export const ETIQUETAS_DE_ESTADO: Readonly<Record<EstadoServicio, string>> = {
-  solicitado: "Solicitado",
+  creado: "Creado",
   cotizado: "Cotizado",
   adjudicado: "Adjudicado",
-  vigente: "Vigente",
+  en_ejecucion: "En ejecución",
+  finalizado: "Finalizado",
   cerrado: "Cerrado",
   perdido: "Perdido",
   sin_respuesta: "Sin respuesta",
   cancelado: "Cancelado",
 };
+
+/** El botón de un cambio de estado que pide la persona (F3-01). */
+export function botonDeCambio(destino: EstadoServicio): string {
+  if (destino === "en_ejecucion") {
+    return "Iniciar ejecución";
+  }
+  if (destino === "finalizado") {
+    return "Finalizar servicio";
+  }
+  return `Pasar a «${ETIQUETAS_DE_ESTADO[destino]}»`;
+}
 
 /**
  * Los campos, en el orden en que se muestran. El responsable es un usuario, que

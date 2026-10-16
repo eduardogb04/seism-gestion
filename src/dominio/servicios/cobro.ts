@@ -80,3 +80,10 @@ export function saldoDeFactura<M extends Moneda>(
 export function estaCobrada(saldo: SaldoDeFactura<Moneda>): boolean {
   return saldo.saldo.centavos === 0n;
 }
+
+/** Hay al menos una factura y todas llegaron a saldo cero: un servicio finalizado se cierra (F3-01). */
+export function todoCobrado(
+  saldos: readonly SaldoDeFactura<Moneda>[],
+): boolean {
+  return saldos.length > 0 && saldos.every(estaCobrada);
+}

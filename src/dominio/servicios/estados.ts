@@ -1,16 +1,21 @@
 /**
- * El ciclo de vida de un servicio (F2-04, ADR 0033), sobre el historial de
- * F0-21: el estado de un servicio es su último evento, no una columna.
+ * El recorrido de un servicio por etapas (F3-01, ADR 0039), sobre el historial
+ * de F0-21: el estado de un servicio es su último evento, no una columna.
  *
- * El parámetro `origen` del historial lleva la **nota** de quien hizo el
- * cambio: hoy todos los cambios de estado se hacen a mano, desde la pantalla.
+ * Tres transiciones son **automáticas**: solo las dispara su causa (cargar una
+ * cotización, cargar una orden de compra, cobrar todo lo facturado), en la
+ * misma transacción. Las demás las pide la persona desde la pantalla. El
+ * parámetro `origen` del historial lleva la nota o el motivo del cambio.
  */
 
 import type { Actor } from "../compartido/actor.ts";
+import { catalogo } from "../compartido/errores/catalogo.ts";
 import {
   definirCiclo,
   type Evento,
   type Historial,
+  type Marca,
+  type Resultado,
   type Transiciones,
 } from "../compartido/historial.ts";
 import { diferenciaEnDias, type FechaHora } from "../compartido/reloj.ts";
@@ -19,10 +24,11 @@ import { diferenciaEnDias, type FechaHora } from "../compartido/reloj.ts";
 export const PREFIJO_DE_CODIGO = "SRV";
 
 export const ESTADOS_SERVICIO = [
-  "solicitado",
+  "creado",
   "cotizado",
   "adjudicado",
-  "vigente",
+  "en_ejecucion",
+  "finalizado",
   "cerrado",
   "perdido",
   "sin_respuesta",
@@ -31,18 +37,62 @@ export const ESTADOS_SERVICIO = [
 
 export type EstadoServicio = (typeof ESTADOS_SERVICIO)[number];
 
-export const ESTADO_INICIAL: EstadoServicio = "solicitado";
+export const ESTADO_INICIAL: EstadoServicio = "creado";
 
 const TRANSICIONES: Transiciones<EstadoServicio> = {
-  solicitado: ["cotizado", "perdido", "sin_respuesta", "cancelado"],
+  creado: ["cotizado", "cancelado"],
   cotizado: ["adjudicado", "perdido", "sin_respuesta", "cancelado"],
-  adjudicado: ["vigente", "perdido", "sin_respuesta", "cancelado"],
-  vigente: ["cerrado", "cancelado"],
+  adjudicado: ["en_ejecucion", "cancelado"],
+  en_ejecucion: ["finalizado", "cancelado"],
+  finalizado: ["cerrado"],
   cerrado: [],
   perdido: [],
-  // El cliente contestó: vuelve a estar cotizado.
+  // El cliente volvió: está cotizado de nuevo.
   sin_respuesta: ["cotizado"],
   cancelado: [],
+};
+
+export const CAUSAS = ["cotizacion", "ordenDeCompra", "cobrado"] as const;
+
+/** Lo que dispara una transición automática; `cobrado`: lo cobrado alcanzó lo facturado. */
+export type Causa = (typeof CAUSAS)[number];
+
+const AUTOMATICAS: Readonly<
+  Record<Causa, { readonly de: EstadoServicio; readonly a: EstadoServicio }>
+> = {
+  cotizacion: { de: "creado", a: "cotizado" },
+  ordenDeCompra: { de: "cotizado", a: "adjudicado" },
+  cobrado: { de: "finalizado", a: "cerrado" },
+};
+
+const PIDEN_MOTIVO: readonly EstadoServicio[] = [
+  "perdido",
+  "sin_respuesta",
+  "cancelado",
+];
+
+export const CARGAS = [
+  "cotizacion",
+  "ordenDeCompra",
+  "anulacionDeOrdenDeCompra",
+  "factura",
+  "cobro",
+  "suceso",
+] as const;
+
+/** Lo que se carga en un servicio. Anular sigue la regla de su alta, salvo la orden de compra (ADR 0039). */
+export type Carga = (typeof CARGAS)[number];
+
+const MENOS_CERRADO = ESTADOS_SERVICIO.filter((estado) => estado !== "cerrado");
+
+const ETAPAS_DE_CARGA: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
+  cotizacion: ["creado", "cotizado"],
+  ordenDeCompra: ["cotizado"],
+  // Cargarla pasa el servicio a «Adjudicado»: si se anulara solo en «Cotizado», no se anularía nunca.
+  anulacionDeOrdenDeCompra: ["adjudicado"],
+  factura: ["adjudicado", "en_ejecucion", "finalizado"],
+  cobro: MENOS_CERRADO,
+  suceso: MENOS_CERRADO,
 };
 
 export type EventoServicio = Evento<
@@ -59,6 +109,8 @@ export type HistorialServicio = Historial<
   string | null
 >;
 
+type MarcaServicio = Marca<FechaHora, Actor, string | null>;
+
 export const cicloServicio = definirCiclo<
   EstadoServicio,
   FechaHora,
@@ -66,11 +118,75 @@ export const cicloServicio = definirCiclo<
   string | null
 >({ transiciones: TRANSICIONES, diferenciaEnDias });
 
-/** A qué estados se puede pasar desde `estado`. */
-export function transicionesDesde(
+function esAutomatica(de: EstadoServicio, a: EstadoServicio): boolean {
+  return Object.values(AUTOMATICAS).some(
+    (automatica) => automatica.de === de && automatica.a === a,
+  );
+}
+
+/** A qué estados puede pasarlo la persona desde `estado`. */
+export function transicionesManualesDesde(
   estado: EstadoServicio,
 ): readonly EstadoServicio[] {
-  return TRANSICIONES[estado];
+  return TRANSICIONES[estado].filter((a) => !esAutomatica(estado, a));
+}
+
+/** Un cambio que la persona no puede pedir: no es manual desde ahí (`DOM-0011`) o le falta el motivo (`DOM-0017`). */
+export interface CambioRechazado {
+  readonly codigo:
+    | typeof catalogo.DOM_0011.codigo
+    | typeof catalogo.DOM_0017.codigo;
+  readonly de: EstadoServicio;
+  readonly a: EstadoServicio;
+}
+
+/** El cambio que pide la persona; el motivo va en `marca.origen`. */
+export function pedirCambio(
+  historial: HistorialServicio,
+  a: EstadoServicio,
+  marca: MarcaServicio,
+): Resultado<HistorialServicio, CambioRechazado> {
+  const de = cicloServicio.estadoActual(historial);
+  if (!transicionesManualesDesde(de).includes(a)) {
+    return { ok: false, error: { codigo: catalogo.DOM_0011.codigo, de, a } };
+  }
+  if (PIDEN_MOTIVO.includes(a) && (marca.origen ?? "").trim() === "") {
+    return { ok: false, error: { codigo: catalogo.DOM_0017.codigo, de, a } };
+  }
+  const agregado = cicloServicio.agregar(historial, a, marca);
+  return agregado.ok
+    ? agregado
+    : { ok: false, error: { codigo: catalogo.DOM_0011.codigo, de, a } };
+}
+
+/** El historial con el cambio que dispara `causa`, o `null` si desde el estado actual no mueve nada. */
+export function porCausa(
+  historial: HistorialServicio,
+  causa: Causa,
+  marca: MarcaServicio,
+): HistorialServicio | null {
+  const { de, a } = AUTOMATICAS[causa];
+  if (cicloServicio.estadoActual(historial) !== de) {
+    return null;
+  }
+  const agregado = cicloServicio.agregar(historial, a, marca);
+  return agregado.ok ? agregado.valor : null;
+}
+
+/** Si en `estado` se puede cargar (o anular) `carga`. */
+export function admiteCarga(estado: EstadoServicio, carga: Carga): boolean {
+  return ETAPAS_DE_CARGA[carga].includes(estado);
+}
+
+/** Los días que pasó en cada etapa, en el orden del historial: el último tramo llega hasta `ahora`. */
+export function diasPorEtapa(
+  historial: HistorialServicio,
+  ahora: FechaHora,
+): readonly number[] {
+  const { eventos } = historial;
+  return eventos.map(({ en }, posicion) =>
+    diferenciaEnDias(eventos[posicion + 1]?.en ?? ahora, en),
+  );
 }
 
 /** Un servicio que ya avanzó no se da de baja: se cancela o se cierra. */

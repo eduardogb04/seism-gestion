@@ -142,7 +142,7 @@ export const catalogo = definirCatalogo({
     descripcion:
       "El servicio no admite ese cambio en el estado en que está: no se guardó nada.",
     queHacer:
-      "Abrí el servicio de nuevo y elegí uno de los cambios de estado que ofrece: puede que otra persona lo haya cambiado recién. Un servicio que ya salió de «Solicitado» no se da de baja: se cancela o se cierra con «Cambiar estado».",
+      "Abrí el servicio de nuevo y elegí uno de los cambios de estado que ofrece: puede que otra persona lo haya cambiado recién. El paso a «Cotizado», a «Adjudicado» y a «Cerrado» no se pide: lo hacen cargar una cotización, cargar la orden de compra y cobrar todo lo facturado. Un servicio que ya salió de «Creado» no se da de baja: se cancela.",
   },
   DOM_0012: {
     codigo: "DOM-0012",
@@ -173,6 +173,21 @@ export const catalogo = definirCatalogo({
     tipo: "persona",
     descripcion: "La factura no se puede anular: tiene cobros vigentes.",
     queHacer: "Primero anulá los cobros de esa factura y volvé a intentarlo.",
+  },
+  DOM_0017: {
+    codigo: "DOM-0017",
+    tipo: "persona",
+    descripcion: "Ese cambio de estado pide un motivo: no se guardó nada.",
+    queHacer:
+      "Escribí en la nota por qué se pierde, queda sin respuesta o se cancela el servicio, y volvé a pedir el cambio.",
+  },
+  DOM_0018: {
+    codigo: "DOM-0018",
+    tipo: "persona",
+    descripcion:
+      "En la etapa en que está el servicio no se puede cargar ni anular eso: no se guardó nada.",
+    queHacer:
+      "Las cotizaciones van en «Creado» y «Cotizado»; la orden de compra, en «Cotizado» (se anula en «Adjudicado»); las facturas, de «Adjudicado» a «Finalizado»; los cobros y los sucesos, en cualquier etapa menos «Cerrado». Abrí el servicio de nuevo: puede que otra persona le haya cambiado el estado recién.",
   },
   AUT_0001: {
     codigo: "AUT-0001",

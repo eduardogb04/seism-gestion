@@ -30,6 +30,7 @@ import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/coti
 import type { CasosUsoFacturas } from "../../../src/casos-uso/servicios/facturas.ts";
 import type { CasosUsoOrdenesDeCompra } from "../../../src/casos-uso/servicios/ordenes-de-compra.ts";
 import type { CasosUsoServicios } from "../../../src/casos-uso/servicios/servicios.ts";
+import type { CasosUsoSucesos } from "../../../src/casos-uso/servicios/sucesos.ts";
 import type { CasosUsoUsuarios } from "../../../src/casos-uso/usuarios/usuarios.ts";
 import type { Identificador } from "../../../src/dominio/compartido/identificador.ts";
 import type { FechaHora } from "../../../src/dominio/compartido/reloj.ts";
@@ -62,6 +63,10 @@ import type {
   Servicio,
 } from "../../../src/puertos/repositorios/servicios.ts";
 import type {
+  RepositorioSucesos,
+  Suceso,
+} from "../../../src/puertos/repositorios/sucesos.ts";
+import type {
   RepositorioUsuarios,
   Usuario,
 } from "../../../src/puertos/repositorios/usuarios.ts";
@@ -92,6 +97,9 @@ declare const repositorioOrdenes: RepositorioOrdenesCompra;
 declare const ordenCompra: OrdenCompra;
 declare const repositorioFacturas: RepositorioFacturas;
 declare const factura: Factura;
+declare const casosSucesos: CasosUsoSucesos;
+declare const repositorioSucesos: RepositorioSucesos;
+declare const suceso: Suceso;
 declare const ahora: FechaHora;
 declare const evento: Parameters<RepositorioServicios["agregarEvento"]>[2];
 
@@ -124,6 +132,10 @@ function casosDeUsoSinActor(): void {
   casosServicios.guardarSitios("id", []);
   // @ts-expect-error `crear` de cotizaciones exige un `Actor` primero.
   casosCotizaciones.crear("id", {}, null);
+  // @ts-expect-error `crear` de sucesos exige un `Actor` primero.
+  casosSucesos.crear("id", {});
+  // @ts-expect-error `marcarAnulado` de sucesos exige un `Actor` primero.
+  casosSucesos.marcarAnulado("id", {});
   // @ts-expect-error `marcarEliminado` de cotizaciones exige un `Actor` primero.
   casosCotizaciones.marcarEliminado("id");
   // @ts-expect-error `crear` de órdenes de compra exige un `Actor` primero.
@@ -159,6 +171,10 @@ function repositoriosSinActor(): void {
   repositorioServicios.guardarSitios("id", [], ahora);
   // @ts-expect-error `crear` del repositorio de cotizaciones exige un `Actor` primero.
   repositorioCotizaciones.crear(cotizacion);
+  // @ts-expect-error `crear` del repositorio de sucesos exige un `Actor` primero.
+  repositorioSucesos.crear(suceso);
+  // @ts-expect-error `actualizar` del repositorio de sucesos exige un `Actor` primero.
+  repositorioSucesos.actualizar(suceso, "actualizar");
   // @ts-expect-error `actualizar` del repositorio de cotizaciones exige un `Actor` primero.
   repositorioCotizaciones.actualizar(cotizacion, "actualizar");
   // @ts-expect-error `crear` del repositorio de documentos exige un `Actor` primero.

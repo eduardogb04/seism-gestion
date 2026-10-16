@@ -43,6 +43,9 @@ const VIOLACION_DE_RESTRICCION = "P2003";
 /** El mensaje de los disparadores de pagos (F2-09): la cuenta o el egreso que se da de baja todavía tiene pagos vigentes. */
 const BAJA_CON_PAGOS = "pagos_vigentes_baja";
 
+/** El del disparador de cobros (F2-07): la cuenta que se da de baja todavía tiene cobros vigentes. */
+const BAJA_CON_COBROS = "cobros_vigentes_baja";
+
 const esquemaMetaDeRestriccion = z.object({
   driverAdapterError: z.object({
     cause: z.object({ originalMessage: z.string() }),
@@ -251,8 +254,10 @@ async function escribir(
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === VIOLACION_DE_RESTRICCION &&
-      esquemaMetaDeRestriccion.safeParse(error.meta).data?.driverAdapterError
-        .cause.originalMessage === BAJA_CON_PAGOS
+      [BAJA_CON_PAGOS, BAJA_CON_COBROS].includes(
+        esquemaMetaDeRestriccion.safeParse(error.meta).data?.driverAdapterError
+          .cause.originalMessage ?? "",
+      )
     ) {
       throw nuevoError(catalogo.DOM_0010, { entidad }, error);
     }

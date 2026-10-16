@@ -942,3 +942,40 @@ describe("anular una orden y cargar una factura de esa orden a la vez", () => {
     }
   });
 });
+
+describe("el orden del listado con la misma fecha (M-12)", () => {
+  // Con la misma fecha y el mismo `creado_en` (el reloj es fijo), el único
+  // desempate es el que pone el adaptador. Se actualiza la fila que tiene que
+  // salir primera para que quede al final en el heap: sin desempate, Postgres
+  // devuelve el orden físico y el test falla siempre, no a veces.
+  test("las facturas del mismo día salen por número, de mayor a menor", async () => {
+    await cargarFactura({ numero: "0000-0001" });
+    const segunda = await cargarFactura({ numero: "0000-0002" });
+    await cliente().factura.update({
+      where: { id: segunda },
+      data: { actualizadoEn: new Date("2031-07-09T11:00:00Z") },
+    });
+
+    const listado = await facturas().listar(servicioId);
+
+    expect(listado.map(({ numero }) => numero)).toEqual([
+      "0000-0002",
+      "0000-0001",
+    ]);
+  });
+
+  test("las órdenes de compra del mismo día salen por id, de mayor a menor", async () => {
+    const primera = await cargarOrden({ numero: "OC-0001" });
+    const segunda = await cargarOrden({ numero: "OC-0002" });
+    const [mayor, menor] =
+      primera > segunda ? [primera, segunda] : [segunda, primera];
+    await cliente().ordenCompra.update({
+      where: { id: mayor },
+      data: { actualizadoEn: new Date("2031-07-09T11:00:00Z") },
+    });
+
+    const listado = await ordenes().listar(servicioId);
+
+    expect(listado.map(({ id }) => id)).toEqual([mayor, menor]);
+  });
+});

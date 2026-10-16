@@ -168,6 +168,12 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Primero anulá las facturas de esa orden de compra y volvé a intentarlo.",
   },
+  DOM_0016: {
+    codigo: "DOM-0016",
+    tipo: "persona",
+    descripcion: "La factura no se puede anular: tiene cobros vigentes.",
+    queHacer: "Primero anulá los cobros de esa factura y volvé a intentarlo.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",

@@ -10,6 +10,7 @@
 import type { Auditoria } from "../auditoria.ts";
 import type { Secuencias } from "../secuencias.ts";
 import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
+import type { RepositorioCobros } from "./cobros.ts";
 import type { RepositorioCotizaciones } from "./cotizaciones.ts";
 import type { RepositorioDocumentos } from "./documentos.ts";
 import type { RepositorioFacturas } from "./facturas.ts";
@@ -37,6 +38,8 @@ export type RepositoriosEnTransaccion = {
   readonly cotizaciones: RepositorioCotizaciones;
   readonly ordenesCompra: RepositorioOrdenesCompra;
   readonly facturas: RepositorioFacturas;
+  /** Los cobros de las facturas (F2-07). */
+  readonly cobros: RepositorioCobros;
 };
 
 export type Transaccional = {

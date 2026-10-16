@@ -29,6 +29,7 @@ import {
   guardarServicio,
   guardarSitiosDeServicio,
 } from "../acciones.ts";
+import { Avance } from "./avance.tsx";
 import { Cotizaciones } from "./cotizaciones.tsx";
 import { Egresos } from "./egresos.tsx";
 import { Facturas } from "./facturas.tsx";
@@ -239,6 +240,7 @@ export default async function Servicio({ params, searchParams }: Props) {
             <CambiarEstado servicio={servicio} />
           </>
         ) : null}
+        <Avance servicioId={servicio.id} />
         <Cotizaciones
           servicioId={servicio.id}
           ruta={ruta}

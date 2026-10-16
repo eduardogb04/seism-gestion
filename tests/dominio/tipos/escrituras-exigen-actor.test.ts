@@ -25,6 +25,7 @@ import { expect, test } from "vitest";
 import type { CasosUsoAbm } from "../../../src/casos-uso/abm/abm.ts";
 import type { DefinicionAbm } from "../../../src/casos-uso/abm/definicion.ts";
 import type { CasosUsoPagos } from "../../../src/casos-uso/egresos/pagos.ts";
+import type { CasosUsoCobros } from "../../../src/casos-uso/servicios/cobros.ts";
 import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/cotizaciones.ts";
 import type { CasosUsoFacturas } from "../../../src/casos-uso/servicios/facturas.ts";
 import type { CasosUsoOrdenesDeCompra } from "../../../src/casos-uso/servicios/ordenes-de-compra.ts";
@@ -36,6 +37,10 @@ import type {
   RegistroAbm,
   RepositorioAbm,
 } from "../../../src/puertos/repositorios/abm.ts";
+import type {
+  Cobro,
+  RepositorioCobros,
+} from "../../../src/puertos/repositorios/cobros.ts";
 import type {
   Cotizacion,
   RepositorioCotizaciones,
@@ -80,6 +85,9 @@ declare const repositorioDocumentos: RepositorioDocumentos;
 declare const documento: Documento;
 declare const casosOrdenes: CasosUsoOrdenesDeCompra;
 declare const casosFacturas: CasosUsoFacturas;
+declare const casosCobros: CasosUsoCobros;
+declare const repositorioCobros: RepositorioCobros;
+declare const cobro: Cobro;
 declare const repositorioOrdenes: RepositorioOrdenesCompra;
 declare const ordenCompra: OrdenCompra;
 declare const repositorioFacturas: RepositorioFacturas;
@@ -126,6 +134,10 @@ function casosDeUsoSinActor(): void {
   casosFacturas.crear("id", {}, null);
   // @ts-expect-error `marcarEliminado` de facturas exige un `Actor` primero.
   casosFacturas.marcarEliminado("id");
+  // @ts-expect-error `registrar` de cobros exige un `Actor` primero.
+  casosCobros.registrar("id", {});
+  // @ts-expect-error `marcarAnulado` de cobros exige un `Actor` primero.
+  casosCobros.marcarAnulado("id");
 }
 
 function repositoriosSinActor(): void {
@@ -161,6 +173,10 @@ function repositoriosSinActor(): void {
   repositorioFacturas.crear(factura);
   // @ts-expect-error `actualizar` del repositorio de facturas exige un `Actor` primero.
   repositorioFacturas.actualizar(factura, "actualizar");
+  // @ts-expect-error `crear` del repositorio de cobros exige un `Actor` primero.
+  repositorioCobros.crear(cobro);
+  // @ts-expect-error `actualizar` del repositorio de cobros exige un `Actor` primero.
+  repositorioCobros.actualizar(cobro, "actualizar");
 }
 
 test("las llamadas sin actor no compilan (lo verifica `npm run typecheck`)", () => {

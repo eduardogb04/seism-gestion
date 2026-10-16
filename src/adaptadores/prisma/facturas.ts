@@ -83,7 +83,7 @@ export function crearRepositorioFacturasPrisma(
     async listarDe(servicioId) {
       const filas = await cliente.factura.findMany({
         where: { servicioId, eliminadoEn: null },
-        orderBy: [{ fecha: "desc" }, { creadoEn: "desc" }],
+        orderBy: [{ fecha: "desc" }, { creadoEn: "desc" }, { numero: "desc" }],
       });
       return filas.map((fila) => desdeFila(fila, paso));
     },

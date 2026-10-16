@@ -102,6 +102,27 @@ describe("ColaFallidos.listarPendientes", () => {
     expect(new Set(pendientes.map((p) => p.id)).size).toBe(2);
   });
 
+  test("con la misma fecha salen por `id`, de menor a mayor (M-12)", async () => {
+    await fallido("prueba.igual", "2026-03-01T10:00:00Z");
+    await fallido("prueba.igual", "2026-03-01T10:00:00Z");
+    const menor = await db().fallido.findFirstOrThrow({
+      orderBy: { id: "asc" },
+    });
+    const mayor = await db().fallido.findFirstOrThrow({
+      orderBy: { id: "desc" },
+    });
+    // Se toca la que tiene que salir última, para que el orden físico no coincida
+    // con el esperado: sin desempate, Postgres devuelve el que le quede a mano.
+    await db().fallido.update({
+      where: { id: mayor.id },
+      data: { intentos: 4 },
+    });
+
+    const pendientes = await crearColaFallidosPrisma(db()).listarPendientes(10);
+
+    expect(pendientes.map((p) => p.id)).toEqual([menor.id, mayor.id]);
+  });
+
   test("sin pendientes, una lista vacía", async () => {
     await fallido("prueba.resuelto", "2026-03-05T10:00:00Z", true);
 

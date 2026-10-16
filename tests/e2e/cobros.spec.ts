@@ -173,9 +173,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await cotizacion.getByLabel("Documento").setInputFiles({
     name: "cotizacion.pdf",
     mimeType: "application/pdf",
-    buffer: Buffer.from("%PDF-1.4
-Cotización de ejemplo
-"),
+    buffer: Buffer.from("%PDF-1.4\nCotización de ejemplo\n"),
   });
   await cotizacion.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nueva cotización")).toHaveCount(0);

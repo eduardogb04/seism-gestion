@@ -52,7 +52,7 @@ const TRANSICIONES: Transiciones<EstadoServicio> = {
   cancelado: [],
 };
 
-export const CAUSAS = ["cotizacion", "ordenDeCompra", "cobrado"] as const;
+const CAUSAS = ["cotizacion", "ordenDeCompra", "cobrado"] as const;
 
 /** Lo que dispara una transición automática; `cobrado`: lo cobrado alcanzó lo facturado. */
 export type Causa = (typeof CAUSAS)[number];
@@ -71,7 +71,7 @@ const PIDEN_MOTIVO: readonly EstadoServicio[] = [
   "cancelado",
 ];
 
-export const CARGAS = [
+const CARGAS = [
   "cotizacion",
   "ordenDeCompra",
   "anulacionDeOrdenDeCompra",
@@ -132,7 +132,7 @@ export function transicionesManualesDesde(
 }
 
 /** Un cambio que la persona no puede pedir: no es manual desde ahí (`DOM-0011`) o le falta el motivo (`DOM-0017`). */
-export interface CambioRechazado {
+interface CambioRechazado {
   readonly codigo:
     | typeof catalogo.DOM_0011.codigo
     | typeof catalogo.DOM_0017.codigo;

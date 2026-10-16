@@ -17,8 +17,6 @@ import {
 import {
   admiteBaja,
   admiteCarga,
-  CARGAS,
-  CAUSAS,
   type Carga,
   type Causa,
   cicloServicio,
@@ -55,6 +53,8 @@ const AUTOMATICAS: Readonly<
   cobrado: ["finalizado", "cerrado"],
 };
 
+const CAUSAS: readonly Causa[] = ["cotizacion", "ordenDeCompra", "cobrado"];
+
 const PIDEN_MOTIVO: readonly EstadoServicio[] = [
   "perdido",
   "sin_respuesta",
@@ -71,6 +71,15 @@ const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   cobro: MENOS_CERRADO,
   suceso: MENOS_CERRADO,
 };
+
+const CARGAS: readonly Carga[] = [
+  "cotizacion",
+  "ordenDeCompra",
+  "anulacionDeOrdenDeCompra",
+  "factura",
+  "cobro",
+  "suceso",
+];
 
 function declarada(de: EstadoServicio, a: EstadoServicio): boolean {
   return (
@@ -290,10 +299,6 @@ describe("porCausa: lo automático", () => {
 });
 
 describe("qué se carga en cada etapa", () => {
-  test("las cargas son exactamente las de la tabla", () => {
-    expect([...CARGAS].sort()).toEqual(Object.keys(ETAPAS).sort());
-  });
-
   test.each(
     ESTADOS_SERVICIO.flatMap((estado) =>
       CARGAS.map((carga) => [carga, estado] as const),

@@ -26,7 +26,7 @@ export function crearRegistroCorridasPrisma(
     ultimaCorrida(job) {
       return prisma.corridaWorker.findFirst({
         where: { job },
-        orderBy: { inicio: "desc" },
+        orderBy: [{ inicio: "desc" }, { id: "desc" }],
         select: {
           job: true,
           inicio: true,

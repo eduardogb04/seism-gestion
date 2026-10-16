@@ -149,6 +149,28 @@ describe("listarSalud", () => {
       ]);
     });
 
+    test("con el mismo inicio, la última es la de mayor `id` (M-12)", async () => {
+      const db = cliente();
+      await corrida(db, haceMs(MINUTO), "ok");
+      await corrida(db, haceMs(MINUTO), "error");
+      const mayor = await db.corridaWorker.findFirstOrThrow({
+        orderBy: { id: "desc" },
+      });
+      const menor = await db.corridaWorker.findFirstOrThrow({
+        orderBy: { id: "asc" },
+      });
+      // Se toca la que no tiene que salir, para que el orden físico no coincida
+      // con el esperado: sin desempate, Postgres devuelve el que le quede a mano.
+      await db.corridaWorker.update({
+        where: { id: menor.id },
+        data: { job: "latido" },
+      });
+
+      const estado = await estadoDe(db);
+
+      expect(estado.ultimaCorrida?.resultado).toBe(mayor.resultado);
+    });
+
     test("una última corrida en error es roja aunque sea reciente", async () => {
       const db = cliente();
       await corrida(db, haceMs(MINUTO), "error");

@@ -10,6 +10,7 @@ import {
   type CobroDeFactura,
   estaCobrada,
   saldoDeFactura,
+  todoCobrado,
 } from "../../src/dominio/servicios/cobro.ts";
 import { totalConIva } from "../../src/dominio/servicios/factura.ts";
 import { configuracion } from "./_arnes/propiedad.ts";
@@ -200,5 +201,37 @@ describe("saldoDeFactura: propiedades", () => {
       ),
       milCorridas(),
     );
+  });
+});
+
+describe("todoCobrado: lo que cierra un servicio finalizado (F3-01)", () => {
+  function saldo(total: bigint, cobros: readonly CobroDeFactura<Moneda>[]) {
+    const resultado = saldoDeFactura(ars(total), cobros);
+    if (!resultado.ok) {
+      throw new Error("los cobros de la prueba no entran en la factura");
+    }
+    return resultado.valor;
+  }
+
+  it("sin facturas no hay nada cobrado: no cierra", () => {
+    expect(todoCobrado([])).toBe(false);
+  });
+
+  it("con todas las facturas en cero, cierra; la retención cancela deuda", () => {
+    expect(
+      todoCobrado([
+        saldo(121_000n, [cobro(100_000n, 21_000n)]),
+        saldo(50_000n, [cobro(50_000n)]),
+      ]),
+    ).toBe(true);
+  });
+
+  it("si a una le falta un centavo, no cierra", () => {
+    expect(
+      todoCobrado([
+        saldo(121_000n, [cobro(121_000n)]),
+        saldo(50_000n, [cobro(49_999n)]),
+      ]),
+    ).toBe(false);
   });
 });

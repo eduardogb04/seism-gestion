@@ -9,6 +9,9 @@
  * - `registrar` toma la fila del servicio antes de leer el saldo, así dos cobros
  *   a la vez no pasan del total, ni un cobro se cruza con la anulación de la
  *   factura. Corre entero en una transacción; la auditoría la deja el repositorio.
+ * - Registrar y anular, en cualquier etapa del servicio menos «Cerrado»
+ *   (`DOM-0018`). Un cobro que deja saldada la última factura de un servicio
+ *   «Finalizado» lo pasa a «Cerrado» en la misma transacción (F3-01).
  * - *Cobrada* no se guarda: es saldo cero. Lo que se muestra sale ya escrito
  *   (importes, fechas): `app` no importa el dominio salvo por tipos.
  * - Lo que la persona corrige vuelve por campo, no se lanza. `DOM-0009` si la
@@ -42,15 +45,8 @@ import {
   avancePorMoneda,
   sumaPorMoneda,
 } from "../../dominio/servicios/avance.ts";
-import {
-  type CobroDeFactura,
-  estaCobrada,
-  type SaldoDeFactura,
-  saldoDeFactura,
-} from "../../dominio/servicios/cobro.ts";
-import { totalConIva } from "../../dominio/servicios/factura.ts";
+import { estaCobrada, saldoDeFactura } from "../../dominio/servicios/cobro.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
-import type { Cobro } from "../../puertos/repositorios/cobros.ts";
 import type { Factura } from "../../puertos/repositorios/facturas.ts";
 import type {
   RepositoriosEnTransaccion,
@@ -81,6 +77,14 @@ import {
   type TextosDeSaldo,
 } from "../compartido/movimientos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
+import { cerrarSiEstaCobrado, exigirEtapa } from "./ciclo.ts";
+import {
+  cobroDeFactura,
+  conCobrosDe,
+  conSusCobros,
+  type FacturaConCobros,
+  totalDe,
+} from "./cobranza.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
   servicioVigente,
@@ -201,12 +205,6 @@ export type CasosUsoCobros = {
   marcarAnulado(actor: Actor, cobroId: string): Promise<void>;
 };
 
-type FacturaConCobros = {
-  readonly factura: Factura;
-  readonly cobros: readonly Cobro[];
-  readonly saldo: SaldoDeFactura<Moneda>;
-};
-
 function camposDeCobro(moneda: Moneda): CamposAbm {
   return camposDeMovimiento(moneda).flatMap((campo) =>
     campo[0] === "importe"
@@ -246,42 +244,6 @@ async function facturaVigenteBloqueada(
   const { servicioId } = (await facturaVigente(repos, id)).valor;
   await servicioVigenteBloqueado(repos, servicioId);
   return facturaVigente(repos, id);
-}
-
-const totalDe = (factura: Factura) =>
-  totalConIva(factura.valor.importe, factura.valor.alicuota);
-
-const cobroDeFactura = ({ valor }: Cobro): CobroDeFactura<Moneda> => ({
-  importe: valor.importe,
-  retencion: valor.retencion,
-});
-
-/** La factura con sus cobros (de entre `todos`, los vigentes de varias facturas) y su saldo. */
-function conSusCobros(
-  factura: Factura,
-  todos: readonly Cobro[],
-): FacturaConCobros {
-  const cobros = todos.filter(
-    ({ valor }) => valor.facturaId === factura.valor.id,
-  );
-  const saldo = saldoDeFactura(totalDe(factura), cobros.map(cobroDeFactura));
-  if (!saldo.ok) {
-    throw nuevoError(catalogo.INF_0001, {
-      motivo: "los cobros guardados de una factura no cierran con su total",
-      facturaId: factura.valor.id,
-    });
-  }
-  return { factura, cobros, saldo: saldo.valor };
-}
-
-async function conCobrosDe(
-  repos: RepositoriosEnTransaccion,
-  facturas: readonly Factura[],
-): Promise<readonly FacturaConCobros[]> {
-  const todos = await repos.cobros.listarDe(
-    facturas.map(({ valor }) => valor.id),
-  );
-  return facturas.map((factura) => conSusCobros(factura, todos));
 }
 
 /** Las facturas vigentes con saldo, con su servicio y su cliente, por vencimiento: las que lista *Por cobrar* y suma el tablero (F2-10). */
@@ -453,6 +415,8 @@ export function crearCasosUsoCobros({
           catalogo.AUT_0009,
         );
         const factura = await facturaVigenteBloqueada(repos, facturaId);
+        const { servicioId } = factura.valor;
+        await exigirEtapa(repos, servicioId, "cobro");
         const errores: Record<string, string> = {};
 
         const dia = escrito.fecha ?? "";
@@ -566,6 +530,7 @@ export function crearCasosUsoCobros({
             reloj,
           ),
         );
+        await cerrarSiEstaCobrado(actor, repos, reloj, servicioId);
         return { ok: true };
       });
     },
@@ -589,6 +554,10 @@ export function crearCasosUsoCobros({
             id: cobroId,
           });
         }
+        const { servicioId } = (
+          await facturaVigenteBloqueada(repos, registro.valor.facturaId)
+        ).valor;
+        await exigirEtapa(repos, servicioId, "cobro");
         await repos.cobros.actualizar(actor, anulado.valor, "eliminar");
       });
     },

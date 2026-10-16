@@ -6,7 +6,8 @@
  *
  * - Toda escritura recibe el `Actor` primero, exige un rol que escriba
  *   (`AUT-0009`) y corre entera en una transacción: el documento, si hay, y la
- *   cabecera.
+ *   cabecera. Se cargan y se anulan de «Adjudicado» a «Finalizado» (`DOM-0018`,
+ *   F3-01).
  * - El número no se repite entre las vigentes. Facturar más que el saldo de la
  *   orden de compra no se impide: la orden lo avisa (`ordenes-de-compra.ts`).
  * - Lo que la persona corrige (un campo o el archivo) vuelve por campo, no se lanza.
@@ -52,6 +53,7 @@ import type {
   DependenciasDeAdjuntos,
 } from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
+import { exigirEtapa } from "./ciclo.ts";
 import {
   bajaDeAdjuntoOpcional,
   type DocumentoListado,
@@ -250,6 +252,7 @@ export function crearCasosUsoFacturas({
         );
         // Con la fila del servicio tomada, la orden elegida no puede anularse a la vez.
         await servicioVigenteBloqueado(repos, servicioId);
+        await exigirEtapa(repos, servicioId, "factura");
         const validado = validarEscrito(
           camposDeFactura(await ordenesParaElegir(repos, servicioId)),
           VALIDACION,
@@ -306,6 +309,7 @@ export function crearCasosUsoFacturas({
         }
         // Con la fila del servicio tomada, un cobro de esta factura no se carga a la vez.
         await servicioVigenteBloqueado(repos, actual.valor.servicioId);
+        await exigirEtapa(repos, actual.valor.servicioId, "factura");
         if ((await repos.cobros.listarDe([id])).length > 0) {
           throw nuevoError(catalogo.DOM_0016, { id });
         }

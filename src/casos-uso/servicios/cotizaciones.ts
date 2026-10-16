@@ -5,7 +5,9 @@
  * - Toda escritura recibe el `Actor` primero, exige un rol que escriba
  *   (`AUT-0009`) y corre entera en una transacción: el metadato del archivo
  *   (los bytes ya están en el almacén), la cabecera y, si el servicio estaba
- *   «Solicitado», su paso a «Cotizado».
+ *   «Creado», su paso a «Cotizado». En «Cotizado», una cotización más es una
+ *   versión nueva y el estado no cambia. Cargar y anular, solo en «Creado» y
+ *   «Cotizado» (`DOM-0018`, F3-01).
  * - La versión es la mayor del servicio más uno, calculada **dentro** de la
  *   transacción con la fila del servicio tomada: dos altas a la vez se turnan.
  * - El motivo de la revisión se pide desde la segunda. Un formulario que se abrió
@@ -24,7 +26,6 @@ import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
 import { formatearImporte, MONEDAS } from "../../dominio/compartido/importe.ts";
 import { formatearISO } from "../../dominio/compartido/reloj.ts";
-import { cicloServicio } from "../../dominio/servicios/estados.ts";
 import type { DatosCotizacion } from "../../puertos/repositorios/cotizaciones.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
 import {
@@ -47,11 +48,11 @@ import {
   validarArchivo,
 } from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
+import { cambiarPorCausa, exigirEtapa } from "./ciclo.ts";
 import {
-  historialDe,
   ROLES_QUE_ESCRIBEN_SERVICIOS,
-  registrarCambioDeEstado,
   servicioVigente,
+  servicioVigenteBloqueado,
 } from "./servicios.ts";
 
 const esquemaId = z.uuid();
@@ -210,7 +211,8 @@ export function crearCasosUsoCotizaciones({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        await servicioVigente(repos, servicioId);
+        await servicioVigenteBloqueado(repos, servicioId);
+        await exigirEtapa(repos, servicioId, "cotizacion");
         const version = await repos.cotizaciones.siguienteVersion(servicioId);
         const conMotivo = version > 1;
         if (conMotivo && escrito.motivo === undefined) {
@@ -247,19 +249,14 @@ export function crearCasosUsoCotizaciones({
             reloj,
           ),
         );
-        if (
-          cicloServicio.estadoActual(await historialDe(repos, servicioId)) ===
-          "solicitado"
-        ) {
-          await registrarCambioDeEstado(
-            actor,
-            repos,
-            reloj,
-            servicioId,
-            "cotizado",
-            `Cotización v${version} cargada`,
-          );
-        }
+        await cambiarPorCausa(
+          actor,
+          repos,
+          reloj,
+          servicioId,
+          "cotizacion",
+          `Cotización v${version} cargada`,
+        );
         return { ok: true, id, version };
       });
     },
@@ -280,6 +277,8 @@ export function crearCasosUsoCotizaciones({
         if (actual === null || eliminada === null || !eliminada.ok) {
           throw nuevoError(catalogo.DOM_0009, { entidad: "Cotización", id });
         }
+        await servicioVigenteBloqueado(repos, actual.valor.servicioId);
+        await exigirEtapa(repos, actual.valor.servicioId, "cotizacion");
         await repos.cotizaciones.actualizar(actor, eliminada.valor, "eliminar");
         await marcarDocumentoEliminado(
           actor,

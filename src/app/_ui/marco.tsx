@@ -151,46 +151,49 @@ export function Marco({
 }) {
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
-      <BarraLateral>
-        {GRUPOS.map(({ nombre, secciones }) => (
-          <div
-            key={nombre}
-            className="mt-3 first:mt-0 md:group-data-[contraida=si]/menu:border-t md:group-data-[contraida=si]/menu:border-menu-activo md:group-data-[contraida=si]/menu:pt-3 md:group-data-[contraida=si]/menu:first:border-t-0"
-          >
-            <p
-              id={`menu-${nombre}`}
-              className="px-3 pb-1 text-xs font-semibold tracking-wide text-menu-texto-suave uppercase md:group-data-[contraida=si]/menu:sr-only"
+      {/* El fondo del menú llega hasta abajo aunque la barra quede fija arriba. */}
+      <div className="bg-menu md:shrink-0">
+        <BarraLateral>
+          {GRUPOS.map(({ nombre, secciones }) => (
+            <div
+              key={nombre}
+              className="mt-3 first:mt-0 md:group-data-[contraida=si]/menu:border-t md:group-data-[contraida=si]/menu:border-menu-activo md:group-data-[contraida=si]/menu:pt-3 md:group-data-[contraida=si]/menu:first:border-t-0"
             >
-              {nombre}
-            </p>
-            <ul
-              aria-labelledby={`menu-${nombre}`}
-              className="flex flex-col gap-0.5"
-            >
-              {secciones
-                .filter(
-                  ({ soloAdministrador }) =>
-                    !soloAdministrador || rol === "administrador",
-                )
-                .map(({ texto, ruta, Icono }) => (
-                  <li key={ruta}>
-                    <a
-                      href={ruta}
-                      title={texto}
-                      aria-current={ruta === rutaActual ? "page" : undefined}
-                      className="flex min-h-11 items-center gap-3 rounded px-3 text-menu-texto no-underline motion-safe:transition-colors motion-safe:duration-150 hover:bg-menu-activo focus-visible:outline-menu-texto aria-[current=page]:bg-menu-activo aria-[current=page]:font-semibold md:group-data-[contraida=si]/menu:justify-center md:group-data-[contraida=si]/menu:px-0"
-                    >
-                      <Icono aria-hidden="true" className="size-5 shrink-0" />
-                      <span className="md:group-data-[contraida=si]/menu:sr-only">
-                        {texto}
-                      </span>
-                    </a>
-                  </li>
-                ))}
-            </ul>
-          </div>
-        ))}
-      </BarraLateral>
+              <p
+                id={`menu-${nombre}`}
+                className="px-3 pb-1 text-xs font-semibold tracking-wide text-menu-texto-suave uppercase md:group-data-[contraida=si]/menu:sr-only"
+              >
+                {nombre}
+              </p>
+              <ul
+                aria-labelledby={`menu-${nombre}`}
+                className="flex flex-col gap-0.5"
+              >
+                {secciones
+                  .filter(
+                    ({ soloAdministrador }) =>
+                      !soloAdministrador || rol === "administrador",
+                  )
+                  .map(({ texto, ruta, Icono }) => (
+                    <li key={ruta}>
+                      <a
+                        href={ruta}
+                        title={texto}
+                        aria-current={ruta === rutaActual ? "page" : undefined}
+                        className="flex min-h-10 items-center gap-3 rounded px-3 pointer-coarse:min-h-11 text-menu-texto no-underline motion-safe:transition-colors motion-safe:duration-150 hover:bg-menu-activo focus-visible:outline-menu-texto aria-[current=page]:bg-menu-activo aria-[current=page]:font-semibold md:group-data-[contraida=si]/menu:justify-center md:group-data-[contraida=si]/menu:px-0"
+                      >
+                        <Icono aria-hidden="true" className="size-5 shrink-0" />
+                        <span className="md:group-data-[contraida=si]/menu:sr-only">
+                          {texto}
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))}
+        </BarraLateral>
+      </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex flex-wrap items-center justify-end gap-3 border-b border-borde bg-superficie px-4 py-2">
           <SelectorDeTema />

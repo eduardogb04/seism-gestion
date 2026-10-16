@@ -52,7 +52,9 @@ export function TarjetaKpi({
         )}
         {titulo}
       </h3>
-      <p className="mt-2 text-2xl font-semibold tabular-nums">{valor}</p>
+      <p className="mt-2 text-2xl font-semibold tabular-nums [&_a]:no-underline [&_a:hover]:underline">
+        {valor}
+      </p>
       {detalle === undefined ? null : (
         <p className="mt-1 text-sm text-texto-suave">{detalle}</p>
       )}

@@ -2,7 +2,9 @@
  * La imagen Docker de la app (F0-07): construirla y probarla con un solo
  * comando, igual en CI que en la máquina de cualquiera.
  *
- *   npm run imagen                    → construye `seism-gestion:local`
+ *   npm run imagen                    → construye `seism-gestion:local` (la de
+ *                                       compose y el RUNBOOK) y la de esta copia
+ *                                       del repo (`<proyecto>:local`)
  *   npm run imagen -- <etiqueta>...   → construye con esas etiquetas (CI)
  *   npm run imagen:prueba             → levanta el contenedor y lo verifica
  *   npm run imagen:prueba -- <etiqueta>
@@ -21,17 +23,22 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import process from "node:process";
+import {
+  etiquetaImagen,
+  nombreProyecto,
+  puertoLibre,
+} from "./lib/instancia.ts";
 
-/** Etiqueta por defecto cuando se construye o se prueba en local. */
+/** La etiqueta de siempre de la imagen local (compose, RUNBOOK). */
 const ETIQUETA_LOCAL = "seism-gestion:local";
-const CONTENEDOR = "seism-gestion-prueba";
-const CONTENEDOR_SIN_ENTORNO = "seism-gestion-prueba-sin-entorno";
-const CONTENEDOR_WORKER = "seism-gestion-prueba-worker";
+/** Propios de cada copia del repo: dos `imagen:prueba` a la vez no se pisan. */
+const CONTENEDOR = `${nombreProyecto()}-prueba`;
+const CONTENEDOR_SIN_ENTORNO = `${CONTENEDOR}-sin-entorno`;
+const CONTENEDOR_WORKER = `${CONTENEDOR}-worker`;
 /** El comando del worker en la imagen (F0-25): la misma imagen, otro comando. */
 const COMANDO_WORKER = ["node", "src/worker/index.ts"] as const;
 /** Cuánto se espera a que el worker anuncie que arrancó. */
 const ESPERA_WORKER_MS = 30_000;
-const PUERTO = 3000;
 /**
  * La app valida `DATABASE_URL` al arrancar (F0-08) pero todavía no se
  * conecta a ninguna base: para la prueba alcanza una URL de Postgres válida y
@@ -124,7 +131,8 @@ function resolverVersion(): string {
 
 function construir(etiquetas: readonly string[]): void {
   const version = resolverVersion();
-  const destinos = etiquetas.length > 0 ? etiquetas : [ETIQUETA_LOCAL];
+  const destinos =
+    etiquetas.length > 0 ? etiquetas : [ETIQUETA_LOCAL, etiquetaImagen()];
 
   console.log(`Construyendo ${destinos.join(", ")} con APP_VERSION=${version}`);
   const argumentos = [
@@ -175,9 +183,12 @@ async function esperarSaludable(): Promise<void> {
 }
 
 /** `/` y `/api/salud`, servidos por el contenedor. */
-async function verificarRespuestas(version: string): Promise<string[]> {
+async function verificarRespuestas(
+  version: string,
+  puerto: number,
+): Promise<string[]> {
   const problemas: string[] = [];
-  const base = `http://127.0.0.1:${PUERTO}`;
+  const base = `http://127.0.0.1:${puerto}`;
 
   const inicio = await fetch(`${base}/`);
   const html = await inicio.text();
@@ -411,6 +422,7 @@ async function probar(etiqueta: string): Promise<void> {
   const version = resolverVersion();
   console.log(`Probando ${etiqueta} (versión esperada: ${version})`);
 
+  const puerto = await puertoLibre();
   borrarContenedor(CONTENEDOR);
   docker([
     "run",
@@ -418,7 +430,7 @@ async function probar(etiqueta: string): Promise<void> {
     "--name",
     CONTENEDOR,
     "--publish",
-    `${PUERTO}:3000`,
+    `127.0.0.1:${puerto}:3000`,
     "--env",
     "APP_ENTORNO=ci",
     "--env",
@@ -439,7 +451,7 @@ async function probar(etiqueta: string): Promise<void> {
   const problemas: string[] = [];
   try {
     await esperarSaludable();
-    problemas.push(...(await verificarRespuestas(version)));
+    problemas.push(...(await verificarRespuestas(version, puerto)));
     problemas.push(...verificarSinSecretos(etiqueta));
     problemas.push(...(await verificarWorker(etiqueta)));
     problemas.push(...verificarTamano(etiqueta));
@@ -469,7 +481,7 @@ async function main(): Promise<void> {
     return;
   }
   if (modo === "probar") {
-    await probar(resto[0] ?? ETIQUETA_LOCAL);
+    await probar(resto[0] ?? etiquetaImagen());
     return;
   }
 

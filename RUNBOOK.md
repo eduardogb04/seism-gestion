@@ -615,7 +615,7 @@ adentro de la imagen.
 - Con el paso 3: `http://localhost:3000` muestra `SeisM · gestión · fase 0` y
   `http://localhost:3000/api/salud` devuelve `{"ok":true,"version":"…"}`, con la misma versión que
   imprime `git rev-parse --short HEAD`.
-- El contenedor de prueba no queda vivo: `docker ps` no muestra `seism-gestion-prueba`.
+- El contenedor de prueba no queda vivo: `docker ps` no muestra ninguno `seism-<hash>-prueba*` (`<hash>` es el de la copia del repo, ver `AGENTS.md`, sección *Testing*). Si quedaron contenedores de antes de M-13 (una sola vez): `docker rm --force seism-gestion-prueba seism-gestion-prueba-sin-entorno seism-gestion-prueba-worker` y `docker compose -p seism-gestion --profile e2e rm --stop --force --volumes app postgres-e2e`.
 
 ### Si falla
 
@@ -727,9 +727,9 @@ de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: c
   chromium`).
 - `ERROR: no se pudo ejecutar 'docker …'` o `Could not find a working container runtime strategy`
   → Docker Desktop no está corriendo (o está arrancando). Abrilo y repetí.
-- `ERROR: la app no respondió http://127.0.0.1:3000/api/salud en 120 s` → el script imprime abajo
-  el log del contenedor. Lo más común es que el puerto 3000 esté ocupado por otra cosa
-  (`npm run dev` en otra terminal, por ejemplo): cerrala y repetí.
+- `ERROR: la app no respondió http://127.0.0.1:<puerto>/api/salud en 120 s` → el script imprime abajo
+  el log del contenedor. El puerto lo elige Playwright libre en cada corrida, así que no suele ser un choque:
+  mirá ese log (la imagen, la migración, la base).
 - El test en rojo con la app levantada → no es la máquina: cambió lo que la app muestra o el
   latido. La traza de la corrida queda en `test-results/`; se abre con
   `npx playwright show-trace test-results/<carpeta>/trace.zip`.

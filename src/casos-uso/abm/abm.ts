@@ -450,7 +450,7 @@ async function conArchivoNuevo<E extends EntidadAbm>(
   };
 }
 
-async function vigente<E extends EntidadAbm>(
+export async function vigente<E extends EntidadAbm>(
   repos: RepositoriosEnTransaccion,
   { entidad }: DefinicionAbm<E>,
   id: string,

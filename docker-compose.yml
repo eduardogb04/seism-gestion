@@ -117,8 +117,10 @@ services:
       postgres-e2e:
         condition: service_healthy
     ports:
-      # Solo en la máquina local, como el Postgres de arriba.
-      - "127.0.0.1:3000:3000"
+      # Solo en la máquina local, como el Postgres de arriba. `E2E_PUERTO` es
+      # el puerto libre que elige `playwright.config.ts` en cada corrida (así
+      # dos e2e a la vez no chocan); sin él, el de siempre.
+      - "127.0.0.1:${E2E_PUERTO:-3000}:3000"
 
   # La base del e2e (F0-31): descartable, sin volumen con nombre, y con el
   # puerto de la máquina elegido por Docker (`127.0.0.1::5432`), así no choca

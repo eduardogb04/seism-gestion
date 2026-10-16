@@ -3,7 +3,10 @@
  *
  *   npm run e2e:app
  *
- * No se llama a mano: es el `webServer` de `playwright.config.ts`.
+ * No se llama a mano: es el `webServer` de `playwright.config.ts`, que le
+ * pasa por el entorno el proyecto de compose de esta copia del repo
+ * (`COMPOSE_PROJECT_NAME`) y el puerto libre que eligió (`E2E_PUERTO`): así
+ * dos e2e a la vez, en dos worktrees, no se pisan.
  *
  * 1. Construye la imagen (`npm run imagen`, F0-07) **siempre**: el e2e prueba
  *    el código de ahora, no la imagen que haya quedado de otra rama. Docker
@@ -22,8 +25,8 @@
  *    muestra el log del contenedor y sale 1.
  *
  * Quien la apaga es `tests/e2e/_arnes/apagar-app.ts`, el `globalTeardown` de
- * Playwright: borra **solo** los contenedores `app` y `postgres-e2e`, sin
- * tocar el Postgres de desarrollo ni su volumen.
+ * Playwright: borra **solo** los contenedores `app` y `postgres-e2e` de este
+ * proyecto, sin tocar el Postgres de desarrollo ni su volumen.
  *
  * Corre con Node pelado; migrar y sembrar sí necesitan `node_modules` (Prisma):
  * en CI ya corrió `npm ci`, y en local, el de siempre.
@@ -42,8 +45,15 @@ const MIGRAR = path.join(process.cwd(), "scripts", "db-migrate.ts");
 const SEMBRAR = path.join(process.cwd(), "scripts", "db-seed.ts");
 /** El perfil de compose con la app y su base. */
 const COMPOSE_E2E = ["compose", "--profile", "e2e"] as const;
+const PUERTO_APP = process.env.E2E_PUERTO;
+if (PUERTO_APP === undefined || PUERTO_APP === "") {
+  console.error(
+    "\nERROR: falta E2E_PUERTO: este script lo levanta Playwright (npm run test:e2e), no se corre a mano.",
+  );
+  process.exit(1);
+}
 /** El latido que dice que la app está sirviendo (P13). */
-const URL_SALUD = "http://127.0.0.1:3000/api/salud";
+const URL_SALUD = `http://127.0.0.1:${PUERTO_APP}/api/salud`;
 const ESPERA_MAXIMA_MS = 120_000;
 const INTERVALO_MS = 1_000;
 

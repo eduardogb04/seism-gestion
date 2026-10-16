@@ -29,4 +29,5 @@ export const GRUPOS: DefinicionAbm<"Grupo"> = {
   orden: ["nombre"],
   rolesQueEscriben: ["administrador", "operador"],
   listado: ["nombre", "observaciones"],
+  rutaDeFila: (id) => `/catalogo/grupos/${id}`,
 };

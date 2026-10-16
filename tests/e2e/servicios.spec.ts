@@ -69,7 +69,8 @@ test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizad
   // 1. El listado de la semilla: Servicios es lo primero del menú, lo más nuevo primero.
   await expect(page.getByRole("heading", { name: "Servicios" })).toBeVisible();
   const menu = page.getByRole("navigation", { name: "Secciones" });
-  await expect(menu.getByRole("link").first()).toHaveText("Servicios");
+  await expect(menu.getByRole("link").first()).toHaveText("Inicio");
+  await expect(menu.getByRole("link").nth(1)).toHaveText("Servicios");
   await expect(menu.getByRole("link", { name: "Servicios" })).toHaveAttribute(
     "aria-current",
     "page",

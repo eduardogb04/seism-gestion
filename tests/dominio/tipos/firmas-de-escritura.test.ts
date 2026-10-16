@@ -50,6 +50,8 @@ const NO_ESCRIBEN: Readonly<Record<string, string>> = {
     "fábrica (F2-06): arma los casos de uso de facturas con sus dependencias, no escribe nada",
   crearCasosUsoCobros:
     "fábrica (F2-07): arma los casos de uso de cobros con sus dependencias, no escribe nada",
+  crearCasosUsoTablero:
+    "fábrica (F2-10): arma el tablero y sus listados con sus dependencias; solo lee",
   crearCasosUsoEgresosDeServicio:
     "fábrica (F2-08): arma la consulta de los egresos de un servicio con sus dependencias, no escribe nada",
   crearCasosUsoDocumentos:

@@ -31,7 +31,7 @@ export interface AvanceEnMoneda {
   readonly pendiente: Importe<Moneda>;
 }
 
-function sumaEn(
+export function sumaEn(
   moneda: Moneda,
   importes: readonly Importe<Moneda>[],
 ): Importe<Moneda> {

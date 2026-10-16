@@ -605,14 +605,14 @@ adentro de la imagen.
 ### Cómo verificar que salió bien
 
 - `npm run imagen` termina con `OK: imagen construida (seism-gestion:local).`
-- `npm run imagen:prueba` imprime, en este orden: `HEALTHCHECK: healthy.`, `GET / → 200`,
+- `npm run imagen:prueba` imprime, en este orden: `HEALTHCHECK: healthy.`, `GET / → 200` (sin sesión, `/` lleva a la pantalla que explica `AUT-0002`),
   `GET /api/salud → 200 {"ok":true,"version":"<SHA corto del commit>"}`,
   `Archivos .env adentro de la imagen: ninguno`, la lista de variables de la imagen (tienen que ser
   solo `PATH`, `NODE_VERSION`, `YARN_VERSION`, `NEXT_TELEMETRY_DISABLED`, `NODE_ENV`, `PORT` y
   `HOSTNAME`), `Sin APP_ENTORNO ni DATABASE_URL el contenedor salió 1: …` con las dos variables
   nombradas, el
   tamaño de la imagen, y al final `OK: el contenedor sirve / y /api/salud…`. Sale con código 0.
-- Con el paso 3: `http://localhost:3000` muestra `SeisM · gestión · fase 0` y
+- Con el paso 3: `http://localhost:3000` lleva a la pantalla que pide entrar (`AUT-0002`) y
   `http://localhost:3000/api/salud` devuelve `{"ok":true,"version":"…"}`, con la misma versión que
   imprime `git rev-parse --short HEAD`.
 - El contenedor de prueba no queda vivo: `docker ps` no muestra ninguno `seism-<hash>-prueba*` (`<hash>` es el de la copia del repo, ver `AGENTS.md`, sección *Testing*). Si quedaron contenedores de antes de M-13 (una sola vez): `docker rm --force seism-gestion-prueba seism-gestion-prueba-sin-entorno seism-gestion-prueba-worker` y `docker compose -p seism-gestion --profile e2e rm --stop --force --volumes app postgres-e2e`.

@@ -560,7 +560,7 @@ export async function opcionesDe<E extends EntidadAbm>(
   });
 }
 
-const esquemaMes = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/);
+export const esquemaMes = z.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/);
 
 /** Lo elegido en cada filtro de la URL, por columna; lo que no sirve se descarta. */
 function filtrosElegidos<E extends EntidadAbm>(

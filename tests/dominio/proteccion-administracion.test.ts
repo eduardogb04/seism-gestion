@@ -67,6 +67,7 @@ describe("/administracion/** y /salud", () => {
 
 describe("/catalogo/** y /egresos", () => {
   const PAGINAS_DE_CATALOGO = [
+    path.join(RAIZ, "page.tsx"),
     ...archivosBajo(path.join(RAIZ, "catalogo")),
     ...archivosBajo(path.join(RAIZ, "egresos")),
     ...archivosBajo(path.join(RAIZ, "servicios")),
@@ -78,6 +79,7 @@ describe("/catalogo/** y /egresos", () => {
     );
     expect(paginas).toContain(path.join("catalogo", "grupos", "page.tsx"));
     expect(paginas).toContain(path.join("egresos", "page.tsx"));
+    expect(paginas).toContain("page.tsx");
     expect(paginas).toContain(path.join("servicios", "[id]", "page.tsx"));
   });
 

@@ -58,6 +58,10 @@ import {
   crearCasosUsoSesion,
 } from "../../casos-uso/sesion/sesion.ts";
 import {
+  type CasosUsoTablero,
+  crearCasosUsoTablero,
+} from "../../casos-uso/tablero/tablero.ts";
+import {
   type CasosUsoUsuarios,
   crearCasosUsoUsuarios,
 } from "../../casos-uso/usuarios/usuarios.ts";
@@ -92,6 +96,8 @@ export type Armado = {
   readonly facturas: CasosUsoFacturas;
   /** Los cobros de las facturas, el avance y *Por cobrar* (F2-07). */
   readonly cobros: CasosUsoCobros;
+  /** El tablero de inicio y los listados a los que lleva (F2-10). */
+  readonly tablero: CasosUsoTablero;
   /** Bajar un documento adjunto, de cualquier registro (F2-05). */
   readonly documentos: CasosUsoDocumentos;
   /** El panel de salud (`/salud`): `listarSalud` con sus puertos armados. */
@@ -160,6 +166,7 @@ function armar(): Armado {
       nuevaClave: nuevaClaveDocumento,
     }),
     cobros: crearCasosUsoCobros({ transaccional, reloj, generadorId }),
+    tablero: crearCasosUsoTablero({ transaccional, reloj }),
     documentos: crearCasosUsoDocumentos({ transaccional, almacen }),
     salud: armarSalud(prisma, reloj),
     generarEstadoLogin,

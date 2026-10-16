@@ -167,10 +167,16 @@ function dias(cantidad: number): string {
   return cantidad === 1 ? "1 día" : `${cantidad} días`;
 }
 
+/** Venció si el vencimiento es anterior a hoy: el mismo día todavía no. */
+export function estaVencido(hoy: FechaHora, vencimiento: string): boolean {
+  return diferenciaEnDias(hoy, aFechaHora(vencimiento)) > 0;
+}
+
 /** `10 días` desde el vencimiento, o vacío si todavía no venció. */
 export function atrasoDe(hoy: FechaHora, vencimiento: string): string {
-  const atrasado = diferenciaEnDias(hoy, aFechaHora(vencimiento));
-  return atrasado > 0 ? dias(atrasado) : "";
+  return estaVencido(hoy, vencimiento)
+    ? dias(diferenciaEnDias(hoy, aFechaHora(vencimiento)))
+    : "";
 }
 
 /** Prisma toma `take` como entero de 32 bits: el máximo es "todas". */

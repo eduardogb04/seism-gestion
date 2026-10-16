@@ -1,4 +1,27 @@
-/** Página de inicio de Fase 0 (F0-04): un texto fijo, nada más. */
-export default function Inicio() {
-  return <p>SeisM · gestión · fase 0</p>;
+/**
+ * Inicio (F2-10, ADR 0038): cuánto entra y cuánto sale. El mes del reloj, o el
+ * de `?mes=AAAA-MM`; cada moneda por su lado y cada número, un enlace a su
+ * listado. HTML del servidor, sin JavaScript de cliente.
+ */
+
+import { armado } from "../infraestructura/arranque/armado.ts";
+import { Marco } from "./_ui/marco.tsx";
+import { TableroDeInicio } from "./_ui/tablero-de-inicio.tsx";
+import { sesionExigida } from "./(auth)/sesion-actual.ts";
+
+type Props = {
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function Inicio({ searchParams }: Props) {
+  const sesion = await sesionExigida();
+  const tablero = await armado().tablero.tablero(await searchParams);
+  const { email, rol } = sesion.usuario;
+  return (
+    <Marco email={email} rol={rol} rutaActual="/">
+      <main>
+        <TableroDeInicio tablero={tablero} />
+      </main>
+    </Marco>
+  );
 }

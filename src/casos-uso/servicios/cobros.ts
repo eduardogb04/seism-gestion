@@ -284,6 +284,20 @@ async function conCobrosDe(
   return facturas.map((factura) => conSusCobros(factura, todos));
 }
 
+/** Las facturas vigentes con saldo, con su servicio y su cliente, por vencimiento: las que lista *Por cobrar* y suma el tablero (F2-10). */
+export async function facturasPorCobrar(repos: RepositoriosEnTransaccion) {
+  const vigentes = await repos.facturas.vigentesConServicio();
+  const cobros = await repos.cobros.listarDe(
+    vigentes.map(({ factura }) => factura.valor.id),
+  );
+  return vigentes
+    .map((vigente) => ({
+      ...vigente,
+      ...conSusCobros(vigente.factura, cobros),
+    }))
+    .filter(({ saldo }) => !estaCobrada(saldo));
+}
+
 function lineaDeAvance(avance: AvanceEnMoneda): LineaDeAvance {
   return {
     moneda: avance.moneda,
@@ -408,17 +422,8 @@ export function crearCasosUsoCobros({
 
     porCobrar() {
       return transaccional.ejecutar(async (repos) => {
-        const vigentes = await repos.facturas.vigentesConServicio();
-        const cobros = await repos.cobros.listarDe(
-          vigentes.map(({ factura }) => factura.valor.id),
-        );
         const hoy = reloj.ahora();
-        const pendientes = vigentes
-          .map((vigente) => ({
-            ...vigente,
-            ...conSusCobros(vigente.factura, cobros),
-          }))
-          .filter(({ saldo }) => !estaCobrada(saldo));
+        const pendientes = await facturasPorCobrar(repos);
         return {
           filas: pendientes.map(
             ({ factura, servicioCodigo, cliente, saldo }) => ({

@@ -28,7 +28,7 @@ import { textoDeServicio } from "../abm/definicion.ts";
 import { estaVencido, TODAS } from "../compartido/movimientos.ts";
 import { facturasPorCobrar } from "../servicios/cobros.ts";
 import {
-  crearListadosDelTablero,
+  armarListadosDelTablero,
   type ListadosDelTablero,
 } from "./listados.ts";
 import { elegirMes, type MesElegido } from "./mes.ts";
@@ -133,7 +133,7 @@ export function crearCasosUsoTablero({
   reloj,
 }: Dependencias): CasosUsoTablero {
   return {
-    listados: crearListadosDelTablero({ transaccional, reloj }),
+    listados: armarListadosDelTablero({ transaccional, reloj }),
 
     tablero(parametros) {
       const hoy = reloj.ahora();

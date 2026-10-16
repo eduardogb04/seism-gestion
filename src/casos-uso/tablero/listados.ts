@@ -85,7 +85,7 @@ type Dependencias = {
   readonly reloj: Reloj;
 };
 
-export function crearListadosDelTablero({
+export function armarListadosDelTablero({
   transaccional,
   reloj,
 }: Dependencias): ListadosDelTablero {

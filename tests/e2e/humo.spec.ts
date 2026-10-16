@@ -1,6 +1,6 @@
 /**
  * El camino de humo del e2e (F0-14, F0-26): la app levantada con compose —la
- * misma imagen que se publica— abre la página de inicio en un navegador de
+ * misma imagen que se publica— abre la página de inicio (que pide entrar) en un navegador de
  * verdad, responde el latido y muestra el panel de salud (`/salud`) a un
  * administrador.
  *
@@ -53,12 +53,12 @@ async function verElPanel(page: Page): Promise<void> {
   ).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 }
 
-test("la app levantada muestra la página de inicio, responde el latido y el administrador ve el panel de salud", async ({
+test("la app levantada pide entrar en la página de inicio, responde el latido y el administrador ve el inicio y el panel de salud", async ({
   page,
   request,
 }) => {
   await page.goto("/");
-  await expect(page.getByText("SeisM · gestión · fase 0")).toBeVisible();
+  await expect(page).toHaveURL(/\/ingresar\/error\?codigo=AUT-0002/);
 
   const latido = await request.get("/api/salud");
   expect(latido.ok()).toBe(true);
@@ -67,6 +67,8 @@ test("la app levantada muestra la página de inicio, responde el latido y el adm
   expect(cuerpo).toEqual({ ok: true, version: expect.any(String) });
 
   await entrarComo(page, ADMIN);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
   await verElPanel(page);
 });
 

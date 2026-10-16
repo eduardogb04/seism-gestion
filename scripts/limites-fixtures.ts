@@ -41,7 +41,7 @@ const BIN_DEPCRUISE = path.join(
   "node_modules",
   "dependency-cruiser",
   "bin",
-  "dependency-cruise.mjs",
+  "dependency-cruiser.mjs",
 );
 
 /** Una línea de violación del reporte `err`: `error <regla>: <desde> → ...`. */

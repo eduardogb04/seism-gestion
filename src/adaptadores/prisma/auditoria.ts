@@ -58,7 +58,9 @@ export function crearAuditoriaPrisma(
     async registrosDe(entidad, id) {
       const filas = await cliente.auditoria.findMany({
         where: { entidad, entidadId: id },
-        orderBy: { en: "desc" },
+        // El `id` desempata: dos registros del mismo instante saldrían en el
+        // orden que el plan de la consulta elija, que cambia entre corridas.
+        orderBy: [{ en: "desc" }, { id: "desc" }],
       });
       return filas.map((fila) => {
         const leida = esquemaFila.safeParse(fila);

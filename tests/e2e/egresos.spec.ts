@@ -80,6 +80,9 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
   await expect(fila(page, /Notebook para el equipo/)).toContainText(
     "USD 1.200,00",
   );
+  await expect(fila(page, /Notebook para el equipo/)).toContainText(
+    "1.200 · Cotización de ejemplo",
+  );
   await expect(fila(page, /Honorarios contables/)).toContainText("30/09/2026");
 
   // 2. Alta con el monto mal escrito: el mensaje al lado del campo y lo escrito conservado.
@@ -96,12 +99,25 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
     .getByLabel("Centro de costo")
     .selectOption({ label: "Administración" });
   await page.getByLabel("Importe", { exact: true }).fill("abc");
+  // El tipo de cambio solo se ofrece si el importe es en dólares.
+  await expect(
+    page.getByLabel("Tipo de cambio (pesos por dólar)", { exact: true }),
+  ).toHaveCount(0);
   await page.getByLabel("Moneda de Importe").selectOption("USD");
+  await page
+    .getByLabel("Tipo de cambio (pesos por dólar)", { exact: true })
+    .fill("1.184,25");
+  await page
+    .getByLabel("Fuente de Tipo de cambio (pesos por dólar)")
+    .fill("Cotización de ejemplo");
   await page.getByRole("button", { name: "Guardar" }).click();
 
   await expect(
     ventana(page, "Alta de egreso").locator("[data-error-de-campo]"),
   ).toHaveText(/Escribí el importe con coma para los decimales/);
+  await expect(
+    page.getByLabel("Tipo de cambio (pesos por dólar)", { exact: true }),
+  ).toHaveValue("1.184,25");
   await expect(
     page.getByLabel("Importe", { exact: true }),
   ).toHaveAccessibleDescription(/Escribí el importe/);
@@ -121,6 +137,9 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
   await expect(fila(page, /Alquiler de depósito/)).toContainText("05/11/2026");
   await expect(fila(page, /Alquiler de depósito/)).toContainText(
     "USD 2.500,50",
+  );
+  await expect(fila(page, /Alquiler de depósito/)).toContainText(
+    "1.184,25 · Cotización de ejemplo",
   );
   // Es el más nuevo: queda primero.
   await expect(page.getByRole("row").nth(1)).toContainText(

@@ -16,8 +16,17 @@ import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
-import { anularOrdenDeCompra, cargarOrdenDeCompra } from "../acciones.ts";
+import {
+  anularOrdenDeCompra,
+  cargarOrdenDeCompra,
+  guardarCambioDeOrdenDeCompra,
+} from "../acciones.ts";
 import { LineasDeAvance } from "./avance.tsx";
+import {
+  CambioDelComprobante,
+  textoDelEnlaceDeCambio,
+  VentanaDelCambio,
+} from "./cambio-del-comprobante.tsx";
 
 const CABECERAS = [
   "Número",
@@ -28,6 +37,7 @@ const CABECERAS = [
   "Avance",
   "Documento",
   "Cargada por",
+  "Tipo de cambio",
 ];
 
 async function VentanaDeCarga({
@@ -105,6 +115,8 @@ export async function OrdenesDeCompra({
   const ordenes = await armado().ordenesDeCompra.listar(servicioId);
   const { ordenes: avance } = await armado().cobros.avance(servicioId);
   const aAnular = parametros.anularOrden;
+  const aCambiar = parametros.cambioOrden;
+  const ordenACambiar = ordenes.find(({ id }) => id === aCambiar);
   return (
     <section className="mt-6">
       <h2 className="mb-2 text-xl font-semibold">Órdenes de compra</h2>
@@ -161,14 +173,27 @@ export async function OrdenesDeCompra({
                 )}
               </td>
               <td>{orden.quien}</td>
+              <td>
+                <CambioDelComprobante cambio={orden.cambio} />
+              </td>
               {puedeEscribir ? (
                 <td>
-                  <Enlace
-                    href={`${ruta}?anularOrden=${orden.id}`}
-                    scroll={false}
-                  >
-                    Anular
-                  </Enlace>
+                  <div className="flex gap-3">
+                    {textoDelEnlaceDeCambio(orden.cambio) === null ? null : (
+                      <Enlace
+                        href={`${ruta}?cambioOrden=${orden.id}`}
+                        scroll={false}
+                      >
+                        {textoDelEnlaceDeCambio(orden.cambio)}
+                      </Enlace>
+                    )}
+                    <Enlace
+                      href={`${ruta}?anularOrden=${orden.id}`}
+                      scroll={false}
+                    >
+                      Anular
+                    </Enlace>
+                  </div>
                 </td>
               ) : null}
             </tr>
@@ -177,6 +202,20 @@ export async function OrdenesDeCompra({
       )}
       {puedeEscribir && typeof parametros.orden === "string" ? (
         <VentanaDeCarga servicioId={servicioId} rutaAlCerrar={ruta} />
+      ) : null}
+      {puedeEscribir && typeof aCambiar === "string" ? (
+        <VentanaDelCambio
+          que={`la orden de compra ${ordenACambiar?.numero ?? ""}`}
+          formulario={
+            ordenACambiar === undefined
+              ? undefined
+              : await armado().ordenesDeCompra.formularioDeCambio(
+                  ordenACambiar.id,
+                )
+          }
+          accion={guardarCambioDeOrdenDeCompra.bind(null, servicioId, aCambiar)}
+          rutaAlCerrar={ruta}
+        />
       ) : null}
       {puedeEscribir && typeof aAnular === "string" ? (
         <VentanaDeAnulacion

@@ -47,6 +47,7 @@ import {
 } from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import { altaDeServicio, sembrarServicio } from "./_arnes/servicio.ts";
+import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -117,18 +118,18 @@ function archivo(nombre = "documento.pdf"): ArchivoSubido {
 }
 
 function escritoDeOrden(cambios: Escrito = {}): Escrito {
-  return {
+  return conCambioSiEsEnDolares({
     numero: "OC-0001",
     fecha: "2031-07-01",
     importe: "1.000,00",
     importeMoneda: "ARS",
     observaciones: "",
     ...cambios,
-  };
+  });
 }
 
 function escritoDeFactura(cambios: Escrito = {}): Escrito {
-  return {
+  return conCambioSiEsEnDolares({
     numero: "0000-0001",
     fecha: "2031-07-08",
     vencimiento: "2031-08-08",
@@ -137,7 +138,7 @@ function escritoDeFactura(cambios: Escrito = {}): Escrito {
     alicuota: "210",
     ordenCompraId: "",
     ...cambios,
-  };
+  });
 }
 
 async function cargarOrden(
@@ -372,11 +373,12 @@ describe("cargar una orden de compra", () => {
 
   test("el formulario trae la fecha de hoy", async () => {
     const { escrito, campos } = await ordenes().formulario(servicioId);
-    expect(escrito).toEqual({ fecha: "2031-07-09" });
+    expect(escrito).toEqual({ fecha: "2031-07-09", importeMoneda: "ARS" });
     expect(campos.map(([nombre]) => nombre)).toEqual([
       "numero",
       "fecha",
       "importe",
+      "cambio",
       "observaciones",
     ]);
   });

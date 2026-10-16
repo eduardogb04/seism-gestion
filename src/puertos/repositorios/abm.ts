@@ -17,7 +17,11 @@ import type {
   Auditable,
 } from "../../dominio/compartido/auditable.ts";
 import type { Identificador } from "../../dominio/compartido/identificador.ts";
-import type { Importe, Moneda } from "../../dominio/compartido/importe.ts";
+import type {
+  CambioDeDocumento,
+  Importe,
+  Moneda,
+} from "../../dominio/compartido/importe.ts";
 
 /** Los datos de cada entidad con ABM, sin el `id` ni la auditoría. */
 type EntidadesAbm = {
@@ -94,6 +98,8 @@ type EntidadesAbm = {
     readonly proveedorId: string | null;
     readonly numeroComprobante: string | null;
     readonly importe: Importe<Moneda>;
+    /** Pesos por dólar de su fecha (F3-04): solo si el importe es en dólares; los ya cargados no lo tienen. */
+    readonly cambio: CambioDeDocumento | null;
     readonly vencimiento: string | null;
     /** El servicio al que se imputa (F2-08): obligatorio si el centro es de proyecto. */
     readonly servicioId: string | null;

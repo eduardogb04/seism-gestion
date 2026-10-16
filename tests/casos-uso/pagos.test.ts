@@ -38,6 +38,7 @@ import {
   sembrarUsuarios,
 } from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
+import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -101,18 +102,21 @@ function altaDeCuenta(
 }
 
 function altaDeEgreso(cambios: Escrito = {}): Promise<string> {
-  return alta(EGRESOS, {
-    fecha: "2031-06-01",
-    concepto: "Combustible",
-    centroCostoId: centroId,
-    proveedorId: "",
-    numeroComprobante: "",
-    importe: "1.000,00",
-    importeMoneda: "ARS",
-    vencimiento: "",
-    observaciones: "",
-    ...cambios,
-  });
+  return alta(
+    EGRESOS,
+    conCambioSiEsEnDolares({
+      fecha: "2031-06-01",
+      concepto: "Combustible",
+      centroCostoId: centroId,
+      proveedorId: "",
+      numeroComprobante: "",
+      importe: "1.000,00",
+      importeMoneda: "ARS",
+      vencimiento: "",
+      observaciones: "",
+      ...cambios,
+    }),
+  );
 }
 
 function pago(cuentaId: string, cambios: Escrito = {}): Escrito {
@@ -838,18 +842,23 @@ describe("pagos de egresos", () => {
       const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
       await pagado(egreso, cuenta, { importe: "400,00" });
       const edicion = (cambios: Escrito) =>
-        abm().guardar(admin, EGRESOS, egreso, {
-          fecha: "2031-06-01",
-          concepto: "Combustible",
-          centroCostoId: centroId,
-          proveedorId: "",
-          numeroComprobante: "",
-          importe: "1.000,00",
-          importeMoneda: "ARS",
-          vencimiento: "",
-          observaciones: "",
-          ...cambios,
-        });
+        abm().guardar(
+          admin,
+          EGRESOS,
+          egreso,
+          conCambioSiEsEnDolares({
+            fecha: "2031-06-01",
+            concepto: "Combustible",
+            centroCostoId: centroId,
+            proveedorId: "",
+            numeroComprobante: "",
+            importe: "1.000,00",
+            importeMoneda: "ARS",
+            vencimiento: "",
+            observaciones: "",
+            ...cambios,
+          }),
+        );
 
       const menor = await edicion({ importe: "399,99", concepto: "Otro" });
       expect(menor).toEqual({
@@ -883,17 +892,22 @@ describe("pagos de egresos", () => {
       const fila = await cliente().pago.findFirstOrThrow();
       await pagos().marcarPagoAnulado(admin, fila.id);
 
-      const resultado = await abm().guardar(admin, EGRESOS, egreso, {
-        fecha: "2031-06-01",
-        concepto: "Combustible",
-        centroCostoId: centroId,
-        proveedorId: "",
-        numeroComprobante: "",
-        importe: "100,00",
-        importeMoneda: "USD",
-        vencimiento: "",
-        observaciones: "",
-      });
+      const resultado = await abm().guardar(
+        admin,
+        EGRESOS,
+        egreso,
+        conCambioSiEsEnDolares({
+          fecha: "2031-06-01",
+          concepto: "Combustible",
+          centroCostoId: centroId,
+          proveedorId: "",
+          numeroComprobante: "",
+          importe: "100,00",
+          importeMoneda: "USD",
+          vencimiento: "",
+          observaciones: "",
+        }),
+      );
 
       expect(resultado.ok).toBe(true);
     });

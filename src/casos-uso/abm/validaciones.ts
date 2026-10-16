@@ -2,6 +2,14 @@
 
 import { z } from "zod";
 
+/** El tipo de cambio de un documento, ya leído por `leerCambio`: el valor es una fracción y la fuente, un texto (F3-04). */
+export const cambioDeDocumento = z
+  .object({
+    valor: z.object({ numerador: z.bigint(), denominador: z.bigint() }),
+    fuente: z.string(),
+  })
+  .nullable();
+
 export function obligatorio(que: string, maximo: number) {
   return z
     .string()

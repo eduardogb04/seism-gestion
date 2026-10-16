@@ -7,7 +7,7 @@
 
 import { z } from "zod";
 
-export const TEMAS = ["claro", "oscuro", "sistema"] as const;
+const TEMAS = ["claro", "oscuro", "sistema"] as const;
 export type Tema = (typeof TEMAS)[number];
 
 export type Preferencias = {

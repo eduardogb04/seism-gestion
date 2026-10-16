@@ -35,9 +35,10 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
+import { etiquetaImagen } from "./lib/instancia.ts";
 
-/** La imagen que levanta el servicio `app` de compose. */
-const IMAGEN = "seism-gestion:local";
+/** La imagen que levanta el servicio `app` de compose: la de esta copia del repo. */
+const IMAGEN = etiquetaImagen();
 /** El script que construye esa imagen (F0-07). */
 const CONSTRUCTOR = path.join(process.cwd(), "scripts", "imagen.ts");
 /** Los scripts que dejan la base del e2e migrada y sembrada (F0-08, F0-10). */
@@ -152,9 +153,13 @@ async function responde(): Promise<boolean> {
   }
 }
 
-const construccion = spawnSync(process.execPath, [CONSTRUCTOR, "construir"], {
-  stdio: "inherit",
-});
+const construccion = spawnSync(
+  process.execPath,
+  [CONSTRUCTOR, "construir", IMAGEN],
+  {
+    stdio: "inherit",
+  },
+);
 if (construccion.status !== 0) {
   console.error(
     `\nERROR: no se pudo construir ${IMAGEN}; sin imagen no hay e2e.`,

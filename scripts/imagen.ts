@@ -2,7 +2,9 @@
  * La imagen Docker de la app (F0-07): construirla y probarla con un solo
  * comando, igual en CI que en la máquina de cualquiera.
  *
- *   npm run imagen                    → construye `seism-gestion:local`
+ *   npm run imagen                    → construye `seism-gestion:local` (la de
+ *                                       compose y el RUNBOOK) y la de esta copia
+ *                                       del repo (`<proyecto>:local`)
  *   npm run imagen -- <etiqueta>...   → construye con esas etiquetas (CI)
  *   npm run imagen:prueba             → levanta el contenedor y lo verifica
  *   npm run imagen:prueba -- <etiqueta>
@@ -21,9 +23,13 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import process from "node:process";
-import { nombreProyecto, puertoLibre } from "./lib/instancia.ts";
+import {
+  etiquetaImagen,
+  nombreProyecto,
+  puertoLibre,
+} from "./lib/instancia.ts";
 
-/** Etiqueta por defecto cuando se construye o se prueba en local. */
+/** La etiqueta de siempre de la imagen local (compose, RUNBOOK). */
 const ETIQUETA_LOCAL = "seism-gestion:local";
 /** Propios de cada copia del repo: dos `imagen:prueba` a la vez no se pisan. */
 const CONTENEDOR = `${nombreProyecto()}-prueba`;
@@ -125,7 +131,8 @@ function resolverVersion(): string {
 
 function construir(etiquetas: readonly string[]): void {
   const version = resolverVersion();
-  const destinos = etiquetas.length > 0 ? etiquetas : [ETIQUETA_LOCAL];
+  const destinos =
+    etiquetas.length > 0 ? etiquetas : [ETIQUETA_LOCAL, etiquetaImagen()];
 
   console.log(`Construyendo ${destinos.join(", ")} con APP_VERSION=${version}`);
   const argumentos = [
@@ -474,7 +481,7 @@ async function main(): Promise<void> {
     return;
   }
   if (modo === "probar") {
-    await probar(resto[0] ?? ETIQUETA_LOCAL);
+    await probar(resto[0] ?? etiquetaImagen());
     return;
   }
 

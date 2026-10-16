@@ -1,8 +1,9 @@
 /**
  * Lo que distingue a esta copia del repo de otra que corre a la vez (otro
  * worktree, otro agente): el nombre del proyecto de compose y de los
- * contenedores de prueba, y un puerto libre de la máquina. Sin esto dos e2e
- * simultáneos se pisan los contenedores y los puertos.
+ * contenedores de prueba, la etiqueta de la imagen que usan, y un puerto libre
+ * de la máquina. Sin esto dos e2e simultáneos se pisan los contenedores, los
+ * puertos y, si son de ramas distintas, el código que prueban.
  */
 
 import { createHash } from "node:crypto";
@@ -24,6 +25,14 @@ export function nombreProyecto(): string {
     .digest("hex")
     .slice(0, 8);
   return `seism-${hash}`;
+}
+
+/**
+ * La etiqueta de la imagen que usan el e2e y `imagen:prueba` en esta copia del
+ * repo. `docker-compose.yml` arma la misma con `${COMPOSE_PROJECT_NAME}:local`.
+ */
+export function etiquetaImagen(): string {
+  return `${nombreProyecto()}:local`;
 }
 
 /** Un puerto de 127.0.0.1 que nadie está usando ahora (el que asigna el sistema). */

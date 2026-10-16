@@ -93,7 +93,7 @@ services:
   # La app, solo para el e2e (F0-14). Vive detrás del perfil `e2e`: no la
   # levanta `docker compose up -d`, solo `npm run test:e2e` (que la levanta con
   # `scripts/e2e-app.ts` y la apaga al terminar). Corre **la imagen que se
-  # publica** (`seism-gestion:local`, la que construye `npm run imagen`), no
+  # publica** (el `Dockerfile` que construye `npm run imagen`), no
   # `next dev`: el e2e prueba lo que se despliega.
   #
   # Desde F0-31 la app se conecta a la base (el login y la sesión): usa la
@@ -101,7 +101,10 @@ services:
   # (`IDENTIDAD=falsa`, que el esquema acepta con `APP_ENTORNO=local`).
   app:
     profiles: ["e2e"]
-    image: seism-gestion:local
+    # `${COMPOSE_PROJECT_NAME}:local` es la etiqueta que construye `e2e-app.ts`
+    # (`etiquetaImagen`), propia de cada copia del repo: dos e2e de ramas
+    # distintas no se pisan la imagen. Sin la variable, la de siempre.
+    image: ${COMPOSE_PROJECT_NAME:-seism-gestion}:local
     environment:
       APP_ENTORNO: local
       DATABASE_URL: postgresql://seism:seism_local@postgres-e2e:5432/seism_gestion

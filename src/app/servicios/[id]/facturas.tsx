@@ -37,7 +37,6 @@ const CABECERAS = [
   "Vencimiento",
   "Orden de compra",
   "Importe sin IVA",
-  "Tipo de cambio",
   "Alícuota",
   "IVA",
   "Total con IVA",
@@ -47,6 +46,7 @@ const CABECERAS = [
   "Estado",
   "Documento",
   "Cargada por",
+  "Tipo de cambio",
 ];
 
 async function VentanaDeCarga({
@@ -158,9 +158,6 @@ export async function Facturas({
                 <td>{factura.vencimiento}</td>
                 <td>{factura.ordenCompra}</td>
                 <td>{factura.sinIva}</td>
-                <td>
-                  <CambioDelComprobante cambio={factura.cambio} />
-                </td>
                 <td>{factura.alicuota}</td>
                 <td>{factura.iva}</td>
                 <td>{factura.total}</td>
@@ -178,6 +175,9 @@ export async function Facturas({
                   )}
                 </td>
                 <td>{factura.quien}</td>
+                <td>
+                  <CambioDelComprobante cambio={factura.cambio} />
+                </td>
                 {puedeEscribir ? (
                   <td>
                     <div className="flex gap-3">

@@ -312,10 +312,7 @@ describe.each(documentos)("$nombre", (documento) => {
 });
 
 describe("lo ya cargado queda sin tipo de cambio y se completa", () => {
-  test.each([
-    ["orden de compra"],
-    ["factura"],
-  ])(
+  test.each([["orden de compra"], ["factura"]])(
     "la %s en dólares sin tipo de cambio se marca; en pesos no muestra nada",
     async (nombre) => {
       const casos = nombre === "factura" ? facturas() : ordenes();

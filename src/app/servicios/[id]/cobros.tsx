@@ -29,9 +29,9 @@ const CABECERAS = [
   "Cuenta",
   "Entró a la cuenta",
   "Tipo de cambio",
-  "Orden de pago",
   "Observaciones",
   "Cargó",
+  "Orden de pago",
 ];
 
 async function VentanaDeCobro({
@@ -147,6 +147,8 @@ export function Cobros({
                   <td>{cobro.cuenta}</td>
                   <td>{cobro.entrada}</td>
                   <td>{cobro.cambio}</td>
+                  <td className="whitespace-pre-line">{cobro.observaciones}</td>
+                  <td>{cobro.quien}</td>
                   <td>
                     {cobro.ordenPagoNumero}
                     {cobro.ordenPagoDocumento === null ? null : (
@@ -155,8 +157,6 @@ export function Cobros({
                       </p>
                     )}
                   </td>
-                  <td className="whitespace-pre-line">{cobro.observaciones}</td>
-                  <td>{cobro.quien}</td>
                   {puedeEscribir ? (
                     <td>
                       <Enlace

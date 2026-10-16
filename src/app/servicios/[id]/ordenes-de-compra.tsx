@@ -32,12 +32,12 @@ const CABECERAS = [
   "Número",
   "Fecha",
   "Total sin IVA",
-  "Tipo de cambio",
   "Facturado",
   "Saldo por facturar",
   "Avance",
   "Documento",
   "Cargada por",
+  "Tipo de cambio",
 ];
 
 async function VentanaDeCarga({
@@ -143,9 +143,6 @@ export async function OrdenesDeCompra({
               <td>{orden.fecha}</td>
               <td>{orden.total}</td>
               <td>
-                <CambioDelComprobante cambio={orden.cambio} />
-              </td>
-              <td>
                 {orden.facturado}
                 {orden.otraMoneda.length === 0 ? null : (
                   <p className="text-sm text-gray-700">
@@ -176,6 +173,9 @@ export async function OrdenesDeCompra({
                 )}
               </td>
               <td>{orden.quien}</td>
+              <td>
+                <CambioDelComprobante cambio={orden.cambio} />
+              </td>
               {puedeEscribir ? (
                 <td>
                   <div className="flex gap-3">

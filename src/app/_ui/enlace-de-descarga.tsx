@@ -14,7 +14,7 @@ export function EnlaceDeDescarga({
 }) {
   return (
     <a href={`/documentos/${id}`} download>
-      {nombre} <span className="text-gray-600">({tamano})</span>
+      {nombre} <span className="text-texto-suave">({tamano})</span>
     </a>
   );
 }

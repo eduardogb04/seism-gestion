@@ -1,19 +1,98 @@
 @import "tailwindcss";
 
-/* Sobrio y denso: grises neutros, un acento para lo principal y rojo solo
-   para el peligro y los errores. Sin modo oscuro. */
+/*
+ * Los temas (F3-05, ADR 0040). Colores, tipografía y espacios viven solo acá:
+ * las pantallas usan los nombres (`bg-superficie`, `text-texto-suave`), nunca
+ * un color suelto (lo frena tests/dominio/colores-por-nombre.test.ts). `@theme`
+ * trae los valores del tema claro y el bloque `dark` de abajo los del oscuro;
+ * los dos tienen los mismos nombres y tests/dominio/temas.test.ts los lee
+ * de este archivo para exigir contraste AA.
+ *
+ * `data-tema` en `<html>` lo pone el layout desde la cookie `tema`: `claro`,
+ * `oscuro` o `sistema` (oscuro solo si el sistema operativo lo está).
+ */
+@custom-variant dark {
+  &:where([data-tema="oscuro"], [data-tema="oscuro"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-tema="sistema"], [data-tema="sistema"] *) {
+      @slot;
+    }
+  }
+}
+
 @theme {
   --font-sans:
     system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
+  --spacing: 0.25rem;
+
+  --color-fondo: #f5f6f8;
+  --color-superficie: #ffffff;
+  --color-superficie-alta: #eef1f4;
+  --color-borde: #dde2e8;
+  --color-borde-control: #7c8695;
+  --color-texto: #161b22;
+  --color-texto-suave: #4a5462;
   --color-acento: #1d4ed8;
-  --color-acento-fuerte: #1e40af;
-  --color-menu: #1f2937;
+  --color-acento-fuerte: #1e3fa8;
+  --color-sobre-acento: #ffffff;
+  --color-peligro: #b42318;
+  --color-peligro-fuerte: #912018;
+  --color-sobre-peligro: #ffffff;
+  --color-peligro-suave: #fdecea;
+  --color-exito: #13733a;
+  --color-exito-suave: #e7f6ec;
+  --color-aviso: #965a07;
+  --color-aviso-suave: #fdf3e1;
+  --color-menu: #141a22;
+  --color-menu-activo: #2a3442;
+  --color-menu-texto: #e8ecf1;
+  --color-menu-texto-suave: #9aa5b4;
+  --color-serie-1: #1d4ed8;
+  --color-serie-2: #0f8a7e;
+  --color-serie-3: #b45309;
+  --color-serie-4: #7c3aed;
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+
+    @variant dark {
+      color-scheme: dark;
+
+      --color-fondo: #0e1217;
+      --color-superficie: #161b22;
+      --color-superficie-alta: #1f2630;
+      --color-borde: #2a323d;
+      --color-borde-control: #6f7a89;
+      --color-texto: #e6eaef;
+      --color-texto-suave: #a4aebb;
+      --color-acento: #7ea6f8;
+      --color-acento-fuerte: #a3c0fa;
+      --color-sobre-acento: #0e1217;
+      --color-peligro: #f47c70;
+      --color-peligro-fuerte: #f8a198;
+      --color-sobre-peligro: #0e1217;
+      --color-peligro-suave: #3a1715;
+      --color-exito: #4cc27a;
+      --color-exito-suave: #12301f;
+      --color-aviso: #e0a43b;
+      --color-aviso-suave: #33260f;
+      --color-menu: #0a0d11;
+      --color-menu-activo: #232b36;
+      --color-menu-texto: #e6eaef;
+      --color-menu-texto-suave: #8f9aa8;
+      --color-serie-1: #7ea6f8;
+      --color-serie-2: #3fc1b0;
+      --color-serie-3: #e6a04a;
+      --color-serie-4: #b597f6;
+    }
+  }
   body {
-    @apply bg-gray-50 text-base text-gray-900;
+    @apply bg-fondo text-base text-texto;
   }
   h1 {
     @apply mb-4 text-2xl font-semibold;

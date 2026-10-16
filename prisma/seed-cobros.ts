@@ -6,7 +6,8 @@
  * tiene ninguna). Las llama `sembrar` (`prisma/seed.ts`) solo fuera del
  * servidor. Números y montos inventados.
  *
- * Idempotente: un servicio que ya tuvo cobros (también anulados) no recibe más.
+ * Idempotente: un servicio que ya tuvo cobros (también anulados) no recibe más,
+ * ni se siembra nada si otra factura ya tiene el número de la de dólares.
  */
 
 import { crearGeneradorIdCrypto } from "../src/adaptadores/memoria/generador-id.ts";
@@ -72,6 +73,9 @@ export async function sembrarCobros(
       cuenta === null ||
       (await tx.cobro.count({
         where: { factura: { servicioId: servicio.id } },
+      })) > 0 ||
+      (await tx.factura.count({
+        where: { numero: FACTURA_EN_DOLARES.numero },
       })) > 0
     ) {
       return;

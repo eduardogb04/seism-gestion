@@ -6,8 +6,9 @@
  * solo fuera del servidor. Números y montos inventados.
  *
  * Idempotente: un servicio que ya tuvo órdenes de compra (también anuladas) no
- * recibe más, y la clave del archivo sale del servicio, así que un reintento
- * pisa el mismo archivo en vez de sumar otro.
+ * recibe más, ni se siembra nada si alguno de los números de factura ya lo usa
+ * otra factura (el número es único). La clave del archivo sale del servicio,
+ * así que un reintento pisa el mismo archivo en vez de sumar otro.
  */
 
 import { crearGeneradorIdCrypto } from "../src/adaptadores/memoria/generador-id.ts";
@@ -74,7 +75,11 @@ export async function sembrarOrdenesYFacturas(
           });
     if (
       servicio === null ||
-      (await tx.ordenCompra.count({ where: { servicioId: servicio.id } })) > 0
+      (await tx.ordenCompra.count({ where: { servicioId: servicio.id } })) >
+        0 ||
+      (await tx.factura.count({
+        where: { numero: { in: FACTURAS.map(({ numero }) => numero) } },
+      })) > 0
     ) {
       return;
     }

@@ -141,6 +141,15 @@ export async function sembrar(
   }
 }
 
+/**
+ * Las columnas únicas de la base comparan con `lower(...)`: para saber si una
+ * fila "ya existe" hay que comparar igual, o un nombre que alguien pasó a
+ * minúsculas se vuelve a crear y la base lo rechaza.
+ */
+function igual(valor: string): { equals: string; mode: "insensitive" } {
+  return { equals: valor, mode: "insensitive" };
+}
+
 /** Inventados y genéricos: no nombran a nadie (AGENTS.md, regla 1). */
 const GRUPOS_DE_DEMOSTRACION = ["Grupo Norte", "Grupo Centro", "Grupo Sur"];
 
@@ -156,7 +165,10 @@ async function sembrarGruposDeDemostracion(
   await prisma.$transaction(async (tx) => {
     const grupos = repositorioAbmPrisma(tx, "Grupo");
     for (const nombre of GRUPOS_DE_DEMOSTRACION) {
-      if ((await tx.grupo.findFirst({ where: { nombre } })) !== null) {
+      if (
+        (await tx.grupo.findFirst({ where: { nombre: igual(nombre) } })) !==
+        null
+      ) {
         continue;
       }
       await grupos.crear(
@@ -247,7 +259,8 @@ const CLIENTES_DE_DEMOSTRACION: readonly {
 
 /**
  * Da de alta cada cliente de demostración si **nunca hubo** uno con ese CUIT
- * (como los grupos), con su grupo si ese grupo sigue existiendo.
+ * ni con esa razón social (las dos son únicas; como los grupos), con su grupo
+ * si ese grupo sigue existiendo.
  */
 async function sembrarClientesDeDemostracion(
   prisma: PrismaClient,
@@ -258,7 +271,15 @@ async function sembrarClientesDeDemostracion(
     const clientes = repositorioAbmPrisma(tx, "Cliente");
     for (const { datos, grupo } of CLIENTES_DE_DEMOSTRACION) {
       const cuit = datos.cuit ?? "";
-      if ((await tx.cliente.findFirst({ where: { cuit } })) !== null) {
+      const yaExiste = await tx.cliente.findFirst({
+        where: {
+          OR: [
+            { cuit: igual(cuit) },
+            { razonSocial: igual(datos.razonSocial ?? "") },
+          ],
+        },
+      });
+      if (yaExiste !== null) {
         continue;
       }
       const grupoVigente =
@@ -327,7 +348,7 @@ async function sembrarTiposDeServicio(
     for (const datos of TIPOS_DE_SERVICIO_DE_DEMOSTRACION) {
       if (
         (await tx.tipoServicio.findFirst({
-          where: { nombre: datos.nombre },
+          where: { nombre: igual(datos.nombre) },
         })) !== null
       ) {
         continue;
@@ -377,8 +398,9 @@ async function sembrarCuentas(
     const cuentas = repositorioAbmPrisma(tx, "Cuenta");
     for (const datos of CUENTAS_DE_DEMOSTRACION) {
       if (
-        (await tx.cuenta.findFirst({ where: { nombre: datos.nombre } })) !==
-        null
+        (await tx.cuenta.findFirst({
+          where: { nombre: igual(datos.nombre) },
+        })) !== null
       ) {
         continue;
       }
@@ -474,7 +496,7 @@ async function sembrarCentrosDeCosto(
     for (const datos of CENTROS_DE_COSTO_DE_DEMOSTRACION) {
       if (
         (await tx.centroCosto.findFirst({
-          where: { nombre: datos.nombre },
+          where: { nombre: igual(datos.nombre) },
         })) !== null
       ) {
         continue;
@@ -578,7 +600,7 @@ async function sembrarSitiosDeDemostracion(
       if (
         cliente === null ||
         (await tx.sitio.findFirst({
-          where: { clienteId: cliente.id, nombre },
+          where: { clienteId: cliente.id, nombre: igual(nombre) },
         })) !== null
       ) {
         continue;
@@ -659,7 +681,8 @@ const CAMIONES_DE_DEMOSTRACION: readonly {
 
 /**
  * Da de alta cada camión de demostración si **nunca hubo** uno con esa patente
- * de tractor (como los sitios), siempre que el cliente siga vigente.
+ * de tractor ni con esa patente de cisterna (las dos son únicas; como los
+ * sitios), siempre que el cliente siga vigente.
  */
 async function sembrarCamionesDeDemostracion(
   prisma: PrismaClient,
@@ -675,7 +698,14 @@ async function sembrarCamionesDeDemostracion(
       if (
         cliente === null ||
         (await tx.camion.findFirst({
-          where: { patenteTractor: datos.patenteTractor },
+          where: {
+            OR: [
+              { patenteTractor: igual(datos.patenteTractor) },
+              ...(datos.patenteCisterna == null
+                ? []
+                : [{ patenteCisterna: igual(datos.patenteCisterna) }]),
+            ],
+          },
         })) !== null
       ) {
         continue;

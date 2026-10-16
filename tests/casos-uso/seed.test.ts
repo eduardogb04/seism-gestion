@@ -549,6 +549,142 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Cobro" } })).toBe(2);
   });
 
+  describe("tolera que alguien haya editado un dato de demostración (M-14)", () => {
+    /** Cuántas filas hay de cada cosa que siembra la semilla, para ver que no se duplicó nada. */
+    async function contarTodo() {
+      const db = cliente();
+      return {
+        grupos: await db.grupo.count(),
+        clientes: await db.cliente.count(),
+        sitios: await db.sitio.count(),
+        camiones: await db.camion.count(),
+        tiposServicio: await db.tipoServicio.count(),
+        centrosCosto: await db.centroCosto.count(),
+        cuentas: await db.cuenta.count(),
+        servicios: await db.servicio.count(),
+        egresos: await db.egreso.count(),
+        pagos: await db.pago.count(),
+        cotizaciones: await db.cotizacion.count(),
+        ordenesCompra: await db.ordenCompra.count(),
+        facturas: await db.factura.count(),
+        cobros: await db.cobro.count(),
+      };
+    }
+
+    test("un camión al que le cambiaron la patente del tractor no se vuelve a crear con su cisterna", async () => {
+      const db = cliente();
+      await sembrar(db, opciones());
+      const antes = await contarTodo();
+      await db.camion.updateMany({
+        where: { patenteTractor: "ZZ001ZZ" },
+        data: { patenteTractor: "ZZ900ZZ" },
+      });
+
+      await expect(sembrar(db, opciones())).resolves.toBeUndefined();
+
+      expect(await contarTodo()).toEqual(antes);
+      expect(
+        await db.camion.count({ where: { patenteCisterna: "ZZ101ZZ" } }),
+      ).toBe(1);
+    });
+
+    test("un camión cuya patente de cisterna cambió, o que se dio de baja, tampoco se vuelve a crear", async () => {
+      const db = cliente();
+      await sembrar(db, opciones());
+      const antes = await contarTodo();
+      await db.camion.updateMany({
+        where: { patenteTractor: "ZZ001ZZ" },
+        data: { patenteCisterna: "ZZ901ZZ" },
+      });
+      await db.camion.updateMany({
+        where: { patenteTractor: "ZZ002ZZ" },
+        data: {
+          patenteTractor: "ZZ902ZZ",
+          eliminadoEn: new Date(),
+          eliminadoPor: { tipo: "sistema" },
+        },
+      });
+
+      await expect(sembrar(db, opciones())).resolves.toBeUndefined();
+
+      expect(await contarTodo()).toEqual(antes);
+    });
+
+    test("un cliente al que le cambiaron el CUIT, pero no la razón social, no se vuelve a crear", async () => {
+      const db = cliente();
+      await sembrar(db, opciones());
+      const antes = await contarTodo();
+      await db.cliente.updateMany({
+        where: { cuit: "30000000015" },
+        data: { cuit: "30000000060" },
+      });
+
+      await expect(sembrar(db, opciones())).resolves.toBeUndefined();
+
+      expect(await contarTodo()).toEqual(antes);
+    });
+
+    // La base compara sin distinguir mayúsculas (`lower(...)`): un nombre
+    // escrito distinto choca igual con el de la semilla.
+    test.each([
+      { tabla: "grupos", columna: "nombre" },
+      { tabla: "tipos_servicio", columna: "nombre" },
+      { tabla: "centros_costo", columna: "nombre" },
+      { tabla: "cuentas", columna: "nombre" },
+      { tabla: "sitios", columna: "nombre" },
+      { tabla: "camiones", columna: "patente_tractor" },
+    ])(
+      "si pasaron a minúsculas $columna de $tabla, la semilla no los vuelve a crear",
+      async ({ tabla, columna }) => {
+        const db = cliente();
+        await sembrar(db, opciones());
+        const antes = await contarTodo();
+        await db.$executeRawUnsafe(
+          `UPDATE "${tabla}" SET "${columna}" = lower("${columna}")`,
+        );
+
+        await expect(sembrar(db, opciones())).resolves.toBeUndefined();
+
+        expect(await contarTodo()).toEqual(antes);
+      },
+    );
+
+    test("si el servicio de las facturas cambió de título, la semilla no repite los números de factura", async () => {
+      const db = cliente();
+      await sembrar(db, opciones());
+      const antes = await contarTodo();
+      await db.servicio.updateMany({
+        where: { titulo: "Operación de tanques — ejemplo" },
+        data: { titulo: "Operación editada" },
+      });
+
+      await expect(sembrar(db, opciones())).resolves.toBeUndefined();
+
+      const despues = await contarTodo();
+      expect(despues.facturas).toBe(antes.facturas);
+      expect(despues.ordenesCompra).toBe(antes.ordenesCompra);
+      expect(despues.cobros).toBe(antes.cobros);
+    });
+
+    test("si el número de la factura en dólares ya lo usa otra, la semilla no la repite", async () => {
+      const db = cliente();
+      await sembrar(db, opciones());
+      const otroServicio = await db.servicio.findFirstOrThrow({
+        where: { titulo: "Informe técnico — ejemplo" },
+      });
+      await db.cobro.deleteMany();
+      await db.factura.updateMany({
+        where: { numero: "0000-00000003" },
+        data: { servicioId: otroServicio.id },
+      });
+      const antes = await contarTodo();
+
+      await expect(sembrar(db, opciones())).resolves.toBeUndefined();
+
+      expect(await contarTodo()).toEqual(antes);
+    });
+  });
+
   test("en el servidor no siembra ningún grupo; en ci, sí", async () => {
     const db = cliente();
 

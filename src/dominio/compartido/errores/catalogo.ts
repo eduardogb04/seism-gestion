@@ -156,9 +156,9 @@ export const catalogo = definirCatalogo({
     codigo: "DOM-0013",
     tipo: "persona",
     descripcion:
-      "El tipo de cambio no corresponde: falta si la cuenta es de otra moneda que la deuda, y no va si las dos monedas son la misma.",
+      "El tipo de cambio no corresponde: falta si la cuenta es de otra moneda que la deuda o si el documento es en dólares, y no va si las dos monedas son la misma o el documento es en pesos.",
     queHacer:
-      "Si la cuenta es de otra moneda, cargá el tipo de cambio de ese día y de dónde sale. Si es la misma moneda, dejalo vacío.",
+      "Si la cuenta es de otra moneda, o el documento es en dólares, cargá el tipo de cambio de ese día y de dónde sale. Si es la misma moneda o el documento es en pesos, dejalo vacío.",
   },
   DOM_0014: {
     codigo: "DOM-0014",

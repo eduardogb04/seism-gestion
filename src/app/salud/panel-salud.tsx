@@ -21,8 +21,8 @@ import { Tabla } from "../_ui/tabla.tsx";
 type Estado = "ok" | "rojo";
 
 const COLORES: Record<Estado, string> = {
-  ok: "bg-green-100 text-green-900",
-  rojo: "bg-red-100 text-red-900",
+  ok: "bg-exito-suave text-exito",
+  rojo: "bg-peligro-suave text-peligro",
 };
 
 function Semaforo({ estado }: { readonly estado: Estado }) {

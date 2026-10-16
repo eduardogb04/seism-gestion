@@ -19,7 +19,7 @@ function Campo({
       </label>
       {children}
       {error === undefined ? null : (
-        <p id={`${id}-error`} data-error-de-campo className="text-red-800">
+        <p id={`${id}-error`} data-error-de-campo className="text-peligro">
           {error}
         </p>
       )}
@@ -31,7 +31,7 @@ function atributos(id: string, error: string | undefined) {
   return {
     id,
     className:
-      "rounded border border-gray-300 bg-white px-3 py-2 aria-invalid:border-red-700",
+      "rounded border border-borde-control bg-superficie px-3 py-2 aria-invalid:border-peligro",
     "aria-invalid": error !== undefined,
     "aria-describedby": error === undefined ? undefined : `${id}-error`,
   };
@@ -73,7 +73,7 @@ export function CasillaSiNo({
         </label>
       </div>
       {error === undefined ? null : (
-        <p id={`${id}-error`} data-error-de-campo className="text-red-800">
+        <p id={`${id}-error`} data-error-de-campo className="text-peligro">
           {error}
         </p>
       )}
@@ -115,7 +115,7 @@ export function CampoImporte({
           aria-label={`Moneda de ${etiqueta}`}
           defaultValue={monedaInicial}
           key={monedaInicial}
-          className="rounded border border-gray-300 bg-white px-3 py-2"
+          className="rounded border border-borde-control bg-superficie px-3 py-2"
         >
           {monedas.map((moneda) => (
             <option key={moneda} value={moneda}>

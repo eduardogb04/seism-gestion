@@ -17,6 +17,7 @@ import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { anularOrdenDeCompra, cargarOrdenDeCompra } from "../acciones.ts";
+import { LineasDeAvance } from "./avance.tsx";
 
 const CABECERAS = [
   "Número",
@@ -24,6 +25,7 @@ const CABECERAS = [
   "Total sin IVA",
   "Facturado",
   "Saldo por facturar",
+  "Avance",
   "Documento",
   "Cargada por",
 ];
@@ -101,6 +103,7 @@ export async function OrdenesDeCompra({
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const ordenes = await armado().ordenesDeCompra.listar(servicioId);
+  const { ordenes: avance } = await armado().cobros.avance(servicioId);
   const aAnular = parametros.anularOrden;
   return (
     <section className="mt-6">
@@ -146,6 +149,9 @@ export async function OrdenesDeCompra({
                     {orden.aviso}
                   </p>
                 )}
+              </td>
+              <td>
+                <LineasDeAvance lineas={avance[orden.id] ?? []} />
               </td>
               <td>
                 {orden.documento === null ? (

@@ -1,7 +1,8 @@
 /**
  * Las facturas de un servicio (F2-06, ADR 0036). Se carga el importe **sin IVA**
  * y la alícuota; el IVA y el total se calculan siempre con el dominio y no se
- * guardan. El cliente sale del servicio. Una factura no se edita; se anula.
+ * guardan. El cliente sale del servicio. Una factura no se edita; se anula, y no
+ * se anula una que tiene cobros vigentes (`DOM-0016`).
  *
  * - Toda escritura recibe el `Actor` primero, exige un rol que escriba
  *   (`AUT-0009`) y corre entera en una transacción: el documento, si hay, y la
@@ -302,6 +303,11 @@ export function crearCasosUsoFacturas({
           actual === null ? null : marcarEliminado(actual, actor, reloj);
         if (actual === null || eliminada === null || !eliminada.ok) {
           throw nuevoError(catalogo.DOM_0009, { entidad: "Factura", id });
+        }
+        // Con la fila del servicio tomada, un cobro de esta factura no se carga a la vez.
+        await servicioVigenteBloqueado(repos, actual.valor.servicioId);
+        if ((await repos.cobros.listarDe([id])).length > 0) {
+          throw nuevoError(catalogo.DOM_0016, { id });
         }
         await repos.facturas.actualizar(actor, eliminada.valor, "eliminar");
         await bajaDeAdjuntoOpcional(

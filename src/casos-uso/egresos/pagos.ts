@@ -28,26 +28,11 @@ import {
   formatearImporte,
   formatearValorTipoDeCambio,
   type Importe,
-  MONEDAS,
   type Moneda,
   parsearImporte,
-  parsearValorTipoDeCambio,
 } from "../../dominio/compartido/importe.ts";
-import {
-  diferenciaEnDias,
-  type FechaHora,
-  parsearISO,
-  type Reloj,
-} from "../../dominio/compartido/reloj.ts";
-import {
-  type CambioCargado,
-  type CambioIncorrecto,
-  importeEnCuenta,
-  type PagoRechazado,
-  pagar,
-  type Saldo,
-  saldoDe,
-} from "../../dominio/compartido/saldo.ts";
+import type { Reloj } from "../../dominio/compartido/reloj.ts";
+import { pagar, saldoDe } from "../../dominio/compartido/saldo.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
 import type { RegistroAbm } from "../../puertos/repositorios/abm.ts";
 import type {
@@ -62,15 +47,24 @@ import {
   textoDeServicio,
 } from "../abm/definicion.ts";
 import { EGRESOS } from "../abm/egresos.ts";
+import {
+  atrasoDe,
+  camposDeMovimiento,
+  cuentaElegible,
+  cuentasActivas,
+  MENSAJE_CUENTA,
+  MENSAJE_IMPORTE_ILEGIBLE,
+  mensajeDeSaldo,
+  monedaDe,
+  movimientoEnCuenta,
+  type TextosDeSaldo,
+  TODAS,
+} from "../compartido/movimientos.ts";
 import { tamanoLegible } from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 
 const PAGOS_POR_PAGINA = 25;
-/** Prisma toma `take` como entero de 32 bits: el máximo es "todas". */
-const TODAS = 2 ** 31 - 1;
 const MAXIMO_OBSERVACIONES = 1000;
-
-const MENSAJE_CUENTA = "Elegí una cuenta activa.";
 
 const esquemaId = z.uuid();
 
@@ -171,59 +165,6 @@ function diaConBarras(dia: string): string {
   return `${numero}/${mes}/${anio}`;
 }
 
-/** Un día `aaaa-mm-dd` ya validado, como `FechaHora` (a medianoche). */
-function aFechaHora(dia: string): FechaHora {
-  const resultado = parsearISO(`${dia}T00:00:00.000`);
-  if (!resultado.ok) {
-    throw nuevoError(catalogo.INF_0001, {
-      motivo: "un día que ya se había validado no es una fecha",
-    });
-  }
-  return resultado.fechaHora;
-}
-
-function monedaDe(texto: string): Moneda {
-  const moneda = MONEDAS.find((codigo) => codigo === texto);
-  if (moneda === undefined) {
-    throw nuevoError(catalogo.INF_0001, {
-      motivo: "la base devolvió una cuenta con una moneda desconocida",
-    });
-  }
-  return moneda;
-}
-
-function camposDePago(
-  moneda: Moneda,
-): readonly (readonly [string, CampoAbm])[] {
-  return [
-    ["fecha", { tipo: "fecha", etiqueta: "Fecha" }],
-    ["importe", { tipo: "texto", etiqueta: `Importe (${moneda})` }],
-    [
-      "cuentaId",
-      {
-        tipo: "relacion",
-        etiqueta: "Cuenta",
-        entidad: "Cuenta",
-        mostrar: "nombre",
-        obligatoria: true,
-      },
-    ],
-    [
-      "tipoDeCambio",
-      {
-        tipo: "texto",
-        etiqueta: "Tipo de cambio (solo si la cuenta es de otra moneda)",
-        opcional: true,
-      },
-    ],
-    [
-      "fuenteDelCambio",
-      { tipo: "texto", etiqueta: "Fuente del tipo de cambio", opcional: true },
-    ],
-    ["observaciones", { tipo: "textoLargo", etiqueta: "Observaciones" }],
-  ];
-}
-
 async function egresoVigente(
   repos: RepositoriosEnTransaccion,
   id: string,
@@ -235,20 +176,6 @@ async function egresoVigente(
     throw nuevoError(catalogo.DOM_0009, { entidad: "Egreso", id });
   }
   return registro;
-}
-
-async function cuentaElegible(
-  repos: RepositoriosEnTransaccion,
-  id: string,
-): Promise<RegistroAbm<"Cuenta"> | null> {
-  const registro = esquemaId.safeParse(id).success
-    ? await repos.abm("Cuenta").buscarPorId(id)
-    : null;
-  return registro === null ||
-    registro.eliminadoEn !== undefined ||
-    !registro.valor.activa
-    ? null
-    : registro;
 }
 
 /** El saldo de un egreso con sus pagos vigentes, del más viejo al más nuevo. */
@@ -279,26 +206,11 @@ async function saldoDelEgreso(
   return { saldo: saldo.valor, registros };
 }
 
-function mensajeDePago(motivo: PagoRechazado["motivo"], saldo: Saldo<Moneda>) {
-  switch (motivo) {
-    case "no-positivo":
-      return "El importe tiene que ser mayor que cero.";
-    case "supera-saldo":
-      return `${catalogo.DOM_0012.codigo} · El importe supera lo que falta pagar: quedan ${formatearImporte(saldo.saldo)}.`;
-    case "otra-moneda":
-      return "El importe no está en la moneda del egreso.";
-  }
-}
-
-function mensajeDeCambio(motivo: CambioIncorrecto["motivo"], moneda: Moneda) {
-  return motivo === "falta"
-    ? `${catalogo.DOM_0013.codigo} · Cargá el tipo de cambio del día: la cuenta es de otra moneda que el egreso (${moneda}).`
-    : `${catalogo.DOM_0013.codigo} · Dejá el tipo de cambio vacío: la cuenta es de la misma moneda que el egreso.`;
-}
-
-function dias(cantidad: number): string {
-  return cantidad === 1 ? "1 día" : `${cantidad} días`;
-}
+const TEXTOS: TextosDeSaldo = {
+  verbo: "pagar",
+  deuda: "el egreso",
+  deLaDeuda: "del egreso",
+};
 
 export function crearCasosUsoPagos({
   transaccional,
@@ -338,16 +250,6 @@ export function crearCasosUsoPagos({
           datos.comprobanteId === null
             ? null
             : await repos.documentos.buscarPorId(datos.comprobanteId);
-        const { registros: activas } = await repos.abm("Cuenta").listar({
-          buscaEn: [],
-          filtros: [],
-          marcadas: ["activa"],
-          mes: null,
-          orden: "nombre",
-          direccion: "asc",
-          saltear: 0,
-          cantidad: TODAS,
-        });
         return {
           concepto: datos.concepto,
           datos: [
@@ -405,11 +307,8 @@ export function crearCasosUsoPagos({
                 ? creadoPor.proceso
                 : (emails.get(creadoPor.usuarioId) ?? creadoPor.usuarioId),
           })),
-          cuentas: activas.map(({ valor }) => ({
-            valor: valor.id,
-            texto: `${valor.nombre} · ${valor.moneda}`,
-          })),
-          campos: camposDePago(datos.importe.moneda),
+          cuentas: await cuentasActivas(repos),
+          campos: camposDeMovimiento(datos.importe.moneda),
         };
       });
     },
@@ -431,10 +330,6 @@ export function crearCasosUsoPagos({
         });
         return {
           filas: filas.map((fila) => {
-            const atrasado =
-              fila.vencimiento !== null && fila.saldo.centavos > 0n
-                ? diferenciaEnDias(hoy, aFechaHora(fila.vencimiento))
-                : 0;
             return {
               id: fila.id,
               fecha: diaConBarras(fila.fecha),
@@ -446,7 +341,10 @@ export function crearCasosUsoPagos({
               saldo: formatearImporte(fila.saldo),
               vencimiento:
                 fila.vencimiento === null ? "" : diaConBarras(fila.vencimiento),
-              atraso: atrasado > 0 ? dias(atrasado) : "",
+              atraso:
+                fila.vencimiento !== null && fila.saldo.centavos > 0n
+                  ? atrasoDe(hoy, fila.vencimiento)
+                  : "",
             };
           }),
           total,
@@ -501,65 +399,32 @@ export function crearCasosUsoPagos({
         const leido = parsearImporte(escrito.importe ?? "", moneda);
         let importe: Importe<Moneda> | null = null;
         if (!leido.ok) {
-          errores.importe =
-            "Escribí el importe con coma para los decimales y, si querés, punto para los miles (por ejemplo 1.234,50).";
+          errores.importe = MENSAJE_IMPORTE_ILEGIBLE;
         } else {
           const { saldo } = await saldoDelEgreso(repos, egreso);
           const nuevo = pagar(saldo, leido.valor);
           if (nuevo.ok) {
             importe = leido.valor;
           } else {
-            errores.importe = mensajeDePago(nuevo.error.motivo, saldo);
+            errores.importe = mensajeDeSaldo(nuevo.error.motivo, saldo, TEXTOS);
           }
         }
 
-        // Sin fecha válida el tipo de cambio no se puede cargar (es "del día"): no se mira.
-        const valorEscrito = (escrito.tipoDeCambio ?? "").trim();
-        const valorLeido =
-          valorEscrito === "" || errores.fecha !== undefined
-            ? null
-            : parsearValorTipoDeCambio(valorEscrito);
-        if (valorLeido?.ok === false) {
-          errores.tipoDeCambio =
-            "Escribí el tipo de cambio con coma para los decimales (por ejemplo 1.184,25).";
-        }
-        const cambio: CambioCargado | null =
-          valorLeido?.ok === true
-            ? {
-                valor: valorLeido.valor,
-                fuente: escrito.fuenteDelCambio ?? "",
-                fecha: aFechaHora(dia),
-                cargadoPor:
-                  actor.tipo === "persona" ? actor.usuarioId : actor.proceso,
-              }
-            : null;
-
-        let salida: Importe<Moneda> | null = null;
-        if (
-          importe !== null &&
-          cuenta !== null &&
-          errores.fecha === undefined &&
-          errores.tipoDeCambio === undefined
-        ) {
-          const convertido = importeEnCuenta(
-            importe,
-            monedaDe(cuenta.valor.moneda),
-            cambio,
-          );
-          if (convertido.ok) {
-            salida = convertido.valor;
-          } else if (convertido.error.codigo === catalogo.DOM_0013.codigo) {
-            errores.tipoDeCambio = mensajeDeCambio(
-              convertido.error.motivo,
-              moneda,
-            );
-          } else if (convertido.error.campo === "fuente") {
-            errores.fuenteDelCambio =
-              "Escribí de dónde sale el tipo de cambio.";
-          } else {
-            errores.tipoDeCambio = "El tipo de cambio no es válido.";
-          }
-        }
+        const {
+          cambio,
+          enCuenta: salida,
+          errores: deCambio,
+        } = movimientoEnCuenta({
+          escrito,
+          actor,
+          dia,
+          diaValido: errores.fecha === undefined,
+          importe,
+          monedaDeLaCuenta:
+            cuenta === null ? null : monedaDe(cuenta.valor.moneda),
+          textos: TEXTOS,
+        });
+        Object.assign(errores, deCambio);
 
         if (
           importe === null ||

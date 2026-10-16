@@ -3,7 +3,8 @@
  * tabla, con la más nueva arriba, y la carga (`?factura=1`) y la anulación
  * (`?anularFactura=<id>`) como ventanas sobre esta misma pantalla. Se carga el
  * importe sin IVA; el IVA y el total salen calculados, en el listado y al lado
- * de los campos mientras se escribe.
+ * de los campos mientras se escribe. Cada fila trae lo cobrado, lo retenido y el
+ * saldo (F2-07, ADR 0037), y desde ahí se cobra.
  */
 
 import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
@@ -18,6 +19,7 @@ import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { anularFactura, cargarFactura } from "../acciones.ts";
+import { Cobros } from "./cobros.tsx";
 import { IvaEnVivo } from "./iva-en-vivo.tsx";
 
 const CABECERAS = [
@@ -29,6 +31,10 @@ const CABECERAS = [
   "Alícuota",
   "IVA",
   "Total con IVA",
+  "Cobrado",
+  "Retenido",
+  "Saldo",
+  "Estado",
   "Documento",
   "Cargada por",
 ];
@@ -107,6 +113,7 @@ export async function Facturas({
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const facturas = await armado().facturas.listar(servicioId);
+  const cobranza = await armado().cobros.cobranza(servicioId);
   const aAnular = parametros.anularFactura;
   return (
     <section className="mt-6">
@@ -128,38 +135,67 @@ export async function Facturas({
         <Tabla
           cabeceras={puedeEscribir ? [...CABECERAS, "Acciones"] : CABECERAS}
         >
-          {facturas.map((factura) => (
-            <tr key={factura.id}>
-              <td>{factura.numero}</td>
-              <td>{factura.fecha}</td>
-              <td>{factura.vencimiento}</td>
-              <td>{factura.ordenCompra}</td>
-              <td>{factura.sinIva}</td>
-              <td>{factura.alicuota}</td>
-              <td>{factura.iva}</td>
-              <td>{factura.total}</td>
-              <td>
-                {factura.documento === null ? (
-                  "—"
-                ) : (
-                  <EnlaceDeDescarga {...factura.documento} />
-                )}
-              </td>
-              <td>{factura.quien}</td>
-              {puedeEscribir ? (
+          {facturas.map((factura) => {
+            const cobro = cobranza.find(
+              ({ facturaId }) => facturaId === factura.id,
+            );
+            return (
+              <tr key={factura.id}>
+                <td>{factura.numero}</td>
+                <td>{factura.fecha}</td>
+                <td>{factura.vencimiento}</td>
+                <td>{factura.ordenCompra}</td>
+                <td>{factura.sinIva}</td>
+                <td>{factura.alicuota}</td>
+                <td>{factura.iva}</td>
+                <td>{factura.total}</td>
+                <td>{cobro?.cobrado}</td>
+                <td>{cobro?.retenido}</td>
+                <td>{cobro?.saldo}</td>
                 <td>
-                  <Enlace
-                    href={`${ruta}?anularFactura=${factura.id}`}
-                    scroll={false}
-                  >
-                    Anular
-                  </Enlace>
+                  {cobro?.cobrada ? <strong>Cobrada</strong> : "Con saldo"}
                 </td>
-              ) : null}
-            </tr>
-          ))}
+                <td>
+                  {factura.documento === null ? (
+                    "—"
+                  ) : (
+                    <EnlaceDeDescarga {...factura.documento} />
+                  )}
+                </td>
+                <td>{factura.quien}</td>
+                {puedeEscribir ? (
+                  <td>
+                    <div className="flex gap-3">
+                      {cobro?.cobrada ? null : (
+                        <Enlace
+                          href={`${ruta}?cobrar=${factura.id}`}
+                          scroll={false}
+                        >
+                          Cobrar
+                        </Enlace>
+                      )}
+                      <Enlace
+                        href={`${ruta}?anularFactura=${factura.id}`}
+                        scroll={false}
+                      >
+                        Anular
+                      </Enlace>
+                    </div>
+                  </td>
+                ) : null}
+              </tr>
+            );
+          })}
         </Tabla>
       )}
+      <Cobros
+        servicioId={servicioId}
+        ruta={ruta}
+        puedeEscribir={puedeEscribir}
+        parametros={parametros}
+        facturas={facturas}
+        cobranza={cobranza}
+      />
       {puedeEscribir && typeof parametros.factura === "string" ? (
         <VentanaDeCarga servicioId={servicioId} rutaAlCerrar={ruta} />
       ) : null}

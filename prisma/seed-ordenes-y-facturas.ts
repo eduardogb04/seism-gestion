@@ -1,6 +1,6 @@
 /**
  * Una orden de compra y dos facturas de demostración (F2-06): sobre el servicio
- * sembrado en estado vigente, una orden en pesos y dos facturas parciales
+ * sembrado en ejecución, una orden en pesos y dos facturas parciales
  * contra ella (con distinta alícuota); la primera con un PDF de una línea
  * generado acá, la otra sin documento. Las llama `sembrar` (`prisma/seed.ts`)
  * solo fuera del servidor. Números y montos inventados.
@@ -27,7 +27,7 @@ import {
 } from "../src/puertos/almacen-documentos.ts";
 import { pdfDeUnaLinea } from "./seed-cotizaciones.ts";
 
-/** El servicio sembrado en estado vigente (`SERVICIOS_DE_DEMOSTRACION` de `seed.ts`). */
+/** El servicio sembrado en ejecución (`SERVICIOS_DE_DEMOSTRACION` de `seed.ts`). */
 const SERVICIO = {
   cuit: "30000000031",
   titulo: "Operación de tanques — ejemplo",

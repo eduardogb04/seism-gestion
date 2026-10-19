@@ -1,6 +1,7 @@
 /**
  * La pantalla de un servicio (F2-04, ADR 0033): sus datos, el cambio de
- * estado, sus cotizaciones (F2-05), sus órdenes de compra y facturas (F2-06), los sitios que abarca y su historial. La edición (`?editar=1`) y la
+ * estado, sus cotizaciones (F2-05), sus órdenes de compra y facturas (F2-06), los sitios que abarca, sus sucesos y su historial,
+ * con los días en cada etapa (F3-01). La edición (`?editar=1`) y la
  * baja (`?baja=1`) son ventanas sobre esta misma pantalla, como en los ABM.
  */
 
@@ -34,6 +35,7 @@ import { Cotizaciones } from "./cotizaciones.tsx";
 import { Egresos } from "./egresos.tsx";
 import { Facturas } from "./facturas.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
+import { Sucesos } from "./sucesos.tsx";
 
 const LISTADO = "/servicios";
 
@@ -87,7 +89,7 @@ function CambiarEstado({
         className="flex max-w-xl flex-col gap-3"
       >
         <CampoTexto
-          etiqueta="Nota (opcional)"
+          etiqueta="Nota o motivo"
           type="text"
           name="nota"
           maxLength={500}
@@ -101,7 +103,7 @@ function CambiarEstado({
               name="a"
               value={valor}
             >
-              Pasar a «{etiqueta}»
+              {etiqueta}
             </Boton>
           ))}
         </div>
@@ -158,12 +160,13 @@ function Historial({
   return (
     <section className="mt-6">
       <h2 className="mb-2 text-xl font-semibold">Historial</h2>
-      <Tabla cabeceras={["Cuándo", "De", "A", "Quién", "Nota"]}>
-        {historial.map(({ posicion, cuando, de, a, quien, nota }) => (
+      <Tabla cabeceras={["Cuándo", "De", "A", "Días", "Quién", "Nota"]}>
+        {historial.map(({ posicion, cuando, de, a, dias, quien, nota }) => (
           <tr key={posicion}>
             <td>{cuando}</td>
             <td>{de}</td>
             <td>{a}</td>
+            <td>{dias}</td>
             <td>{quien}</td>
             <td className="whitespace-pre-line">{nota}</td>
           </tr>
@@ -261,6 +264,12 @@ export default async function Servicio({ params, searchParams }: Props) {
         />
         <Egresos servicioId={servicio.id} />
         <Sitios servicio={servicio} puedeEscribir={puedeEscribir} />
+        <Sucesos
+          servicioId={servicio.id}
+          ruta={ruta}
+          puedeEscribir={puedeEscribir}
+          parametros={parametros}
+        />
         <Historial historial={servicio.historial} />
       </main>
       {puedeEscribir && typeof parametros.editar === "string" ? (

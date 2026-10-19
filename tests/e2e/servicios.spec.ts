@@ -7,10 +7,12 @@
  *    estado, y filtra por estado;
  * 2. da de alta uno recurrente sin vigencia: el mensaje aparece al lado del
  *    campo; lo corrige y queda en la pantalla del servicio, con su código y
- *    «Solicitado»;
+ *    «Creado»;
  * 3. marca un sitio de su cliente;
- * 4. lo pasa a «Cotizado» con una nota y lo ve en el historial, con quién;
- * 5. intenta darlo de baja: ya no se puede, y dice por qué.
+ * 4. carga un suceso y lo ve en *Sucesos*, con quién (F3-01);
+ * 5. lo cancela: sin motivo dice que lo pide (DOM-0017); con motivo cambia el
+ *    estado y lo ve en el historial, con los días y quién;
+ * 6. intenta darlo de baja: ya no se puede, y dice por qué.
  *
  * Usa `operador.catalogos@ejemplo.test`, como los otros catálogos (la identidad falsa no ofrece más). Todo inventado.
  */
@@ -60,7 +62,7 @@ test.beforeEach(async ({ browser, baseURL }) => {
   await asegurarOperadora(browser, baseURL);
 });
 
-test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizado, ve el historial y no puede darlo de baja", async ({
+test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, lo cancela con motivo, ve el historial y no puede darlo de baja", async ({
   page,
 }) => {
   await entrarComo(page, OPERADORA);
@@ -76,7 +78,7 @@ test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizad
     "page",
   );
   await expect(fila(page, /Auditoría de tanques — ejemplo/)).toContainText(
-    "Solicitado",
+    "Creado",
   );
   await expect(fila(page, /Auditoría de tanques — ejemplo/)).toContainText(
     "Empresa Ejemplo Uno S.A.",
@@ -92,9 +94,9 @@ test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizad
   });
   await expect(codigo).toHaveCSS("white-space", "nowrap");
 
-  await page.getByLabel("Estado").selectOption({ label: "Vigente" });
+  await page.getByLabel("Estado").selectOption({ label: "En ejecución" });
   await page.getByRole("button", { name: "Buscar" }).click();
-  await expect(page).toHaveURL(/[?&]estado=vigente(&|$)/);
+  await expect(page).toHaveURL(/[?&]estado=en_ejecucion(&|$)/);
   await expect(fila(page, /Operación de tanques — ejemplo/)).toContainText(
     /SRV-\d{4}-\d{3}/,
   );
@@ -131,7 +133,7 @@ test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizad
     /^SRV-\d{4}-\d{3} · Traslado de prueba — ejemplo$/,
   );
   const estado = page.locator("[data-estado-del-servicio]");
-  await expect(estado).toHaveText("Solicitado");
+  await expect(estado).toHaveText("Creado");
   await expect(page.getByText("Empresa Ejemplo Uno S.A.")).toBeVisible();
 
   // 3. Los sitios de su cliente, y solo esos: se marca uno.
@@ -147,15 +149,36 @@ test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizad
   await expect(page.getByLabel("Planta Ejemplo Norte")).toBeChecked();
   await expect(page.getByLabel("Planta Ejemplo Sur")).not.toBeChecked();
 
-  // 4. Pasa a «Cotizado» con una nota: cambia el estado y queda en el historial.
-  await page.getByLabel("Nota (opcional)").fill("Se envió la propuesta");
-  await page.getByRole("button", { name: "Pasar a «Cotizado»" }).click();
-  await expect(estado).toHaveText("Cotizado");
-  await expect(
-    page.getByRole("button", { name: "Pasar a «Adjudicado»" }),
-  ).toBeVisible();
+  // 4. Un suceso: queda en la tabla, con quién lo cargó.
+  await page.getByRole("link", { name: "Nuevo suceso" }).click();
+  const suceso = ventana(page, "Nuevo suceso");
+  await expect(suceso.getByLabel("Fecha")).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
+  await suceso.getByLabel("Qué pasó").fill("Llamó el cliente para posponer");
+  await suceso.getByRole("button", { name: "Cargar" }).click();
+  await expect(ventana(page, "Nuevo suceso")).toHaveCount(0);
+  const tablaDeSucesos = page
+    .getByRole("table")
+    .filter({ has: page.getByRole("columnheader", { name: "Qué pasó" }) });
+  const elSuceso = tablaDeSucesos.getByRole("row").nth(1);
+  await expect(elSuceso).toContainText("Llamó el cliente para posponer");
+  await expect(elSuceso).toContainText(OPERADORA);
+
+  // 5. Cancelar pide motivo: sin él, el código en pantalla y el estado igual.
   await expect(
     page.getByRole("button", { name: "Pasar a «Cotizado»" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Pasar a «Cancelado»" }).click();
+  await expect(page.locator("[data-codigo-error]")).toHaveText("DOM-0017");
+  await expect(
+    page.getByText("Ese cambio de estado pide un motivo"),
+  ).toBeVisible();
+  await expect(estado).toHaveText("Creado");
+
+  await page.getByLabel("Nota o motivo").fill("Ya no lo necesita");
+  await page.getByRole("button", { name: "Pasar a «Cancelado»" }).click();
+  await expect(estado).toHaveText("Cancelado");
+  await expect(
+    page.getByRole("button", { name: "Pasar a «Cancelado»" }),
   ).toHaveCount(0);
 
   const historial = page
@@ -163,23 +186,20 @@ test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizad
     .filter({ has: page.getByRole("columnheader", { name: "Quién" }) });
   const cambio = historial.getByRole("row").nth(1);
   await expect(cambio).toContainText(/\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/);
-  await expect(cambio.getByRole("cell").nth(1)).toHaveText("Solicitado");
-  await expect(cambio.getByRole("cell").nth(2)).toHaveText("Cotizado");
-  await expect(cambio.getByRole("cell").nth(3)).toHaveText(OPERADORA);
-  await expect(cambio.getByRole("cell").nth(4)).toHaveText(
-    "Se envió la propuesta",
-  );
+  await expect(cambio.getByRole("cell").nth(1)).toHaveText("Creado");
+  await expect(cambio.getByRole("cell").nth(2)).toHaveText("Cancelado");
+  await expect(cambio.getByRole("cell").nth(3)).toHaveText("0");
+  await expect(cambio.getByRole("cell").nth(4)).toHaveText(OPERADORA);
+  await expect(cambio.getByRole("cell").nth(5)).toHaveText("Ya no lo necesita");
   const elAlta = historial.getByRole("row").nth(2);
-  await expect(elAlta.getByRole("cell").nth(2)).toHaveText("Solicitado");
+  await expect(elAlta.getByRole("cell").nth(2)).toHaveText("Creado");
   await expect(historial.getByRole("row")).toHaveCount(3);
 
-  // 5. La baja ya no se puede: se cancela o se cierra por «Cambiar estado».
+  // 6. La baja ya no se puede: un servicio que salió de «Creado» se cancela.
   await page.getByRole("link", { name: "Dar de baja" }).click();
   const baja = ventana(page, "Baja de servicio");
   await expect(baja.locator("[data-codigo-error]")).toHaveText("DOM-0011");
-  await expect(baja).toContainText(
-    "se cancela o se cierra con «Cambiar estado»",
-  );
+  await expect(baja).toContainText("no se da de baja: se cancela");
   await expect(
     baja.getByRole("button", { name: "Confirmar baja" }),
   ).toHaveCount(0);
@@ -187,7 +207,7 @@ test("una operadora da de alta un servicio, le marca un sitio, lo pasa a cotizad
 
   await page.getByRole("link", { name: "Volver a Servicios" }).click();
   await expect(fila(page, new RegExp(TITULO)).first()).toContainText(
-    "Cotizado",
+    "Cancelado",
   );
   // El más nuevo por fecha de pedido queda primero.
   await expect(page.getByRole("row").nth(1)).toContainText(TITULO);

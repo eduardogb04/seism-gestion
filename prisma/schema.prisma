@@ -455,8 +455,30 @@ model Servicio {
   ordenesCompra OrdenCompra[]
   facturas      Factura[]
   egresos       Egreso[]
+  sucesos       ServicioSuceso[]
 
   @@map("servicios")
+}
+
+// El registro de sucesos de un servicio (F3-01, ADR 0039): lo que pasó, con su
+// día y su texto; el autor es `creado_por`. No se edita: se anula (baja
+// lógica) con un motivo.
+model ServicioSuceso {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId      String    @map("servicio_id") @db.Uuid
+  servicio        Servicio  @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  fecha           DateTime  @db.Date
+  texto           String
+  motivoAnulacion String?   @map("motivo_anulacion")
+  creadoEn        DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor       Json      @map("creado_por") @db.JsonB
+  actualizadoEn   DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor  Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn     DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor    Json?     @map("eliminado_por") @db.JsonB
+
+  @@index([servicioId])
+  @@map("servicios_sucesos")
 }
 
 // Los cambios de estado de un servicio: solo se agregan. La `posicion` (0 es

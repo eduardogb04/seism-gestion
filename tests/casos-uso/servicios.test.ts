@@ -37,6 +37,7 @@ import {
   crearFechaHora,
   RelojFijo,
 } from "../../src/dominio/compartido/reloj.ts";
+import type { EstadoServicio } from "../../src/dominio/servicios/estados.ts";
 import type { EntidadAbm } from "../../src/puertos/repositorios/abm.ts";
 import {
   ADMIN_UNO,
@@ -46,6 +47,7 @@ import {
   type UsuarioSembrado,
 } from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
+import { llevarServicioA } from "./_arnes/servicio.ts";
 
 function fechaDelAnio(anio: number) {
   const resultado = crearFechaHora({
@@ -64,6 +66,11 @@ function fechaDelAnio(anio: number) {
 }
 
 const HOY = fechaDelAnio(2031);
+
+/** El `dia` de julio de 2031, a las 10:30. */
+function fechaDelDia(dia: number) {
+  return { ...HOY, dia };
+}
 
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
 let usuarios: readonly UsuarioSembrado[];
@@ -212,7 +219,7 @@ beforeEach(async () => {
 });
 
 describe("alta", () => {
-  test("genera el código con el año del reloj y nace solicitado, con su evento y su auditoría", async () => {
+  test("genera el código con el año del reloj y nace creado, con su evento y su auditoría", async () => {
     const id = await alta();
     const otro = await alta({ titulo: "Segundo de ejemplo" });
 
@@ -228,7 +235,7 @@ describe("alta", () => {
         servicioId: id,
         posicion: 0,
         de: null,
-        a: "solicitado",
+        a: "creado",
         en: new Date("2031-07-09T13:30:00.000Z"),
         actor: admin,
         nota: null,
@@ -421,71 +428,149 @@ describe("vigencia", () => {
 });
 
 describe("cambio de estado", () => {
-  test("una transición del ciclo agrega un evento con de, a, cuándo, quién y la nota", async () => {
+  test("un cambio manual agrega un evento con de, a, cuándo, quién y la nota; ver muestra los días en cada etapa", async () => {
     const id = await alta();
+    await llevarServicioA(
+      dependencias().transaccional,
+      admin,
+      id,
+      ["cotizado", "adjudicado"],
+      HOY,
+    );
 
-    await casos().cambiarEstado(operador, id, "cotizado", "  Se envió  ");
-    await casos().cambiarEstado(admin, id, "adjudicado", "");
+    await casos().cambiarEstado(operador, id, "en_ejecucion", "  Arrancó  ");
+    await casos(RelojFijo(fechaDelDia(14))).cambiarEstado(
+      admin,
+      id,
+      "finalizado",
+      "",
+    );
 
     expect(await eventos(id)).toMatchObject([
-      { posicion: 0, de: null, a: "solicitado", actor: admin, nota: null },
+      { posicion: 0, de: null, a: "creado", actor: admin, nota: null },
+      { posicion: 1, de: "creado", a: "cotizado" },
+      { posicion: 2, de: "cotizado", a: "adjudicado" },
       {
-        posicion: 1,
-        de: "solicitado",
-        a: "cotizado",
+        posicion: 3,
+        de: "adjudicado",
+        a: "en_ejecucion",
         en: new Date("2031-07-09T13:30:00.000Z"),
         actor: operador,
-        nota: "Se envió",
+        nota: "Arrancó",
       },
       {
-        posicion: 2,
-        de: "cotizado",
-        a: "adjudicado",
+        posicion: 4,
+        de: "en_ejecucion",
+        a: "finalizado",
+        en: new Date("2031-07-14T13:30:00.000Z"),
         actor: admin,
         nota: null,
       },
     ]);
-    const detalle = await casos().ver(id);
-    expect(detalle.estado).toBe("Adjudicado");
-    expect(detalle.historial).toEqual([
+    const detalle = await casos(RelojFijo(fechaDelDia(20))).ver(id);
+    expect(detalle.estado).toBe("Finalizado");
+    expect(detalle.historial.slice(0, 3)).toEqual([
+      {
+        posicion: 4,
+        cuando: "14/07/2031 10:30",
+        de: "En ejecución",
+        a: "Finalizado",
+        quien: ADMIN_UNO.email,
+        nota: "",
+        dias: 6,
+      },
+      {
+        posicion: 3,
+        cuando: "09/07/2031 10:30",
+        de: "Adjudicado",
+        a: "En ejecución",
+        quien: OPERADOR.email,
+        nota: "Arrancó",
+        dias: 5,
+      },
       {
         posicion: 2,
         cuando: "09/07/2031 10:30",
         de: "Cotizado",
         a: "Adjudicado",
         quien: ADMIN_UNO.email,
-        nota: "",
-      },
-      {
-        posicion: 1,
-        cuando: "09/07/2031 10:30",
-        de: "Solicitado",
-        a: "Cotizado",
-        quien: OPERADOR.email,
-        nota: "Se envió",
-      },
-      {
-        posicion: 0,
-        cuando: "09/07/2031 10:30",
-        de: "",
-        a: "Solicitado",
-        quien: ADMIN_UNO.email,
-        nota: "",
+        nota: "Armado por el test",
+        dias: 0,
       },
     ]);
-    expect(detalle.transiciones).toEqual([
-      { valor: "vigente", etiqueta: "Vigente" },
-      { valor: "perdido", etiqueta: "Perdido" },
-      { valor: "sin_respuesta", etiqueta: "Sin respuesta" },
-      { valor: "cancelado", etiqueta: "Cancelado" },
+    expect(detalle.historial.at(-1)).toMatchObject({ a: "Creado", dias: 0 });
+    // De «Finalizado» se sale solo cobrando: no hay botones.
+    expect(detalle.transiciones).toEqual([]);
+  });
+
+  test("ofrece los cambios manuales con el texto de su botón", async () => {
+    const id = await alta();
+    const transiciones = async (recorrido: readonly EstadoServicio[]) => {
+      await llevarServicioA(
+        dependencias().transaccional,
+        admin,
+        id,
+        recorrido,
+        HOY,
+      );
+      return (await casos().ver(id)).transiciones;
+    };
+
+    expect(await transiciones([])).toEqual([
+      { valor: "cancelado", etiqueta: "Pasar a «Cancelado»" },
+    ]);
+    expect(await transiciones(["cotizado"])).toEqual([
+      { valor: "perdido", etiqueta: "Pasar a «Perdido»" },
+      { valor: "sin_respuesta", etiqueta: "Pasar a «Sin respuesta»" },
+      { valor: "cancelado", etiqueta: "Pasar a «Cancelado»" },
+    ]);
+    expect(await transiciones(["adjudicado"])).toEqual([
+      { valor: "en_ejecucion", etiqueta: "Iniciar ejecución" },
+      { valor: "cancelado", etiqueta: "Pasar a «Cancelado»" },
+    ]);
+    expect(await transiciones(["en_ejecucion"])).toEqual([
+      { valor: "finalizado", etiqueta: "Finalizar servicio" },
+      { valor: "cancelado", etiqueta: "Pasar a «Cancelado»" },
+    ]);
+  });
+
+  test("el cliente que vuelve pasa de «Sin respuesta» a «Cotizado», y perder pide motivo", async () => {
+    const id = await alta();
+    await llevarServicioA(
+      dependencias().transaccional,
+      admin,
+      id,
+      ["cotizado"],
+      HOY,
+    );
+
+    await casos().cambiarEstado(admin, id, "sin_respuesta", "No contesta");
+    await casos().cambiarEstado(admin, id, "cotizado", "");
+    await expect(
+      casos().cambiarEstado(admin, id, "perdido", "   "),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0017.codigo });
+    await casos().cambiarEstado(admin, id, "perdido", "Eligió otra oferta");
+
+    expect((await eventos(id)).map(({ a, nota }) => [a, nota])).toEqual([
+      ["creado", null],
+      ["cotizado", "Armado por el test"],
+      ["sin_respuesta", "No contesta"],
+      ["cotizado", null],
+      ["perdido", "Eligió otra oferta"],
     ]);
   });
 
   test.each([
-    ["una que el ciclo no declara", "vigente", ""],
-    ["al mismo estado", "solicitado", ""],
+    [
+      "una automática pedida a mano (la da cargar una cotización)",
+      "cotizado",
+      "",
+    ],
+    ["una que el recorrido no declara", "en_ejecucion", ""],
+    ["al mismo estado", "creado", ""],
     ["a un estado que no existe", "archivado", ""],
-    ["con una nota de más de 500 caracteres", "cotizado", "x".repeat(501)],
+    ["a uno de los nombres de antes", "solicitado", ""],
+    ["con una nota de más de 500 caracteres", "cancelado", "x".repeat(501)],
   ])("%s se rechaza con DOM-0011 y no deja evento", async (_caso, a, nota) => {
     const id = await alta();
 
@@ -494,7 +579,79 @@ describe("cambio de estado", () => {
     ).rejects.toMatchObject({ codigo: catalogo.DOM_0011.codigo });
 
     expect(await eventos(id)).toHaveLength(1);
-    expect((await casos().ver(id)).estado).toBe("Solicitado");
+    expect((await casos().ver(id)).estado).toBe("Creado");
+  });
+
+  test.each([
+    ["adjudicado", ["cotizado"]],
+    ["cerrado", ["cotizado", "adjudicado", "en_ejecucion", "finalizado"]],
+  ] as const)(
+    "pedir a mano el paso automático a %s se rechaza con DOM-0011",
+    async (a, recorrido) => {
+      const id = await alta();
+      await llevarServicioA(
+        dependencias().transaccional,
+        admin,
+        id,
+        recorrido,
+        HOY,
+      );
+
+      await expect(
+        casos().cambiarEstado(admin, id, a, "Lo pido igual"),
+      ).rejects.toMatchObject({ codigo: catalogo.DOM_0011.codigo });
+
+      expect(await eventos(id)).toHaveLength(1 + recorrido.length);
+    },
+  );
+
+  test.each([
+    ["creado", []],
+    ["cotizado", ["cotizado"]],
+    ["adjudicado", ["cotizado", "adjudicado"]],
+    ["en_ejecucion", ["cotizado", "adjudicado", "en_ejecucion"]],
+  ] as const)(
+    "cancelar desde %s pide motivo (DOM-0017) y con motivo cancela",
+    async (_desde, recorrido) => {
+      const id = await alta();
+      await llevarServicioA(
+        dependencias().transaccional,
+        admin,
+        id,
+        recorrido,
+        HOY,
+      );
+
+      await expect(
+        casos().cambiarEstado(admin, id, "cancelado", ""),
+      ).rejects.toMatchObject({ codigo: catalogo.DOM_0017.codigo });
+      expect(await eventos(id)).toHaveLength(1 + recorrido.length);
+
+      await casos().cambiarEstado(admin, id, "cancelado", "Ya no lo necesita");
+      expect((await casos().ver(id)).estado).toBe("Cancelado");
+    },
+  );
+
+  test("un historial con saltos que hoy no se permiten se muestra igual y sigue desde su estado actual (R3)", async () => {
+    const id = await alta();
+    // «Creado» → «En ejecución» de un saque: el recorrido de hoy no lo permite.
+    await llevarServicioA(
+      dependencias().transaccional,
+      admin,
+      id,
+      ["en_ejecucion"],
+      HOY,
+    );
+
+    const detalle = await casos().ver(id);
+    expect(detalle.estado).toBe("En ejecución");
+    expect(detalle.historial.map(({ de, a }) => [de, a])).toEqual([
+      ["Creado", "En ejecución"],
+      ["", "Creado"],
+    ]);
+
+    await casos().cambiarEstado(admin, id, "finalizado", "");
+    expect((await casos().ver(id)).estado).toBe("Finalizado");
   });
 
   // Los dos piden el mismo cambio: entren a la vez o uno detrás del otro, el segundo ya no vale.
@@ -502,8 +659,8 @@ describe("cambio de estado", () => {
     const id = await alta();
 
     const resultados = await Promise.allSettled([
-      casos().cambiarEstado(admin, id, "cotizado", ""),
-      casos().cambiarEstado(operador, id, "cotizado", ""),
+      casos().cambiarEstado(admin, id, "cancelado", "Uno"),
+      casos().cambiarEstado(operador, id, "cancelado", "Otro"),
     ]);
 
     expect(resultados.map(({ status }) => status).sort()).toEqual([
@@ -522,8 +679,8 @@ describe("cambio de estado", () => {
     await expect(
       dependencias().transaccional.ejecutar((repos) =>
         repos.servicios.agregarEvento(admin, id, {
-          de: "solicitado",
-          a: "perdido",
+          de: "creado",
+          a: "cancelado",
           en: HOY,
           origen: null,
           posicion: 0,
@@ -536,7 +693,7 @@ describe("cambio de estado", () => {
 
   test("un servicio que no existe es DOM-0009", async () => {
     await expect(
-      casos().cambiarEstado(admin, "no-es-un-id", "cotizado", ""),
+      casos().cambiarEstado(admin, "no-es-un-id", "cancelado", "Motivo"),
     ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
   });
 });
@@ -669,7 +826,7 @@ describe("edición", () => {
 });
 
 describe("baja y en uso", () => {
-  test("un servicio solicitado se da de baja y deja de listarse", async () => {
+  test("un servicio creado se da de baja y deja de listarse", async () => {
     const id = await alta();
 
     await casos().marcarEliminado(operador, id);
@@ -687,7 +844,7 @@ describe("baja y en uso", () => {
   test("uno que ya avanzó no se da de baja: DOM-0011", async () => {
     const id = await alta();
     expect((await casos().ver(id)).admiteBaja).toBe(true);
-    await casos().cambiarEstado(admin, id, "cotizado", "");
+    await casos().cambiarEstado(admin, id, "cancelado", "Ya no lo necesita");
 
     await expect(casos().marcarEliminado(admin, id)).rejects.toMatchObject({
       codigo: catalogo.DOM_0011.codigo,
@@ -753,7 +910,7 @@ describe("quién escribe", () => {
       for (const escritura of [
         () => casos().crear(actor, escritoDeServicio()),
         () => casos().guardar(actor, id, escritoDeServicio({ titulo: "No" })),
-        () => casos().cambiarEstado(actor, id, "cotizado", ""),
+        () => casos().cambiarEstado(actor, id, "cancelado", "Motivo"),
         () => casos().guardarSitios(actor, id, []),
         () => casos().marcarEliminado(actor, id),
       ]) {
@@ -784,10 +941,12 @@ describe("listado", () => {
       titulo: "Relevamiento de ejemplo",
       fechaPedido: "2031-07-03",
     });
-    await casos().cambiarEstado(admin, segundo, "cotizado", "");
-    await casos().cambiarEstado(admin, tercero, "sin_respuesta", "");
+    const { transaccional } = dependencias();
+    await llevarServicioA(transaccional, admin, segundo, ["cotizado"], HOY);
+    await llevarServicioA(transaccional, admin, tercero, ["cotizado"], HOY);
+    await casos().cambiarEstado(admin, tercero, "sin_respuesta", "No contesta");
     await casos().cambiarEstado(admin, tercero, "cotizado", "");
-    await casos().cambiarEstado(admin, tercero, "perdido", "");
+    await casos().cambiarEstado(admin, tercero, "perdido", "Eligió otra");
     return [primero, segundo, tercero, otroCliente];
   }
 
@@ -841,9 +1000,9 @@ describe("listado", () => {
     expect(await codigos({ estado: "perdido" })).toEqual(["SRV-2031-003"]);
     expect(await codigos({ estado: "sin_respuesta" })).toEqual([]);
     expect(await codigos({ clienteId: otroCliente })).toEqual(["SRV-2031-002"]);
-    expect(
-      await codigos({ clienteId: otroCliente, estado: "solicitado" }),
-    ).toEqual([]);
+    expect(await codigos({ clienteId: otroCliente, estado: "creado" })).toEqual(
+      [],
+    );
     // Un filtro que no es de la lista no filtra.
     expect(await codigos({ estado: "archivado" })).toHaveLength(3);
 
@@ -852,7 +1011,7 @@ describe("listado", () => {
       ["estado", "perdido"],
       ["clienteId", ""],
     ]);
-    expect(filtros[0]?.opciones).toHaveLength(8);
+    expect(filtros[0]?.opciones).toHaveLength(9);
     expect(filtros[1]?.opciones.map(({ texto }) => texto)).toEqual([
       "Cantera Inventada S.R.L.",
       "Minera Ejemplo S.A.",

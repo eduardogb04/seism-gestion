@@ -18,8 +18,6 @@ import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
 import { TableroDeInicio } from "../../src/app/_ui/tablero-de-inicio.tsx";
 import { crearCasosUsoAbm } from "../../src/casos-uso/abm/abm.ts";
-import { CENTROS_DE_COSTO } from "../../src/casos-uso/abm/centros-de-costo.ts";
-import { CUENTAS } from "../../src/casos-uso/abm/cuentas.ts";
 import { EGRESOS } from "../../src/casos-uso/abm/egresos.ts";
 import { crearCasosUsoPagos } from "../../src/casos-uso/egresos/pagos.ts";
 import { crearCasosUsoCobros } from "../../src/casos-uso/servicios/cobros.ts";
@@ -52,7 +50,7 @@ import {
   llevarServicioA,
   sembrarServicio,
 } from "./_arnes/servicio.ts";
-import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
+import { ayudasDelTablero } from "./_arnes/tablero.ts";
 
 function fecha(anio: number, mes: number, dia: number) {
   const resultado = crearFechaHora({
@@ -109,136 +107,18 @@ const facturas = (almacen: AlmacenDocumentos) =>
     nuevaClave: nuevaClaveDocumento,
   });
 
-/** El resultado de un alta que tiene que pasar, o el test se cae con lo que faltó. */
-function pasa<T extends { readonly ok: boolean }>(
-  resultado: T,
-  que: string,
-): Extract<T, { ok: true }> {
-  if (!resultado.ok) {
-    throw new Error(`${que} no pasó: ${JSON.stringify(resultado)}`);
-  }
-  return resultado as Extract<T, { ok: true }>;
-}
-
-async function altaDeCentro(nombre: string, clase: string): Promise<string> {
-  const resultado = await abm().crear(admin, CENTROS_DE_COSTO, {
-    nombre,
-    clase,
-    descripcion: "",
-    activo: "si",
-  });
-  return pasa(resultado, "el centro").registro.valor.id;
-}
-
-async function altaDeCuenta(nombre: string, moneda: Moneda): Promise<string> {
-  const resultado = await abm().crear(admin, CUENTAS, {
-    nombre,
-    tipo: "banco",
-    moneda,
-    observaciones: "",
-    activa: "si",
-  });
-  return pasa(resultado, "la cuenta").registro.valor.id;
-}
-
-type DatosDeFactura = {
-  readonly numero: string;
-  readonly fecha: string;
-  readonly vencimiento: string;
-  readonly importe: string;
-  readonly moneda?: Moneda;
-  readonly alicuota?: "210" | "105" | "0";
-};
-
-async function cargarFactura(
-  servicioId: string,
-  datos: DatosDeFactura,
-): Promise<string> {
-  const resultado = await facturas(almacenTemporal.almacen).crear(
-    admin,
-    servicioId,
-    conCambioSiEsEnDolares({
-      numero: datos.numero,
-      fecha: datos.fecha,
-      vencimiento: datos.vencimiento,
-      importe: datos.importe,
-      importeMoneda: datos.moneda ?? "ARS",
-      alicuota: datos.alicuota ?? "210",
-      ordenCompraId: "",
-    }),
-    null,
-  );
-  return pasa(resultado, `la factura ${datos.numero}`).id;
-}
-
-async function cobrar(
-  facturaId: string,
-  cuentaId: string,
-  dia: string,
-  importe: string,
-  retencion = "",
-): Promise<void> {
-  pasa(
-    await cobros(almacenTemporal.almacen).registrar(admin, facturaId, {
-      fecha: dia,
-      importe,
-      retencion,
-      cuentaId,
-      tipoDeCambio: "",
-      fuenteDelCambio: "",
-      observaciones: "",
-    }),
-    `el cobro de ${importe}`,
-  );
-}
-
-type DatosDeEgreso = {
-  readonly centroCostoId: string;
-  readonly fecha: string;
-  readonly importe: string;
-  readonly moneda?: Moneda;
-  readonly vencimiento?: string;
-  readonly servicioId?: string;
-};
-
-async function cargarEgreso(datos: DatosDeEgreso): Promise<string> {
-  const resultado = await abm().crear(
-    admin,
-    EGRESOS,
-    conCambioSiEsEnDolares({
-      fecha: datos.fecha,
-      concepto: `Egreso de ${datos.importe} del ${datos.fecha}`,
-      centroCostoId: datos.centroCostoId,
-      proveedorId: "",
-      servicioId: datos.servicioId ?? "",
-      numeroComprobante: "",
-      importe: datos.importe,
-      importeMoneda: datos.moneda ?? "ARS",
-      vencimiento: datos.vencimiento ?? "",
-      observaciones: "",
-    }),
-  );
-  return pasa(resultado, `el egreso de ${datos.importe}`).registro.valor.id;
-}
-
-async function pagar(
-  egresoId: string,
-  cuentaId: string,
-  dia: string,
-  importe: string,
-): Promise<void> {
-  pasa(
-    await pagos().registrarPago(admin, egresoId, {
-      fecha: dia,
-      importe,
-      cuentaId,
-      tipoDeCambio: "",
-      fuenteDelCambio: "",
-      observaciones: "",
-    }),
-    `el pago de ${importe}`,
-  );
-}
+const {
+  altaDeCentro,
+  altaDeCuenta,
+  cargarFactura,
+  cobrar,
+  cargarEgreso,
+  pagar,
+} = ayudasDelTablero({
+  dependencias: () => dependencias(),
+  admin: () => admin,
+  almacen: () => almacenTemporal.almacen,
+});
 
 let servicioA = "";
 let servicioB = "";

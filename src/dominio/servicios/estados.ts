@@ -2,8 +2,8 @@
  * El recorrido de un servicio por etapas (F3-01, ADR 0039), sobre el historial
  * de F0-21: el estado de un servicio es su último evento, no una columna.
  *
- * Tres transiciones son **automáticas**: solo las dispara su causa (cargar una
- * cotización, cargar una orden de compra, cobrar todo lo facturado), en la
+ * Cuatro transiciones son **automáticas**: solo las dispara su causa (cargar una
+ * cotización, cargar o anular la orden de compra, cobrar todo lo facturado), en la
  * misma transacción. Las demás las pide la persona desde la pantalla. El
  * parámetro `origen` del historial lleva la nota o el motivo del cambio.
  */
@@ -42,7 +42,7 @@ export const ESTADO_INICIAL: EstadoServicio = "creado";
 const TRANSICIONES: Transiciones<EstadoServicio> = {
   creado: ["cotizado", "cancelado"],
   cotizado: ["adjudicado", "perdido", "sin_respuesta", "cancelado"],
-  adjudicado: ["en_ejecucion", "cancelado"],
+  adjudicado: ["cotizado", "en_ejecucion", "cancelado"],
   en_ejecucion: ["finalizado", "cancelado"],
   finalizado: ["cerrado"],
   cerrado: [],
@@ -52,7 +52,12 @@ const TRANSICIONES: Transiciones<EstadoServicio> = {
   cancelado: [],
 };
 
-const CAUSAS = ["cotizacion", "ordenDeCompra", "cobrado"] as const;
+const CAUSAS = [
+  "cotizacion",
+  "ordenDeCompra",
+  "anulacionDeOrdenDeCompra",
+  "cobrado",
+] as const;
 
 /** Lo que dispara una transición automática; `cobrado`: lo cobrado alcanzó lo facturado. */
 export type Causa = (typeof CAUSAS)[number];
@@ -62,6 +67,8 @@ const AUTOMATICAS: Readonly<
 > = {
   cotizacion: { de: "creado", a: "cotizado" },
   ordenDeCompra: { de: "cotizado", a: "adjudicado" },
+  // Sin orden vigente no queda adjudicado (F3-03, ADR 0041).
+  anulacionDeOrdenDeCompra: { de: "adjudicado", a: "cotizado" },
   cobrado: { de: "finalizado", a: "cerrado" },
 };
 
@@ -78,6 +85,7 @@ const CARGAS = [
   "factura",
   "cobro",
   "suceso",
+  "modalidad",
 ] as const;
 
 /** Lo que se carga en un servicio. Anular sigue la regla de su alta, salvo la orden de compra (ADR 0039). */
@@ -93,6 +101,28 @@ const ETAPAS_DE_CARGA: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   factura: ["adjudicado", "en_ejecucion", "finalizado"],
   cobro: MENOS_CERRADO,
   suceso: MENOS_CERRADO,
+  // Elegir la modalidad de facturación o ajustar la cuota mensual (F3-03).
+  modalidad: ["adjudicado", "en_ejecucion"],
+};
+
+/** Cómo se le factura a un servicio (F3-03, ADR 0041); no es la modalidad del contrato (`Servicio.modalidad`). */
+export const MODALIDADES_DE_FACTURACION = [
+  "puntual",
+  "por_hitos",
+  "mensual",
+] as const;
+
+export type ModalidadDeFacturacion =
+  (typeof MODALIDADES_DE_FACTURACION)[number];
+
+const ETAPAS_DE_FACTURA: Readonly<
+  Record<ModalidadDeFacturacion, readonly EstadoServicio[]>
+> = {
+  // Se factura el trabajo terminado.
+  puntual: ["finalizado"],
+  por_hitos: ETAPAS_DE_CARGA.factura,
+  // La cuota corre con el servicio en marcha.
+  mensual: ["en_ejecucion", "finalizado"],
 };
 
 export type EventoServicio = Evento<
@@ -176,6 +206,14 @@ export function porCausa(
 /** Si en `estado` se puede cargar (o anular) `carga`. */
 export function admiteCarga(estado: EstadoServicio, carga: Carga): boolean {
   return ETAPAS_DE_CARGA[carga].includes(estado);
+}
+
+/** Si en `estado` se carga una factura de un servicio con esa modalidad. */
+export function admiteFactura(
+  estado: EstadoServicio,
+  modalidad: ModalidadDeFacturacion,
+): boolean {
+  return ETAPAS_DE_FACTURA[modalidad].includes(estado);
 }
 
 /** Los días que pasó en cada etapa, en el orden del historial: el último tramo llega hasta `ahora`. */

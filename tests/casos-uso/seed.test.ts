@@ -351,19 +351,26 @@ describe("semilla", () => {
         vigenciaDesde !== null,
       ]),
     ).toEqual([
-      ["SRV-2031-001", "puntual", ["solicitado"], 2, false],
-      ["SRV-2031-002", "puntual", ["solicitado", "cotizado"], 0, false],
+      ["SRV-2031-001", "puntual", ["creado"], 2, false],
+      ["SRV-2031-002", "puntual", ["creado", "cotizado"], 0, false],
       [
         "SRV-2031-003",
         "recurrente",
-        ["solicitado", "cotizado", "adjudicado", "vigente"],
+        ["creado", "cotizado", "adjudicado", "en_ejecucion"],
         0,
         true,
       ],
       [
         "SRV-2031-004",
         "puntual",
-        ["solicitado", "cotizado", "adjudicado", "vigente", "cerrado"],
+        [
+          "creado",
+          "cotizado",
+          "adjudicado",
+          "en_ejecucion",
+          "finalizado",
+          "cerrado",
+        ],
         0,
         false,
       ],
@@ -451,7 +458,7 @@ describe("semilla", () => {
     ).toBe(6);
   });
 
-  test("siembra una orden de compra y tres facturas del servicio vigente (la tercera, en dólares, es de F2-07), con el PDF de una, sin repetir filas, y no en el servidor", async () => {
+  test("siembra una orden de compra y tres facturas del servicio en ejecución (la tercera, en dólares, es de F2-07), con el PDF de una, sin repetir filas, y no en el servidor", async () => {
     const db = cliente();
     const foto = async () => ({
       ordenes: await db.ordenCompra.findMany(),

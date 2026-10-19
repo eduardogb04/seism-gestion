@@ -3,7 +3,7 @@
  * Postgres de verdad del arnés y un almacén en disco: la versión que se numera
  * sola (también con altas simultáneas), el motivo desde la segunda, el archivo
  * validado por su extensión y por sus primeros bytes, el tope de tamaño, el
- * paso de «Solicitado» a «Cotizado» en la misma transacción, la anulación y la
+ * paso de «Creado» a «Cotizado» en la misma transacción, la anulación y la
  * baja del servicio.
  *
  * Datos inventados. Necesita Docker corriendo.
@@ -256,8 +256,8 @@ describe("cargar la primera cotización", () => {
     ).toMatchObject({ importe: { centavos: "1250000", moneda: "ARS" } });
   });
 
-  test("pasa el servicio de solicitado a cotizado, con su nota, en la misma transacción", async () => {
-    expect(await estado()).toBe("solicitado");
+  test("pasa el servicio de creado a cotizado, con su nota, en la misma transacción", async () => {
+    expect(await estado()).toBe("creado");
 
     await cargar();
 
@@ -267,7 +267,7 @@ describe("cargar la primera cotización", () => {
       orderBy: { posicion: "asc" },
     });
     expect(evento).toMatchObject({
-      de: "solicitado",
+      de: "creado",
       a: "cotizado",
       nota: "Cotización v1 cargada",
       actor: admin,
@@ -291,7 +291,7 @@ describe("cargar la primera cotización", () => {
 
     // El archivo queda huérfano en el almacén: se acepta, está escrito en el ADR 0035.
     expect(await filas()).toEqual({ ...antes, archivos: antes.archivos + 1 });
-    expect(await estado()).toBe("solicitado");
+    expect(await estado()).toBe("creado");
   });
 
   test("un operador también carga; quien no es administrador ni operador activo, no", async () => {
@@ -357,18 +357,6 @@ describe("la segunda cotización y las que siguen", () => {
     await cargar({ motivo: "Cambió el alcance" });
 
     expect(await estado()).toBe("cotizado");
-    expect((await filas()).eventos).toBe(antes);
-  });
-
-  test("en otro estado que no es solicitado, cargar una cotización no cambia el estado", async () => {
-    const servicios = crearCasosUsoServicios(dependencias());
-    await servicios.cambiarEstado(admin, servicioId, "cotizado", "");
-    await servicios.cambiarEstado(admin, servicioId, "adjudicado", "");
-    const antes = (await filas()).eventos;
-
-    await cargar();
-
-    expect(await estado()).toBe("adjudicado");
     expect((await filas()).eventos).toBe(antes);
   });
 

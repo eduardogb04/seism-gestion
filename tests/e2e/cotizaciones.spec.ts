@@ -76,7 +76,7 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
 }) => {
   await entrarComo(page, OPERADORA);
 
-  // Un servicio nuevo, «Solicitado». Su pedido es más viejo que el de Servicios, que mira quién queda primero.
+  // Un servicio nuevo, «Creado». Su pedido es más viejo que el de Servicios, que mira quién queda primero.
   await page.goto("/servicios");
   await page.getByRole("link", { name: "Alta de servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
@@ -92,7 +92,7 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
   await alta.getByRole("button", { name: "Guardar" }).click();
   await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
   const estado = page.locator("[data-estado-del-servicio]");
-  await expect(estado).toHaveText("Solicitado");
+  await expect(estado).toHaveText("Creado");
   await expect(page.getByText("Todavía no hay cotizaciones")).toBeVisible();
 
   // 1. La primera: sin motivo, con un archivo de ~2 MB.
@@ -133,7 +133,7 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
     .filter({ has: page.getByRole("columnheader", { name: "Quién" }) });
   const cambio = historial.getByRole("row").nth(1);
   await expect(cambio.getByRole("cell").nth(2)).toHaveText("Cotizado");
-  await expect(cambio.getByRole("cell").nth(4)).toHaveText(
+  await expect(cambio.getByRole("cell").nth(5)).toHaveText(
     "Cotización v1 cargada",
   );
 

@@ -48,7 +48,7 @@ import {
   crearAlmacenTemporal,
 } from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
-import { sembrarServicio } from "./_arnes/servicio.ts";
+import { llevarServicioA, sembrarServicio } from "./_arnes/servicio.ts";
 
 const { cookie, punto } = vi.hoisted(() => ({
   cookie: { valor: undefined as string | undefined },
@@ -362,11 +362,23 @@ describe("órdenes de compra y facturas desde el formulario: el documento es opc
   // Lo que manda el navegador cuando no se eligió ningún archivo, ya decodificado por Next.
   const SIN_ELEGIR = new File([], "blob");
 
+  /** La orden de compra entra en «Cotizado» y la factura desde «Adjudicado» (F3-01). */
+  function llevarA(a: "cotizado" | "adjudicado"): Promise<void> {
+    return llevarServicioA(
+      crearTransaccionalPrisma(cliente()),
+      { tipo: "persona", usuarioId: operador.id },
+      servicioId,
+      [a],
+      reloj().ahora(),
+    );
+  }
+
   test("sin archivo elegido se guarda sin documento y vuelve a la pantalla del servicio", async () => {
     const conOrden = formulario(ORDEN);
     conOrden.set("archivo", SIN_ELEGIR);
     const conFactura = formulario(FACTURA);
     conFactura.set("archivo", SIN_ELEGIR);
+    await llevarA("cotizado");
 
     expect(
       await destino(cargarOrdenDeCompra(servicioId, VACIO, conOrden)),
@@ -386,6 +398,7 @@ describe("órdenes de compra y facturas desde el formulario: el documento es opc
   });
 
   test("con archivo, lo guarda; uno que no se admite vuelve con su mensaje y lo escrito", async () => {
+    await llevarA("adjudicado");
     await destino(
       cargarFactura(
         servicioId,
@@ -397,6 +410,7 @@ describe("órdenes de compra y facturas desde el formulario: el documento es opc
       "factura.pdf",
     );
 
+    await llevarA("cotizado");
     const estado = await cargarOrdenDeCompra(
       servicioId,
       VACIO,

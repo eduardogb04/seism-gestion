@@ -1,6 +1,6 @@
 /**
  * Dos cobros de demostración (F2-07) sobre las facturas del servicio sembrado en
- * estado vigente (`seed-ordenes-y-facturas.ts`): uno parcial en pesos, con una
+ * ejecución (`seed-ordenes-y-facturas.ts`): uno parcial en pesos, con una
  * retención, de la primera factura (en pesos), y uno en pesos, con tipo de
  * cambio, de una factura en dólares que se suma acá (la semilla de F2-06 no
  * tiene ninguna). Las llama `sembrar` (`prisma/seed.ts`) solo fuera del
@@ -20,7 +20,7 @@ import { identificadorDesde } from "../src/dominio/compartido/identificador.ts";
 import { crearImporte } from "../src/dominio/compartido/importe.ts";
 import { type Reloj, RelojFijo } from "../src/dominio/compartido/reloj.ts";
 
-/** El servicio sembrado en estado vigente (`SERVICIOS_DE_DEMOSTRACION` de `seed.ts`). */
+/** El servicio sembrado en ejecución (`SERVICIOS_DE_DEMOSTRACION` de `seed.ts`). */
 const SERVICIO = {
   cuit: "30000000031",
   titulo: "Operación de tanques — ejemplo",

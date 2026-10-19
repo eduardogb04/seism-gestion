@@ -265,3 +265,116 @@ export async function guardarSitiosDeServicio(
     armado().servicios.guardarSitios(actor, id, sitioIds),
   );
 }
+
+/** El responsable y la fecha estimada de inicio. */
+export async function guardarPlanificacionDeServicio(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const guardada = await armado().planificacion.guardarPlanificacion(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+    );
+    return guardada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardada;
+  });
+}
+
+/** Cargar un hito del servicio. */
+export async function cargarHito(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().planificacion.crearHito(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
+/** Cambiar el texto de un hito. */
+export async function guardarHito(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const guardado = await armado().planificacion.guardarHito(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return guardado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardado;
+  });
+}
+
+/** Quitar un hito de la lista. */
+export async function quitarHito(
+  servicioId: string,
+  id: string,
+): Promise<void> {
+  return enElServicio(servicioId, (actor) =>
+    armado().planificacion.marcarEliminadoHito(actor, id),
+  );
+}
+
+/** Tildar un hito como realizado o destildarlo. */
+export async function cambiarRealizadoDeHito(
+  servicioId: string,
+  id: string,
+  realizado: boolean,
+): Promise<void> {
+  return enElServicio(servicioId, (actor) =>
+    armado().planificacion.cambiarRealizadoDeHito(actor, id, realizado),
+  );
+}
+
+/** Cargar un recurso del servicio. */
+export async function cargarRecurso(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().planificacion.crearRecurso(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
+/** Cambiar un recurso. */
+export async function guardarRecurso(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const guardado = await armado().planificacion.guardarRecurso(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return guardado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardado;
+  });
+}
+
+/** Quitar un recurso de la lista. */
+export async function quitarRecurso(
+  servicioId: string,
+  id: string,
+): Promise<void> {
+  return enElServicio(servicioId, (actor) =>
+    armado().planificacion.marcarEliminadoRecurso(actor, id),
+  );
+}

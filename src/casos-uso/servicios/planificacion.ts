@@ -27,7 +27,10 @@ import {
   cicloServicio,
 } from "../../dominio/servicios/estados.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
-import type { RegistroDe } from "../../puertos/repositorios/abm.ts";
+import type {
+  RegistroDe,
+  RepositorioDe,
+} from "../../puertos/repositorios/abm.ts";
 import type { DatosRecurso } from "../../puertos/repositorios/planificacion.ts";
 import type {
   RepositoriosEnTransaccion,
@@ -248,6 +251,14 @@ const VALIDACION_DE_PLANIFICACION = z.object({
   fechaInicioEstimada: z.string().nullable(),
 });
 
+type Hijo = { readonly servicioId: string };
+type RepositorioHijo<D> = Pick<RepositorioDe<D>, "buscarPorId" | "actualizar">;
+
+/** Un día `aaaa-mm-dd` como se muestra; vacío si no se cargó. */
+function aTexto(dia: string | null): string {
+  return dia === null ? "" : diaConBarras(dia);
+}
+
 /** El registro con ese id; `DOM-0009` si no existe o ya está dado de baja. */
 async function vigentePorId<D>(
   buscar: (id: string) => Promise<RegistroDe<D> | null>,
@@ -266,6 +277,8 @@ export function crearCasosUsoPlanificacion({
   reloj,
   generadorId,
 }: Dependencias): CasosUsoPlanificacion {
+  const nuevoId = () => identificadorDesde<string>(generadorId.generar());
+
   /** Rol, servicio tomado y etapa: lo que toda escritura exige antes de mirar lo escrito. */
   async function prepararEscritura(
     repos: RepositoriosEnTransaccion,
@@ -284,7 +297,45 @@ export function crearCasosUsoPlanificacion({
     return servicio;
   }
 
-  const hoy = () => formatearISO(reloj.ahora()).slice(0, 10);
+  /** El hito o el recurso que se va a cambiar, ya con lo que toda escritura exige. */
+  async function abrir<D extends Hijo>(
+    repos: RepositoriosEnTransaccion,
+    actor: Actor,
+    repositorio: RepositorioHijo<D>,
+    entidad: string,
+    id: string,
+    carga: Carga,
+  ): Promise<RegistroDe<D>> {
+    const actual = await vigentePorId(
+      (clave) => repositorio.buscarPorId(clave),
+      entidad,
+      id,
+    );
+    await prepararEscritura(repos, actor, actual.valor.servicioId, carga);
+    return actual;
+  }
+
+  /** Guarda `valor` en lugar del actual, o lo da de baja si es `null`. */
+  async function cambiar<D>(
+    repositorio: RepositorioHijo<D>,
+    actor: Actor,
+    entidad: string,
+    actual: RegistroDe<D>,
+    valor: RegistroDe<D>["valor"] | null,
+  ): Promise<void> {
+    const cambiado =
+      valor === null
+        ? marcarEliminado(actual, actor, reloj)
+        : marcarActualizado(actual, valor, actor, reloj);
+    if (!cambiado.ok) {
+      throw nuevoError(catalogo.DOM_0009, { entidad, id: actual.valor.id });
+    }
+    await repositorio.actualizar(
+      actor,
+      cambiado.valor,
+      valor === null ? "eliminar" : "actualizar",
+    );
+  }
 
   return {
     ver(servicioId) {
@@ -311,10 +362,7 @@ export function crearCasosUsoPlanificacion({
             tipo: "persona",
             usuarioId: identificadorDesde<"Usuario">(valor.responsableId),
           }),
-          fechaInicioEstimada:
-            valor.fechaInicioEstimada === null
-              ? ""
-              : diaConBarras(valor.fechaInicioEstimada),
+          fechaInicioEstimada: aTexto(valor.fechaInicioEstimada),
           hitos: (await repos.hitos.listarDe(servicioId)).map(
             ({ valor: hito }) => ({
               id: hito.id,
@@ -337,8 +385,8 @@ export function crearCasosUsoPlanificacion({
               (recurso.camionId === null
                 ? recurso.descripcion
                 : camiones.get(recurso.camionId)) ?? "",
-            desde: recurso.desde === null ? "" : diaConBarras(recurso.desde),
-            hasta: recurso.hasta === null ? "" : diaConBarras(recurso.hasta),
+            desde: aTexto(recurso.desde),
+            hasta: aTexto(recurso.hasta),
           })),
           planificable: admiteCarga(estado, "planificacion"),
           tildable: admiteCarga(estado, "tildarHito"),
@@ -379,19 +427,10 @@ export function crearCasosUsoPlanificacion({
         if (!validado.ok) {
           return validado;
         }
-        const cambiado = marcarActualizado(
-          actual,
-          { ...actual.valor, ...validado.datos },
-          actor,
-          reloj,
-        );
-        if (!cambiado.ok) {
-          throw nuevoError(catalogo.DOM_0009, {
-            entidad: "Servicio",
-            id: servicioId,
-          });
-        }
-        await repos.servicios.actualizar(actor, cambiado.valor, "actualizar");
+        await cambiar(repos.servicios, actor, "Servicio", actual, {
+          ...actual.valor,
+          ...validado.datos,
+        });
         return { ok: true };
       });
     },
@@ -417,7 +456,7 @@ export function crearCasosUsoPlanificacion({
               orden: (ultimo?.valor.orden ?? 0) + 1,
               realizadoEn: null,
               realizadoPor: null,
-              id: identificadorDesde<string>(generadorId.generar()),
+              id: nuevoId(),
             },
             actor,
             reloj,
@@ -429,15 +468,12 @@ export function crearCasosUsoPlanificacion({
 
     guardarHito(actor, id, escrito) {
       return transaccional.ejecutar(async (repos) => {
-        const actual = await vigentePorId(
-          (clave) => repos.hitos.buscarPorId(clave),
-          "Hito",
-          id,
-        );
-        await prepararEscritura(
+        const actual = await abrir(
           repos,
           actor,
-          actual.valor.servicioId,
+          repos.hitos,
+          "Hito",
+          id,
           "planificacion",
         );
         const validado = validarEscrito(
@@ -448,86 +484,62 @@ export function crearCasosUsoPlanificacion({
         if (!validado.ok) {
           return validado;
         }
-        const cambiado = marcarActualizado(
-          actual,
-          { ...actual.valor, ...validado.datos },
-          actor,
-          reloj,
-        );
-        if (!cambiado.ok) {
-          throw nuevoError(catalogo.DOM_0009, { entidad: "Hito", id });
-        }
-        await repos.hitos.actualizar(actor, cambiado.valor, "actualizar");
+        await cambiar(repos.hitos, actor, "Hito", actual, {
+          ...actual.valor,
+          ...validado.datos,
+        });
         return { ok: true };
       });
     },
 
     marcarEliminadoHito(actor, id) {
       return transaccional.ejecutar(async (repos) => {
-        const actual = await vigentePorId(
-          (clave) => repos.hitos.buscarPorId(clave),
-          "Hito",
-          id,
-        );
-        await prepararEscritura(
-          repos,
+        await cambiar(
+          repos.hitos,
           actor,
-          actual.valor.servicioId,
-          "planificacion",
+          "Hito",
+          await abrir(repos, actor, repos.hitos, "Hito", id, "planificacion"),
+          null,
         );
-        const eliminado = marcarEliminado(actual, actor, reloj);
-        if (!eliminado.ok) {
-          throw nuevoError(catalogo.DOM_0009, { entidad: "Hito", id });
-        }
-        await repos.hitos.actualizar(actor, eliminado.valor, "eliminar");
       });
     },
 
     cambiarRealizadoDeHito(actor, id, realizado) {
       return transaccional.ejecutar(async (repos) => {
-        const actual = await vigentePorId(
-          (clave) => repos.hitos.buscarPorId(clave),
-          "Hito",
-          id,
-        );
-        await prepararEscritura(
+        const actual = await abrir(
           repos,
           actor,
-          actual.valor.servicioId,
+          repos.hitos,
+          "Hito",
+          id,
           "tildarHito",
         );
         // Tildar uno ya tildado no le cambia la fecha ni el autor.
         if ((actual.valor.realizadoEn !== null) === realizado) {
           return;
         }
-        const cambiado = marcarActualizado(
-          actual,
-          {
-            ...actual.valor,
-            realizadoEn: realizado ? hoy() : null,
-            realizadoPor: realizado ? actor : null,
-          },
-          actor,
-          reloj,
-        );
-        if (!cambiado.ok) {
-          throw nuevoError(catalogo.DOM_0009, { entidad: "Hito", id });
-        }
-        await repos.hitos.actualizar(actor, cambiado.valor, "actualizar");
+        await cambiar(repos.hitos, actor, "Hito", actual, {
+          ...actual.valor,
+          realizadoEn: realizado
+            ? formatearISO(reloj.ahora()).slice(0, 10)
+            : null,
+          realizadoPor: realizado ? actor : null,
+        });
       });
     },
 
     formularioDeRecurso(id) {
       return transaccional.ejecutar(async (repos) => {
-        const actual =
+        const guardado =
           id === undefined
-            ? null
-            : await vigentePorId(
-                (clave) => repos.recursos.buscarPorId(clave),
-                "Recurso",
-                id,
-              );
-        const guardado = actual?.valor;
+            ? undefined
+            : (
+                await vigentePorId(
+                  (clave) => repos.recursos.buscarPorId(clave),
+                  "Recurso",
+                  id,
+                )
+              ).valor;
         return {
           campos: CAMPOS_DE_RECURSO,
           elegibles: await elegiblesDe(
@@ -556,11 +568,7 @@ export function crearCasosUsoPlanificacion({
         await repos.recursos.crear(
           actor,
           crearAuditable(
-            {
-              ...leido.datos,
-              servicioId,
-              id: identificadorDesde<string>(generadorId.generar()),
-            },
+            { ...leido.datos, servicioId, id: nuevoId() },
             actor,
             reloj,
           ),
@@ -571,53 +579,42 @@ export function crearCasosUsoPlanificacion({
 
     guardarRecurso(actor, id, escrito) {
       return transaccional.ejecutar(async (repos) => {
-        const actual = await vigentePorId(
-          (clave) => repos.recursos.buscarPorId(clave),
-          "Recurso",
-          id,
-        );
-        await prepararEscritura(
+        const actual = await abrir(
           repos,
           actor,
-          actual.valor.servicioId,
+          repos.recursos,
+          "Recurso",
+          id,
           "planificacion",
         );
         const leido = await leerRecurso(repos, escrito, actual.valor);
         if (!leido.ok) {
           return leido;
         }
-        const cambiado = marcarActualizado(
-          actual,
-          { ...actual.valor, ...leido.datos },
-          actor,
-          reloj,
-        );
-        if (!cambiado.ok) {
-          throw nuevoError(catalogo.DOM_0009, { entidad: "Recurso", id });
-        }
-        await repos.recursos.actualizar(actor, cambiado.valor, "actualizar");
+        await cambiar(repos.recursos, actor, "Recurso", actual, {
+          ...actual.valor,
+          ...leido.datos,
+        });
         return { ok: true };
       });
     },
 
     marcarEliminadoRecurso(actor, id) {
       return transaccional.ejecutar(async (repos) => {
-        const actual = await vigentePorId(
-          (clave) => repos.recursos.buscarPorId(clave),
-          "Recurso",
-          id,
-        );
-        await prepararEscritura(
-          repos,
+        await cambiar(
+          repos.recursos,
           actor,
-          actual.valor.servicioId,
-          "planificacion",
+          "Recurso",
+          await abrir(
+            repos,
+            actor,
+            repos.recursos,
+            "Recurso",
+            id,
+            "planificacion",
+          ),
+          null,
         );
-        const eliminado = marcarEliminado(actual, actor, reloj);
-        if (!eliminado.ok) {
-          throw nuevoError(catalogo.DOM_0009, { entidad: "Recurso", id });
-        }
-        await repos.recursos.actualizar(actor, eliminado.valor, "eliminar");
       });
     },
   };

@@ -229,12 +229,12 @@ archivo (ADR 0005).
 - **Temas y colores (F3-05, ADR 0040).** Los colores son nombres de rol (`bg-fondo`,
   `bg-superficie`, `bg-superficie-alta`, `border-borde`, `border-borde-control`, `text-texto`,
   `text-texto-suave`, `acento`, `peligro`, `exito`, `aviso` y sus `-suave`/`-fuerte`/`sobre-`,
-  `menu`, `serie-1..4`), definidos **solo** en `globales.css`: el claro en `@theme`, el oscuro en el
+  `menu`, `serie-1..4`, `velo` —el fondo atenuado detrás de una ventana—), definidos **solo** en `globales.css`: el claro en `@theme`, el oscuro en el
   bloque `@variant dark` de `:root` (`data-tema="oscuro"`, o `sistema` con el sistema operativo en
-  oscuro). **Nunca** `gray-*`, `red-*`, `white` ni un hex en `src/app/`: lo frena
+  oscuro). **Nunca** `gray-*`, `red-*`, `white`, `black` ni un hex en `src/app/`: lo frena
   `tests/dominio/colores-por-nombre.test.ts`. Un color nuevo va en los dos bloques y, si es un par
   texto/fondo que se usa, en `PARES` de `tests/dominio/temas.test.ts` (contraste AA leído del CSS).
-  `dark:` existe para lo que no es un color (la sombra, el velo de la ventana). El tema y el menú
+  `dark:` existe para lo que no es un color (la sombra). El tema y el menú
   contraído los guardan dos Server Actions (`_ui/acciones-de-preferencias.ts`). Íconos:
   `lucide-react`, por nombre y con `aria-hidden="true"` al lado de un texto. Gráficos:
   `Grafico` (`_ui/grafico.tsx`, visx en el servidor) y `TarjetaKpi` (`_ui/tarjeta-kpi.tsx`).

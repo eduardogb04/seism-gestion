@@ -20,7 +20,7 @@ export function Ventana({
   readonly children: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-3 sm:p-6 dark:bg-black/70">
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-velo/60 p-3 sm:p-6">
       <section
         role="dialog"
         aria-modal="true"

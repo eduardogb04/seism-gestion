@@ -19,7 +19,7 @@ function archivosBajo(carpeta: string): string[] {
 }
 
 const PALETA_CRUDA =
-  /\b(?:bg|text|border|outline|ring|fill|stroke|divide)-(?:(?:gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}|white)\b/g;
+  /\b(?:bg|text|border|outline|ring|fill|stroke|divide)-(?:(?:gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}|white|black)\b/g;
 /** Un color hex; `&#123;` es una entidad HTML, no un color. */
 const HEX = /(?<!&)#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
 

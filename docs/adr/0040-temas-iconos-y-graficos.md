@@ -1,7 +1,7 @@
 # ADR 0040 — Temas por colores con nombre, íconos de Lucide y gráficos de visx
 
 **Fecha:** 2026-10-16
-**Estado:** Propuesto
+**Estado:** Aprobado
 **Tarea:** F3-05
 **Decide:** el orquestador (resoluciones R1 a R6 de la ficha)
 
@@ -34,7 +34,7 @@ Los colores son **nombres de rol** (`fondo`, `superficie`, `texto-suave`, `acent
 Lo hacen cumplir dos tests de dominio: `tests/dominio/temas.test.ts` lee los dos temas **de
 `globales.css`** y exige contraste WCAG (4.5 para texto, 3 para bordes de controles y series) en
 cada par que se usa; `tests/dominio/colores-por-nombre.test.ts` falla si un archivo de `src/app/`
-usa la paleta cruda, `white` o un hex.
+usa la paleta cruda, `white`, `black` o un hex.
 
 ## Alternativas descartadas
 

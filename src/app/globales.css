@@ -50,6 +50,7 @@
   --color-menu-activo: #2a3442;
   --color-menu-texto: #e8ecf1;
   --color-menu-texto-suave: #9aa5b4;
+  --color-velo: #161b22;
   --color-serie-1: #1d4ed8;
   --color-serie-2: #0f8a7e;
   --color-serie-3: #b45309;
@@ -85,6 +86,7 @@
       --color-menu-activo: #232b36;
       --color-menu-texto: #e6eaef;
       --color-menu-texto-suave: #8f9aa8;
+      --color-velo: #000000;
       --color-serie-1: #7ea6f8;
       --color-serie-2: #3fc1b0;
       --color-serie-3: #e6a04a;

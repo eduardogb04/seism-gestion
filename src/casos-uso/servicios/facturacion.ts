@@ -81,13 +81,12 @@ type ResultadoDeFacturacion =
   | { readonly ok: true }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
-const ETIQUETAS_DE_MODALIDAD: Readonly<
-  Record<ModalidadDeFacturacion, string>
-> = {
-  puntual: "Puntual",
-  por_hitos: "Por hitos (libre)",
-  mensual: "Mensual",
-};
+const ETIQUETAS_DE_MODALIDAD: Readonly<Record<ModalidadDeFacturacion, string>> =
+  {
+    puntual: "Puntual",
+    por_hitos: "Por hitos (libre)",
+    mensual: "Mensual",
+  };
 
 /** Una cuota o un ajuste, como se ve en el historial. */
 export type CuotaListada = {
@@ -215,9 +214,7 @@ function primerDiaDe(dia: string): FechaHora {
   return mes;
 }
 
-const cuotasDelDominio = (
-  cuotas: readonly CuotaGuardada[],
-): readonly Cuota[] =>
+const cuotasDelDominio = (cuotas: readonly CuotaGuardada[]): readonly Cuota[] =>
   cuotas.map(({ valor }) => ({
     desde: primerDiaDe(valor.desdeMes),
     importe: valor.importe,

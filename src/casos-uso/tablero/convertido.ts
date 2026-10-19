@@ -88,8 +88,9 @@ const SERVICIOS_EN_EL_GRAFICO = 10;
 const enUnidades = (importe: Importe<Moneda>): number =>
   Number(importe.centavos) / 100;
 
-/** `SRV-2031-001` se escribe `2031-001`: entra bajo la barra. */
-const etiquetaDe = (codigo: string): string => codigo.replace(/^SRV-/, "");
+/** `SRV-2031-001` se escribe `001/31`: entra bajo la barra. */
+const etiquetaDe = (codigo: string): string =>
+  codigo.replace(/^SRV-[0-9]{2}([0-9]{2})-(.+)$/, "$2/$1");
 
 export async function armarConvertido(
   { tablero }: RepositoriosEnTransaccion,

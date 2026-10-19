@@ -48,6 +48,10 @@ function Numero({
   );
 }
 
+/** `2031-07` se escribe `07/31`: entra bajo la barra. */
+const etiquetaDeMes = (mes: string): string =>
+  `${mes.slice(5)}/${mes.slice(2, 4)}`;
+
 function documentos(cantidad: number): string {
   return cantidad === 1
     ? "1 documento sin tipo de cambio"
@@ -198,15 +202,17 @@ export function TableroDeInicio({ tablero }: { readonly tablero: Tablero }) {
           series={[
             {
               nombre: "Facturación",
-              puntos: convertido.meses.map(({ mes: etiqueta, facturado }) => ({
-                etiqueta,
-                valor: facturado,
-              })),
+              puntos: convertido.meses.map(
+                ({ mes: delGrafico, facturado }) => ({
+                  etiqueta: etiquetaDeMes(delGrafico),
+                  valor: facturado,
+                }),
+              ),
             },
             {
               nombre: "Egresos",
-              puntos: convertido.meses.map(({ mes: etiqueta, egresos }) => ({
-                etiqueta,
+              puntos: convertido.meses.map(({ mes: delGrafico, egresos }) => ({
+                etiqueta: etiquetaDeMes(delGrafico),
                 valor: egresos,
               })),
             },

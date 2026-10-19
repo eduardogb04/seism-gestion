@@ -371,16 +371,16 @@ describe("el mes elegido, en pesos", () => {
     const { convertido } = await tablero().tablero({ mes: "2031-07" });
 
     expect(convertido.rentabilidad).toEqual([
-      { etiqueta: "2031-001", resultado: 126050 },
-      { etiqueta: "2031-002", resultado: 55280.03 },
-      { etiqueta: "2031-003", resultado: 1000 },
-      { etiqueta: "2031-004", resultado: 990 },
-      { etiqueta: "2031-005", resultado: 980 },
-      { etiqueta: "2031-006", resultado: 970 },
-      { etiqueta: "2031-007", resultado: 960 },
-      { etiqueta: "2031-008", resultado: 950 },
-      { etiqueta: "2031-009", resultado: 940 },
-      { etiqueta: "2031-010", resultado: 930 },
+      { etiqueta: "001/31", resultado: 126050 },
+      { etiqueta: "002/31", resultado: 55280.03 },
+      { etiqueta: "003/31", resultado: 1000 },
+      { etiqueta: "004/31", resultado: 990 },
+      { etiqueta: "005/31", resultado: 980 },
+      { etiqueta: "006/31", resultado: 970 },
+      { etiqueta: "007/31", resultado: 960 },
+      { etiqueta: "008/31", resultado: 950 },
+      { etiqueta: "009/31", resultado: 940 },
+      { etiqueta: "010/31", resultado: 930 },
       { etiqueta: "Otros", resultado: 1830 },
     ]);
   });
@@ -459,9 +459,9 @@ describe("el mes elegido, en dólares", () => {
       [211.5, 217.73],
     ]);
     expect(convertido.rentabilidad.slice(0, 3)).toEqual([
-      { etiqueta: "2031-001", resultado: 132.25 },
-      { etiqueta: "2031-002", resultado: 80.25 },
-      { etiqueta: "2031-003", resultado: 1 },
+      { etiqueta: "001/31", resultado: 132.25 },
+      { etiqueta: "002/31", resultado: 80.25 },
+      { etiqueta: "003/31", resultado: 1 },
     ]);
     expect(convertido.rentabilidad.at(-1)).toEqual({
       etiqueta: "Otros",
@@ -600,8 +600,8 @@ describe("lo que se ve en el inicio, en una sola moneda", () => {
   test("los dos gráficos llevan los números de los doce meses y de los servicios", async () => {
     const html = await inicioDibujado("ARS");
 
-    expect(sinEtiquetas(html)).toContain("2031-07180.330,03192.000");
-    expect(sinEtiquetas(html)).toContain("2031-001126.0502031-00255.280,03");
+    expect(sinEtiquetas(html)).toContain("07/31180.330,03192.000");
+    expect(sinEtiquetas(html)).toContain("001/31126.050002/3155.280,03");
   });
 
   test("las tarjetas de cada moneda siguen sin convertir y con su enlace", async () => {

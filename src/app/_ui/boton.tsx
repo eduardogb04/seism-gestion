@@ -3,12 +3,15 @@ import type { ComponentProps } from "react";
 export type VarianteDeBoton = "primario" | "secundario" | "peligro";
 
 const BASE =
-  "inline-flex cursor-pointer items-center justify-center rounded border px-3 py-2 font-medium no-underline";
+  "inline-flex cursor-pointer items-center justify-center gap-2 rounded border px-3 py-2 font-medium no-underline motion-safe:transition-colors motion-safe:duration-150 pointer-coarse:min-h-11";
 
 const VARIANTES: Record<VarianteDeBoton, string> = {
-  primario: "border-acento bg-acento text-white hover:bg-acento-fuerte",
-  secundario: "border-gray-300 bg-white text-gray-900 hover:bg-gray-100",
-  peligro: "border-red-700 bg-red-700 text-white hover:bg-red-800",
+  primario:
+    "border-acento bg-acento text-sobre-acento hover:border-acento-fuerte hover:bg-acento-fuerte",
+  secundario:
+    "border-borde-control bg-superficie text-texto hover:bg-superficie-alta",
+  peligro:
+    "border-peligro bg-peligro text-sobre-peligro hover:border-peligro-fuerte hover:bg-peligro-fuerte",
 };
 
 /** Las clases del botón, para el enlace que tiene que verse como uno. */

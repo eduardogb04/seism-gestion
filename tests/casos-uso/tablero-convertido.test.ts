@@ -14,10 +14,13 @@
  * Un documento en pesos usa el más reciente de esos con fecha igual o anterior.
  */
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
+import { TableroDeInicio } from "../../src/app/_ui/tablero-de-inicio.tsx";
 import { crearCasosUsoTablero } from "../../src/casos-uso/tablero/tablero.ts";
 import type { Actor } from "../../src/dominio/compartido/actor.ts";
 import {
@@ -527,6 +530,86 @@ describe("los documentos sin tipo de cambio", () => {
     expect(lista.moneda).toBe("ARS");
     expect((await tablero().tablero({ moneda: "EUR" })).convertido.moneda).toBe(
       "ARS",
+    );
+  });
+});
+
+function cifraVista(html: string, id: string): string | undefined {
+  return new RegExp(`data-cifra="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
+}
+
+/** El inicio dibujado con los números de la base sembrada: lo que se ve, no el dato intermedio. */
+async function inicioDibujado(
+  moneda: string,
+  sinCambio?: number,
+): Promise<string> {
+  const resultado = await tablero().tablero({ mes: "2031-07", moneda });
+  return renderToStaticMarkup(
+    createElement(TableroDeInicio, {
+      tablero:
+        sinCambio === undefined
+          ? resultado
+          : {
+              ...resultado,
+              convertido: { ...resultado.convertido, sinCambio },
+            },
+    }),
+  );
+}
+
+const sinEtiquetas = (html: string) => html.replace(/<[^>]+>/g, "");
+
+function kpiVisto(html: string, id: string): string | undefined {
+  return new RegExp(`data-kpi="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
+}
+
+describe("lo que se ve en el inicio, en una sola moneda", () => {
+  test("en pesos: la facturación en grande, el resto de los números y el aviso que lleva a la lista", async () => {
+    const html = await inicioDibujado("ARS");
+
+    expect(kpiVisto(html, "facturacion")).toBe("ARS 180.330,03");
+    expect(kpiVisto(html, "resultado-de-caja")).toBe("ARS 4.020,00");
+    expect(kpiVisto(html, "por-cobrar-vencido")).toBe("ARS 18.000,00");
+    expect(html).toMatch(
+      /<a href="\/sin-tipo-de-cambio\?moneda=ARS"[^>]*>2 documentos sin tipo de cambio<\/a>/,
+    );
+    expect(sinEtiquetas(html)).toContain(
+      "Pesos convertidos con el último tipo de cambio cargado a esa fecha.",
+    );
+  });
+
+  test("en dólares: el aviso en singular, y el selector deja el mes y marca la moneda", async () => {
+    const html = await inicioDibujado("USD");
+
+    expect(kpiVisto(html, "facturacion")).toBe("USD 211,50");
+    expect(html).toContain(">1 documento sin tipo de cambio</a>");
+    expect(html).toMatch(
+      /<a href="\/\?mes=2031-07&amp;moneda=ARS"[^>]*>Pesos<\/a>/,
+    );
+    expect(html).toMatch(
+      /<a href="\/\?mes=2031-07&amp;moneda=USD"[^>]*aria-current="true"[^>]*>Dólares<\/a>/,
+    );
+  });
+
+  test("sin documentos sin tipo de cambio no hay aviso", async () => {
+    expect(await inicioDibujado("ARS", 0)).not.toContain(
+      "sin tipo de cambio</a>",
+    );
+  });
+
+  test("los dos gráficos llevan los números de los doce meses y de los servicios", async () => {
+    const html = await inicioDibujado("ARS");
+
+    expect(sinEtiquetas(html)).toContain("2031-07180.330,03192.000");
+    expect(sinEtiquetas(html)).toContain("2031-001126.0502031-00255.280,03");
+  });
+
+  test("las tarjetas de cada moneda siguen sin convertir y con su enlace", async () => {
+    const html = await inicioDibujado("USD");
+
+    expect(cifraVista(html, "ARS-facturado-sin-iva")).toBeDefined();
+    expect(html).toMatch(
+      /<a href="\/servicios\/facturas\?mes=2031-07&amp;moneda=USD"[^>]*data-cifra="USD-facturado-sin-iva"/,
     );
   });
 });

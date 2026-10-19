@@ -92,7 +92,7 @@ export function enlace(
  * `<tr>` relativo): toda la fila lleva al detalle y, como es un `<a>`, anda
  * con Tab y Enter sin JavaScript. El foco se dibuja alrededor de la fila.
  */
-const FILA_ENLAZADA =
+export const FILA_ENLAZADA =
   "font-medium no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-acento";
 
 export function ListadoAbm({

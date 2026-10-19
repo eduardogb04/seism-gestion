@@ -909,20 +909,30 @@ describe("lo que se ve en el inicio", () => {
   test("los pendientes con su vencido, la rentabilidad y los egresos por centro con sus subtotales", async () => {
     const html = await inicioDibujado();
 
-    expect(celdasDeLaFila(html, "ARS|ARS 3.050,83")).toEqual([
-      "ARS",
-      "ARS 3.050,83",
-      "ARS 1.139,00",
-      "ARS 1.670,00",
-      "ARS 200,00",
-    ]);
-    expect(celdasDeLaFila(html, "USD|USD 1.010,00")).toEqual([
-      "USD",
-      "USD 1.010,00",
-      "USD 100,00",
-      "USD 70,00",
-      "USD 20,00",
-    ]);
+    expect(
+      Object.fromEntries(
+        ["ARS", "USD"].flatMap((moneda) =>
+          [
+            "por-cobrar",
+            "por-cobrar-vencido",
+            "por-pagar",
+            "por-pagar-vencido",
+          ].map((clave) => [
+            `${moneda}-${clave}`,
+            cifraVista(html, `${moneda}-${clave}`),
+          ]),
+        ),
+      ),
+    ).toEqual({
+      "ARS-por-cobrar": "ARS 3.050,83",
+      "ARS-por-cobrar-vencido": "ARS 1.139,00",
+      "ARS-por-pagar": "ARS 1.670,00",
+      "ARS-por-pagar-vencido": "ARS 200,00",
+      "USD-por-cobrar": "USD 1.010,00",
+      "USD-por-cobrar-vencido": "USD 100,00",
+      "USD-por-pagar": "USD 70,00",
+      "USD-por-pagar-vencido": "USD 20,00",
+    });
     expect(
       celdasDeLaFila(html, "SRV-2031-001 · Auditoría de ejemplo|ARS"),
     ).toEqual([

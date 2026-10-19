@@ -26,10 +26,17 @@ function Variacion({ variacion }: { readonly variacion: number }) {
   );
 }
 
+/** El tamaño del valor: el de la cifra principal del inicio, el común, o el de las tarjetas de cada moneda (F3-08). */
+const TAMANOS = {
+  grande: "text-4xl",
+  comun: "text-2xl",
+  chica: "text-lg",
+} as const;
+
 /**
  * Un indicador del inicio (F3-05): título, valor ya formateado (puede ser un
- * enlace al listado que lo explica) y, si hay, qué incluye, un ícono y la
- * variación (una fracción: `0.125` es +12,5 %).
+ * enlace al listado que lo explica) y, si hay, qué incluye (texto o un número
+ * con su enlace), un ícono y la variación (una fracción: `0.125` es +12,5 %).
  */
 export function TarjetaKpi({
   titulo,
@@ -37,10 +44,12 @@ export function TarjetaKpi({
   detalle,
   Icono,
   variacion,
+  tamano = "comun",
 }: {
   readonly titulo: string;
   readonly valor: ReactNode;
-  readonly detalle?: string;
+  readonly detalle?: ReactNode;
+  readonly tamano?: keyof typeof TAMANOS;
   readonly Icono?: LucideIcon;
   readonly variacion?: number;
 }) {
@@ -52,7 +61,9 @@ export function TarjetaKpi({
         )}
         {titulo}
       </h3>
-      <p className="mt-2 text-2xl font-semibold tabular-nums [&_a]:no-underline [&_a:hover]:underline">
+      <p
+        className={`mt-2 ${TAMANOS[tamano]} font-semibold tabular-nums [&_a]:no-underline [&_a:hover]:underline`}
+      >
         {valor}
       </p>
       {detalle === undefined ? null : (

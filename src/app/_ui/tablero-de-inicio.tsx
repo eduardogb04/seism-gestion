@@ -13,7 +13,8 @@ import {
   Scale,
   Wallet,
 } from "lucide-react";
-import type { Cifra, Tablero } from "../../casos-uso/tablero/tablero.ts";
+import type { Cifra } from "../../casos-uso/tablero/convertido.ts";
+import type { Tablero } from "../../casos-uso/tablero/tablero.ts";
 import { Tabla } from "./tabla.tsx";
 import { TarjetaKpi } from "./tarjeta-kpi.tsx";
 

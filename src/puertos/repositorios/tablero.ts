@@ -6,8 +6,13 @@
  * Implementado con Prisma en `src/adaptadores/prisma/tablero.ts`.
  */
 
-import type { Importe, Moneda } from "../../dominio/compartido/importe.ts";
+import type {
+  Importe,
+  Moneda,
+  ValorTipoDeCambio,
+} from "../../dominio/compartido/importe.ts";
 import type { AlicuotaIva } from "../../dominio/servicios/factura.ts";
+import type { MontoParaConvertir } from "../../dominio/tablero/conversion.ts";
 
 /** Un tramo de días: `desde` incluido, `hasta` excluido, ambos `aaaa-mm-dd`. */
 export type Rango = {
@@ -75,6 +80,40 @@ export type PagoDeLaLista = {
   readonly importe: Importe<Moneda>;
 };
 
+/** Los documentos de un mes (`AAAA-MM`) con el mismo importe y tipo de cambio. */
+export type MontoDeUnMes = MontoParaConvertir & { readonly mes: string };
+
+export type EgresoDeUnMes = MontoDeUnMes & { readonly clase: ClaseDeCentro };
+
+export type MontoDeUnServicio = MontoParaConvertir & {
+  readonly servicioId: string;
+  readonly codigo: string;
+};
+
+/** Una factura o un egreso vigente al que le falta el tipo de cambio para mirarlo en otra moneda. */
+export type DocumentoSinCambio = {
+  readonly tipo: "factura" | "egreso";
+  readonly id: string;
+  /** Solo la factura: a dónde lleva su fila. */
+  readonly servicioId: string | null;
+  /** El número de la factura; del egreso, su comprobante o, si no tiene, su concepto. */
+  readonly numero: string;
+  /** `aaaa-mm-dd`. */
+  readonly fecha: string;
+  readonly importe: Importe<Moneda>;
+};
+
+export type CambioDeUnDocumento = {
+  readonly id: string;
+  readonly cambio: ValorTipoDeCambio | null;
+};
+
+/**
+ * Los tipos de cambio son pesos por dólar. El de un documento en dólares es el
+ * suyo; el de uno en pesos, el más reciente cargado en un documento en dólares
+ * (orden de compra, factura, egreso, cobro o pago) con fecha igual o anterior
+ * a la suya; `null` si no hay (F3-08, ADR 0042).
+ */
 export type RepositorioTablero = {
   /** Las facturas vigentes con fecha en el rango, agrupadas. */
   facturasDelRango(rango: Rango): Promise<readonly FacturasIguales[]>;
@@ -101,4 +140,21 @@ export type RepositorioTablero = {
     rango: Rango,
     moneda: Moneda,
   ): Promise<readonly PagoDeLaLista[]>;
+  /** Las facturas vigentes con fecha en el rango, por mes, importe sin IVA y tipo de cambio. */
+  facturadoPorMes(rango: Rango): Promise<readonly MontoDeUnMes[]>;
+  /** Los egresos vigentes con fecha en el rango, por mes, clase de centro, importe y tipo de cambio. */
+  egresosPorMes(rango: Rango): Promise<readonly EgresoDeUnMes[]>;
+  /** Los cobros que suma `cobradoEnElRango` (con retención), con el tipo de cambio de la factura que cancelan. */
+  cobradoConCambio(rango: Rango): Promise<readonly MontoParaConvertir[]>;
+  /** Los pagos que suma `pagadoEnElRango`, con el tipo de cambio del egreso que cancelan. */
+  pagadoConCambio(rango: Rango): Promise<readonly MontoParaConvertir[]>;
+  /** Lo que suma `rentabilidadPorServicio`, documento por documento: facturas y egresos de proyecto. */
+  rentabilidadConCambio(): Promise<{
+    readonly facturado: readonly MontoDeUnServicio[];
+    readonly egresos: readonly MontoDeUnServicio[];
+  }>;
+  /** El tipo de cambio de cada factura o egreso pedido (por `id`). */
+  cambiosDe(ids: readonly string[]): Promise<readonly CambioDeUnDocumento[]>;
+  /** Las facturas y egresos vigentes en otra moneda que `moneda` y sin tipo de cambio para ella, por fecha. */
+  documentosSinCambio(moneda: Moneda): Promise<readonly DocumentoSinCambio[]>;
 };

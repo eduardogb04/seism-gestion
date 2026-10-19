@@ -9,7 +9,6 @@ import {
   formatearImporte,
   formatearMonto,
   type Importe,
-  MONEDAS,
   type Moneda,
 } from "../../dominio/compartido/importe.ts";
 import type { Reloj } from "../../dominio/compartido/reloj.ts";
@@ -18,8 +17,7 @@ import { ivaDe, totalConIva } from "../../dominio/servicios/factura.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
 import { diaConBarras } from "../abm/definicion.ts";
 import { elegirMes, type MesElegido } from "./mes.ts";
-
-const MONEDA_POR_DEFECTO: Moneda = "ARS";
+import { elegirMoneda } from "./moneda.ts";
 
 type Encabezado = {
   readonly mes: MesElegido;
@@ -92,7 +90,7 @@ export function armarListadosDelTablero({
   function encabezado({ mes, moneda }: Parametros): Encabezado {
     return {
       mes: elegirMes(mes, reloj.ahora()),
-      moneda: MONEDAS.find((codigo) => codigo === moneda) ?? MONEDA_POR_DEFECTO,
+      moneda: elegirMoneda(moneda),
     };
   }
 

@@ -295,13 +295,14 @@ export function crearCasosUsoFacturacion({
     actor: Actor,
     repos: RepositoriosEnTransaccion,
     servicioId: string,
-    cuota: { readonly importe: Importe<Moneda>; readonly desdeMes: string },
+    { importe, desdeMes }: Extract<CuotaLeida, { readonly ok: true }>,
   ): Promise<void> {
     await repos.cuotas.crear(
       actor,
       crearAuditable(
         {
-          ...cuota,
+          importe,
+          desdeMes,
           servicioId,
           posicion: await repos.cuotas.cantidadDe(servicioId),
           id: identificadorDesde<string>(generadorId.generar()),

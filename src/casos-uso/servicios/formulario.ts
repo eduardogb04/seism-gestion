@@ -37,10 +37,12 @@ export function botonDeCambio(destino: EstadoServicio): string {
 
 /**
  * Los campos, en el orden en que se muestran. El responsable es un usuario, que
- * no es un ABM: va como una lista de opciones que arma quien llama.
+ * no es un ABM: va como una lista de opciones que arma quien llama. La fecha
+ * estimada de inicio (F3-02) solo está en la edición: en el alta no hay etapa.
  */
 export function camposDeServicio(
   responsables: readonly OpcionAbm[],
+  edicion: boolean,
 ): CamposAbm {
   return [
     [
@@ -75,6 +77,18 @@ export function camposDeServicio(
       { tipo: "opcion", etiqueta: "Responsable", opciones: responsables },
     ],
     ["fechaPedido", { tipo: "fecha", etiqueta: "Fecha de pedido" }],
+    ...(edicion
+      ? ([
+          [
+            "fechaInicioEstimada",
+            {
+              tipo: "fecha",
+              etiqueta: "Fecha estimada de inicio",
+              opcional: true,
+            },
+          ],
+        ] as const)
+      : []),
     [
       "vigenciaDesde",
       { tipo: "fecha", etiqueta: "Vigencia desde", opcional: true },
@@ -89,9 +103,7 @@ export function camposDeServicio(
 
 const VIGENCIAS = ["vigenciaDesde", "vigenciaHasta"] as const;
 
-export const VALIDACION: z.ZodType<
-  Omit<DatosServicio, "codigo" | "fechaInicioEstimada">
-> = z
+export const VALIDACION: z.ZodType<Omit<DatosServicio, "codigo">> = z
   .object({
     clienteId: z.string("Elegí un cliente."),
     tipoServicioId: z.string("Elegí un tipo de servicio."),
@@ -99,6 +111,7 @@ export const VALIDACION: z.ZodType<
     modalidad: z.string(),
     responsableId: z.string(),
     fechaPedido: z.string(),
+    fechaInicioEstimada: z.string().nullable().default(null),
     vigenciaDesde: z.string().nullable(),
     vigenciaHasta: z.string().nullable(),
     observaciones: opcional(1000),

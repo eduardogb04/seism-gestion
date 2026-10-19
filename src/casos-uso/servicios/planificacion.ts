@@ -1,8 +1,8 @@
 /**
- * La planificación y la ejecución de un servicio (F3-02): el responsable y la
- * fecha estimada de inicio, los hitos y los recursos. Todo es opcional y se
- * carga en «Adjudicado» y en «En ejecución»; tildar un hito, solo en «En
- * ejecución». Afuera es `DOM-0018`.
+ * Los hitos y los recursos de un servicio (F3-02). Todo es opcional y se carga
+ * en «Adjudicado» y en «En ejecución»; tildar un hito, solo en «En
+ * ejecución». Afuera es `DOM-0018`. El responsable y la fecha estimada de
+ * inicio se cambian al editar el servicio (`servicios.ts`), con la misma regla.
  *
  * - Toda escritura recibe el `Actor` primero, exige un rol que escriba
  *   (`AUT-0009`) y corre entera en una transacción, con la fila del servicio
@@ -27,10 +27,7 @@ import {
   cicloServicio,
 } from "../../dominio/servicios/estados.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
-import type {
-  RegistroDe,
-  RepositorioDe,
-} from "../../puertos/repositorios/abm.ts";
+import type { RegistroDe } from "../../puertos/repositorios/abm.ts";
 import type { DatosRecurso } from "../../puertos/repositorios/planificacion.ts";
 import type {
   RepositoriosEnTransaccion,
@@ -55,7 +52,6 @@ import { exigirRol } from "../usuarios/reglas.ts";
 import { exigirEtapa, historialDe } from "./ciclo.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
-  responsables,
   servicioVigente,
   servicioVigenteBloqueado,
 } from "./servicios.ts";
@@ -72,66 +68,40 @@ type Resultado =
   | { readonly ok: true }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
-export type HitoListado = {
-  readonly id: string;
-  readonly texto: string;
-  /** `null` si todavía no se hizo. */
-  readonly realizado: {
-    /** dd/mm/aaaa. */
-    readonly fecha: string;
-    /** El email de quien lo tildó. */
-    readonly autor: string;
-  } | null;
-};
-
-export type RecursoListado = {
-  readonly id: string;
-  readonly tipo: string;
-  /** La patente del tractor si es un camión; si no, la descripción. */
-  readonly detalle: string;
-  /** dd/mm/aaaa; vacío si no se cargó. */
-  readonly desde: string;
-  readonly hasta: string;
-};
-
 export type DetalleDePlanificacion = {
-  /** El email. */
-  readonly responsable: string;
-  /** dd/mm/aaaa; vacío si no se cargó. */
-  readonly fechaInicioEstimada: string;
-  readonly hitos: readonly HitoListado[];
-  readonly recursos: readonly RecursoListado[];
-  /** ¿La etapa actual admite cambiar la planificación, los hitos y los recursos? */
+  readonly hitos: readonly {
+    readonly id: string;
+    readonly texto: string;
+    /** `null` si todavía no se hizo. */
+    readonly realizado: {
+      /** dd/mm/aaaa. */
+      readonly fecha: string;
+      /** El email de quien lo tildó. */
+      readonly autor: string;
+    } | null;
+  }[];
+  readonly recursos: readonly {
+    readonly id: string;
+    readonly tipo: string;
+    /** La patente del tractor si es un camión; si no, la descripción. */
+    readonly detalle: string;
+    /** dd/mm/aaaa; vacío si no se cargó. */
+    readonly desde: string;
+    readonly hasta: string;
+  }[];
+  /** ¿La etapa actual admite cargar hitos y recursos? */
   readonly planificable: boolean;
   /** ¿Admite tildar hitos? */
   readonly tildable: boolean;
 };
 
-export type FormularioDePlanificacion = {
-  readonly campos: CamposAbm;
-  readonly escrito: Escrito;
-};
-
-export type FormularioDeRecurso = FormularioDePlanificacion & {
-  readonly elegibles: OpcionesPorCampo;
-};
-
 export type CasosUsoPlanificacion = {
   ver(servicioId: string): Promise<DetalleDePlanificacion>;
-  formularioDePlanificacion(
-    servicioId: string,
-  ): Promise<FormularioDePlanificacion>;
-  guardarPlanificacion(
-    actor: Actor,
-    servicioId: string,
-    escrito: Escrito,
-  ): Promise<Resultado>;
   crearHito(
     actor: Actor,
     servicioId: string,
     escrito: Escrito,
   ): Promise<Resultado>;
-  guardarHito(actor: Actor, id: string, escrito: Escrito): Promise<Resultado>;
   marcarEliminadoHito(actor: Actor, id: string): Promise<void>;
   /** Tilda el hito (con la fecha de hoy y quien lo tilda) o lo destilda. */
   cambiarRealizadoDeHito(
@@ -139,16 +109,14 @@ export type CasosUsoPlanificacion = {
     id: string,
     realizado: boolean,
   ): Promise<void>;
-  /** El formulario de alta o, con `id`, el de edición de ese recurso. */
-  formularioDeRecurso(id?: string): Promise<FormularioDeRecurso>;
+  formularioDeRecurso(): Promise<{
+    readonly campos: CamposAbm;
+    readonly elegibles: OpcionesPorCampo;
+    readonly escrito: Escrito;
+  }>;
   crearRecurso(
     actor: Actor,
     servicioId: string,
-    escrito: Escrito,
-  ): Promise<Resultado>;
-  guardarRecurso(
-    actor: Actor,
-    id: string,
     escrito: Escrito,
   ): Promise<Resultado>;
   marcarEliminadoRecurso(actor: Actor, id: string): Promise<void>;
@@ -182,9 +150,7 @@ const CAMPOS_DE_RECURSO: CamposAbm = [
   ["hasta", { tipo: "fecha", etiqueta: "Hasta", opcional: true }],
 ];
 
-type CamposDeRecurso = Omit<DatosRecurso, "servicioId">;
-
-const VALIDACION_DE_RECURSO: z.ZodType<CamposDeRecurso> = z
+const VALIDACION_DE_RECURSO: z.ZodType<Omit<DatosRecurso, "servicioId">> = z
   .object({
     tipo: z.string(),
     camionId: z.string().nullable(),
@@ -193,22 +159,21 @@ const VALIDACION_DE_RECURSO: z.ZodType<CamposDeRecurso> = z
     hasta: z.string().nullable(),
   })
   .superRefine((recurso, contexto) => {
-    const faltaCamion = recurso.tipo === "camion" && recurso.camionId === null;
-    const sobraCamion = recurso.tipo !== "camion" && recurso.camionId !== null;
-    const faltaDescripcion =
-      recurso.tipo !== "camion" && recurso.descripcion === null;
-    const sobraDescripcion =
-      recurso.tipo === "camion" && recurso.descripcion !== null;
+    const esCamion = recurso.tipo === "camion";
     const errores = [
-      [faltaCamion, "camionId", "Elegí el camión."],
+      [esCamion && recurso.camionId === null, "camionId", "Elegí el camión."],
       [
-        sobraCamion,
+        !esCamion && recurso.camionId !== null,
         "camionId",
         "Solo un camión lleva camión: elegí «Ninguno».",
       ],
-      [faltaDescripcion, "descripcion", "Escribí la descripción."],
       [
-        sobraDescripcion,
+        !esCamion && recurso.descripcion === null,
+        "descripcion",
+        "Escribí la descripción.",
+      ],
+      [
+        esCamion && recurso.descripcion !== null,
         "descripcion",
         "Un camión no lleva descripción: dejala vacía.",
       ],
@@ -227,32 +192,6 @@ const VALIDACION_DE_RECURSO: z.ZodType<CamposDeRecurso> = z
       }
     }
   });
-
-function camposDePlanificacion(responsablesElegibles: readonly OpcionAbm[]) {
-  const campos: CamposAbm = [
-    [
-      "responsableId",
-      {
-        tipo: "opcion",
-        etiqueta: "Responsable",
-        opciones: responsablesElegibles,
-      },
-    ],
-    [
-      "fechaInicioEstimada",
-      { tipo: "fecha", etiqueta: "Fecha estimada de inicio", opcional: true },
-    ],
-  ];
-  return campos;
-}
-
-const VALIDACION_DE_PLANIFICACION = z.object({
-  responsableId: z.string(),
-  fechaInicioEstimada: z.string().nullable(),
-});
-
-type Hijo = { readonly servicioId: string };
-type RepositorioHijo<D> = Pick<RepositorioDe<D>, "buscarPorId" | "actualizar">;
 
 /** Un día `aaaa-mm-dd` como se muestra; vacío si no se cargó. */
 function aTexto(dia: string | null): string {
@@ -292,55 +231,14 @@ export function crearCasosUsoPlanificacion({
       ROLES_QUE_ESCRIBEN_SERVICIOS,
       catalogo.AUT_0009,
     );
-    const servicio = await servicioVigenteBloqueado(repos, servicioId);
+    await servicioVigenteBloqueado(repos, servicioId);
     await exigirEtapa(repos, servicioId, carga);
-    return servicio;
-  }
-
-  /** El hito o el recurso que se va a cambiar, ya con lo que toda escritura exige. */
-  async function abrir<D extends Hijo>(
-    repos: RepositoriosEnTransaccion,
-    actor: Actor,
-    repositorio: RepositorioHijo<D>,
-    entidad: string,
-    id: string,
-    carga: Carga,
-  ): Promise<RegistroDe<D>> {
-    const actual = await vigentePorId(
-      (clave) => repositorio.buscarPorId(clave),
-      entidad,
-      id,
-    );
-    await prepararEscritura(repos, actor, actual.valor.servicioId, carga);
-    return actual;
-  }
-
-  /** Guarda `valor` en lugar del actual, o lo da de baja si es `null`. */
-  async function cambiar<D>(
-    repositorio: RepositorioHijo<D>,
-    actor: Actor,
-    entidad: string,
-    actual: RegistroDe<D>,
-    valor: RegistroDe<D>["valor"] | null,
-  ): Promise<void> {
-    const cambiado =
-      valor === null
-        ? marcarEliminado(actual, actor, reloj)
-        : marcarActualizado(actual, valor, actor, reloj);
-    if (!cambiado.ok) {
-      throw nuevoError(catalogo.DOM_0009, { entidad, id: actual.valor.id });
-    }
-    await repositorio.actualizar(
-      actor,
-      cambiado.valor,
-      valor === null ? "eliminar" : "actualizar",
-    );
   }
 
   return {
     ver(servicioId) {
       return transaccional.ejecutar(async (repos) => {
-        const { valor } = await servicioVigente(repos, servicioId);
+        await servicioVigente(repos, servicioId);
         const estado = cicloServicio.estadoActual(
           await historialDe(repos, servicioId),
         );
@@ -358,11 +256,6 @@ export function crearCasosUsoPlanificacion({
           ).map(({ valor: camion }) => [camion.id, camion.patenteTractor]),
         );
         return {
-          responsable: quien({
-            tipo: "persona",
-            usuarioId: identificadorDesde<"Usuario">(valor.responsableId),
-          }),
-          fechaInicioEstimada: aTexto(valor.fechaInicioEstimada),
           hitos: (await repos.hitos.listarDe(servicioId)).map(
             ({ valor: hito }) => ({
               id: hito.id,
@@ -391,47 +284,6 @@ export function crearCasosUsoPlanificacion({
           planificable: admiteCarga(estado, "planificacion"),
           tildable: admiteCarga(estado, "tildarHito"),
         };
-      });
-    },
-
-    formularioDePlanificacion(servicioId) {
-      return transaccional.ejecutar(async (repos) => {
-        const { valor } = await servicioVigente(repos, servicioId);
-        return {
-          campos: camposDePlanificacion(
-            await responsables(repos, valor.responsableId),
-          ),
-          escrito: {
-            responsableId: valor.responsableId,
-            fechaInicioEstimada: valor.fechaInicioEstimada ?? "",
-          },
-        };
-      });
-    },
-
-    guardarPlanificacion(actor, servicioId, escrito) {
-      return transaccional.ejecutar(async (repos) => {
-        const actual = await prepararEscritura(
-          repos,
-          actor,
-          servicioId,
-          "planificacion",
-        );
-        const validado = validarEscrito(
-          camposDePlanificacion(
-            await responsables(repos, actual.valor.responsableId),
-          ),
-          VALIDACION_DE_PLANIFICACION,
-          escrito,
-        );
-        if (!validado.ok) {
-          return validado;
-        }
-        await cambiar(repos.servicios, actor, "Servicio", actual, {
-          ...actual.valor,
-          ...validado.datos,
-        });
-        return { ok: true };
       });
     },
 
@@ -466,109 +318,87 @@ export function crearCasosUsoPlanificacion({
       });
     },
 
-    guardarHito(actor, id, escrito) {
-      return transaccional.ejecutar(async (repos) => {
-        const actual = await abrir(
-          repos,
-          actor,
-          repos.hitos,
-          "Hito",
-          id,
-          "planificacion",
-        );
-        const validado = validarEscrito(
-          CAMPOS_DE_HITO,
-          VALIDACION_DE_HITO,
-          escrito,
-        );
-        if (!validado.ok) {
-          return validado;
-        }
-        await cambiar(repos.hitos, actor, "Hito", actual, {
-          ...actual.valor,
-          ...validado.datos,
-        });
-        return { ok: true };
-      });
-    },
-
     marcarEliminadoHito(actor, id) {
       return transaccional.ejecutar(async (repos) => {
-        await cambiar(
-          repos.hitos,
+        const actual = await vigentePorId(repos.hitos.buscarPorId, "Hito", id);
+        await prepararEscritura(
+          repos,
           actor,
-          "Hito",
-          await abrir(repos, actor, repos.hitos, "Hito", id, "planificacion"),
-          null,
+          actual.valor.servicioId,
+          "planificacion",
         );
+        const eliminado = marcarEliminado(actual, actor, reloj);
+        if (!eliminado.ok) {
+          throw nuevoError(catalogo.DOM_0009, { entidad: "Hito", id });
+        }
+        await repos.hitos.actualizar(actor, eliminado.valor, "eliminar");
       });
     },
 
     cambiarRealizadoDeHito(actor, id, realizado) {
       return transaccional.ejecutar(async (repos) => {
-        const actual = await abrir(
+        const actual = await vigentePorId(repos.hitos.buscarPorId, "Hito", id);
+        await prepararEscritura(
           repos,
           actor,
-          repos.hitos,
-          "Hito",
-          id,
+          actual.valor.servicioId,
           "tildarHito",
         );
         // Tildar uno ya tildado no le cambia la fecha ni el autor.
         if ((actual.valor.realizadoEn !== null) === realizado) {
           return;
         }
-        await cambiar(repos.hitos, actor, "Hito", actual, {
-          ...actual.valor,
-          realizadoEn: realizado
-            ? formatearISO(reloj.ahora()).slice(0, 10)
-            : null,
-          realizadoPor: realizado ? actor : null,
-        });
+        const cambiado = marcarActualizado(
+          actual,
+          {
+            ...actual.valor,
+            realizadoEn: realizado
+              ? formatearISO(reloj.ahora()).slice(0, 10)
+              : null,
+            realizadoPor: realizado ? actor : null,
+          },
+          actor,
+          reloj,
+        );
+        if (!cambiado.ok) {
+          throw nuevoError(catalogo.DOM_0009, { entidad: "Hito", id });
+        }
+        await repos.hitos.actualizar(actor, cambiado.valor, "actualizar");
       });
     },
 
-    formularioDeRecurso(id) {
-      return transaccional.ejecutar(async (repos) => {
-        const guardado =
-          id === undefined
-            ? undefined
-            : (
-                await vigentePorId(
-                  (clave) => repos.recursos.buscarPorId(clave),
-                  "Recurso",
-                  id,
-                )
-              ).valor;
-        return {
-          campos: CAMPOS_DE_RECURSO,
-          elegibles: await elegiblesDe(
-            repos,
-            CAMPOS_DE_RECURSO,
-            guardado ?? {},
-          ),
-          escrito: {
-            tipo: guardado?.tipo ?? "persona",
-            camionId: guardado?.camionId ?? "",
-            descripcion: guardado?.descripcion ?? "",
-            desde: guardado?.desde ?? "",
-            hasta: guardado?.hasta ?? "",
-          },
-        };
-      });
+    formularioDeRecurso() {
+      return transaccional.ejecutar(async (repos) => ({
+        campos: CAMPOS_DE_RECURSO,
+        elegibles: await elegiblesDe(repos, CAMPOS_DE_RECURSO, {}),
+        escrito: { tipo: "persona" },
+      }));
     },
 
     crearRecurso(actor, servicioId, escrito) {
       return transaccional.ejecutar(async (repos) => {
         await prepararEscritura(repos, actor, servicioId, "planificacion");
-        const leido = await leerRecurso(repos, escrito, {});
-        if (!leido.ok) {
-          return leido;
+        const validado = validarEscrito(
+          CAMPOS_DE_RECURSO,
+          VALIDACION_DE_RECURSO,
+          escrito,
+        );
+        if (!validado.ok) {
+          return validado;
+        }
+        const errores = await relacionesRotas(
+          repos,
+          CAMPOS_DE_RECURSO,
+          validado.datos,
+          {},
+        );
+        if (Object.keys(errores).length > 0) {
+          return { ok: false, errores };
         }
         await repos.recursos.crear(
           actor,
           crearAuditable(
-            { ...leido.datos, servicioId, id: nuevoId() },
+            { ...validado.datos, servicioId, id: nuevoId() },
             actor,
             reloj,
           ),
@@ -577,72 +407,25 @@ export function crearCasosUsoPlanificacion({
       });
     },
 
-    guardarRecurso(actor, id, escrito) {
-      return transaccional.ejecutar(async (repos) => {
-        const actual = await abrir(
-          repos,
-          actor,
-          repos.recursos,
-          "Recurso",
-          id,
-          "planificacion",
-        );
-        const leido = await leerRecurso(repos, escrito, actual.valor);
-        if (!leido.ok) {
-          return leido;
-        }
-        await cambiar(repos.recursos, actor, "Recurso", actual, {
-          ...actual.valor,
-          ...leido.datos,
-        });
-        return { ok: true };
-      });
-    },
-
     marcarEliminadoRecurso(actor, id) {
       return transaccional.ejecutar(async (repos) => {
-        await cambiar(
-          repos.recursos,
-          actor,
+        const actual = await vigentePorId(
+          repos.recursos.buscarPorId,
           "Recurso",
-          await abrir(
-            repos,
-            actor,
-            repos.recursos,
-            "Recurso",
-            id,
-            "planificacion",
-          ),
-          null,
+          id,
         );
+        await prepararEscritura(
+          repos,
+          actor,
+          actual.valor.servicioId,
+          "planificacion",
+        );
+        const eliminado = marcarEliminado(actual, actor, reloj);
+        if (!eliminado.ok) {
+          throw nuevoError(catalogo.DOM_0009, { entidad: "Recurso", id });
+        }
+        await repos.recursos.actualizar(actor, eliminado.valor, "eliminar");
       });
     },
   };
-}
-
-type RecursoLeido =
-  | { readonly ok: true; readonly datos: CamposDeRecurso }
-  | { readonly ok: false; readonly errores: ErroresPorCampo };
-
-/** Lo escrito de un recurso, validado contra el formulario y contra los camiones de la base. */
-async function leerRecurso(
-  repos: RepositoriosEnTransaccion,
-  escrito: Escrito,
-  previo: Partial<CamposDeRecurso>,
-): Promise<RecursoLeido> {
-  const validado = validarEscrito(
-    CAMPOS_DE_RECURSO,
-    VALIDACION_DE_RECURSO,
-    escrito,
-  );
-  if (!validado.ok) {
-    return validado;
-  }
-  const errores = await relacionesRotas(
-    repos,
-    CAMPOS_DE_RECURSO,
-    validado.datos,
-    previo,
-  );
-  return Object.keys(errores).length > 0 ? { ok: false, errores } : validado;
 }

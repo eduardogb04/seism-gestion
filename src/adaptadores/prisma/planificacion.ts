@@ -10,7 +10,6 @@ import type {
   RepositorioHitos,
   RepositorioRecursos,
 } from "../../puertos/repositorios/planificacion.ts";
-import { aDia, deDia } from "./abm/egresos.ts";
 import { crearEscrituraPrisma, desdeFila } from "./abm/repositorio.ts";
 import { actorAJson, actorDesdeJson } from "./conversiones.ts";
 import {
@@ -18,6 +17,7 @@ import {
   type ServicioRecurso as FilaRecurso,
   Prisma,
 } from "./generado/client.ts";
+import { diaONada, fechaONada } from "./servicios.ts";
 
 type Auditoria =
   | "id"
@@ -27,14 +27,6 @@ type Auditoria =
   | "actualizadoPor"
   | "eliminadoEn"
   | "eliminadoPor";
-
-function diaONada(fecha: Date | null): string | null {
-  return fecha === null ? null : aDia(fecha);
-}
-
-function fechaONada(dia: string | null): Date | null {
-  return dia === null ? null : deDia(dia);
-}
 
 const pasoDeHito = {
   aDatos({

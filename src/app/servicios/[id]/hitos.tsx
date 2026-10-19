@@ -1,8 +1,7 @@
 /**
- * La sección *Hitos* de la pantalla de un servicio (F3-02): la lista con su
- * orden. Se arma (`?hito=1`, `?editarHito=<id>`, ventanas sobre esta misma
- * pantalla) en «Adjudicado» y en «En ejecución»; en «En ejecución» cada uno se
- * tilda como realizado o se destilda.
+ * La sección *Hitos* de la pantalla de un servicio (F3-02). Se arman
+ * (`?hito=1`, una ventana sobre esta misma pantalla) en «Adjudicado» y en «En
+ * ejecución»; en «En ejecución» cada uno se tilda como realizado o se destilda.
  */
 
 import {
@@ -14,45 +13,7 @@ import { Enlace } from "../../_ui/enlace-next.ts";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
-import {
-  cambiarRealizadoDeHito,
-  cargarHito,
-  guardarHito,
-  quitarHito,
-} from "../acciones.ts";
-
-type Hito = DetalleDePlanificacion["hitos"][number];
-
-function VentanaDeHito({
-  servicioId,
-  hito,
-  rutaAlCerrar,
-}: {
-  readonly servicioId: string;
-  /** `undefined`: es un hito nuevo. */
-  readonly hito: Hito | undefined;
-  readonly rutaAlCerrar: string;
-}) {
-  return (
-    <Ventana
-      titulo={hito === undefined ? "Nuevo hito" : "Edición de hito"}
-      rutaAlCerrar={rutaAlCerrar}
-    >
-      <FormularioAbm
-        accion={
-          hito === undefined
-            ? cargarHito.bind(null, servicioId)
-            : guardarHito.bind(null, servicioId, hito.id)
-        }
-        campos={CAMPOS_DE_HITO}
-        elegibles={{}}
-        inicial={{ escrito: { texto: hito?.texto ?? "" }, errores: {} }}
-        enviar={{ texto: "Guardar", variante: "primario" }}
-        rutaAlCancelar={rutaAlCerrar}
-      />
-    </Ventana>
-  );
-}
+import { cambiarRealizadoDeHito, cargarHito, quitarHito } from "../acciones.ts";
 
 export function Hitos({
   servicioId,
@@ -69,7 +30,6 @@ export function Hitos({
 }) {
   const puedeArmar = puedeEscribir && planificable;
   const puedeTildar = puedeEscribir && tildable;
-  const aEditar = hitos.find(({ id }) => id === parametros.editarHito);
   const cabeceras = ["Hito", "Realizado"];
   return (
     <section className="mt-6">
@@ -118,19 +78,11 @@ export function Hitos({
                     </form>
                   ) : null}
                   {puedeArmar ? (
-                    <>
-                      <Enlace
-                        href={`${ruta}?editarHito=${hito.id}`}
-                        scroll={false}
-                      >
-                        Editar
-                      </Enlace>
-                      <form action={quitarHito.bind(null, servicioId, hito.id)}>
-                        <Boton variante="peligro" type="submit">
-                          Quitar
-                        </Boton>
-                      </form>
-                    </>
+                    <form action={quitarHito.bind(null, servicioId, hito.id)}>
+                      <Boton variante="peligro" type="submit">
+                        Quitar
+                      </Boton>
+                    </form>
                   ) : null}
                 </td>
               ) : null}
@@ -139,18 +91,16 @@ export function Hitos({
         </Tabla>
       )}
       {puedeArmar && typeof parametros.hito === "string" ? (
-        <VentanaDeHito
-          servicioId={servicioId}
-          hito={undefined}
-          rutaAlCerrar={ruta}
-        />
-      ) : null}
-      {puedeArmar && aEditar !== undefined ? (
-        <VentanaDeHito
-          servicioId={servicioId}
-          hito={aEditar}
-          rutaAlCerrar={ruta}
-        />
+        <Ventana titulo="Nuevo hito" rutaAlCerrar={ruta}>
+          <FormularioAbm
+            accion={cargarHito.bind(null, servicioId)}
+            campos={CAMPOS_DE_HITO}
+            elegibles={{}}
+            inicial={{ escrito: {}, errores: {} }}
+            enviar={{ texto: "Guardar", variante: "primario" }}
+            rutaAlCancelar={ruta}
+          />
+        </Ventana>
       ) : null}
     </section>
   );

@@ -74,6 +74,7 @@ import { MODALIDADES } from "../abm/tipos-de-servicio.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import {
   cerrarSiEstaCobrado,
+  exigirEtapa,
   historialDe,
   pedirCambioDeEstado,
 } from "./ciclo.ts";
@@ -236,7 +237,7 @@ export async function servicioVigenteBloqueado(
 }
 
 /** Los usuarios activos, por email, y el que ya era responsable aunque ya no lo esté. */
-export async function responsables(
+async function responsables(
   repos: RepositoriosEnTransaccion,
   previo: string | undefined,
 ): Promise<readonly OpcionAbm[]> {
@@ -250,10 +251,7 @@ export async function responsables(
 }
 
 type Leido =
-  | {
-      readonly ok: true;
-      readonly datos: Omit<DatosServicio, "codigo" | "fechaInicioEstimada">;
-    }
+  | { readonly ok: true; readonly datos: Omit<DatosServicio, "codigo"> }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
 /** Lo escrito, validado contra el formulario y contra la base. `actual`: el servicio que se edita. */
@@ -264,6 +262,7 @@ async function leer(
 ): Promise<Leido> {
   const campos = camposDeServicio(
     await responsables(repos, actual?.valor.responsableId),
+    actual !== null,
   );
   const validado = validarEscrito(campos, VALIDACION, escrito);
   if (!validado.ok) {
@@ -364,6 +363,7 @@ export function crearCasosUsoServicios({
         };
         const campos = camposDeServicio(
           await responsables(repos, actual?.valor.responsableId),
+          actual !== null,
         );
         return {
           campos,
@@ -427,6 +427,14 @@ export function crearCasosUsoServicios({
                     `${diaConBarras(valor.vigenciaDesde)} a ${diaConBarras(valor.vigenciaHasta)}`,
                   ] as const,
                 ]),
+            ...(valor.fechaInicioEstimada === null
+              ? []
+              : [
+                  [
+                    "Fecha estimada de inicio",
+                    diaConBarras(valor.fechaInicioEstimada),
+                  ] as const,
+                ]),
             ...(valor.observaciones === null
               ? []
               : [["Observaciones", valor.observaciones] as const]),
@@ -485,12 +493,7 @@ export function crearCasosUsoServicios({
         await repos.servicios.crear(
           actor,
           crearAuditable(
-            {
-              ...leido.datos,
-              fechaInicioEstimada: null,
-              codigo: codigo.codigo,
-              id,
-            },
+            { ...leido.datos, codigo: codigo.codigo, id },
             actor,
             enEsteInstante,
           ),
@@ -516,10 +519,17 @@ export function crearCasosUsoServicios({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        const actual = await servicioVigente(repos, id);
+        const actual = await servicioVigenteBloqueado(repos, id);
         const leido = await leer(repos, escrito, actual);
         if (!leido.ok) {
           return leido;
+        }
+        // El responsable y la fecha estimada de inicio se planifican en «Adjudicado» y en «En ejecución».
+        if (
+          leido.datos.responsableId !== actual.valor.responsableId ||
+          leido.datos.fechaInicioEstimada !== actual.valor.fechaInicioEstimada
+        ) {
+          await exigirEtapa(repos, id, "planificacion");
         }
         const nuevo = { ...actual.valor, ...leido.datos };
         const guardado: ValoresAbm = actual.valor;

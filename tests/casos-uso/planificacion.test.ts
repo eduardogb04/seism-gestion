@@ -59,7 +59,6 @@ const HOY = (() => {
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
 let admin: Actor;
 let operador: Actor;
-let exAdmin: Actor;
 let servicioId: string;
 let camionId: string;
 
@@ -175,13 +174,13 @@ beforeEach(async () => {
     OPERADOR,
     EX_ADMIN,
   ]);
-  const [primero, segundo, tercero] = usuarios.map(
+  const [primero, segundo] = usuarios.map(
     ({ id }): Actor => ({ tipo: "persona", usuarioId: id }),
   );
-  if (primero === undefined || segundo === undefined || tercero === undefined) {
+  if (primero === undefined || segundo === undefined) {
     throw new Error("no se sembraron los usuarios");
   }
-  [admin, operador, exAdmin] = [primero, segundo, tercero];
+  [admin, operador] = [primero, segundo];
   servicioId = await sembrarServicio(
     cliente(),
     dependencias(),
@@ -207,52 +206,58 @@ beforeEach(async () => {
   await llevarA("cotizado", "adjudicado");
 });
 
-describe("responsable y fecha estimada de inicio", () => {
-  test("se cambian en «Adjudicado» y en «En ejecución», con su auditoría, y se ven en el detalle", async () => {
+/** El formulario de edición del servicio con lo que ya tiene guardado, más los cambios. */
+async function escritoDeServicio(cambios: Escrito = {}): Promise<Escrito> {
+  const fila = await cliente().servicio.findUniqueOrThrow({
+    where: { id: servicioId },
+  });
+  return {
+    clienteId: fila.clienteId,
+    tipoServicioId: fila.tipoServicioId,
+    titulo: fila.titulo,
+    modalidad: "puntual",
+    responsableId: fila.responsableId,
+    fechaPedido: "2031-07-01",
+    vigenciaDesde: "",
+    vigenciaHasta: "",
+    observaciones: "",
+    fechaInicioEstimada:
+      fila.fechaInicioEstimada?.toISOString().slice(0, 10) ?? "",
+    ...cambios,
+  };
+}
+
+const editar = async (cambios: Escrito = {}) =>
+  crearCasosUsoServicios(dependencias()).guardar(
+    admin,
+    servicioId,
+    await escritoDeServicio(cambios),
+  );
+
+describe("responsable y fecha estimada de inicio (edición del servicio)", () => {
+  test("se cambian en «Adjudicado» y en «En ejecución», y se ven en el detalle del servicio", async () => {
     const nuevo = await cliente().usuario.findFirstOrThrow({
       where: { email: OPERADOR.email },
     });
-    const antes = await cliente().auditoria.count();
 
     exigirOk(
-      await planificacion().guardarPlanificacion(admin, servicioId, {
+      await editar({
         responsableId: nuevo.id,
         fechaInicioEstimada: "2031-08-01",
       }),
     );
-    expect(await planificacion().ver(servicioId)).toMatchObject({
-      responsable: OPERADOR.email,
-      fechaInicioEstimada: "01/08/2031",
-      planificable: true,
+    expect(
+      await crearCasosUsoServicios(dependencias()).ver(servicioId),
+    ).toMatchObject({
+      datos: expect.arrayContaining([
+        ["Responsable", OPERADOR.email],
+        ["Fecha estimada de inicio", "01/08/2031"],
+      ]),
     });
-    expect(await cliente().auditoria.count()).toBe(antes + 1);
 
     await llevarA("en_ejecucion");
-    exigirOk(
-      await planificacion().guardarPlanificacion(admin, servicioId, {
-        responsableId: nuevo.id,
-        fechaInicioEstimada: "",
-      }),
-    );
-    expect(await planificacion().ver(servicioId)).toMatchObject({
-      fechaInicioEstimada: "",
-    });
-  });
-
-  test("el formulario trae lo guardado, con los usuarios activos como responsables", async () => {
-    const { campos, escrito } =
-      await planificacion().formularioDePlanificacion(servicioId);
-
-    expect(campos.map(([nombre]) => nombre)).toEqual([
-      "responsableId",
-      "fechaInicioEstimada",
-    ]);
-    expect(escrito.fechaInicioEstimada).toBe("");
-    const responsable = campos[0]?.[1];
-    expect(
-      responsable?.tipo === "opcion" &&
-        responsable.opciones.map(({ etiqueta }) => etiqueta),
-    ).toEqual([ADMIN_UNO.email, OPERADOR.email]);
+    exigirOk(await editar({ fechaInicioEstimada: "" }));
+    expect((await foto()).servicio.fechaInicioEstimada).toBeNull();
   });
 
   test("un responsable que no es un usuario activo, o una fecha que no es un día, se rechaza al lado del campo", async () => {
@@ -262,7 +267,7 @@ describe("responsable y fecha estimada de inicio", () => {
     const antes = await foto();
 
     expect(
-      await planificacion().guardarPlanificacion(admin, servicioId, {
+      await editar({
         responsableId: revocado.id,
         fechaInicioEstimada: "mañana",
       }),
@@ -276,25 +281,17 @@ describe("responsable y fecha estimada de inicio", () => {
     expect(await foto()).toEqual(antes);
   });
 
-  test("fuera de «Adjudicado» y «En ejecución», DOM-0018 y no escribe nada", async () => {
+  test("fuera de «Adjudicado» y «En ejecución», cambiarlos es DOM-0018 y no escribe nada; los demás campos se siguen editando", async () => {
+    const nuevo = await cliente().usuario.findFirstOrThrow({
+      where: { email: OPERADOR.email },
+    });
+
     for (const afuera of fueraDe(ADJUDICADO_O_EN_EJECUCION)) {
       await llevarA(afuera);
-      await fueraDeEtapa(() =>
-        planificacion().guardarPlanificacion(admin, servicioId, {
-          responsableId: admin.tipo === "persona" ? admin.usuarioId : "",
-          fechaInicioEstimada: "2031-08-01",
-        }),
-      );
+      await fueraDeEtapa(() => editar({ responsableId: nuevo.id }));
+      await fueraDeEtapa(() => editar({ fechaInicioEstimada: "2031-08-01" }));
+      exigirOk(await editar({ titulo: `Título en ${afuera}` }));
     }
-  });
-
-  test("un usuario que ya no es administrador ni operador no la cambia (AUT-0009)", async () => {
-    await expect(
-      planificacion().guardarPlanificacion(exAdmin, servicioId, {
-        responsableId: "",
-        fechaInicioEstimada: "",
-      }),
-    ).rejects.toMatchObject({ codigo: catalogo.AUT_0009.codigo });
   });
 });
 
@@ -332,26 +329,18 @@ describe("hitos", () => {
     });
   });
 
-  test("se edita el texto y se da de baja, con auditoría; lo dado de baja no se lista", async () => {
+  test("se da de baja, con auditoría; lo dado de baja no se lista", async () => {
     const id = await cargarHito();
     const otro = await cargarHito("Entregar el informe");
 
-    exigirOk(
-      await planificacion().guardarHito(admin, id, {
-        texto: "Armar el cronograma final",
-      }),
-    );
     await planificacion().marcarEliminadoHito(admin, otro);
 
     const { hitos } = await planificacion().ver(servicioId);
-    expect(hitos.map(({ texto }) => texto)).toEqual([
-      "Armar el cronograma final",
-    ]);
+    expect(hitos.map(({ id: hito }) => hito)).toEqual([id]);
     const filas = await cliente().auditoria.findMany({
       where: { entidad: "ServicioHito" },
     });
     expect(filas.map(({ accion }) => accion).sort()).toEqual([
-      "actualizar",
       "crear",
       "crear",
       "eliminar",
@@ -392,16 +381,13 @@ describe("hitos", () => {
     }
   });
 
-  test("alta, edición y baja fuera de «Adjudicado» y «En ejecución» son DOM-0018 y no escriben nada", async () => {
+  test("alta y baja fuera de «Adjudicado» y «En ejecución» son DOM-0018 y no escriben nada", async () => {
     const id = await cargarHito();
 
     for (const afuera of fueraDe(ADJUDICADO_O_EN_EJECUCION)) {
       await llevarA(afuera);
       await fueraDeEtapa(() =>
         planificacion().crearHito(admin, servicioId, { texto: "Otro hito" }),
-      );
-      await fueraDeEtapa(() =>
-        planificacion().guardarHito(admin, id, { texto: "Cambiado" }),
       );
       await fueraDeEtapa(() => planificacion().marcarEliminadoHito(admin, id));
     }
@@ -413,7 +399,7 @@ describe("hitos", () => {
 
     for (const inexistente of [id, "no-es-un-id"]) {
       await expect(
-        planificacion().guardarHito(admin, inexistente, { texto: "Otro" }),
+        planificacion().marcarEliminadoHito(admin, inexistente),
       ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
     }
   });
@@ -549,34 +535,16 @@ describe("recursos", () => {
     }
   });
 
-  test("se edita (de persona a camión) y se da de baja, con su auditoría", async () => {
+  test("se da de baja, con su auditoría", async () => {
     const id = await cargarRecurso();
-    expect(
-      (await planificacion().formularioDeRecurso(id)).escrito,
-    ).toMatchObject({
-      tipo: "persona",
-      descripcion: "Operador de turno mañana",
-    });
-
-    exigirOk(
-      await planificacion().guardarRecurso(
-        admin,
-        id,
-        escritoDeRecurso({ tipo: "camion", camionId, descripcion: "" }),
-      ),
-    );
-    expect((await planificacion().ver(servicioId)).recursos[0]).toMatchObject({
-      tipo: "Camión",
-      detalle: "ZZ001ZZ",
-    });
 
     await planificacion().marcarEliminadoRecurso(admin, id);
+
     expect((await planificacion().ver(servicioId)).recursos).toEqual([]);
     const filas = await cliente().auditoria.findMany({
       where: { entidad: "ServicioRecurso" },
     });
     expect(filas.map(({ accion }) => accion).sort()).toEqual([
-      "actualizar",
       "crear",
       "eliminar",
     ]);
@@ -588,20 +556,13 @@ describe("recursos", () => {
     expect(elegibles.camionId?.map(({ texto }) => texto)).toEqual(["ZZ001ZZ"]);
   });
 
-  test("alta, edición y baja fuera de «Adjudicado» y «En ejecución» son DOM-0018 y no escriben nada", async () => {
+  test("alta y baja fuera de «Adjudicado» y «En ejecución» son DOM-0018 y no escriben nada", async () => {
     const id = await cargarRecurso();
 
     for (const afuera of fueraDe(ADJUDICADO_O_EN_EJECUCION)) {
       await llevarA(afuera);
       await fueraDeEtapa(() =>
         planificacion().crearRecurso(admin, servicioId, escritoDeRecurso()),
-      );
-      await fueraDeEtapa(() =>
-        planificacion().guardarRecurso(
-          admin,
-          id,
-          escritoDeRecurso({ descripcion: "Cambiada" }),
-        ),
       );
       await fueraDeEtapa(() =>
         planificacion().marcarEliminadoRecurso(admin, id),
@@ -613,10 +574,10 @@ describe("recursos", () => {
 describe("«Iniciar ejecución» no exige nada de esto", () => {
   test("de «Adjudicado» a «En ejecución» sin responsable cambiado, sin fecha, sin hitos y sin recursos", async () => {
     expect(await planificacion().ver(servicioId)).toMatchObject({
-      fechaInicioEstimada: "",
       hitos: [],
       recursos: [],
     });
+    expect((await foto()).servicio.fechaInicioEstimada).toBeNull();
 
     await crearCasosUsoServicios(dependencias()).cambiarEstado(
       admin,

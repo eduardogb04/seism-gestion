@@ -266,22 +266,6 @@ export async function guardarSitiosDeServicio(
   );
 }
 
-/** El responsable y la fecha estimada de inicio. */
-export async function guardarPlanificacionDeServicio(
-  servicioId: string,
-  _previo: EstadoFormulario,
-  formulario: FormData,
-): Promise<EstadoFormulario> {
-  return escribir(formulario, async (actor) => {
-    const guardada = await armado().planificacion.guardarPlanificacion(
-      actor,
-      servicioId,
-      escritoEn(formulario),
-    );
-    return guardada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardada;
-  });
-}
-
 /** Cargar un hito del servicio. */
 export async function cargarHito(
   servicioId: string,
@@ -295,23 +279,6 @@ export async function cargarHito(
       escritoEn(formulario),
     );
     return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
-  });
-}
-
-/** Cambiar el texto de un hito. */
-export async function guardarHito(
-  servicioId: string,
-  id: string,
-  _previo: EstadoFormulario,
-  formulario: FormData,
-): Promise<EstadoFormulario> {
-  return escribir(formulario, async (actor) => {
-    const guardado = await armado().planificacion.guardarHito(
-      actor,
-      id,
-      escritoEn(formulario),
-    );
-    return guardado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardado;
   });
 }
 
@@ -349,23 +316,6 @@ export async function cargarRecurso(
       escritoEn(formulario),
     );
     return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
-  });
-}
-
-/** Cambiar un recurso. */
-export async function guardarRecurso(
-  servicioId: string,
-  id: string,
-  _previo: EstadoFormulario,
-  formulario: FormData,
-): Promise<EstadoFormulario> {
-  return escribir(formulario, async (actor) => {
-    const guardado = await armado().planificacion.guardarRecurso(
-      actor,
-      id,
-      escritoEn(formulario),
-    );
-    return guardado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardado;
   });
 }
 

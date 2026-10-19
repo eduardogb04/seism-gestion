@@ -45,11 +45,11 @@ function estadoDe(texto: string | undefined): EstadoServicio {
   return leido.data;
 }
 
-function diaONada(fecha: Date | null): string | null {
+export function diaONada(fecha: Date | null): string | null {
   return fecha === null ? null : aDia(fecha);
 }
 
-function fechaONada(dia: string | null): Date | null {
+export function fechaONada(dia: string | null): Date | null {
   return dia === null ? null : deDia(dia);
 }
 

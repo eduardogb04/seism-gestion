@@ -1,8 +1,8 @@
 /**
  * La sección *Recursos* de la pantalla de un servicio (F3-02): personas,
- * camiones y equipos asignados. Se cargan (`?recurso=1`, `?editarRecurso=<id>`,
- * ventanas sobre esta misma pantalla) en «Adjudicado» y en «En ejecución»; en
- * las demás etapas se ven y nada más.
+ * camiones y equipos asignados. Se cargan (`?recurso=1`, una ventana sobre
+ * esta misma pantalla) en «Adjudicado» y en «En ejecución»; en las demás
+ * etapas se ven y nada más.
  */
 
 import type { DetalleDePlanificacion } from "../../../casos-uso/servicios/planificacion.ts";
@@ -12,31 +12,21 @@ import { Enlace } from "../../_ui/enlace-next.ts";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
-import { cargarRecurso, guardarRecurso, quitarRecurso } from "../acciones.ts";
+import { cargarRecurso, quitarRecurso } from "../acciones.ts";
 
 async function VentanaDeRecurso({
   servicioId,
-  id,
   rutaAlCerrar,
 }: {
   readonly servicioId: string;
-  /** `undefined`: es un recurso nuevo. */
-  readonly id: string | undefined;
   readonly rutaAlCerrar: string;
 }) {
   const { campos, elegibles, escrito } =
-    await armado().planificacion.formularioDeRecurso(id);
+    await armado().planificacion.formularioDeRecurso();
   return (
-    <Ventana
-      titulo={id === undefined ? "Nuevo recurso" : "Edición de recurso"}
-      rutaAlCerrar={rutaAlCerrar}
-    >
+    <Ventana titulo="Nuevo recurso" rutaAlCerrar={rutaAlCerrar}>
       <FormularioAbm
-        accion={
-          id === undefined
-            ? cargarRecurso.bind(null, servicioId)
-            : guardarRecurso.bind(null, servicioId, id)
-        }
+        accion={cargarRecurso.bind(null, servicioId)}
         campos={campos}
         elegibles={elegibles}
         inicial={{ escrito, errores: {} }}
@@ -61,7 +51,6 @@ export function Recursos({
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const puedeCargar = puedeEscribir && planificable;
-  const aEditar = parametros.editarRecurso;
   const cabeceras = ["Tipo", "Detalle", "Desde", "Hasta"];
   return (
     <section className="mt-6">
@@ -88,13 +77,7 @@ export function Recursos({
               <td>{recurso.desde}</td>
               <td>{recurso.hasta}</td>
               {puedeCargar ? (
-                <td className="flex flex-wrap gap-2">
-                  <Enlace
-                    href={`${ruta}?editarRecurso=${recurso.id}`}
-                    scroll={false}
-                  >
-                    Editar
-                  </Enlace>
+                <td>
                   <form
                     action={quitarRecurso.bind(null, servicioId, recurso.id)}
                   >
@@ -109,20 +92,7 @@ export function Recursos({
         </Tabla>
       )}
       {puedeCargar && typeof parametros.recurso === "string" ? (
-        <VentanaDeRecurso
-          servicioId={servicioId}
-          id={undefined}
-          rutaAlCerrar={ruta}
-        />
-      ) : null}
-      {puedeCargar &&
-      typeof aEditar === "string" &&
-      recursos.some(({ id }) => id === aEditar) ? (
-        <VentanaDeRecurso
-          servicioId={servicioId}
-          id={aEditar}
-          rutaAlCerrar={ruta}
-        />
+        <VentanaDeRecurso servicioId={servicioId} rutaAlCerrar={ruta} />
       ) : null}
     </section>
   );

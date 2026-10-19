@@ -6,7 +6,8 @@
  *
  * - Toda escritura recibe el `Actor` primero, exige un rol que escriba
  *   (`AUT-0009`) y corre entera en una transacción: el documento, si hay, la
- *   cabecera y, si el servicio pasa a «Adjudicado», ese cambio.
+ *   cabecera y el paso del servicio a «Adjudicado». Se carga solo en
+ *   «Cotizado» y se anula solo en «Adjudicado» (`DOM-0018`, F3-01, ADR 0039).
  * - Lo que la persona corrige (un campo o el archivo) vuelve por campo, no se lanza.
  * - El saldo por facturar compara importes sin IVA y puede ser negativo.
  */
@@ -25,10 +26,6 @@ import {
   formatearImporte,
 } from "../../dominio/compartido/importe.ts";
 import { formatearISO } from "../../dominio/compartido/reloj.ts";
-import {
-  cicloServicio,
-  transicionesDesde,
-} from "../../dominio/servicios/estados.ts";
 import { saldoDeOrden } from "../../dominio/servicios/orden-compra.ts";
 import type { DatosOrdenCompra } from "../../puertos/repositorios/ordenes-de-compra.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
@@ -55,6 +52,7 @@ import type {
   DependenciasDeAdjuntos,
 } from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
+import { cambiarPorCausa, exigirEtapa } from "./ciclo.ts";
 import {
   bajaDeAdjuntoOpcional,
   CAMPO_DE_CAMBIO,
@@ -69,9 +67,7 @@ import {
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
 import {
-  historialDe,
   ROLES_QUE_ESCRIBEN_SERVICIOS,
-  registrarCambioDeEstado,
   servicioVigente,
   servicioVigenteBloqueado,
 } from "./servicios.ts";
@@ -230,7 +226,8 @@ export function crearCasosUsoOrdenesDeCompra({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        await servicioVigente(repos, servicioId);
+        await servicioVigenteBloqueado(repos, servicioId);
+        await exigirEtapa(repos, servicioId, "ordenDeCompra");
         const validado = validarEscrito(CAMPOS, VALIDACION, escrito);
         const adjunto = validarAdjuntoOpcional(archivo);
         if (!validado.ok || !adjunto.ok) {
@@ -257,19 +254,14 @@ export function crearCasosUsoOrdenesDeCompra({
             reloj,
           ),
         );
-        const estado = cicloServicio.estadoActual(
-          await historialDe(repos, servicioId),
+        await cambiarPorCausa(
+          actor,
+          repos,
+          reloj,
+          servicioId,
+          "ordenDeCompra",
+          `Orden de compra ${validado.datos.numero} cargada`,
         );
-        if (transicionesDesde(estado).includes("adjudicado")) {
-          await registrarCambioDeEstado(
-            actor,
-            repos,
-            reloj,
-            servicioId,
-            "adjudicado",
-            `Orden de compra ${validado.datos.numero} cargada`,
-          );
-        }
         return { ok: true, id };
       });
     },
@@ -332,6 +324,11 @@ export function crearCasosUsoOrdenesDeCompra({
         }
         // Con la fila del servicio tomada, una factura de esta orden no se carga a la vez.
         await servicioVigenteBloqueado(repos, actual.valor.servicioId);
+        await exigirEtapa(
+          repos,
+          actual.valor.servicioId,
+          "anulacionDeOrdenDeCompra",
+        );
         const facturas = await repos.facturas.listarDe(actual.valor.servicioId);
         if (facturas.some(({ valor }) => valor.ordenCompraId === id)) {
           throw nuevoError(catalogo.DOM_0014, { id });

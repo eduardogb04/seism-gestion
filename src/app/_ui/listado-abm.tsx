@@ -1,7 +1,8 @@
 /**
- * El listado de cualquier ABM (F1-03, ADR 0031): buscador, orden, tabla y
- * paginado. Todo son enlaces y un formulario `GET`: el estado del listado vive
- * en la URL y lo resuelve la base, no el navegador. Alta, edición y baja (F1-09)
+ * El listado de cualquier ABM (F1-03, ADR 0031): buscador, tabla (se ordena
+ * tocando el título de la columna) y paginado. Todo son enlaces y un
+ * formulario `GET`: el estado del listado vive en la URL y lo resuelve la
+ * base, no el navegador. Alta, edición y baja (F1-09)
  * son enlaces al mismo listado con un parámetro más (`nuevo`, `editar` o
  * `baja`) que abre la ventana, sin perder la búsqueda, el orden ni la página.
  */
@@ -86,6 +87,14 @@ export function enlace(
   return `${ruta}?${consultaDe(vista, ventana)}`;
 }
 
+/**
+ * El enlace de la primera celda se estira a toda la fila (`::after` sobre el
+ * `<tr>` relativo): toda la fila lleva al detalle y, como es un `<a>`, anda
+ * con Tab y Enter sin JavaScript. El foco se dibuja alrededor de la fila.
+ */
+const FILA_ENLAZADA =
+  "font-medium no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-acento";
+
 export function ListadoAbm({
   ruta,
   singular,
@@ -100,7 +109,7 @@ export function ListadoAbm({
   readonly ruta: string;
   readonly singular: string;
   readonly cabeceras: readonly string[];
-  /** Las columnas por las que se ordena, con lo que dice su enlace. */
+  /** Las columnas por las que se ordena: `etiqueta` es la cabecera que se toca para ordenar. */
   readonly ordenes: readonly {
     readonly columna: string;
     readonly etiqueta: string;
@@ -161,33 +170,42 @@ export function ListadoAbm({
           </Enlace>
         ) : null}
       </div>
-      <p className="mb-2 flex flex-wrap gap-3">
-        Ordenar por:
-        {ordenes.map(({ columna, etiqueta }) => {
-          const actual = columna === orden;
-          const alReves = actual && direccion === "asc" ? "desc" : "asc";
-          return (
-            <a
-              key={columna}
-              href={enlace(ruta, {
-                ...vista,
-                orden: columna,
-                direccion: alReves,
-                pagina: 1,
-              })}
-            >
-              {etiqueta}
-              {actual ? (direccion === "asc" ? " ↑" : " ↓") : ""}
-            </a>
-          );
-        })}
-      </p>
       <Tabla
-        cabeceras={[...cabeceras, ...(acciones === null ? [] : ["Acciones"])]}
+        cabeceras={[
+          ...cabeceras.map((texto) => {
+            const columna = ordenes.find(
+              ({ etiqueta }) => etiqueta === texto,
+            )?.columna;
+            if (columna === undefined) {
+              return texto;
+            }
+            const actual = columna === orden;
+            return {
+              texto,
+              orden: {
+                sentido: actual ? direccion : null,
+                enlace: enlace(ruta, {
+                  ...vista,
+                  orden: columna,
+                  direccion: actual && direccion === "asc" ? "desc" : "asc",
+                  pagina: 1,
+                }),
+              },
+            };
+          }),
+          ...(acciones === null ? [] : ["Acciones"]),
+        ]}
       >
         {registros.map(({ valor }) => {
           return (
-            <tr key={valor.id}>
+            <tr
+              key={valor.id}
+              className={
+                rutaDeFila === undefined
+                  ? undefined
+                  : "relative cursor-pointer hover:bg-superficie-alta"
+              }
+            >
               {(celdas[valor.id] ?? []).map((texto, posicion) => (
                 <td
                   key={cabeceras[posicion]}
@@ -198,14 +216,19 @@ export function ListadoAbm({
                   }
                 >
                   {posicion === 0 && rutaDeFila !== undefined ? (
-                    <Enlace href={rutaDeFila(valor.id)}>{texto}</Enlace>
+                    <Enlace
+                      href={rutaDeFila(valor.id)}
+                      className={FILA_ENLAZADA}
+                    >
+                      {texto}
+                    </Enlace>
                   ) : (
                     texto
                   )}
                 </td>
               ))}
               {acciones === null ? null : (
-                <td>
+                <td className="relative z-10">
                   <div className="flex flex-wrap gap-2">
                     {acciones(valor.id, vista)}
                   </div>

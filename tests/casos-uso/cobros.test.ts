@@ -42,7 +42,11 @@ import {
   crearAlmacenTemporal,
 } from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
-import { altaDeServicio, sembrarServicio } from "./_arnes/servicio.ts";
+import {
+  altaDeServicio,
+  llevarServicioA,
+  sembrarServicio,
+} from "./_arnes/servicio.ts";
 import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 const HOY = (() => {
@@ -252,7 +256,19 @@ beforeEach(async () => {
     admin,
     usuarios[0]?.id ?? "",
   );
+  await enEjecucion(servicioId);
 });
+
+/** Facturas y cobros entran «En ejecución» (F3-01); el servicio se lleva ahí a mano. */
+function enEjecucion(id: string): Promise<void> {
+  return llevarServicioA(
+    dependencias().transaccional,
+    admin,
+    id,
+    ["cotizado", "adjudicado", "en_ejecucion"],
+    HOY,
+  );
+}
 
 describe("cobrar una factura", () => {
   test("un cobro parcial guarda sus datos con su auditoría y la factura muestra cobrado, retenido y saldo", async () => {
@@ -681,6 +697,14 @@ describe("dos cobros a la vez", () => {
 
 describe("el avance", () => {
   test("de la orden y del servicio: total sin IVA, facturado con IVA, cobrado y pendiente, por moneda y sin convertir", async () => {
+    // La orden de compra entra en «Cotizado».
+    await llevarServicioA(
+      dependencias().transaccional,
+      admin,
+      servicioId,
+      ["cotizado"],
+      HOY,
+    );
     const orden = await cargarOrden({ importe: "5.000,00" });
     const enPesos = await cargarFactura({
       numero: "A-1",
@@ -753,6 +777,7 @@ describe("Por cobrar", () => {
       usuarios[0]?.id ?? "",
       "Otro servicio de ejemplo",
     );
+    await enEjecucion(otroServicio);
     const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
     const futura = await cargarFactura({
       numero: "F-3",

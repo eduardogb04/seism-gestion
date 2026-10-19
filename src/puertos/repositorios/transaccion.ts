@@ -18,6 +18,7 @@ import type { RepositorioOrdenesCompra } from "./ordenes-de-compra.ts";
 import type { RepositorioPagos } from "./pagos.ts";
 import type { RepositorioServicios } from "./servicios.ts";
 import type { RepositorioSesiones } from "./sesiones.ts";
+import type { RepositorioSucesos } from "./sucesos.ts";
 import type { RepositorioTablero } from "./tablero.ts";
 import type { RepositorioUsuarios } from "./usuarios.ts";
 
@@ -41,6 +42,8 @@ export type RepositoriosEnTransaccion = {
   readonly facturas: RepositorioFacturas;
   /** Los cobros de las facturas (F2-07). */
   readonly cobros: RepositorioCobros;
+  /** El registro de sucesos de un servicio (F3-01). */
+  readonly sucesos: RepositorioSucesos;
   /** Las sumas del tablero: solo lectura (F2-10). */
   readonly tablero: RepositorioTablero;
 };

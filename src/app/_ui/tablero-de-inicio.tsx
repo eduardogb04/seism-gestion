@@ -5,8 +5,17 @@
  * se ve.
  */
 
+import {
+  ChartColumn,
+  FileText,
+  HandCoins,
+  Receipt,
+  Scale,
+  Wallet,
+} from "lucide-react";
 import type { Cifra, Tablero } from "../../casos-uso/tablero/tablero.ts";
 import { Tabla } from "./tabla.tsx";
+import { TarjetaKpi } from "./tarjeta-kpi.tsx";
 
 /** El número, con su enlace si lo tiene. `id` lo distingue en las pruebas. */
 function Numero({ cifra, id }: { readonly cifra: Cifra; readonly id: string }) {
@@ -46,65 +55,64 @@ export function TableroDeInicio({ tablero }: { readonly tablero: Tablero }) {
       {delMes.map((linea) => (
         <section key={linea.moneda} data-moneda={linea.moneda}>
           <h3>{linea.moneda}</h3>
-          <Tabla cabeceras={["Concepto", "Importe"]}>
-            <tr>
-              <td>Facturado sin IVA</td>
-              <td>
-                <Numero
-                  cifra={linea.facturadoSinIva}
-                  id={`${linea.moneda}-facturado-sin-iva`}
-                />
-              </td>
-            </tr>
-            <tr>
-              <td>Facturado con IVA</td>
-              <td>
-                <Numero
-                  cifra={linea.facturadoConIva}
-                  id={`${linea.moneda}-facturado-con-iva`}
-                />
-              </td>
-            </tr>
-            <tr>
-              <td>Cobrado (con retenciones)</td>
-              <td>
-                <Numero cifra={linea.cobrado} id={`${linea.moneda}-cobrado`} />
-              </td>
-            </tr>
-            <tr>
-              <td>Egresos</td>
-              <td>
-                <Numero cifra={linea.egresos} id={`${linea.moneda}-egresos`} />
-              </td>
-            </tr>
-            <tr>
-              <td>Pagado</td>
-              <td>
-                <Numero cifra={linea.pagado} id={`${linea.moneda}-pagado`} />
-              </td>
-            </tr>
-            <tr>
-              <td>Resultado de caja (cobrado menos pagado)</td>
-              <td>
-                <Numero
-                  cifra={linea.resultadoDeCaja}
-                  id={`${linea.moneda}-resultado-de-caja`}
-                />
-              </td>
-            </tr>
-            <tr>
-              <td>
-                Resultado devengado (facturado sin IVA menos egresos de proyecto
-                y de gestión administrativa; sin lo de fuera de rentabilidad)
-              </td>
-              <td>
-                <Numero
-                  cifra={linea.resultadoDevengado}
-                  id={`${linea.moneda}-resultado-devengado`}
-                />
-              </td>
-            </tr>
-          </Tabla>
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                titulo: "Facturado sin IVA",
+                cifra: linea.facturadoSinIva,
+                clave: "facturado-sin-iva",
+                Icono: FileText,
+              },
+              {
+                titulo: "Facturado con IVA",
+                cifra: linea.facturadoConIva,
+                clave: "facturado-con-iva",
+                Icono: FileText,
+              },
+              {
+                titulo: "Cobrado",
+                detalle: "Con retenciones.",
+                cifra: linea.cobrado,
+                clave: "cobrado",
+                Icono: HandCoins,
+              },
+              {
+                titulo: "Egresos",
+                cifra: linea.egresos,
+                clave: "egresos",
+                Icono: Receipt,
+              },
+              {
+                titulo: "Pagado",
+                cifra: linea.pagado,
+                clave: "pagado",
+                Icono: Wallet,
+              },
+              {
+                titulo: "Resultado de caja",
+                detalle: "Cobrado menos pagado.",
+                cifra: linea.resultadoDeCaja,
+                clave: "resultado-de-caja",
+                Icono: Scale,
+              },
+              {
+                titulo: "Resultado devengado",
+                detalle:
+                  "Facturado sin IVA menos egresos de proyecto y de gestión administrativa; sin lo de fuera de rentabilidad.",
+                cifra: linea.resultadoDevengado,
+                clave: "resultado-devengado",
+                Icono: ChartColumn,
+              },
+            ].map(({ titulo, detalle, cifra, clave, Icono }) => (
+              <TarjetaKpi
+                key={clave}
+                titulo={titulo}
+                Icono={Icono}
+                valor={<Numero cifra={cifra} id={`${linea.moneda}-${clave}`} />}
+                {...(detalle === undefined ? {} : { detalle })}
+              />
+            ))}
+          </div>
         </section>
       ))}
 

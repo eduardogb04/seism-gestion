@@ -145,7 +145,7 @@ export async function OrdenesDeCompra({
               <td>
                 {orden.facturado}
                 {orden.otraMoneda.length === 0 ? null : (
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-texto-suave">
                     Facturas en otra moneda (no suman):{" "}
                     {orden.otraMoneda.join("; ")}
                   </p>
@@ -154,10 +154,7 @@ export async function OrdenesDeCompra({
               <td>
                 {orden.saldo}
                 {orden.aviso === null ? null : (
-                  <p
-                    role="status"
-                    className="text-sm font-medium text-amber-800"
-                  >
+                  <p role="status" className="text-sm font-medium text-aviso">
                     {orden.aviso}
                   </p>
                 )}

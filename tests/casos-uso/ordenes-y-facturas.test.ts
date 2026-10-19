@@ -4,7 +4,9 @@
  * servicio, el documento opcional, la factura con su IVA calculado y nunca
  * guardado, el número único entre las vigentes, la orden elegida que tiene que
  * ser de este servicio, el saldo por facturar sin IVA (que puede quedar
- * negativo), la factura en otra moneda que no suma y la anulación.
+ * negativo), la factura en otra moneda que no suma y la anulación. Cada
+ * carga pone antes el servicio en una etapa que la admite (F3-01): lo que
+ * pasa fuera de etapa se prueba en `etapas.test.ts`.
  *
  * Datos inventados. Necesita Docker corriendo.
  */
@@ -32,6 +34,7 @@ import {
   crearFechaHora,
   RelojFijo,
 } from "../../src/dominio/compartido/reloj.ts";
+import type { EstadoServicio } from "../../src/dominio/servicios/estados.ts";
 import { nuevaClaveDocumento } from "../../src/infraestructura/arranque/almacen.ts";
 import type { AlmacenDocumentos } from "../../src/puertos/almacen-documentos.ts";
 import {
@@ -46,7 +49,11 @@ import {
   crearAlmacenTemporal,
 } from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
-import { altaDeServicio, sembrarServicio } from "./_arnes/servicio.ts";
+import {
+  altaDeServicio,
+  llevarServicioA,
+  sembrarServicio,
+} from "./_arnes/servicio.ts";
 import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 const HOY = (() => {
@@ -141,11 +148,40 @@ function escritoDeFactura(cambios: Escrito = {}): Escrito {
   });
 }
 
+/** Pone el servicio en una etapa que admite la carga, si no está en una. */
+async function enEtapaDe(
+  carga: "ordenDeCompra" | "factura",
+  paraServicio = servicioId,
+): Promise<void> {
+  const actual = await estado(paraServicio);
+  const admiten =
+    carga === "ordenDeCompra"
+      ? ["cotizado"]
+      : ["adjudicado", "en_ejecucion", "finalizado"];
+  if (actual === undefined || !admiten.includes(actual)) {
+    await llevarA(
+      carga === "ordenDeCompra" ? "cotizado" : "adjudicado",
+      paraServicio,
+    );
+  }
+}
+
+function llevarA(a: EstadoServicio, paraServicio = servicioId) {
+  return llevarServicioA(
+    dependencias().transaccional,
+    admin,
+    paraServicio,
+    [a],
+    HOY,
+  );
+}
+
 async function cargarOrden(
   cambios: Escrito = {},
   adjunto: ArchivoSubido | null = null,
   paraServicio = servicioId,
 ): Promise<string> {
+  await enEtapaDe("ordenDeCompra", paraServicio);
   const resultado = await ordenes().crear(
     admin,
     paraServicio,
@@ -163,6 +199,7 @@ async function cargarFactura(
   adjunto: ArchivoSubido | null = null,
   paraServicio = servicioId,
 ): Promise<string> {
+  await enEtapaDe("factura", paraServicio);
   const resultado = await facturas().crear(
     admin,
     paraServicio,
@@ -179,6 +216,7 @@ async function erroresDeFactura(
   cambios: Escrito,
   adjunto: ArchivoSubido | null = null,
 ) {
+  await enEtapaDe("factura");
   const resultado = await facturas().crear(
     admin,
     servicioId,
@@ -195,15 +233,6 @@ async function estado(id = servicioId): Promise<string | undefined> {
     take: 1,
   });
   return ultimo?.a;
-}
-
-async function cotizado(): Promise<void> {
-  await crearCasosUsoServicios(dependencias()).cambiarEstado(
-    admin,
-    servicioId,
-    "cotizado",
-    "",
-  );
 }
 
 async function filas() {
@@ -285,9 +314,8 @@ describe("cargar una orden de compra", () => {
     expect(Buffer.from(guardado).equals(Buffer.from(PDF))).toBe(true);
   });
 
-  test("la primera pasa el servicio de cotizado a adjudicado, con su nota, en la misma transacción", async () => {
-    await cotizado();
-    expect(await estado()).toBe("cotizado");
+  test("pasa el servicio de cotizado a adjudicado, con su nota, en la misma transacción", async () => {
+    await llevarA("cotizado");
 
     await cargarOrden({ numero: "OC-77" });
 
@@ -303,23 +331,8 @@ describe("cargar una orden de compra", () => {
     });
   });
 
-  test("una segunda no cambia el estado; y en un estado que no admite adjudicar, se guarda y el estado queda como estaba", async () => {
-    expect(await estado()).toBe("solicitado");
-    await cargarOrden();
-    expect(await estado()).toBe("solicitado");
-
-    await cotizado();
-    await cargarOrden({ numero: "OC-2" });
-    expect(await estado()).toBe("adjudicado");
-    const antes = await filas();
-    await cargarOrden({ numero: "OC-3" });
-
-    expect(await estado()).toBe("adjudicado");
-    expect((await filas()).eventos).toBe(antes.eventos);
-    expect(await cliente().ordenCompra.count()).toBe(3);
-  });
-
   test("lo que se escribe mal vuelve por campo y no se escribe nada", async () => {
+    await llevarA("cotizado");
     const antes = await filas();
     const errores = async (
       cambios: Escrito,
@@ -350,6 +363,7 @@ describe("cargar una orden de compra", () => {
   });
 
   test("un operador carga; quien no es administrador ni operador activo, no; un servicio que no existe es DOM-0009", async () => {
+    await llevarA("cotizado");
     const resultado = await ordenes().crear(
       operador,
       servicioId,
@@ -465,6 +479,7 @@ describe("cargar una factura", () => {
   });
 
   test("dos altas a la vez con el mismo número: entra una; la otra vuelve con el mensaje en el campo o se rechaza con DOM-0008, nunca un error crudo", async () => {
+    await llevarA("adjudicado");
     const resultados = await Promise.allSettled([
       facturas().crear(admin, servicioId, escritoDeFactura(), null),
       facturas().crear(admin, servicioId, escritoDeFactura(), null),
@@ -531,6 +546,7 @@ describe("cargar una factura", () => {
   });
 
   test("lo demás que se escribe mal vuelve por campo y no se escribe nada", async () => {
+    await llevarA("adjudicado");
     const antes = await filas();
 
     expect(await erroresDeFactura({ numero: "" })).toHaveProperty("numero");
@@ -775,7 +791,6 @@ describe("el saldo por facturar de una orden de compra, sin IVA", () => {
 
 describe("anular", () => {
   test("una orden sin facturas sale del listado y deja su documento dado de baja; el estado no vuelve atrás", async () => {
-    await cotizado();
     const id = await cargarOrden({}, archivo());
     const orden = await cliente().ordenCompra.findUniqueOrThrow({
       where: { id },
@@ -863,21 +878,26 @@ describe("anular", () => {
 });
 
 describe("el servicio que tiene órdenes de compra o facturas", () => {
-  test("no se da de baja con una factura vigente (aunque siga en «Solicitado»), con una orden vigente, y sí cuando ya no tiene ninguna", async () => {
+  // Hoy una orden o una factura sacan al servicio de «Creado»; un historial armado a mano (como uno de antes) lo deja ahí.
+  test("no se da de baja con una factura vigente (aunque siga en «Creado»), con una orden vigente, y sí cuando ya no tiene ninguna", async () => {
     const baja = () =>
       crearCasosUsoServicios(dependencias()).marcarEliminado(admin, servicioId);
-    const factura = await cargarFactura();
     const orden = await cargarOrden();
-    expect(await estado()).toBe("solicitado");
+    const factura = await cargarFactura();
+    await llevarA("creado");
 
     await expect(baja()).rejects.toMatchObject({
       codigo: catalogo.DOM_0010.codigo,
     });
+    await llevarA("adjudicado");
     await facturas().marcarEliminado(admin, factura);
+    await llevarA("creado");
     await expect(baja()).rejects.toMatchObject({
       codigo: catalogo.DOM_0010.codigo,
     });
+    await llevarA("adjudicado");
     await ordenes().marcarEliminado(admin, orden);
+    await llevarA("creado");
 
     await baja();
     expect(
@@ -889,26 +909,14 @@ describe("el servicio que tiene órdenes de compra o facturas", () => {
     ).not.toBeNull();
   });
 
-  test("con solo una factura sin orden en «Solicitado» no se da de baja (DOM-0010); anulada la factura, sí", async () => {
-    const baja = () =>
-      crearCasosUsoServicios(dependencias()).marcarEliminado(admin, servicioId);
-    const factura = await cargarFactura();
-    expect(await estado()).toBe("solicitado");
+  test("con solo una factura sin orden en «Creado» no se da de baja (DOM-0010)", async () => {
+    await cargarFactura();
+    await llevarA("creado");
     expect(await cliente().ordenCompra.count()).toBe(0);
 
-    await expect(baja()).rejects.toMatchObject({
-      codigo: catalogo.DOM_0010.codigo,
-    });
-    await facturas().marcarEliminado(admin, factura);
-
-    await baja();
-    expect(
-      (
-        await cliente().servicio.findUniqueOrThrow({
-          where: { id: servicioId },
-        })
-      ).eliminadoEn,
-    ).not.toBeNull();
+    await expect(
+      crearCasosUsoServicios(dependencias()).marcarEliminado(admin, servicioId),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0010.codigo });
   });
 });
 

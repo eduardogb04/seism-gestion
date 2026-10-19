@@ -1023,7 +1023,7 @@ const SERVICIOS_DE_DEMOSTRACION: readonly {
     titulo: "Operación de tanques — ejemplo",
     fechaPedido: "2026-08-03",
     vigencia: ["2026-09-01", "2027-08-31"],
-    estados: ["cotizado", "adjudicado", "vigente"],
+    estados: ["cotizado", "adjudicado", "en_ejecucion"],
     sitios: [],
   },
   {
@@ -1032,7 +1032,13 @@ const SERVICIOS_DE_DEMOSTRACION: readonly {
     titulo: "Informe técnico — ejemplo",
     fechaPedido: "2026-07-06",
     vigencia: null,
-    estados: ["cotizado", "adjudicado", "vigente", "cerrado"],
+    estados: [
+      "cotizado",
+      "adjudicado",
+      "en_ejecucion",
+      "finalizado",
+      "cerrado",
+    ],
     sitios: [],
   },
 ];

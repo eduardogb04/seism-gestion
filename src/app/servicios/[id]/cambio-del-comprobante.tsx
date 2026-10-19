@@ -23,7 +23,7 @@ export function CambioDelComprobante({
     return null;
   }
   return cambio.falta ? (
-    <span role="status" className="font-medium text-amber-800">
+    <span role="status" className="font-medium text-aviso">
       {cambio.texto}
     </span>
   ) : (

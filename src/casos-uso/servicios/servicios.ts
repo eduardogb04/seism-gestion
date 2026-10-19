@@ -8,8 +8,9 @@
  *   (`AUT-0009`) y corre entera en una transacción.
  * - El código (`SRV-2026-014`) sale de `Secuencias` en la transacción del
  *   alta: dos altas a la vez no lo repiten, y un alta que falla no lo gasta.
- * - El estado es el último evento del historial. Un cambio que el ciclo no
- *   declara, o una baja fuera de «Solicitado», es `DOM-0011` y no guarda nada.
+ * - El estado es el último evento del historial (`ciclo.ts`). Un cambio que
+ *   la persona no puede pedir, o una baja fuera de «Creado», es `DOM-0011` y
+ *   no guarda nada; uno que pide motivo y no lo trae, `DOM-0017`.
  * - Lo que la persona corrige en el formulario vuelve por campo, no se lanza.
  */
 
@@ -30,12 +31,11 @@ import { type Reloj, RelojFijo } from "../../dominio/compartido/reloj.ts";
 import {
   admiteBaja,
   cicloServicio,
+  diasPorEtapa,
   ESTADO_INICIAL,
   ESTADOS_SERVICIO,
-  type EstadoServicio,
-  type HistorialServicio,
   PREFIJO_DE_CODIGO,
-  transicionesDesde,
+  transicionesManualesDesde,
 } from "../../dominio/servicios/estados.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
 import {
@@ -73,6 +73,12 @@ import { conDefinicion } from "../abm/definiciones.ts";
 import { MODALIDADES } from "../abm/tipos-de-servicio.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import {
+  cerrarSiEstaCobrado,
+  historialDe,
+  pedirCambioDeEstado,
+} from "./ciclo.ts";
+import {
+  botonDeCambio,
   camposDeServicio,
   ETIQUETAS_DE_ESTADO,
   VALIDACION,
@@ -147,6 +153,8 @@ export type CambioDeEstado = {
   readonly a: string;
   readonly quien: string;
   readonly nota: string;
+  /** Los días que estuvo en `a`: hasta el cambio siguiente o, el último, hasta hoy. */
+  readonly dias: number;
 };
 
 export type DetalleDeServicio = {
@@ -158,7 +166,7 @@ export type DetalleDeServicio = {
   readonly datos: readonly (readonly [string, string])[];
   /** Del más nuevo al más viejo. */
   readonly historial: readonly CambioDeEstado[];
-  /** A qué estados se puede pasar desde el actual. */
+  /** A qué estados lo puede pasar la persona desde el actual, con el texto de su botón. */
   readonly transiciones: readonly OpcionAbm[];
   /** Los sitios vigentes de su cliente, con los que abarca marcados. */
   readonly sitios: readonly {
@@ -183,7 +191,7 @@ export type CasosUsoServicios = {
     id: string,
     escrito: Escrito,
   ): Promise<ResultadoDeServicio>;
-  /** La baja lógica: solo de un servicio que sigue «Solicitado». */
+  /** La baja lógica: solo de un servicio que sigue «Creado». */
   marcarEliminado(actor: Actor, id: string): Promise<void>;
   cambiarEstado(
     actor: Actor,
@@ -225,56 +233,6 @@ export async function servicioVigenteBloqueado(
   await servicioVigente(repos, id);
   await repos.servicios.bloquear(id);
   return servicioVigente(repos, id);
-}
-
-export async function historialDe(
-  repos: RepositoriosEnTransaccion,
-  id: string,
-): Promise<HistorialServicio> {
-  const [alta, ...cambios] = await repos.servicios.eventosDe(id);
-  if (alta === undefined) {
-    throw nuevoError(catalogo.INF_0001, {
-      motivo: "hay un servicio sin su evento de alta",
-      id,
-    });
-  }
-  return { eventos: [alta, ...cambios] };
-}
-
-/**
- * Le pide el cambio al ciclo del dominio y agrega el evento que devuelve: es la
- * única forma de cambiar el estado de un servicio (la usa también cargar una
- * cotización). `DOM-0011` si el ciclo no declara la transición.
- */
-export async function registrarCambioDeEstado(
-  actor: Actor,
-  repos: RepositoriosEnTransaccion,
-  reloj: Reloj,
-  id: string,
-  destino: EstadoServicio,
-  nota: string | null,
-): Promise<void> {
-  const historial = await historialDe(repos, id);
-  const resultado = cicloServicio.agregar(historial, destino, {
-    en: reloj.ahora(),
-    actor,
-    origen: nota,
-  });
-  if (!resultado.ok) {
-    throw nuevoError(catalogo.DOM_0011, {
-      id,
-      de: resultado.error.de,
-      a: resultado.error.a,
-    });
-  }
-  const posicion = historial.eventos.length;
-  const evento = resultado.valor.eventos[posicion];
-  if (evento === undefined) {
-    throw nuevoError(catalogo.INF_0001, {
-      motivo: "el historial no agregó el evento",
-    });
-  }
-  await repos.servicios.agregarEvento(actor, id, { ...evento, posicion });
 }
 
 /** Los usuarios activos, por email, y el que ya era responsable aunque ya no lo esté. */
@@ -422,6 +380,7 @@ export function crearCasosUsoServicios({
         const { valor } = await servicioVigente(repos, id);
         const historial = await historialDe(repos, id);
         const estado = cicloServicio.estadoActual(historial);
+        const dias = diasPorEtapa(historial, reloj.ahora());
         const quien = await nombresDeActores(repos);
         const [cliente] = await repos
           .abm("Cliente")
@@ -477,11 +436,12 @@ export function crearCasosUsoServicios({
               a: ETIQUETAS_DE_ESTADO[a],
               quien: quien(actor),
               nota: origen ?? "",
+              dias: dias[posicion] ?? 0,
             }))
             .reverse(),
-          transiciones: transicionesDesde(estado).map((destino) => ({
+          transiciones: transicionesManualesDesde(estado).map((destino) => ({
             valor: destino,
-            etiqueta: ETIQUETAS_DE_ESTADO[destino],
+            etiqueta: botonDeCambio(destino),
           })),
           sitios: sitios.map(({ valor: sitio }) => ({
             id: sitio.id,
@@ -619,13 +579,13 @@ export function crearCasosUsoServicios({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        await servicioVigente(repos, id);
+        await servicioVigenteBloqueado(repos, id);
         const destino = esquemaEstado.safeParse(a);
         const leida = esquemaNota.safeParse(nota);
         if (!destino.success || !leida.success) {
           throw nuevoError(catalogo.DOM_0011, { id, a });
         }
-        await registrarCambioDeEstado(
+        await pedirCambioDeEstado(
           actor,
           repos,
           reloj,
@@ -633,6 +593,9 @@ export function crearCasosUsoServicios({
           destino.data,
           leida.data === "" ? null : leida.data,
         );
+        if (destino.data === "finalizado") {
+          await cerrarSiEstaCobrado(actor, repos, reloj, id);
+        }
       });
     },
 

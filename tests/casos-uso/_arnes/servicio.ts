@@ -1,6 +1,6 @@
 /**
  * Un servicio de prueba con su cliente y su tipo, armados por los casos de uso
- * (F2-05). Datos inventados.
+ * (F2-05), y llevado a la etapa que el test necesite (F3-01). Datos inventados.
  */
 
 import type { crearGeneradorIdCrypto } from "../../../src/adaptadores/memoria/generador-id.ts";
@@ -10,7 +10,11 @@ import { CLIENTES } from "../../../src/casos-uso/abm/clientes.ts";
 import { TIPOS_DE_SERVICIO } from "../../../src/casos-uso/abm/tipos-de-servicio.ts";
 import { crearCasosUsoServicios } from "../../../src/casos-uso/servicios/servicios.ts";
 import type { Actor } from "../../../src/dominio/compartido/actor.ts";
-import type { Reloj } from "../../../src/dominio/compartido/reloj.ts";
+import type {
+  FechaHora,
+  Reloj,
+} from "../../../src/dominio/compartido/reloj.ts";
+import type { EstadoServicio } from "../../../src/dominio/servicios/estados.ts";
 import type { Transaccional } from "../../../src/puertos/repositorios/transaccion.ts";
 
 type Dependencias = {
@@ -46,7 +50,7 @@ export async function altaDeServicio(
   return resultado.id;
 }
 
-/** Un cliente, un tipo de servicio y un servicio «Solicitado» de ellos. */
+/** Un cliente, un tipo de servicio y un servicio «Creado» de ellos. */
 export async function sembrarServicio(
   prisma: ReturnType<typeof crearClientePrisma>,
   dependencias: Dependencias,
@@ -81,4 +85,32 @@ export async function sembrarServicio(
     responsableId,
     "Auditoría de ejemplo",
   );
+}
+
+/**
+ * Lleva el servicio por `recorrido` escribiendo sus eventos directo en el
+ * repositorio, sin pasar por el recorrido del dominio ni por las causas: arma
+ * la etapa que el test necesita, o un historial que hoy ya no se permite.
+ */
+export function llevarServicioA(
+  transaccional: Transaccional,
+  actor: Actor,
+  id: string,
+  recorrido: readonly EstadoServicio[],
+  en: FechaHora,
+): Promise<void> {
+  return transaccional.ejecutar(async (repos) => {
+    const eventos = await repos.servicios.eventosDe(id);
+    let de = eventos.at(-1)?.a ?? null;
+    for (const [indice, a] of recorrido.entries()) {
+      await repos.servicios.agregarEvento(actor, id, {
+        de,
+        a,
+        en,
+        origen: "Armado por el test",
+        posicion: eventos.length + indice,
+      });
+      de = a;
+    }
+  });
 }

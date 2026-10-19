@@ -4,7 +4,7 @@
  * Las acciones de escritura de Servicios (F2-04, ADR 0033). El `Actor` sale
  * solo de la sesión, y si esa persona puede escribir lo decide el caso de uso.
  *
- * Las del formulario (alta, edición, baja, cargar y anular una cotización, una orden de compra o una factura) devuelven su estado, como las del
+ * Las del formulario (alta, edición, baja, cargar y anular una cotización, una orden de compra, una factura o un suceso) devuelven su estado, como las del
  * molde de ABM. El cambio de estado y los sitios son formularios sin
  * JavaScript: si el caso de uso los rechaza, vuelven a la pantalla del servicio
  * con el código del error en la URL.
@@ -234,6 +234,39 @@ export async function anularCobro(
   return escribir(formulario, async (actor) => {
     await armado().cobros.marcarAnulado(actor, cobroId);
     return { ok: true, ruta: `${RUTA}/${servicioId}` };
+  });
+}
+
+/** Cargar un suceso del servicio. */
+export async function registrarSuceso(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().sucesos.crear(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
+/** La anulación de un suceso, con su motivo. */
+export async function anularSuceso(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const anulado = await armado().sucesos.marcarAnulado(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return anulado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : anulado;
   });
 }
 

@@ -47,7 +47,11 @@ import {
   crearAlmacenTemporal,
 } from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
-import { altaDeServicio, sembrarServicio } from "./_arnes/servicio.ts";
+import {
+  altaDeServicio,
+  llevarServicioA,
+  sembrarServicio,
+} from "./_arnes/servicio.ts";
 import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 function fecha(anio: number, mes: number, dia: number) {
@@ -262,6 +266,16 @@ beforeAll(async () => {
     primero.id,
     "Servicio B de ejemplo",
   );
+  // Las facturas entran «En ejecución» (F3-01): los dos se llevan ahí a mano.
+  for (const id of [servicioA, servicioB]) {
+    await llevarServicioA(
+      dependencias().transaccional,
+      admin,
+      id,
+      ["cotizado", "adjudicado", "en_ejecucion"],
+      HOY,
+    );
+  }
   centros = {
     obra: await altaDeCentro("Obra de ejemplo", "proyecto"),
     oficina: await altaDeCentro("Oficina de ejemplo", "gestion_administrativa"),

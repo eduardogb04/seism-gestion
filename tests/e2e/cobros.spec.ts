@@ -1,7 +1,7 @@
 /**
  * Cobros de facturas (F2-07, ADR 0037), en un navegador de verdad contra la
  * imagen que se publica. Lo recorre una operadora, que el administrador da de
- * alta acá mismo, sobre un servicio que ella crea:
+ * alta acá mismo, sobre un servicio que ella crea y cotiza:
  *
  * 1. una factura en pesos de 1.210,00 con IVA, vencida, aparece en *Por cobrar*
  *    con sus días de atraso;
@@ -178,6 +178,19 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await expect(
     page.getByText("Todavía no hay órdenes de compra ni facturas."),
   ).toBeVisible();
+
+  // La orden de compra entra en «Cotizado»: antes, la cotización (F3-01).
+  await page.getByRole("link", { name: "Nueva cotización" }).click();
+  const cotizacion = ventana(page, "Nueva cotización");
+  await cotizacion.getByLabel("Fecha").fill("2026-08-22");
+  await cotizacion.getByLabel("Importe", { exact: true }).fill("1.000,00");
+  await cotizacion.getByLabel("Documento").setInputFiles({
+    name: "cotizacion.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\nCotización de ejemplo\n"),
+  });
+  await cotizacion.getByRole("button", { name: "Cargar" }).click();
+  await expect(ventana(page, "Nueva cotización")).toHaveCount(0);
 
   await page.getByRole("link", { name: "Nueva orden de compra" }).click();
   const orden = ventana(page, "Nueva orden de compra");

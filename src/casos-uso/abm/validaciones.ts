@@ -10,9 +10,10 @@ export const cambioDeDocumento = z
   })
   .nullable();
 
+/** Un `textoLargo` vacío llega como `null`: el mismo mensaje lo cubre. */
 export function obligatorio(que: string, maximo: number) {
   return z
-    .string()
+    .string(`Escribí ${que}.`)
     .trim()
     .min(1, `Escribí ${que}.`)
     .max(maximo, `No puede pasar de ${maximo} caracteres.`);

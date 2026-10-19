@@ -43,6 +43,7 @@ import {
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import {
   altaDeServicio,
+  conModalidad,
   llevarServicioA,
   sembrarServicio,
 } from "./_arnes/servicio.ts";
@@ -243,6 +244,8 @@ beforeEach(async () => {
     admin,
     usuarios[0]?.id ?? "",
   );
+  // Factura sin probar la modalidad (F3-03): «Por hitos», en las mismas etapas que antes.
+  await conModalidad(cliente(), servicioId);
   await enEjecucion(servicioId);
 });
 
@@ -763,6 +766,7 @@ describe("Por cobrar", () => {
       "Otro servicio de ejemplo",
     );
     await enEjecucion(otroServicio);
+    await conModalidad(cliente(), otroServicio);
     const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
     const futura = await cargarFactura({
       numero: "F-3",

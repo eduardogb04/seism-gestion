@@ -10,6 +10,7 @@ import { repositorioAbmPrisma } from "./abm/tablas.ts";
 import { crearAuditoriaPrisma } from "./auditoria.ts";
 import { crearRepositorioCobrosPrisma } from "./cobros.ts";
 import { crearRepositorioCotizacionesPrisma } from "./cotizaciones.ts";
+import { crearRepositorioCuotasPrisma } from "./cuotas.ts";
 import { crearRepositorioDocumentosPrisma } from "./documentos.ts";
 import { crearRepositorioFacturasPrisma } from "./facturas.ts";
 import type { PrismaClient } from "./generado/client.ts";
@@ -41,6 +42,7 @@ export function crearTransaccionalPrisma(prisma: PrismaClient): Transaccional {
           facturas: crearRepositorioFacturasPrisma(tx),
           cobros: crearRepositorioCobrosPrisma(tx),
           sucesos: crearRepositorioSucesosPrisma(tx),
+          cuotas: crearRepositorioCuotasPrisma(tx),
           tablero: crearRepositorioTableroPrisma(tx),
         }),
       );

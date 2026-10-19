@@ -48,7 +48,11 @@ import {
   crearAlmacenTemporal,
 } from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
-import { llevarServicioA, sembrarServicio } from "./_arnes/servicio.ts";
+import {
+  conModalidad,
+  llevarServicioA,
+  sembrarServicio,
+} from "./_arnes/servicio.ts";
 
 const { cookie, punto } = vi.hoisted(() => ({
   cookie: { valor: undefined as string | undefined },
@@ -229,6 +233,8 @@ beforeEach(async () => {
     { tipo: "persona", usuarioId: sembrado.id },
     sembrado.id,
   );
+  // Factura sin probar la modalidad (F3-03): «Por hitos», en las mismas etapas que antes.
+  await conModalidad(cliente(), servicioId);
 });
 
 describe("cargar una cotización desde el formulario", () => {

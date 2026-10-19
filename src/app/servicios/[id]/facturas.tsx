@@ -26,6 +26,7 @@ const CABECERAS = [
   "Número",
   "Fecha",
   "Vencimiento",
+  "Período",
   "Orden de compra",
   "Importe sin IVA",
   "Alícuota",
@@ -144,6 +145,7 @@ export async function Facturas({
                 <td>{factura.numero}</td>
                 <td>{factura.fecha}</td>
                 <td>{factura.vencimiento}</td>
+                <td>{factura.periodo}</td>
                 <td>{factura.ordenCompra}</td>
                 <td>{factura.sinIva}</td>
                 <td>{factura.alicuota}</td>

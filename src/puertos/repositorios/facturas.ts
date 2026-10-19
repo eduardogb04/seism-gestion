@@ -22,6 +22,8 @@ export type DatosFactura = {
   /** Sin IVA. */
   readonly importe: Importe<Moneda>;
   readonly alicuota: AlicuotaIva;
+  /** El mes que factura, como su día 1 (`aaaa-mm-01`): solo en modalidad mensual (F3-03). */
+  readonly periodo: string | null;
   readonly documentoId: string | null;
 };
 

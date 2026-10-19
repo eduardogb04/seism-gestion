@@ -97,6 +97,7 @@ export async function sembrarCobros(
           vencimiento: FACTURA_EN_DOLARES.vencimiento,
           importe: crearImporte(FACTURA_EN_DOLARES.centavos, "USD"),
           alicuota: FACTURA_EN_DOLARES.alicuota,
+          periodo: null,
           documentoId: null,
         },
         actor,

@@ -7,7 +7,8 @@
  * - Toda escritura recibe el `Actor` primero, exige un rol que escriba
  *   (`AUT-0009`) y corre entera en una transacción: el documento, si hay, la
  *   cabecera y el paso del servicio a «Adjudicado». Se carga solo en
- *   «Cotizado» y se anula solo en «Adjudicado» (`DOM-0018`, F3-01, ADR 0039).
+ *   «Cotizado» y se anula solo en «Adjudicado» (`DOM-0018`, F3-01, ADR 0039);
+ *   anularla vuelve el servicio a «Cotizado» (F3-03, ADR 0041).
  * - Lo que la persona corrige (un campo o el archivo) vuelve por campo, no se lanza.
  * - El saldo por facturar compara importes sin IVA y puede ser negativo.
  */
@@ -275,6 +276,20 @@ export function crearCasosUsoOrdenesDeCompra({
           reloj,
           actual.valor.documentoId,
         );
+        // Sin orden vigente vuelve a «Cotizado» (F3-03, ADR 0041); la modalidad y las cuotas quedan.
+        if (
+          (await repos.ordenesCompra.listarDe(actual.valor.servicioId))
+            .length === 0
+        ) {
+          await cambiarPorCausa(
+            actor,
+            repos,
+            reloj,
+            actual.valor.servicioId,
+            "anulacionDeOrdenDeCompra",
+            `Orden de compra ${actual.valor.numero} anulada`,
+          );
+        }
       });
     },
   };

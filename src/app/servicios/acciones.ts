@@ -4,7 +4,7 @@
  * Las acciones de escritura de Servicios (F2-04, ADR 0033). El `Actor` sale
  * solo de la sesión, y si esa persona puede escribir lo decide el caso de uso.
  *
- * Las del formulario (alta, edición, baja, cargar y anular una cotización, una orden de compra, una factura o un suceso) devuelven su estado, como las del
+ * Las del formulario (alta, edición, baja, cargar y anular una cotización, una orden de compra, una factura o un suceso, elegir la modalidad de facturación y ajustar la cuota) devuelven su estado, como las del
  * molde de ABM. El cambio de estado y los sitios son formularios sin
  * JavaScript: si el caso de uso los rechaza, vuelven a la pantalla del servicio
  * con el código del error en la URL.
@@ -231,6 +231,38 @@ export async function anularSuceso(
       escritoEn(formulario),
     );
     return anulado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : anulado;
+  });
+}
+
+/** Elegir o cambiar la modalidad de facturación (F3-03). */
+export async function cambiarModalidadDeFacturacion(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const cambiada = await armado().facturacion.cambiarModalidad(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+    );
+    return cambiada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cambiada;
+  });
+}
+
+/** Un ajuste de la cuota mensual (F3-03). */
+export async function ajustarCuota(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const ajustada = await armado().facturacion.registrarAjuste(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+    );
+    return ajustada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : ajustada;
   });
 }
 

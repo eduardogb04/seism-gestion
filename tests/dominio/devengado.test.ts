@@ -23,6 +23,7 @@ import {
   cuotaDelMes,
   type DatosDevengado,
   devengadoPorMoneda,
+  periodoAFacturar,
 } from "../../src/dominio/servicios/devengado.ts";
 import {
   admiteFactura,
@@ -205,6 +206,41 @@ describe("mensual", () => {
         fecha: dia(2032, 2, 29),
       }),
     ).toEqual(["ARS 400/0/400"]);
+  });
+});
+
+describe("el período que se propone facturar", () => {
+  const cuotas = [cuota(dia(2031, 5), ars(100))];
+  const mesDe = ({ anio, mes }: FechaHora) => `${anio}-${mes}`;
+
+  test("el mes más antiguo desde el inicio, hasta el actual, que no tiene factura", () => {
+    expect(mesDe(periodoAFacturar(cuotas, dia(2031, 7, 15), []))).toBe(
+      "2031-5",
+    );
+    expect(
+      mesDe(
+        periodoAFacturar(cuotas, dia(2031, 7, 15), [
+          dia(2031, 5),
+          dia(2031, 7),
+        ]),
+      ),
+    ).toBe("2031-6");
+  });
+
+  test("si todos tienen factura, el mes actual", () => {
+    expect(
+      mesDe(
+        periodoAFacturar(cuotas, dia(2031, 7, 15), [
+          dia(2031, 7),
+          dia(2031, 6),
+          dia(2031, 5),
+        ]),
+      ),
+    ).toBe("2031-7");
+  });
+
+  test("antes del inicio, el mes actual", () => {
+    expect(mesDe(periodoAFacturar(cuotas, dia(2031, 4, 2), []))).toBe("2031-4");
   });
 });
 

@@ -142,6 +142,7 @@ export async function sembrarOrdenesYFacturas(
             vencimiento: factura.vencimiento,
             importe: crearImporte(factura.centavos, "ARS"),
             alicuota: factura.alicuota,
+            periodo: null,
             documentoId,
           },
           actor,

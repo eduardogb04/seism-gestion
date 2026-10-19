@@ -147,3 +147,27 @@ export function devengadoPorMoneda(
     return { moneda, devengado, facturado, porFacturar };
   });
 }
+
+/**
+ * El mes que se propone facturar en modalidad mensual: el más antiguo, del de
+ * inicio al de `fecha`, que no esté en `facturados`; si están todos, el de
+ * `fecha`. Solo cuentan el año y el mes.
+ */
+export function periodoAFacturar(
+  cuotas: readonly Cuota[],
+  fecha: FechaHora,
+  facturados: readonly FechaHora[],
+): FechaHora {
+  const [inicial] = cuotas;
+  for (
+    let mes = inicial?.desde;
+    mes !== undefined && indiceDeMes(mes) <= indiceDeMes(fecha);
+    mes = sumarMeses(mes, 1)
+  ) {
+    const indice = indiceDeMes(mes);
+    if (!facturados.some((facturado) => indiceDeMes(facturado) === indice)) {
+      return mes;
+    }
+  }
+  return fecha;
+}

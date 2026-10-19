@@ -89,7 +89,9 @@ export function camposDeServicio(
 
 const VIGENCIAS = ["vigenciaDesde", "vigenciaHasta"] as const;
 
-export const VALIDACION: z.ZodType<Omit<DatosServicio, "codigo">> = z
+export const VALIDACION: z.ZodType<
+  Omit<DatosServicio, "codigo" | "fechaInicioEstimada">
+> = z
   .object({
     clienteId: z.string("Elegí un cliente."),
     tipoServicioId: z.string("Elegí un tipo de servicio."),

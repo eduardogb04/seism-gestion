@@ -31,6 +31,8 @@ export type DatosServicio = {
   readonly vigenciaDesde: string | null;
   readonly vigenciaHasta: string | null;
   readonly observaciones: string | null;
+  /** Cuándo se espera empezar, `aaaa-mm-dd` (F3-02). No es la vigencia. */
+  readonly fechaInicioEstimada: string | null;
 };
 
 export type Servicio = RegistroDe<DatosServicio>;

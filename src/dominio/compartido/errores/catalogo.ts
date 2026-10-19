@@ -187,7 +187,7 @@ export const catalogo = definirCatalogo({
     descripcion:
       "En la etapa en que está el servicio no se puede cargar ni anular eso: no se guardó nada.",
     queHacer:
-      "Las cotizaciones van en «Creado» y «Cotizado»; la orden de compra, en «Cotizado» (se anula en «Adjudicado»); las facturas, de «Adjudicado» a «Finalizado»; los cobros y los sucesos, en cualquier etapa menos «Cerrado». Abrí el servicio de nuevo: puede que otra persona le haya cambiado el estado recién.",
+      "Las cotizaciones van en «Creado» y «Cotizado»; la orden de compra, en «Cotizado» (se anula en «Adjudicado»); las facturas, de «Adjudicado» a «Finalizado»; los cobros y los sucesos, en cualquier etapa menos «Cerrado»; el responsable, la fecha estimada, los hitos y los recursos, en «Adjudicado» y «En ejecución» (los hitos se tildan solo en «En ejecución»). Abrí el servicio de nuevo: puede que otra persona le haya cambiado el estado recién.",
   },
   AUT_0001: {
     codigo: "AUT-0001",

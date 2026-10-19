@@ -30,6 +30,7 @@ import type { CasosUsoCobros } from "../../../src/casos-uso/servicios/cobros.ts"
 import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/cotizaciones.ts";
 import type { CasosUsoFacturas } from "../../../src/casos-uso/servicios/facturas.ts";
 import type { CasosUsoOrdenesDeCompra } from "../../../src/casos-uso/servicios/ordenes-de-compra.ts";
+import type { CasosUsoPlanificacion } from "../../../src/casos-uso/servicios/planificacion.ts";
 import type { CasosUsoServicios } from "../../../src/casos-uso/servicios/servicios.ts";
 import type { CasosUsoSucesos } from "../../../src/casos-uso/servicios/sucesos.ts";
 import type { CasosUsoUsuarios } from "../../../src/casos-uso/usuarios/usuarios.ts";
@@ -102,6 +103,7 @@ declare const factura: Factura;
 declare const casosSucesos: CasosUsoSucesos;
 declare const repositorioSucesos: RepositorioSucesos;
 declare const suceso: Suceso;
+declare const casosPlanificacion: CasosUsoPlanificacion;
 declare const ahora: FechaHora;
 declare const evento: Parameters<RepositorioServicios["agregarEvento"]>[2];
 
@@ -142,6 +144,22 @@ function casosDeUsoSinActor(): void {
   casosSucesos.crear("id", {});
   // @ts-expect-error `marcarAnulado` de sucesos exige un `Actor` primero.
   casosSucesos.marcarAnulado("id", {});
+  // @ts-expect-error `guardarPlanificacion` (planificación, F3-02) exige un `Actor` primero.
+  casosPlanificacion.guardarPlanificacion("id", {});
+  // @ts-expect-error `crearHito` (planificación, F3-02) exige un `Actor` primero.
+  casosPlanificacion.crearHito("id", {});
+  // @ts-expect-error `guardarHito` (planificación, F3-02) exige un `Actor` primero.
+  casosPlanificacion.guardarHito("id", {});
+  // @ts-expect-error `marcarEliminadoHito` (planificación, F3-02) exige un `Actor` primero.
+  casosPlanificacion.marcarEliminadoHito("id");
+  // @ts-expect-error `cambiarRealizadoDeHito` (planificación, F3-02) exige un `Actor` primero.
+  casosPlanificacion.cambiarRealizadoDeHito("id", true);
+  // @ts-expect-error `crearRecurso` (planificación, F3-02) exige un `Actor` primero.
+  casosPlanificacion.crearRecurso("id", {});
+  // @ts-expect-error `guardarRecurso` (planificación, F3-02) exige un `Actor` primero.
+  casosPlanificacion.guardarRecurso("id", {});
+  // @ts-expect-error `marcarEliminadoRecurso` (planificación, F3-02) exige un `Actor` primero.
+  casosPlanificacion.marcarEliminadoRecurso("id");
   // @ts-expect-error `marcarEliminado` de cotizaciones exige un `Actor` primero.
   casosCotizaciones.marcarEliminado("id");
   // @ts-expect-error `crear` de órdenes de compra exige un `Actor` primero.

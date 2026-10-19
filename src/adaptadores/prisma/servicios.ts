@@ -90,17 +90,31 @@ export function crearRepositorioServiciosPrisma(
       ENTIDAD,
       cliente.servicio,
       {
-        aDatos: ({ fechaPedido, vigenciaDesde, vigenciaHasta, ...resto }) => ({
+        aDatos: ({
+          fechaPedido,
+          vigenciaDesde,
+          vigenciaHasta,
+          fechaInicioEstimada,
+          ...resto
+        }) => ({
           ...resto,
           fechaPedido: aDia(fechaPedido),
           vigenciaDesde: diaONada(vigenciaDesde),
           vigenciaHasta: diaONada(vigenciaHasta),
+          fechaInicioEstimada: diaONada(fechaInicioEstimada),
         }),
-        aFila: ({ fechaPedido, vigenciaDesde, vigenciaHasta, ...resto }) => ({
+        aFila: ({
+          fechaPedido,
+          vigenciaDesde,
+          vigenciaHasta,
+          fechaInicioEstimada,
+          ...resto
+        }) => ({
           ...resto,
           fechaPedido: deDia(fechaPedido),
           vigenciaDesde: fechaONada(vigenciaDesde),
           vigenciaHasta: fechaONada(vigenciaHasta),
+          fechaInicioEstimada: fechaONada(fechaInicioEstimada),
         }),
       },
     ),

@@ -236,7 +236,7 @@ export async function servicioVigenteBloqueado(
 }
 
 /** Los usuarios activos, por email, y el que ya era responsable aunque ya no lo esté. */
-async function responsables(
+export async function responsables(
   repos: RepositoriosEnTransaccion,
   previo: string | undefined,
 ): Promise<readonly OpcionAbm[]> {
@@ -250,7 +250,10 @@ async function responsables(
 }
 
 type Leido =
-  | { readonly ok: true; readonly datos: Omit<DatosServicio, "codigo"> }
+  | {
+      readonly ok: true;
+      readonly datos: Omit<DatosServicio, "codigo" | "fechaInicioEstimada">;
+    }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
 /** Lo escrito, validado contra el formulario y contra la base. `actual`: el servicio que se edita. */
@@ -482,7 +485,12 @@ export function crearCasosUsoServicios({
         await repos.servicios.crear(
           actor,
           crearAuditable(
-            { ...leido.datos, codigo: codigo.codigo, id },
+            {
+              ...leido.datos,
+              fechaInicioEstimada: null,
+              codigo: codigo.codigo,
+              id,
+            },
             actor,
             enEsteInstante,
           ),

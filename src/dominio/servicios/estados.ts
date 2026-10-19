@@ -78,9 +78,14 @@ const CARGAS = [
   "factura",
   "cobro",
   "suceso",
+  "planificacion",
+  "tildarHito",
 ] as const;
 
-/** Lo que se carga en un servicio. Anular sigue la regla de su alta, salvo la orden de compra (ADR 0039). */
+/**
+ * Lo que se carga en un servicio. Anular sigue la regla de su alta, salvo la orden de compra (ADR 0039).
+ * `planificacion` es el responsable, la fecha estimada, los hitos y los recursos (F3-02).
+ */
 export type Carga = (typeof CARGAS)[number];
 
 const MENOS_CERRADO = ESTADOS_SERVICIO.filter((estado) => estado !== "cerrado");
@@ -93,6 +98,8 @@ const ETAPAS_DE_CARGA: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   factura: ["adjudicado", "en_ejecucion", "finalizado"],
   cobro: MENOS_CERRADO,
   suceso: MENOS_CERRADO,
+  planificacion: ["adjudicado", "en_ejecucion"],
+  tildarHito: ["en_ejecucion"],
 };
 
 export type EventoServicio = Evento<

@@ -41,6 +41,7 @@ import {
 } from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import { sembrarServicio } from "./_arnes/servicio.ts";
+import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -111,7 +112,7 @@ async function centro(nombre: string, clase: string): Promise<string> {
 }
 
 function escrito(centroCostoId: string, cambios: Escrito = {}): Escrito {
-  return {
+  return conCambioSiEsEnDolares({
     fecha: "2031-07-03",
     concepto: "Repuestos",
     centroCostoId,
@@ -123,7 +124,7 @@ function escrito(centroCostoId: string, cambios: Escrito = {}): Escrito {
     vencimiento: "",
     observaciones: "",
     ...cambios,
-  };
+  });
 }
 
 function archivo(

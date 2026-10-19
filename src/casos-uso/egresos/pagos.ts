@@ -40,6 +40,7 @@ import type {
   Transaccional,
 } from "../../puertos/repositorios/transaccion.ts";
 import type { ErroresPorCampo, OpcionDeRelacion } from "../abm/abm.ts";
+import { cambioVisible } from "../abm/cambio.ts";
 import {
   type CampoAbm,
   type Escrito,
@@ -270,6 +271,11 @@ export function crearCasosUsoPagos({
               valor: proveedor?.valor.razonSocial ?? "",
             },
             { etiqueta: "Comprobante", valor: datos.numeroComprobante ?? "" },
+            {
+              etiqueta: "Tipo de cambio",
+              valor:
+                cambioVisible(datos.cambio, datos.importe.moneda)?.texto ?? "",
+            },
             {
               etiqueta: "Vencimiento",
               valor:

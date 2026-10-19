@@ -61,3 +61,12 @@ con la cuenta de destino. Lo propio de los cobros (su caso de uso y su tabla) se
 
 Migración `20261002170000_pagos` (`down.sql`): quita la tabla `pagos` y los disparadores. `saldo.ts` y el caso de uso se borran sin
 tocar nada más: ni el molde ni los egresos dependen de ellos.
+
+## Nota (F3-04): el tipo de cambio de un documento
+
+La orden de compra, la factura y el egreso guardan, además, el tipo de cambio de su fecha (pesos por dólar) con el mismo valor
+(fracción de enteros, `parsearValorTipoDeCambio`) y fuente que pagos y cobros, en tres columnas nulas (`cambio_numerador`,
+`cambio_denominador`, `cambio_fuente`). Es obligatorio si el documento es en dólares y se rechaza (`DOM-0013`) si es en pesos; lo ya
+cargado queda sin él y se completa después. No hay `CHECK` en la base: esa regla es del caso de uso. No se convierte nada: solo se
+guarda (la conversión es de F3-08). Para el molde de ABM, el tipo de campo `tipoDeCambio` va ligado al campo de importe; no hizo
+falta un ADR aparte.

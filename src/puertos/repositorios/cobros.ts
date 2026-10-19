@@ -28,6 +28,10 @@ export type DatosCobro = {
   /** El tipo de cambio cargado, solo si la cuenta es de otra moneda que la factura. */
   readonly cambioValor: ValorTipoDeCambio | null;
   readonly cambioFuente: string | null;
+  /** El número de la orden de pago del cliente, si la hay (F3-04). */
+  readonly ordenPagoNumero: string | null;
+  /** Su documento adjunto, si lo hay. */
+  readonly ordenPagoDocumentoId: string | null;
   readonly observaciones: string | null;
 };
 

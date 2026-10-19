@@ -1090,7 +1090,10 @@ falta un paso:
    monto y moneda juntos bajo una etiqueta, con el nombre del campo y `nombreDeMoneda(campo)`; se lee con
    `parsearImporte`, se muestra con `formatearImporte`, vacío, cero o negativo vuelven en el campo con lo
    escrito, y el mayor-que-cero va en la `validacion`; el dato es `Importe<Moneda>` y se ordena por sus
-   centavos; el `bigint` va como texto a la auditoría, `aJsonAnidado`) y `relacion` (`{ entidad, mostrar, obligatoria,
+   centavos; el `bigint` va como texto a la auditoría, `aJsonAnidado`), `tipoDeCambio` (F3-04: `{ importe }` nombra el campo
+   `importe` al que va ligado; el dato es un `CambioDeDocumento | null`; dos controles, el valor y `nombreDeFuente(campo)`, que solo se
+   ofrecen si la moneda elegida es `MONEDA_CON_CAMBIO` (dólares); `leerCambio` en `abm/cambio.ts` lo exige en dólares y lo rechaza
+   en pesos con `DOM-0013`) y `relacion` (`{ entidad, mostrar, obligatoria,
    soloSi }`: un selector con los registros vigentes
    de la otra entidad, por su columna `mostrar`, que tiene que ser una de las de `orden` de esa
    entidad; la base guarda el id y el servidor vuelve a comprobar que existe y no está dado de baja;
@@ -1144,7 +1147,7 @@ opcional (`validarAdjuntoOpcional` y compañía, en `comprobantes.ts`), la orden
 ciclo lo permite desde su estado, y lo que se calcula con lo escrito (el IVA) se muestra al lado de los campos con
 `useEscritoEnVivo` de `FormularioAbm` y un hijo de cliente, sin repetir la cuenta del dominio. Lo que se decide mirando otras filas del servicio (una factura contra su orden, la baja contra sus órdenes y facturas) toma
 antes la fila del servicio con `servicioVigenteBloqueado` (`RepositorioServicios.bloquear`), y un servicio con órdenes o
-facturas vigentes no se da de baja (`DOM-0010`). Los cobros (F2-07, ADR 0037) cuelgan de una factura, no del servicio: `registrar` toma esa misma fila, una factura con cobros vigentes no se anula (`DOM-0016`), una cuenta con cobros vigentes no se da de baja (`DOM-0010`, disparador), y la regla de saldo, el tipo de cambio y los mensajes son los de los pagos (`saldo.ts`, `casos-uso/compartido/movimientos.ts`).
+facturas vigentes no se da de baja (`DOM-0010`). Los cobros (F2-07, ADR 0037) cuelgan de una factura, no del servicio: `registrar` toma esa misma fila, una factura con cobros vigentes no se anula (`DOM-0016`), una cuenta con cobros vigentes no se da de baja (`DOM-0010`, disparador), y la regla de saldo, el tipo de cambio y los mensajes son los de los pagos (`saldo.ts`, `casos-uso/compartido/movimientos.ts`). Desde F3-04 el cobro suma la orden de pago del cliente (número y documento, opcionales, con `validarAdjuntoOpcional`), y la orden de compra, la factura y el egreso llevan su tipo de cambio (pesos por dólar): obligatorio en dólares, rechazado en pesos, nulo en lo ya cargado (se marca «sin tipo de cambio» con `cambioVisible` y se completa con `guardarTipoDeCambio`, o editando el egreso). Solo se guarda: no convierte nada.
 
 ### Cómo se agrega...un archivo adjunto a un registro (F2-05, ADR 0035).
 

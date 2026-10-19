@@ -7,7 +7,11 @@
  * Implementado con Prisma en `src/adaptadores/prisma/facturas.ts`.
  */
 
-import type { Importe, Moneda } from "../../dominio/compartido/importe.ts";
+import type {
+  CambioDeDocumento,
+  Importe,
+  Moneda,
+} from "../../dominio/compartido/importe.ts";
 import type { AlicuotaIva } from "../../dominio/servicios/factura.ts";
 import type { RegistroDe, RepositorioDe } from "./abm.ts";
 
@@ -21,6 +25,8 @@ export type DatosFactura = {
   readonly vencimiento: string;
   /** Sin IVA. */
   readonly importe: Importe<Moneda>;
+  /** Pesos por dólar de su fecha (F3-04): solo si el importe es en dólares; las ya cargadas no lo tienen. */
+  readonly cambio: CambioDeDocumento | null;
   readonly alicuota: AlicuotaIva;
   readonly documentoId: string | null;
 };

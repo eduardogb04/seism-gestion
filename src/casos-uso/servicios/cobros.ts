@@ -1,7 +1,9 @@
 /**
  * Los cobros de las facturas de un servicio (F2-07, ADR 0037). Un cobro es
  * siempre de una factura; no existen cobros sin factura. La regla de saldo y el
- * tipo de cambio son los de los pagos de egresos (`saldo.ts`, F2-09).
+ * tipo de cambio son los de los pagos de egresos (`saldo.ts`, F2-09). La orden
+ * de pago del cliente (número y documento, los dos opcionales; F3-04) se guarda
+ * y se da de baja como el documento de una orden de compra.
  *
  * - El importe y la retención están en la **moneda de la factura** y los dos
  *   cancelan deuda; solo el importe entra a la cuenta (si es de otra moneda, a
@@ -37,7 +39,6 @@ import {
 import {
   diferenciaEnDias,
   formatearISO,
-  type Reloj,
 } from "../../dominio/compartido/reloj.ts";
 import { sumarEnMoneda } from "../../dominio/compartido/saldo.ts";
 import {
@@ -46,7 +47,6 @@ import {
   sumaPorMoneda,
 } from "../../dominio/servicios/avance.ts";
 import { estaCobrada, saldoDeFactura } from "../../dominio/servicios/cobro.ts";
-import type { GeneradorId } from "../../puertos/generador-id.ts";
 import type { Factura } from "../../puertos/repositorios/facturas.ts";
 import type {
   RepositoriosEnTransaccion,
@@ -76,6 +76,10 @@ import {
   movimientoEnCuenta,
   type TextosDeSaldo,
 } from "../compartido/movimientos.ts";
+import type {
+  ArchivoSubido,
+  DependenciasDeAdjuntos,
+} from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import { cerrarSiEstaCobrado, exigirEtapa } from "./ciclo.ts";
 import {
@@ -86,12 +90,21 @@ import {
   totalDe,
 } from "./cobranza.ts";
 import {
+  bajaDeAdjuntoOpcional,
+  type DocumentoListado,
+  documentosListados,
+  guardarAdjuntoOpcional,
+  validarAdjuntoOpcional,
+} from "./comprobantes.ts";
+import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
   servicioVigente,
   servicioVigenteBloqueado,
 } from "./servicios.ts";
 
 const MAXIMO_OBSERVACIONES = 1000;
+
+const MAXIMO_ORDEN_PAGO = 40;
 
 const MENSAJE_RETENCION_ILEGIBLE =
   "Escribí la retención con coma para los decimales y, si querés, punto para los miles (por ejemplo 210,00), o dejala vacía.";
@@ -104,10 +117,8 @@ const TEXTOS: TextosDeSaldo = {
 
 const esquemaId = z.uuid();
 
-type Dependencias = {
+type Dependencias = DependenciasDeAdjuntos & {
   readonly transaccional: Transaccional;
-  readonly reloj: Reloj;
-  readonly generadorId: GeneradorId;
 };
 
 type ResultadoDeCobro =
@@ -129,6 +140,9 @@ export type CobroVisible = {
   readonly entrada: string;
   /** `1.184,25 · BNA vendedor`; vacío si no hubo tipo de cambio. */
   readonly cambio: string;
+  /** Vacío si no hubo. */
+  readonly ordenPagoNumero: string;
+  readonly ordenPagoDocumento: DocumentoListado | null;
   readonly observaciones: string;
   /** El email de quien lo cargó, o el nombre del proceso. */
   readonly quien: string;
@@ -196,12 +210,14 @@ export type CasosUsoCobros = {
     readonly filas: readonly FilaPorCobrar[];
     readonly saldos: readonly string[];
   }>;
+  /** `archivo`: el documento de la orden de pago del cliente, si se eligió uno. */
   registrar(
     actor: Actor,
     facturaId: string,
     escrito: Escrito,
+    archivo?: ArchivoSubido | null,
   ): Promise<ResultadoDeCobro>;
-  /** La anula (baja lógica): el saldo vuelve. */
+  /** La anula (baja lógica, con el documento de su orden de pago): el saldo vuelve. */
   marcarAnulado(actor: Actor, cobroId: string): Promise<void>;
 };
 
@@ -219,7 +235,19 @@ function camposDeCobro(moneda: Moneda): CamposAbm {
             },
           ] as const,
         ]
-      : [campo],
+      : campo[0] === "observaciones"
+        ? [
+            [
+              "ordenPagoNumero",
+              {
+                tipo: "texto",
+                etiqueta: "Número de la orden de pago del cliente (opcional)",
+                opcional: true,
+              },
+            ] as const,
+            campo,
+          ]
+        : [campo],
   );
 }
 
@@ -280,9 +308,9 @@ function paraAvance({ saldo }: FacturaConCobros) {
 
 export function crearCasosUsoCobros({
   transaccional,
-  reloj,
-  generadorId,
+  ...adjuntos
 }: Dependencias): CasosUsoCobros {
+  const { reloj, generadorId } = adjuntos;
   return {
     cobranza(servicioId) {
       return transaccional.ejecutar(async (repos) => {
@@ -303,6 +331,12 @@ export function crearCasosUsoCobros({
           ).map(({ valor }) => [valor.id, valor.nombre]),
         );
         const quien = await nombresDeActores(repos);
+        const ordenDePago = await documentosListados(
+          repos,
+          facturas.flatMap(({ cobros }) =>
+            cobros.map(({ valor }) => valor.ordenPagoDocumentoId),
+          ),
+        );
         return facturas.map(({ factura, cobros, saldo }) => ({
           facturaId: factura.valor.id,
           total: formatearImporte(saldo.total),
@@ -328,6 +362,8 @@ export function crearCasosUsoCobros({
               valor.cambioValor === null
                 ? ""
                 : `${formatearValorTipoDeCambio(valor.cambioValor)} · ${valor.cambioFuente ?? ""}`,
+            ordenPagoNumero: valor.ordenPagoNumero ?? "",
+            ordenPagoDocumento: ordenDePago(valor.ordenPagoDocumentoId),
             observaciones: valor.observaciones ?? "",
             quien: quien(creadoPor),
           })),
@@ -406,7 +442,7 @@ export function crearCasosUsoCobros({
       });
     },
 
-    registrar(actor, facturaId, escrito) {
+    registrar(actor, facturaId, escrito, archivo = null) {
       return transaccional.ejecutar(async (repos) => {
         await exigirRol(
           repos.usuarios,
@@ -430,6 +466,14 @@ export function crearCasosUsoCobros({
         const observaciones = (escrito.observaciones ?? "").trim();
         if (observaciones.length > MAXIMO_OBSERVACIONES) {
           errores.observaciones = `No puede pasar de ${MAXIMO_OBSERVACIONES} caracteres.`;
+        }
+        const ordenPagoNumero = (escrito.ordenPagoNumero ?? "").trim();
+        if (ordenPagoNumero.length > MAXIMO_ORDEN_PAGO) {
+          errores.ordenPagoNumero = `No puede pasar de ${MAXIMO_ORDEN_PAGO} caracteres.`;
+        }
+        const adjunto = validarAdjuntoOpcional(archivo);
+        if (!adjunto.ok) {
+          errores.archivo = adjunto.mensaje;
         }
         const cuentaId = escrito.cuentaId ?? "";
         if (esquemaId.safeParse(cuentaId).success) {
@@ -507,10 +551,17 @@ export function crearCasosUsoCobros({
           aceptado === null ||
           enCuenta === null ||
           cuenta === null ||
+          !adjunto.ok ||
           Object.keys(errores).length > 0
         ) {
           return { ok: false, errores };
         }
+        const ordenPagoDocumentoId = await guardarAdjuntoOpcional(
+          actor,
+          repos,
+          adjuntos,
+          adjunto.archivo,
+        );
         await repos.cobros.crear(
           actor,
           crearAuditable(
@@ -524,6 +575,8 @@ export function crearCasosUsoCobros({
               entrada: enCuenta,
               cambioValor: cambio?.valor ?? null,
               cambioFuente: cambio === null ? null : cambio.fuente.trim(),
+              ordenPagoNumero: ordenPagoNumero === "" ? null : ordenPagoNumero,
+              ordenPagoDocumentoId,
               observaciones: observaciones === "" ? null : observaciones,
             },
             actor,
@@ -559,6 +612,12 @@ export function crearCasosUsoCobros({
         ).valor;
         await exigirEtapa(repos, servicioId, "cobro");
         await repos.cobros.actualizar(actor, anulado.valor, "eliminar");
+        await bajaDeAdjuntoOpcional(
+          actor,
+          repos,
+          reloj,
+          registro.valor.ordenPagoDocumentoId,
+        );
       });
     },
   };

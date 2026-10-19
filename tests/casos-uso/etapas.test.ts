@@ -89,8 +89,12 @@ function dependencias(transaccional?: Transaccional) {
   };
 }
 
-function conAlmacen() {
-  return { ...dependencias(), almacen, nuevaClave: nuevaClaveDocumento };
+function conAlmacen(transaccional?: Transaccional) {
+  return {
+    ...dependencias(transaccional),
+    almacen,
+    nuevaClave: nuevaClaveDocumento,
+  };
 }
 
 const servicios = () => crearCasosUsoServicios(dependencias());
@@ -98,7 +102,7 @@ const cotizaciones = () => crearCasosUsoCotizaciones(conAlmacen());
 const ordenes = () => crearCasosUsoOrdenesDeCompra(conAlmacen());
 const facturas = () => crearCasosUsoFacturas(conAlmacen());
 const cobros = (transaccional?: Transaccional) =>
-  crearCasosUsoCobros(dependencias(transaccional));
+  crearCasosUsoCobros(conAlmacen(transaccional));
 const sucesos = () => crearCasosUsoSucesos(dependencias());
 
 function llevarA(...recorrido: readonly EstadoServicio[]): Promise<void> {

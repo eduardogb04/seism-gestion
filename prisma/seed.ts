@@ -883,6 +883,13 @@ async function sembrarEgresos(
             proveedorId: proveedor?.id ?? null,
             numeroComprobante: demo.numeroComprobante,
             importe: crearImporte(demo.centavos, demo.moneda),
+            cambio:
+              demo.moneda === "USD"
+                ? {
+                    valor: { numerador: 1200n, denominador: 1n },
+                    fuente: "Cotización de ejemplo",
+                  }
+                : null,
             vencimiento: demo.vencimiento,
             servicioId: servicio?.id ?? null,
             comprobanteId,

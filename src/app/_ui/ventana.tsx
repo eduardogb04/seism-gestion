@@ -20,12 +20,12 @@ export function Ventana({
   readonly children: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/50 p-3 sm:p-6">
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-velo/60 p-3 sm:p-6">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby={ID_DEL_TITULO}
-        className="max-h-full w-full max-w-xl overflow-y-auto rounded bg-white p-4 shadow-lg sm:p-6"
+        className="max-h-full w-full max-w-xl overflow-y-auto rounded border border-borde bg-superficie p-4 shadow-lg sm:p-6"
       >
         <div className="mb-4 flex items-baseline justify-between gap-3">
           <h2 id={ID_DEL_TITULO} className="text-xl font-semibold">

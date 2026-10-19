@@ -16,7 +16,7 @@ export function IvaEnVivo() {
   return (
     <dl
       aria-live="polite"
-      className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded border border-gray-200 bg-gray-50 p-3"
+      className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded border border-borde bg-superficie-alta p-3"
     >
       <dt className="font-medium">IVA</dt>
       <dd data-iva>{calculo?.iva ?? "—"}</dd>

@@ -63,7 +63,7 @@ function Resumen({ detalle }: { readonly detalle: DetalleEgreso }) {
           Saldo: <strong data-saldo>{detalle.saldo}</strong>
         </span>
         {detalle.saldado ? (
-          <strong data-estado-pagado className="text-green-800">
+          <strong data-estado-pagado className="text-exito">
             Pagado
           </strong>
         ) : null}

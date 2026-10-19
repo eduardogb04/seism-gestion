@@ -28,7 +28,9 @@ Desde F1-02: `globales.css` (Tailwind 4 por CSS, importado en `layout.tsx`) y
 del login renderiza después de su control de acceso), `Tarjeta` (pantallas sin
 marco: entrar y sus errores) y los componentes de las pantallas (`Boton`,
 `CampoTexto`, `Selector`, `Tabla`, `ErrorEnPantalla`). Todo es HTML del
-servidor: ningún archivo lleva `"use client"`, salvo `formulario-abm.tsx`
+servidor: ningún archivo lleva `"use client"`, salvo `formulario-abm.tsx` y,
+desde F3-05, la barra lateral y el elegidor de tema (`barra-lateral.tsx`,
+`selector-de-tema.tsx`, `preferencias-en-pantalla.tsx`; ADR 0040)
 (`tests/dominio/marco.test.ts`); fuera de `_ui/`, solo `servicios/[id]/iva-en-vivo.tsx` (F2-06: el IVA
 de una factura al lado de sus campos mientras se carga).
 

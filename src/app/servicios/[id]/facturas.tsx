@@ -26,7 +26,6 @@ const CABECERAS = [
   "Número",
   "Fecha",
   "Vencimiento",
-  "Período",
   "Orden de compra",
   "Importe sin IVA",
   "Alícuota",
@@ -38,6 +37,7 @@ const CABECERAS = [
   "Estado",
   "Documento",
   "Cargada por",
+  "Período",
 ];
 
 async function VentanaDeCarga({
@@ -145,7 +145,6 @@ export async function Facturas({
                 <td>{factura.numero}</td>
                 <td>{factura.fecha}</td>
                 <td>{factura.vencimiento}</td>
-                <td>{factura.periodo}</td>
                 <td>{factura.ordenCompra}</td>
                 <td>{factura.sinIva}</td>
                 <td>{factura.alicuota}</td>
@@ -165,6 +164,7 @@ export async function Facturas({
                   )}
                 </td>
                 <td>{factura.quien}</td>
+                <td>{factura.periodo}</td>
                 {puedeEscribir ? (
                   <td>
                     <div className="flex gap-3">

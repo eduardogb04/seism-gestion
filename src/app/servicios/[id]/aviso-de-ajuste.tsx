@@ -15,7 +15,7 @@ export function AvisoDeAjuste() {
     <p
       aria-live="polite"
       data-aviso-de-ajuste
-      className="rounded border border-amber-300 bg-amber-50 p-3"
+      className="rounded border border-aviso bg-aviso-suave p-3 text-aviso"
     >
       {aviso ??
         "Elegí desde qué mes rige: el cambio vale de ese mes en adelante."}

@@ -33,6 +33,7 @@ import {
 import { Avance } from "./avance.tsx";
 import { Cotizaciones } from "./cotizaciones.tsx";
 import { Egresos } from "./egresos.tsx";
+import { Facturacion } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
 import { Sucesos } from "./sucesos.tsx";
@@ -251,6 +252,12 @@ export default async function Servicio({ params, searchParams }: Props) {
           parametros={parametros}
         />
         <OrdenesDeCompra
+          servicioId={servicio.id}
+          ruta={ruta}
+          puedeEscribir={puedeEscribir}
+          parametros={parametros}
+        />
+        <Facturacion
           servicioId={servicio.id}
           ruta={ruta}
           puedeEscribir={puedeEscribir}

@@ -28,6 +28,7 @@ import type { DefinicionAbm } from "../../../src/casos-uso/abm/definicion.ts";
 import type { CasosUsoPagos } from "../../../src/casos-uso/egresos/pagos.ts";
 import type { CasosUsoCobros } from "../../../src/casos-uso/servicios/cobros.ts";
 import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/cotizaciones.ts";
+import type { CasosUsoFacturacion } from "../../../src/casos-uso/servicios/facturacion.ts";
 import type { CasosUsoFacturas } from "../../../src/casos-uso/servicios/facturas.ts";
 import type { CasosUsoOrdenesDeCompra } from "../../../src/casos-uso/servicios/ordenes-de-compra.ts";
 import type { CasosUsoServicios } from "../../../src/casos-uso/servicios/servicios.ts";
@@ -47,6 +48,10 @@ import type {
   Cotizacion,
   RepositorioCotizaciones,
 } from "../../../src/puertos/repositorios/cotizaciones.ts";
+import type {
+  CuotaGuardada,
+  RepositorioCuotas,
+} from "../../../src/puertos/repositorios/cuotas.ts";
 import type {
   Documento,
   RepositorioDocumentos,
@@ -102,6 +107,9 @@ declare const factura: Factura;
 declare const casosSucesos: CasosUsoSucesos;
 declare const repositorioSucesos: RepositorioSucesos;
 declare const suceso: Suceso;
+declare const casosFacturacion: CasosUsoFacturacion;
+declare const repositorioCuotas: RepositorioCuotas;
+declare const cuota: CuotaGuardada;
 declare const ahora: FechaHora;
 declare const evento: Parameters<RepositorioServicios["agregarEvento"]>[2];
 
@@ -156,6 +164,10 @@ function casosDeUsoSinActor(): void {
   casosCobros.registrar("id", {});
   // @ts-expect-error `marcarAnulado` de cobros exige un `Actor` primero.
   casosCobros.marcarAnulado("id");
+  // @ts-expect-error `cambiarModalidad` (F3-03) exige un `Actor` primero.
+  casosFacturacion.cambiarModalidad("id", {});
+  // @ts-expect-error `registrarAjuste` exige un `Actor` primero.
+  casosFacturacion.registrarAjuste("id", {});
 }
 
 function repositoriosSinActor(): void {
@@ -181,6 +193,10 @@ function repositoriosSinActor(): void {
   repositorioSucesos.crear(suceso);
   // @ts-expect-error `actualizar` del repositorio de sucesos exige un `Actor` primero.
   repositorioSucesos.actualizar(suceso, "actualizar");
+  // @ts-expect-error `crear` del repositorio de cuotas (F3-03) exige un `Actor` primero.
+  repositorioCuotas.crear(cuota);
+  // @ts-expect-error `actualizar` del repositorio de cuotas exige un `Actor` primero.
+  repositorioCuotas.actualizar(cuota, "eliminar");
   // @ts-expect-error `actualizar` del repositorio de cotizaciones exige un `Actor` primero.
   repositorioCotizaciones.actualizar(cotizacion, "actualizar");
   // @ts-expect-error `crear` del repositorio de documentos exige un `Actor` primero.

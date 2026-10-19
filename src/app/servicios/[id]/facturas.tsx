@@ -47,6 +47,7 @@ const CABECERAS = [
   "Documento",
   "Cargada por",
   "Tipo de cambio",
+  "Período",
 ];
 
 async function VentanaDeCarga({
@@ -178,6 +179,7 @@ export async function Facturas({
                 <td>
                   <CambioDelComprobante cambio={factura.cambio} />
                 </td>
+                <td>{factura.periodo}</td>
                 {puedeEscribir ? (
                   <td>
                     <div className="flex gap-3">

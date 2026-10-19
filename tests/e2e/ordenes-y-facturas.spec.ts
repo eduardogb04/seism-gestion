@@ -149,6 +149,17 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   await expect(filaDeOrden.getByRole("cell").nth(2)).toHaveText("ARS 1.000,00");
   await expect(filaDeOrden.getByRole("cell").nth(3)).toHaveText("ARS 0,00");
   await expect(filaDeOrden.getByRole("cell").nth(4)).toHaveText("ARS 1.000,00");
+  // Facturar exige la modalidad de facturación (F3-03).
+  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  const modalidad = ventana(page, "Modalidad de facturación");
+  await modalidad
+    .getByLabel("Modalidad de facturación")
+    .selectOption({ label: "Por hitos (libre)" });
+  await modalidad.getByRole("button", { name: "Guardar" }).click();
+  await expect(ventana(page, "Modalidad de facturación")).toHaveCount(0);
+  await expect(page.locator("[data-modalidad]")).toHaveText(
+    "Modalidad: Por hitos (libre)",
+  );
 
   // 2. La primera factura: el IVA y el total se ven antes de guardar y siguen lo que se escribe.
   await page.getByRole("link", { name: "Nueva factura" }).click();

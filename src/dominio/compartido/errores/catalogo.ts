@@ -187,7 +187,39 @@ export const catalogo = definirCatalogo({
     descripcion:
       "En la etapa en que está el servicio no se puede cargar ni anular eso: no se guardó nada.",
     queHacer:
-      "Las cotizaciones van en «Creado» y «Cotizado»; la orden de compra, en «Cotizado» (se anula en «Adjudicado»); las facturas, de «Adjudicado» a «Finalizado»; los cobros y los sucesos, en cualquier etapa menos «Cerrado». Abrí el servicio de nuevo: puede que otra persona le haya cambiado el estado recién.",
+      "Las cotizaciones van en «Creado» y «Cotizado»; la orden de compra, en «Cotizado» (se anula en «Adjudicado»); las facturas, según la modalidad de facturación: puntual en «Finalizado», por hitos de «Adjudicado» a «Finalizado» y mensual en «En ejecución» y «Finalizado»; la modalidad y la cuota, en «Adjudicado» y «En ejecución»; los cobros y los sucesos, en cualquier etapa menos «Cerrado». Abrí el servicio de nuevo: puede que otra persona le haya cambiado el estado recién.",
+  },
+  DOM_0019: {
+    codigo: "DOM-0019",
+    tipo: "persona",
+    descripcion:
+      "La modalidad de facturación no se puede cambiar: el servicio ya tiene facturas vigentes. No se guardó nada.",
+    queHacer:
+      "Si la modalidad está mal, anulá primero las facturas del servicio y volvé a elegirla.",
+  },
+  DOM_0020: {
+    codigo: "DOM-0020",
+    tipo: "persona",
+    descripcion:
+      "El ajuste de la cuota no puede regir desde un mes que ya pasó ni desde antes del mes de inicio: no cambia lo ya devengado. No se guardó nada.",
+    queHacer:
+      "Elegí el mes actual o uno posterior, que no sea anterior al mes de inicio.",
+  },
+  DOM_0021: {
+    codigo: "DOM-0021",
+    tipo: "persona",
+    descripcion:
+      "El servicio no tiene modalidad de facturación: no se puede facturar. No se guardó nada.",
+    queHacer:
+      "Elegí la modalidad en la sección «Facturación» del servicio y volvé a cargar la factura.",
+  },
+  DOM_0022: {
+    codigo: "DOM-0022",
+    tipo: "persona",
+    descripcion:
+      "La cuota solo se ajusta en un servicio con modalidad mensual. No se guardó nada.",
+    queHacer:
+      "Abrí el servicio de nuevo: puede que otra persona le haya cambiado la modalidad recién.",
   },
   AUT_0001: {
     codigo: "AUT-0001",

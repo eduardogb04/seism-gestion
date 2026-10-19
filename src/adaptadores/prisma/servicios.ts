@@ -11,6 +11,8 @@ import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
 import {
   ESTADOS_SERVICIO,
   type EstadoServicio,
+  MODALIDADES_DE_FACTURACION,
+  type ModalidadDeFacturacion,
 } from "../../dominio/servicios/estados.ts";
 import type {
   DatosServicio,
@@ -34,6 +36,18 @@ const ENTIDAD = "Servicio";
 
 const esquemaEstado = z.enum(ESTADOS_SERVICIO);
 const esquemaIds = z.array(z.object({ id: z.string() }));
+const esquemaModalidad = z.enum(MODALIDADES_DE_FACTURACION).nullable();
+
+function modalidadDe(texto: string | null): ModalidadDeFacturacion | null {
+  const leida = esquemaModalidad.safeParse(texto);
+  if (!leida.success) {
+    throw nuevoError(catalogo.INF_0001, {
+      motivo:
+        "la base devolvió un servicio con una modalidad de facturación desconocida",
+    });
+  }
+  return leida.data;
+}
 
 function estadoDe(texto: string | undefined): EstadoServicio {
   const leido = esquemaEstado.safeParse(texto);
@@ -90,14 +104,28 @@ export function crearRepositorioServiciosPrisma(
       ENTIDAD,
       cliente.servicio,
       {
-        aDatos: ({ fechaPedido, vigenciaDesde, vigenciaHasta, ...resto }) => ({
+        aDatos: ({
+          fechaPedido,
+          vigenciaDesde,
+          vigenciaHasta,
+          facturacion,
+          ...resto
+        }) => ({
           ...resto,
+          modalidadFacturacion: modalidadDe(facturacion),
           fechaPedido: aDia(fechaPedido),
           vigenciaDesde: diaONada(vigenciaDesde),
           vigenciaHasta: diaONada(vigenciaHasta),
         }),
-        aFila: ({ fechaPedido, vigenciaDesde, vigenciaHasta, ...resto }) => ({
+        aFila: ({
+          fechaPedido,
+          vigenciaDesde,
+          vigenciaHasta,
+          modalidadFacturacion,
+          ...resto
+        }) => ({
           ...resto,
+          facturacion: modalidadFacturacion,
           fechaPedido: deDia(fechaPedido),
           vigenciaDesde: fechaONada(vigenciaDesde),
           vigenciaHasta: fechaONada(vigenciaHasta),

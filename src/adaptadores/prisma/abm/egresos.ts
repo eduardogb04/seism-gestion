@@ -2,12 +2,14 @@
  * Cómo pasa un egreso entre su fila y el dominio (F2-03, ADR 0032): las fechas
  * son `Date` en la base y `aaaa-mm-dd` en los datos, y el importe son dos
  * columnas (`importe_centavos` y `importe_moneda`). Las traducciones de día e
- * importe también las usan los pagos (F2-09).
+ * importe también las usan los pagos (F2-09), y las del tipo de cambio de un
+ * documento (tres columnas), las órdenes de compra y las facturas (F3-04).
  */
 
 import { catalogo } from "../../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../../dominio/compartido/errores/error-sistema.ts";
 import {
+  type CambioDeDocumento,
   crearImporte,
   type Importe,
   MONEDAS,
@@ -40,23 +42,57 @@ export function importeDeColumnas(
   return crearImporte(centavos, moneda);
 }
 
+/** El tipo de cambio de tres columnas (numerador, denominador y fuente), o `null` si el documento no lo tiene. */
+export function cambioDeColumnas(
+  numerador: bigint | null,
+  denominador: bigint | null,
+  fuente: string | null,
+): CambioDeDocumento | null {
+  return numerador === null || denominador === null || fuente === null
+    ? null
+    : { valor: { numerador, denominador }, fuente };
+}
+
+export function columnasDeCambio(cambio: CambioDeDocumento | null) {
+  return {
+    cambioNumerador: cambio?.valor.numerador ?? null,
+    cambioDenominador: cambio?.valor.denominador ?? null,
+    cambioFuente: cambio?.fuente ?? null,
+  };
+}
+
 export const CONVERSION_EGRESO: Conversion<FilaEgreso, DatosAbm<"Egreso">> = {
-  aDatos({ fecha, vencimiento, importeCentavos, importeMoneda, ...resto }) {
+  aDatos({
+    fecha,
+    vencimiento,
+    importeCentavos,
+    importeMoneda,
+    cambioNumerador,
+    cambioDenominador,
+    cambioFuente,
+    ...resto
+  }) {
     return {
       ...resto,
       fecha: aDia(fecha),
       vencimiento: vencimiento === null ? null : aDia(vencimiento),
       importe: importeDeColumnas(importeCentavos, importeMoneda),
+      cambio: cambioDeColumnas(
+        cambioNumerador,
+        cambioDenominador,
+        cambioFuente,
+      ),
     };
   },
 
-  aFila({ fecha, vencimiento, importe, ...resto }) {
+  aFila({ fecha, vencimiento, importe, cambio, ...resto }) {
     return {
       ...resto,
       fecha: deDia(fecha),
       vencimiento: vencimiento === null ? null : deDia(vencimiento),
       importeCentavos: importe.centavos,
       importeMoneda: importe.moneda,
+      ...columnasDeCambio(cambio),
     };
   },
 

@@ -23,17 +23,20 @@ import type {
   OpcionDeRelacion,
   OpcionesPorCampo,
 } from "../../casos-uso/abm/abm.ts";
+import { nombreDeFuente } from "../../casos-uso/abm/cambio.ts";
 import {
   type CampoAbm,
   type Escrito,
   MARCADA,
   MONEDAS,
   nombreDeMoneda,
+  seOfreceElCambio,
 } from "../../casos-uso/abm/definicion.ts";
 import type { ErrorDeLogin } from "../../casos-uso/sesion/errores.ts";
 import { Boton, clasesDeBoton, type VarianteDeBoton } from "./boton.tsx";
 import {
   CampoArchivo,
+  CampoCambio,
   CampoImporte,
   CampoTexto,
   CampoTextoLargo,
@@ -109,6 +112,14 @@ function Control({
           nombreMoneda={nombreDeMoneda(nombre)}
           monedas={MONEDAS}
           monedaInicial={estado.escrito[nombreDeMoneda(nombre)] ?? MONEDAS[0]}
+        />
+      );
+    case "tipoDeCambio":
+      return (
+        <CampoCambio
+          {...comunes}
+          nombreFuente={nombreDeFuente(nombre)}
+          fuenteInicial={estado.escrito[nombreDeFuente(nombre)] ?? ""}
         />
       );
     case "numero":
@@ -212,6 +223,7 @@ export function FormularioAbm({
   const [estado, alEnviar, enviando] = useActionState(accion, inicial);
   const router = useRouter();
   const [tecleado, tecleo] = useState<Escrito>({});
+  const vivo = { ...estado.escrito, ...tecleado };
   return (
     <form
       action={alEnviar}
@@ -233,7 +245,11 @@ export function FormularioAbm({
       )}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {campos
-          .filter(([, campo]) => campo.tipo !== "archivo")
+          .filter(
+            ([, campo]) =>
+              campo.tipo !== "archivo" &&
+              (campo.tipo !== "tipoDeCambio" || seOfreceElCambio(campo, vivo)),
+          )
           .map(([nombre, campo], posicion) => (
             <div
               key={nombre}
@@ -259,9 +275,7 @@ export function FormularioAbm({
           </div>
         )}
       </div>
-      <EscritoEnVivo value={{ ...estado.escrito, ...tecleado }}>
-        {children}
-      </EscritoEnVivo>
+      <EscritoEnVivo value={vivo}>{children}</EscritoEnVivo>
       <div className="flex flex-wrap gap-3">
         <Boton variante={variante} type="submit" disabled={enviando}>
           {texto}

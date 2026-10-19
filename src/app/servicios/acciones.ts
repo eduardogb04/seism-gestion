@@ -127,6 +127,23 @@ export async function cargarOrdenDeCompra(
   });
 }
 
+/** Completar o cambiar el tipo de cambio de una orden de compra. */
+export async function guardarCambioDeOrdenDeCompra(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const guardado = await armado().ordenesDeCompra.guardarTipoDeCambio(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return guardado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardado;
+  });
+}
+
 /** La anulación, ya confirmada. */
 export async function anularOrdenDeCompra(
   servicioId: string,
@@ -158,6 +175,23 @@ export async function cargarFactura(
   });
 }
 
+/** Completar o cambiar el tipo de cambio de una factura. */
+export async function guardarCambioDeFactura(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const guardado = await armado().facturas.guardarTipoDeCambio(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return guardado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardado;
+  });
+}
+
 /** La anulación, ya confirmada. */
 export async function anularFactura(
   servicioId: string,
@@ -171,18 +205,20 @@ export async function anularFactura(
   });
 }
 
-/** Cobrar una factura del servicio. */
+/** Cobrar una factura del servicio, con el documento de la orden de pago si se eligió uno. */
 export async function cobrarFactura(
   servicioId: string,
   facturaId: string,
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
   return escribir(formulario, async (actor) => {
     const cobrada = await armado().cobros.registrar(
       actor,
       facturaId,
       escritoEn(formulario),
+      archivo,
     );
     return cobrada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cobrada;
   });

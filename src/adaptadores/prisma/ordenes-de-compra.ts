@@ -8,7 +8,13 @@ import type {
   DatosOrdenCompra,
   RepositorioOrdenesCompra,
 } from "../../puertos/repositorios/ordenes-de-compra.ts";
-import { aDia, deDia, importeDeColumnas } from "./abm/egresos.ts";
+import {
+  aDia,
+  cambioDeColumnas,
+  columnasDeCambio,
+  deDia,
+  importeDeColumnas,
+} from "./abm/egresos.ts";
 import { crearEscrituraPrisma, desdeFila } from "./abm/repositorio.ts";
 import type {
   OrdenCompra as FilaOrdenCompra,
@@ -31,21 +37,30 @@ const paso = {
     fecha,
     importeCentavos,
     importeMoneda,
+    cambioNumerador,
+    cambioDenominador,
+    cambioFuente,
     ...resto
   }: DatosDeFila): DatosOrdenCompra {
     return {
       ...resto,
       fecha: aDia(fecha),
       importe: importeDeColumnas(importeCentavos, importeMoneda),
+      cambio: cambioDeColumnas(
+        cambioNumerador,
+        cambioDenominador,
+        cambioFuente,
+      ),
     };
   },
 
-  aFila({ fecha, importe, ...resto }: DatosOrdenCompra): DatosDeFila {
+  aFila({ fecha, importe, cambio, ...resto }: DatosOrdenCompra): DatosDeFila {
     return {
       ...resto,
       fecha: deDia(fecha),
       importeCentavos: importe.centavos,
       importeMoneda: importe.moneda,
+      ...columnasDeCambio(cambio),
     };
   },
 };

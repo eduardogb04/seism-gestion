@@ -380,6 +380,9 @@ model Egreso {
   numeroComprobante String?     @map("numero_comprobante")
   importeCentavos   BigInt      @map("importe_centavos")
   importeMoneda     String      @map("importe_moneda")
+  cambioNumerador   BigInt?     @map("cambio_numerador")
+  cambioDenominador BigInt?     @map("cambio_denominador")
+  cambioFuente      String?     @map("cambio_fuente")
   vencimiento       DateTime?   @db.Date
   servicioId        String?     @map("servicio_id") @db.Uuid
   servicio          Servicio?   @relation(fields: [servicioId], references: [id], onDelete: Restrict)
@@ -541,6 +544,7 @@ model Documento {
   ordenesCompra OrdenCompra[]
   facturas      Factura[]
   egresos       Egreso[]
+  cobros        Cobro[]
 
   @@map("documentos")
 }
@@ -575,22 +579,25 @@ model Cotizacion {
 // fija el total contra el que se factura. El importe es sin IVA; el documento
 // es opcional.
 model OrdenCompra {
-  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  servicioId      String     @map("servicio_id") @db.Uuid
-  servicio        Servicio   @relation(fields: [servicioId], references: [id], onDelete: Restrict)
-  numero          String
-  fecha           DateTime   @db.Date
-  importeCentavos BigInt     @map("importe_centavos")
-  importeMoneda   String     @map("importe_moneda")
-  observaciones   String?
-  documentoId     String?    @map("documento_id") @db.Uuid
-  documento       Documento? @relation(fields: [documentoId], references: [id], onDelete: Restrict)
-  creadoEn        DateTime   @map("creado_en") @db.Timestamptz(3)
-  creadoPor       Json       @map("creado_por") @db.JsonB
-  actualizadoEn   DateTime   @map("actualizado_en") @db.Timestamptz(3)
-  actualizadoPor  Json       @map("actualizado_por") @db.JsonB
-  eliminadoEn     DateTime?  @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor    Json?      @map("eliminado_por") @db.JsonB
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId        String     @map("servicio_id") @db.Uuid
+  servicio          Servicio   @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  numero            String
+  fecha             DateTime   @db.Date
+  importeCentavos   BigInt     @map("importe_centavos")
+  importeMoneda     String     @map("importe_moneda")
+  cambioNumerador   BigInt?    @map("cambio_numerador")
+  cambioDenominador BigInt?    @map("cambio_denominador")
+  cambioFuente      String?    @map("cambio_fuente")
+  observaciones     String?
+  documentoId       String?    @map("documento_id") @db.Uuid
+  documento         Documento? @relation(fields: [documentoId], references: [id], onDelete: Restrict)
+  creadoEn          DateTime   @map("creado_en") @db.Timestamptz(3)
+  creadoPor         Json       @map("creado_por") @db.JsonB
+  actualizadoEn     DateTime   @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor    Json       @map("actualizado_por") @db.JsonB
+  eliminadoEn       DateTime?  @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor      Json?      @map("eliminado_por") @db.JsonB
 
   facturas Factura[]
 
@@ -602,26 +609,29 @@ model OrdenCompra {
 // alícuota va en milésimas (210, 105 o 0). El número es único entre las
 // vigentes (índice parcial, a mano en la migración).
 model Factura {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  servicioId      String       @map("servicio_id") @db.Uuid
-  servicio        Servicio     @relation(fields: [servicioId], references: [id], onDelete: Restrict)
-  ordenCompraId   String?      @map("orden_compra_id") @db.Uuid
-  ordenCompra     OrdenCompra? @relation(fields: [ordenCompraId], references: [id], onDelete: Restrict)
-  numero          String
-  fecha           DateTime     @db.Date
-  vencimiento     DateTime     @db.Date
-  importeCentavos BigInt       @map("importe_centavos")
-  importeMoneda   String       @map("importe_moneda")
-  alicuotaIva     Int          @map("alicuota_iva")
-  documentoId     String?      @map("documento_id") @db.Uuid
-  documento       Documento?   @relation(fields: [documentoId], references: [id], onDelete: Restrict)
-  creadoEn        DateTime     @map("creado_en") @db.Timestamptz(3)
-  creadoPor       Json         @map("creado_por") @db.JsonB
-  actualizadoEn   DateTime     @map("actualizado_en") @db.Timestamptz(3)
-  actualizadoPor  Json         @map("actualizado_por") @db.JsonB
-  eliminadoEn     DateTime?    @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor    Json?        @map("eliminado_por") @db.JsonB
-  cobros          Cobro[]
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId        String       @map("servicio_id") @db.Uuid
+  servicio          Servicio     @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  ordenCompraId     String?      @map("orden_compra_id") @db.Uuid
+  ordenCompra       OrdenCompra? @relation(fields: [ordenCompraId], references: [id], onDelete: Restrict)
+  numero            String
+  fecha             DateTime     @db.Date
+  vencimiento       DateTime     @db.Date
+  importeCentavos   BigInt       @map("importe_centavos")
+  importeMoneda     String       @map("importe_moneda")
+  cambioNumerador   BigInt?      @map("cambio_numerador")
+  cambioDenominador BigInt?      @map("cambio_denominador")
+  cambioFuente      String?      @map("cambio_fuente")
+  alicuotaIva       Int          @map("alicuota_iva")
+  documentoId       String?      @map("documento_id") @db.Uuid
+  documento         Documento?   @relation(fields: [documentoId], references: [id], onDelete: Restrict)
+  creadoEn          DateTime     @map("creado_en") @db.Timestamptz(3)
+  creadoPor         Json         @map("creado_por") @db.JsonB
+  actualizadoEn     DateTime     @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor    Json         @map("actualizado_por") @db.JsonB
+  eliminadoEn       DateTime?    @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor      Json?        @map("eliminado_por") @db.JsonB
+  cobros            Cobro[]
 
   @@map("facturas")
 }
@@ -632,29 +642,33 @@ model Factura {
 // carga a mano solo si la cuenta es de otra moneda. Ningún cobro existe sin
 // factura. *Cobrada* no se guarda: es saldo cero.
 model Cobro {
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  facturaId         String    @map("factura_id") @db.Uuid
-  factura           Factura   @relation(fields: [facturaId], references: [id], onDelete: Restrict)
-  fecha             DateTime  @db.Date
-  importeCentavos   BigInt    @map("importe_centavos")
-  importeMoneda     String    @map("importe_moneda")
-  retencionCentavos BigInt?   @map("retencion_centavos")
-  cuentaId          String    @map("cuenta_id") @db.Uuid
-  cuenta            Cuenta    @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
-  entradaCentavos   BigInt    @map("entrada_centavos")
-  entradaMoneda     String    @map("entrada_moneda")
-  cambioNumerador   BigInt?   @map("cambio_numerador")
-  cambioDenominador BigInt?   @map("cambio_denominador")
-  cambioFuente      String?   @map("cambio_fuente")
-  observaciones     String?
-  creadoEn          DateTime  @map("creado_en") @db.Timestamptz(3)
-  creadoPor         Json      @map("creado_por") @db.JsonB
-  actualizadoEn     DateTime  @map("actualizado_en") @db.Timestamptz(3)
-  actualizadoPor    Json      @map("actualizado_por") @db.JsonB
-  eliminadoEn       DateTime? @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor      Json?     @map("eliminado_por") @db.JsonB
+  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  facturaId            String     @map("factura_id") @db.Uuid
+  factura              Factura    @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  fecha                DateTime   @db.Date
+  importeCentavos      BigInt     @map("importe_centavos")
+  importeMoneda        String     @map("importe_moneda")
+  retencionCentavos    BigInt?    @map("retencion_centavos")
+  cuentaId             String     @map("cuenta_id") @db.Uuid
+  cuenta               Cuenta     @relation(fields: [cuentaId], references: [id], onDelete: Restrict)
+  entradaCentavos      BigInt     @map("entrada_centavos")
+  entradaMoneda        String     @map("entrada_moneda")
+  cambioNumerador      BigInt?    @map("cambio_numerador")
+  cambioDenominador    BigInt?    @map("cambio_denominador")
+  cambioFuente         String?    @map("cambio_fuente")
+  ordenPagoNumero      String?    @map("orden_pago_numero")
+  ordenPagoDocumentoId String?    @map("orden_pago_documento_id") @db.Uuid
+  ordenPagoDocumento   Documento? @relation(fields: [ordenPagoDocumentoId], references: [id], onDelete: Restrict)
+  observaciones        String?
+  creadoEn             DateTime   @map("creado_en") @db.Timestamptz(3)
+  creadoPor            Json       @map("creado_por") @db.JsonB
+  actualizadoEn        DateTime   @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor       Json       @map("actualizado_por") @db.JsonB
+  eliminadoEn          DateTime?  @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor         Json?      @map("eliminado_por") @db.JsonB
 
   @@index([facturaId])
   @@index([cuentaId])
+  @@index([ordenPagoDocumentoId])
   @@map("cobros")
 }

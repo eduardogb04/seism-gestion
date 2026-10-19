@@ -4,8 +4,9 @@ import { z } from "zod";
 import { MONEDAS } from "../../dominio/compartido/importe.ts";
 import { rechazosPorPagos } from "../egresos/edicion-con-pagos.ts";
 import { rechazosPorServicio } from "../egresos/servicio-del-egreso.ts";
+import { cambioVisible } from "./cambio.ts";
 import type { DefinicionAbm } from "./definicion.ts";
-import { obligatorio, opcional } from "./validaciones.ts";
+import { cambioDeDocumento, obligatorio, opcional } from "./validaciones.ts";
 
 export const EGRESOS: DefinicionAbm<"Egreso"> = {
   entidad: "Egreso",
@@ -37,6 +38,11 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
       opcional: true,
     },
     importe: { tipo: "importe", etiqueta: "Importe" },
+    cambio: {
+      tipo: "tipoDeCambio",
+      etiqueta: "Tipo de cambio (pesos por dólar)",
+      importe: "importe",
+    },
     vencimiento: { tipo: "fecha", etiqueta: "Vencimiento", opcional: true },
     observaciones: { tipo: "textoLargo", etiqueta: "Observaciones" },
     comprobanteId: { tipo: "archivo", etiqueta: "Comprobante" },
@@ -52,6 +58,7 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
       centavos: z.bigint().positive("El importe tiene que ser mayor que cero."),
       moneda: z.enum(MONEDAS),
     }),
+    cambio: cambioDeDocumento,
     vencimiento: z.string().nullable(),
     observaciones: opcional(1000),
     comprobanteId: z.string().nullable(),
@@ -73,6 +80,11 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
     "centroCostoId",
     "proveedorId",
     "importe",
+    {
+      etiqueta: "Tipo de cambio",
+      de: ({ cambio, importe }) =>
+        cambioVisible(cambio, importe.moneda)?.texto ?? "",
+    },
     "vencimiento",
   ],
 };

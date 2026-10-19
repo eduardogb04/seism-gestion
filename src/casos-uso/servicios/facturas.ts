@@ -40,6 +40,7 @@ import {
   nombresDeActores,
   validarEscrito,
 } from "../abm/abm.ts";
+import { cambioVisible } from "../abm/cambio.ts";
 import {
   type CamposAbm,
   diaConBarras,
@@ -47,7 +48,7 @@ import {
   nombreDeMoneda,
   type OpcionAbm,
 } from "../abm/definicion.ts";
-import { obligatorio } from "../abm/validaciones.ts";
+import { cambioDeDocumento, obligatorio } from "../abm/validaciones.ts";
 import type {
   ArchivoSubido,
   DependenciasDeAdjuntos,
@@ -56,10 +57,15 @@ import { exigirRol } from "../usuarios/reglas.ts";
 import { exigirEtapa } from "./ciclo.ts";
 import {
   bajaDeAdjuntoOpcional,
+  CAMPO_DE_CAMBIO,
+  type CambioListado,
   type DocumentoListado,
   documentosListados,
+  formularioDeCambio,
   guardarAdjuntoOpcional,
+  guardarCambio,
   importeMayorQueCero,
+  type ResultadoDeCambio,
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
 import { etiquetaDeAlicuota, OPCIONES_DE_ALICUOTA } from "./iva-de-factura.ts";
@@ -93,6 +99,8 @@ export type FacturaListada = {
   readonly ordenCompra: string;
   /** Lo que se cargó: `ARS 400,00`. */
   readonly sinIva: string;
+  /** Pesos por dólar: solo si es en dólares; avisa si falta. */
+  readonly cambio: CambioListado;
   /** `21 %`. */
   readonly alicuota: string;
   /** Calculado, no guardado. */
@@ -119,6 +127,18 @@ export type CasosUsoFacturas = {
     escrito: Escrito,
     archivo: ArchivoSubido | null,
   ): Promise<ResultadoDeFactura>;
+  /** El formulario para completar o cambiar su tipo de cambio, con lo que ya tiene. */
+  formularioDeCambio(id: string): Promise<{
+    readonly numero: string;
+    readonly campos: CamposAbm;
+    readonly escrito: Escrito;
+  }>;
+  /** Completa o cambia el tipo de cambio de una factura ya cargada, con las reglas del alta. */
+  guardarTipoDeCambio(
+    actor: Actor,
+    id: string,
+    escrito: Escrito,
+  ): Promise<ResultadoDeCambio>;
   /** La anula (baja lógica, con su documento): su número queda libre. */
   marcarEliminado(actor: Actor, id: string): Promise<void>;
 };
@@ -132,6 +152,7 @@ function camposDeFactura(ordenes: readonly OpcionAbm[]): CamposAbm {
     ["fecha", { tipo: "fecha", etiqueta: "Fecha" }],
     ["vencimiento", { tipo: "fecha", etiqueta: "Vencimiento" }],
     ["importe", { tipo: "importe", etiqueta: "Importe sin IVA" }],
+    CAMPO_DE_CAMBIO,
     [
       "alicuota",
       { tipo: "opcion", etiqueta: "IVA", opciones: OPCIONES_DE_ALICUOTA },
@@ -154,6 +175,7 @@ const VALIDACION: z.ZodType<DatosEscritos> = z
     fecha: z.string(),
     vencimiento: z.string(),
     importe: importeMayorQueCero,
+    cambio: cambioDeDocumento,
     alicuota: z.string().transform((valor, contexto) => {
       const alicuota = ALICUOTAS_IVA.find((a) => String(a) === valor);
       if (alicuota === undefined) {
@@ -216,6 +238,7 @@ export function crearCasosUsoFacturas({
             ordenes.find(({ valor: orden }) => orden.id === valor.ordenCompraId)
               ?.valor.numero ?? "",
           sinIva: formatearImporte(valor.importe),
+          cambio: cambioVisible(valor.cambio, valor.importe.moneda),
           alicuota: etiquetaDeAlicuota(valor.alicuota),
           iva: formatearImporte(ivaDe(valor.importe, valor.alicuota)),
           total: formatearImporte(totalConIva(valor.importe, valor.alicuota)),
@@ -288,6 +311,40 @@ export function crearCasosUsoFacturas({
           ),
         );
         return { ok: true, id };
+      });
+    },
+
+    formularioDeCambio(id) {
+      return transaccional.ejecutar(async (repos) => {
+        const factura = esquemaId.safeParse(id).success
+          ? await repos.facturas.buscarPorId(id)
+          : null;
+        if (factura === null || factura.eliminadoEn !== undefined) {
+          throw nuevoError(catalogo.DOM_0009, { entidad: "Factura", id });
+        }
+        return {
+          numero: factura.valor.numero,
+          ...formularioDeCambio(factura.valor),
+        };
+      });
+    },
+
+    guardarTipoDeCambio(actor, id, escrito) {
+      return transaccional.ejecutar(async (repos) => {
+        await exigirRol(
+          repos.usuarios,
+          actor,
+          ROLES_QUE_ESCRIBEN_SERVICIOS,
+          catalogo.AUT_0009,
+        );
+        return guardarCambio(
+          actor,
+          reloj,
+          repos.facturas,
+          "Factura",
+          id,
+          escrito,
+        );
       });
     },
 

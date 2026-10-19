@@ -142,6 +142,19 @@ export interface ValorTipoDeCambio {
   readonly denominador: bigint;
 }
 
+/**
+ * El tipo de cambio que lleva un documento en dólares (orden de compra, factura,
+ * egreso): pesos por dólar de su fecha y de dónde salió. Solo se guarda: no
+ * convierte nada.
+ */
+export interface CambioDeDocumento {
+  readonly valor: ValorTipoDeCambio;
+  readonly fuente: string;
+}
+
+/** La moneda en que un documento exige tipo de cambio; en pesos no se pide. */
+export const MONEDA_CON_CAMBIO = "USD" satisfies Moneda;
+
 /** Lo que se carga a mano para registrar un tipo de cambio. */
 export interface DatosTipoDeCambio<
   De extends Moneda,

@@ -69,6 +69,7 @@ export async function sembrarCuotas(
           numero: ORDEN.numero,
           fecha: ORDEN.fecha,
           importe: crearImporte(ORDEN.centavos, "ARS"),
+          cambio: null,
           observaciones: null,
           documentoId: null,
         },

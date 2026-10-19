@@ -41,6 +41,7 @@ import {
 import type { EntidadAbm } from "../../src/puertos/repositorios/abm.ts";
 import { ADMIN_UNO, sembrarUsuarios } from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
+import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -115,7 +116,7 @@ function escritoDeEgreso(
   centroCostoId: string,
   cambios: Escrito = {},
 ): Escrito {
-  return {
+  return conCambioSiEsEnDolares({
     fecha: "2026-09-03",
     concepto: "Combustible",
     centroCostoId,
@@ -126,7 +127,7 @@ function escritoDeEgreso(
     vencimiento: "",
     observaciones: "",
     ...cambios,
-  };
+  });
 }
 
 function altaDeEgreso(centroCostoId: string, cambios: Escrito = {}) {
@@ -393,6 +394,7 @@ describe("egresos y los tipos de campo que trajeron", () => {
         "Administración",
         "",
         "ARS 1.234,50",
+        "",
         "15/10/2026",
       ]);
     });

@@ -19,6 +19,7 @@ import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transacci
 import { crearCasosUsoAbm } from "../../src/casos-uso/abm/abm.ts";
 import { CUENTAS } from "../../src/casos-uso/abm/cuentas.ts";
 import type { Escrito } from "../../src/casos-uso/abm/definicion.ts";
+import type { ArchivoSubido } from "../../src/casos-uso/documentos/documentos.ts";
 import { crearCasosUsoCobros } from "../../src/casos-uso/servicios/cobros.ts";
 import { crearCasosUsoFacturas } from "../../src/casos-uso/servicios/facturas.ts";
 import { crearCasosUsoOrdenesDeCompra } from "../../src/casos-uso/servicios/ordenes-de-compra.ts";
@@ -47,6 +48,7 @@ import {
   llevarServicioA,
   sembrarServicio,
 } from "./_arnes/servicio.ts";
+import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -85,7 +87,18 @@ function dependencias() {
   };
 }
 
-const cobros = () => crearCasosUsoCobros(dependencias());
+const cobros = () =>
+  crearCasosUsoCobros({
+    ...dependencias(),
+    almacen,
+    nuevaClave: nuevaClaveDocumento,
+  });
+
+const PDF = new TextEncoder().encode("%PDF-1.4\nOrden de pago de ejemplo\n");
+
+function archivo(nombre = "orden-de-pago.pdf"): ArchivoSubido {
+  return { nombre, bytes: PDF };
+}
 
 function ordenes() {
   return crearCasosUsoOrdenesDeCompra({
@@ -119,7 +132,7 @@ async function cargarFactura(
   const resultado = await facturas().crear(
     admin,
     paraServicio,
-    {
+    conCambioSiEsEnDolares({
       numero: "0000-0001",
       fecha: "2031-07-04",
       vencimiento: "2031-08-08",
@@ -128,7 +141,7 @@ async function cargarFactura(
       alicuota: "210",
       ordenCompraId: "",
       ...cambios,
-    },
+    }),
     null,
   );
   if (!resultado.ok) {
@@ -144,14 +157,14 @@ async function cargarOrden(
   const resultado = await ordenes().crear(
     admin,
     paraServicio,
-    {
+    conCambioSiEsEnDolares({
       numero: "OC-0001",
       fecha: "2031-07-01",
       importe: "5.000,00",
       importeMoneda: "ARS",
       observaciones: "",
       ...cambios,
-    },
+    }),
     null,
   );
   if (!resultado.ok) {
@@ -604,6 +617,8 @@ describe("dos cobros a la vez", () => {
     const tomadas: string[] = [];
     const conEspia = crearCasosUsoCobros({
       ...dependencias(),
+      almacen,
+      nuevaClave: nuevaClaveDocumento,
       transaccional: {
         ejecutar: (trabajo) =>
           real.ejecutar((repos) =>
@@ -831,6 +846,111 @@ describe("Por cobrar", () => {
   });
 });
 
+describe("la orden de pago del cliente", () => {
+  test("con número y documento: se guardan, el documento queda en el almacén y la cobranza los muestra", async () => {
+    const factura = await cargarFactura();
+    const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
+
+    const resultado = await cobros().registrar(
+      admin,
+      factura,
+      cobro(cuenta, { ordenPagoNumero: "OP-2031-77" }),
+      archivo("op-77.pdf"),
+    );
+
+    expect(resultado).toEqual({ ok: true });
+    const fila = await cliente().cobro.findFirstOrThrow();
+    expect(fila.ordenPagoNumero).toBe("OP-2031-77");
+    const documento = await cliente().documento.findUniqueOrThrow({
+      where: { id: fila.ordenPagoDocumentoId ?? "" },
+    });
+    expect(documento).toMatchObject({
+      nombre: "op-77.pdf",
+      tipoMime: "application/pdf",
+    });
+    const guardado = await almacen.leer(
+      documento.referencia as Parameters<AlmacenDocumentos["leer"]>[0],
+    );
+    expect(Buffer.from(guardado).equals(Buffer.from(PDF))).toBe(true);
+    const [visible] = (await cobranzaDe(factura)).cobros;
+    expect(visible?.ordenPagoNumero).toBe("OP-2031-77");
+    expect(visible?.ordenPagoDocumento).toMatchObject({
+      id: documento.id,
+      nombre: "op-77.pdf",
+    });
+  });
+
+  test("las dos son opcionales: sin ninguna el cobro se guarda igual, y con una sola también", async () => {
+    const factura = await cargarFactura();
+    const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
+
+    await cobrado(factura, cuenta, { importe: "100,00" });
+    await cobrado(factura, cuenta, {
+      importe: "100,00",
+      ordenPagoNumero: "OP-1",
+    });
+    await cobros().registrar(
+      admin,
+      factura,
+      cobro(cuenta, { importe: "100,00" }),
+      archivo(),
+    );
+
+    const filas = await cliente().cobro.findMany({
+      orderBy: { creadoEn: "asc" },
+    });
+    expect(
+      filas.map((f) => [f.ordenPagoNumero, f.ordenPagoDocumentoId === null]),
+    ).toEqual([
+      [null, true],
+      ["OP-1", true],
+      [null, false],
+    ]);
+    const [sin] = (await cobranzaDe(factura)).cobros;
+    expect(sin?.ordenPagoNumero).toBe("");
+    expect(sin?.ordenPagoDocumento).toBeNull();
+  });
+
+  test("un número demasiado largo o un archivo que no se acepta vuelven al lado de su campo, sin guardar el cobro ni el documento", async () => {
+    const factura = await cargarFactura();
+    const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
+
+    const largo = await cobros().registrar(
+      admin,
+      factura,
+      cobro(cuenta, { ordenPagoNumero: "9".repeat(41) }),
+      archivo(),
+    );
+    const malo = await cobros().registrar(
+      admin,
+      factura,
+      cobro(cuenta),
+      archivo("virus.exe"),
+    );
+
+    expect(largo.ok).toBe(false);
+    expect(!largo.ok && Object.keys(largo.errores)).toEqual([
+      "ordenPagoNumero",
+    ]);
+    expect(malo.ok).toBe(false);
+    expect(!malo.ok && Object.keys(malo.errores)).toEqual(["archivo"]);
+    expect(await cantidadDeCobros()).toBe(0);
+    expect(await cliente().documento.count()).toBe(0);
+  });
+
+  test("anular el cobro da de baja su documento", async () => {
+    const factura = await cargarFactura();
+    const cuenta = await altaDeCuenta("Caja en pesos", "ARS");
+    await cobros().registrar(admin, factura, cobro(cuenta), archivo());
+    const { id } = await cliente().cobro.findFirstOrThrow();
+
+    await cobros().marcarAnulado(admin, id);
+
+    const documento = await cliente().documento.findFirstOrThrow();
+    expect(documento.eliminadoEn).not.toBeNull();
+  });
+});
+
 describe("el formulario de cobro", () => {
   test("trae la factura, su saldo, la fecha de hoy y solo las cuentas activas", async () => {
     const factura = await cargarFactura();
@@ -854,6 +974,7 @@ describe("el formulario de cobro", () => {
       "cuentaId",
       "tipoDeCambio",
       "fuenteDelCambio",
+      "ordenPagoNumero",
       "observaciones",
     ]);
     await expect(cobros().formulario("no-es-un-id")).rejects.toMatchObject({

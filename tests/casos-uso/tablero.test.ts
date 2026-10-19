@@ -53,6 +53,7 @@ import {
   llevarServicioA,
   sembrarServicio,
 } from "./_arnes/servicio.ts";
+import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 function fecha(anio: number, mes: number, dia: number) {
   const resultado = crearFechaHora({
@@ -95,7 +96,12 @@ function dependencias(reloj = RelojFijo(HOY)) {
 const tablero = (reloj = RelojFijo(HOY)) =>
   crearCasosUsoTablero(dependencias(reloj));
 const abm = () => crearCasosUsoAbm(dependencias());
-const cobros = () => crearCasosUsoCobros(dependencias());
+const cobros = (almacen: AlmacenDocumentos) =>
+  crearCasosUsoCobros({
+    ...dependencias(),
+    almacen,
+    nuevaClave: nuevaClaveDocumento,
+  });
 const pagos = () => crearCasosUsoPagos(dependencias());
 const facturas = (almacen: AlmacenDocumentos) =>
   crearCasosUsoFacturas({
@@ -152,7 +158,7 @@ async function cargarFactura(
   const resultado = await facturas(almacenTemporal.almacen).crear(
     admin,
     servicioId,
-    {
+    conCambioSiEsEnDolares({
       numero: datos.numero,
       fecha: datos.fecha,
       vencimiento: datos.vencimiento,
@@ -160,7 +166,7 @@ async function cargarFactura(
       importeMoneda: datos.moneda ?? "ARS",
       alicuota: datos.alicuota ?? "210",
       ordenCompraId: "",
-    },
+    }),
     null,
   );
   return pasa(resultado, `la factura ${datos.numero}`).id;
@@ -174,7 +180,7 @@ async function cobrar(
   retencion = "",
 ): Promise<void> {
   pasa(
-    await cobros().registrar(admin, facturaId, {
+    await cobros(almacenTemporal.almacen).registrar(admin, facturaId, {
       fecha: dia,
       importe,
       retencion,
@@ -197,18 +203,22 @@ type DatosDeEgreso = {
 };
 
 async function cargarEgreso(datos: DatosDeEgreso): Promise<string> {
-  const resultado = await abm().crear(admin, EGRESOS, {
-    fecha: datos.fecha,
-    concepto: `Egreso de ${datos.importe} del ${datos.fecha}`,
-    centroCostoId: datos.centroCostoId,
-    proveedorId: "",
-    servicioId: datos.servicioId ?? "",
-    numeroComprobante: "",
-    importe: datos.importe,
-    importeMoneda: datos.moneda ?? "ARS",
-    vencimiento: datos.vencimiento ?? "",
-    observaciones: "",
-  });
+  const resultado = await abm().crear(
+    admin,
+    EGRESOS,
+    conCambioSiEsEnDolares({
+      fecha: datos.fecha,
+      concepto: `Egreso de ${datos.importe} del ${datos.fecha}`,
+      centroCostoId: datos.centroCostoId,
+      proveedorId: "",
+      servicioId: datos.servicioId ?? "",
+      numeroComprobante: "",
+      importe: datos.importe,
+      importeMoneda: datos.moneda ?? "ARS",
+      vencimiento: datos.vencimiento ?? "",
+      observaciones: "",
+    }),
+  );
   return pasa(resultado, `el egreso de ${datos.importe}`).registro.valor.id;
 }
 
@@ -358,7 +368,7 @@ beforeAll(async () => {
   const anulado = await cliente().cobro.findFirstOrThrow({
     where: { importeCentavos: 7_700n },
   });
-  await cobros().marcarAnulado(admin, anulado.id);
+  await cobros(almacenTemporal.almacen).marcarAnulado(admin, anulado.id);
 
   // Egresos.
   const e1 = await cargarEgreso({
@@ -828,7 +838,7 @@ describe("cada número cierra con la suma del listado al que lleva", () => {
 
   test("los pendientes salen de las mismas consultas que Por cobrar y Por pagar", async () => {
     const principal = await tablero().tablero({});
-    const porCobrar = await cobros().porCobrar();
+    const porCobrar = await cobros(almacenTemporal.almacen).porCobrar();
     const porPagar = await pagos().porPagar({});
 
     for (const moneda of MONEDAS) {

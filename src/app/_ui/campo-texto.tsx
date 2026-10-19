@@ -128,6 +128,46 @@ export function CampoImporte({
   );
 }
 
+/**
+ * Un tipo de cambio: el valor y, al lado, su fuente, bajo una sola etiqueta y
+ * con un solo mensaje de error. Manda dos controles: `name` (el valor, tal cual
+ * se escribió) y `nombreFuente`.
+ */
+export function CampoCambio({
+  etiqueta,
+  error,
+  nombreFuente,
+  fuenteInicial,
+  ...resto
+}: PropsDeCampo &
+  Omit<ComponentProps<"input">, "className" | "id" | "type"> & {
+    readonly nombreFuente: string;
+    readonly fuenteInicial: string;
+  }) {
+  const id = useId();
+  return (
+    <Campo id={id} etiqueta={etiqueta} error={error}>
+      <div className="flex gap-2">
+        <input
+          {...atributos(id, error)}
+          className={`${atributos(id, error).className} min-w-0 flex-1`}
+          type="text"
+          inputMode="decimal"
+          {...resto}
+        />
+        <input
+          name={nombreFuente}
+          aria-label={`Fuente de ${etiqueta}`}
+          placeholder="Fuente"
+          defaultValue={fuenteInicial}
+          type="text"
+          className="min-w-0 flex-1 rounded border border-borde-control bg-superficie px-3 py-2"
+        />
+      </div>
+    </Campo>
+  );
+}
+
 export function CampoTextoLargo({
   etiqueta,
   error,

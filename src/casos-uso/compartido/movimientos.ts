@@ -33,6 +33,10 @@ import {
 import type { RegistroAbm } from "../../puertos/repositorios/abm.ts";
 import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
 import type { ErroresPorCampo, OpcionDeRelacion } from "../abm/abm.ts";
+import {
+  MENSAJE_CAMBIO_ILEGIBLE,
+  MENSAJE_FUENTE_DEL_CAMBIO,
+} from "../abm/cambio.ts";
 import type { CampoAbm, Escrito } from "../abm/definicion.ts";
 
 /** Cómo se nombra la deuda en los mensajes. */
@@ -124,8 +128,7 @@ export function movimientoEnCuenta({
       ? null
       : parsearValorTipoDeCambio(valorEscrito);
   if (valorLeido?.ok === false) {
-    errores.tipoDeCambio =
-      "Escribí el tipo de cambio con coma para los decimales (por ejemplo 1.184,25).";
+    errores.tipoDeCambio = MENSAJE_CAMBIO_ILEGIBLE;
   }
   const cambio: CambioCargado | null =
     valorLeido?.ok === true
@@ -155,7 +158,7 @@ export function movimientoEnCuenta({
         textos,
       );
     } else if (convertido.error.campo === "fuente") {
-      errores.fuenteDelCambio = "Escribí de dónde sale el tipo de cambio.";
+      errores.fuenteDelCambio = MENSAJE_FUENTE_DEL_CAMBIO;
     } else {
       errores.tipoDeCambio = "El tipo de cambio no es válido.";
     }

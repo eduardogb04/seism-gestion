@@ -11,7 +11,13 @@ import type {
   DatosFactura,
   RepositorioFacturas,
 } from "../../puertos/repositorios/facturas.ts";
-import { aDia, deDia, importeDeColumnas } from "./abm/egresos.ts";
+import {
+  aDia,
+  cambioDeColumnas,
+  columnasDeCambio,
+  deDia,
+  importeDeColumnas,
+} from "./abm/egresos.ts";
 import { crearEscrituraPrisma, desdeFila } from "./abm/repositorio.ts";
 import type { Factura as FilaFactura, Prisma } from "./generado/client.ts";
 
@@ -32,6 +38,9 @@ const paso = {
     vencimiento,
     importeCentavos,
     importeMoneda,
+    cambioNumerador,
+    cambioDenominador,
+    cambioFuente,
     alicuotaIva,
     periodo,
     ...resto
@@ -47,6 +56,11 @@ const paso = {
       fecha: aDia(fecha),
       vencimiento: aDia(vencimiento),
       importe: importeDeColumnas(importeCentavos, importeMoneda),
+      cambio: cambioDeColumnas(
+        cambioNumerador,
+        cambioDenominador,
+        cambioFuente,
+      ),
       alicuota,
       periodo: periodo === null ? null : aDia(periodo),
     };
@@ -56,6 +70,7 @@ const paso = {
     fecha,
     vencimiento,
     importe,
+    cambio,
     alicuota,
     periodo,
     ...resto
@@ -66,6 +81,7 @@ const paso = {
       vencimiento: deDia(vencimiento),
       importeCentavos: importe.centavos,
       importeMoneda: importe.moneda,
+      ...columnasDeCambio(cambio),
       alicuotaIva: alicuota,
       periodo: periodo === null ? null : deDia(periodo),
     };

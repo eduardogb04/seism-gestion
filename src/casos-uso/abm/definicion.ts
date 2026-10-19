@@ -9,9 +9,11 @@
 
 import type { z } from "zod";
 import {
+  type CambioDeDocumento,
   formatearImporte,
   formatearMonto,
   type Importe,
+  MONEDA_CON_CAMBIO,
   MONEDAS,
   type Moneda,
   parsearImporte,
@@ -28,6 +30,7 @@ import type {
 } from "../../puertos/repositorios/abm.ts";
 import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
 import type { Rol } from "../../puertos/repositorios/usuarios.ts";
+import { cambioVisible, escritoDeCambio, leerCambio } from "./cambio.ts";
 
 export type OpcionAbm = { readonly valor: string; readonly etiqueta: string };
 
@@ -109,11 +112,26 @@ export type CampoAbm =
    * moneda). En el formulario son dos controles: el monto, con el nombre del
    * campo, y la moneda, con `nombreDeMoneda`.
    */
-  | { readonly tipo: "importe"; readonly etiqueta: string };
+  | { readonly tipo: "importe"; readonly etiqueta: string }
+  /**
+   * El tipo de cambio del importe que nombra `importe` (F3-04): obligatorio si
+   * ese importe es en dólares, rechazado si es en pesos. El dato es un
+   * `CambioDeDocumento` o `null`. En el formulario son dos controles, el valor
+   * (con el nombre del campo) y la fuente (`nombreDeFuente`), y solo se ofrecen
+   * cuando la moneda elegida es la de dólares.
+   */
+  | {
+      readonly tipo: "tipoDeCambio";
+      readonly etiqueta: string;
+      readonly importe: string;
+    };
 
 /** Los datos de un registro como los lee un recorrido por campos. */
 export type ValoresAbm = Readonly<
-  Record<string, string | boolean | number | null | Importe<Moneda>>
+  Record<
+    string,
+    string | boolean | number | null | Importe<Moneda> | CambioDeDocumento
+  >
 >;
 
 export type NombreDeCampo<E extends EntidadAbm> = keyof DatosAbm<E> & string;
@@ -243,6 +261,32 @@ export function nombreDeMoneda(nombre: string): string {
   return `${nombre}Moneda`;
 }
 
+/** La moneda elegida en el control de un campo `importe`, si hay una. */
+export function monedaEscrita(
+  nombreDelImporte: string,
+  escrito: Escrito,
+): string | undefined {
+  return escrito[nombreDeMoneda(nombreDelImporte)];
+}
+
+/** El campo del tipo de cambio solo se ofrece si la moneda elegida es la de dólares (o todavía no se eligió ninguna). */
+export function seOfreceElCambio(
+  campo: Extract<CampoAbm, { tipo: "tipoDeCambio" }>,
+  escrito: Escrito,
+): boolean {
+  const moneda = monedaEscrita(campo.importe, escrito);
+  return moneda === undefined || moneda === MONEDA_CON_CAMBIO;
+}
+
+/** El tipo de cambio escrito de un campo `tipoDeCambio`: el dato, o lo que la persona tiene que corregir. */
+export function leerCambioDeCampo(
+  nombre: string,
+  campo: Extract<CampoAbm, { tipo: "tipoDeCambio" }>,
+  escrito: Escrito,
+): ReturnType<typeof leerCambio> {
+  return leerCambio(nombre, monedaEscrita(campo.importe, escrito), escrito);
+}
+
 /** El monto escrito y la moneda elegida de un campo `importe`: el importe, o lo que la persona tiene que corregir. */
 export function leerImporte(
   nombre: string,
@@ -332,6 +376,10 @@ export function valorDeCampo(
       const leido = leerImporte(nombre, todo);
       return "valor" in leido ? leido.valor : escrito;
     }
+    case "tipoDeCambio": {
+      const leido = leerCambioDeCampo(nombre, campo, todo);
+      return "valor" in leido ? leido.valor : escrito;
+    }
     case "siNo":
       return escrito !== "";
   }
@@ -347,6 +395,20 @@ function formatoDe<E extends EntidadAbm>(
   return formatos[nombre];
 }
 
+/** El dato de un campo `importe`. */
+export function esImporte(
+  valor: ValoresAbm[string] | undefined,
+): valor is Importe<Moneda> {
+  return typeof valor === "object" && valor !== null && "centavos" in valor;
+}
+
+/** El dato de un campo `tipoDeCambio` que tiene uno cargado. */
+export function esCambio(
+  valor: ValoresAbm[string] | undefined,
+): valor is CambioDeDocumento {
+  return typeof valor === "object" && valor !== null && "fuente" in valor;
+}
+
 /** La vuelta: los datos guardados como se escriben en el formulario. */
 export function escritoDe<E extends EntidadAbm>(
   definicion: DefinicionAbm<E>,
@@ -358,10 +420,15 @@ export function escritoDe<E extends EntidadAbm>(
       if (campo.tipo === "siNo") {
         return [[nombre, valor === true ? MARCADA : ""]];
       }
+      if (campo.tipo === "tipoDeCambio") {
+        return Object.entries(
+          escritoDeCambio(nombre, esCambio(valor) ? valor : null),
+        );
+      }
       if (typeof valor === "number") {
         return [[nombre, String(valor).replace(".", ",")]];
       }
-      if (typeof valor === "object" && valor !== null) {
+      if (esImporte(valor)) {
         return [
           [nombre, formatearMonto(valor)],
           [nombreDeMoneda(nombre), valor.moneda],
@@ -404,9 +471,14 @@ export function textoDeCampo<E extends EntidadAbm>(
     case "fecha":
       return typeof valor === "string" ? diaConBarras(valor) : "";
     case "importe":
-      return typeof valor === "object" && valor !== null
-        ? formatearImporte(valor)
+      return esImporte(valor) ? formatearImporte(valor) : "";
+    case "tipoDeCambio": {
+      const importe = datos[campo.importe];
+      return esImporte(importe)
+        ? (cambioVisible(esCambio(valor) ? valor : null, importe.moneda)
+            ?.texto ?? "")
         : "";
+    }
     default:
       return escritoDe(definicion, datos)[nombre] ?? "";
   }

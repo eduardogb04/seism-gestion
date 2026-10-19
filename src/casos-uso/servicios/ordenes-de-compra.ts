@@ -35,12 +35,19 @@ import {
   nombresDeActores,
   validarEscrito,
 } from "../abm/abm.ts";
+import { cambioVisible } from "../abm/cambio.ts";
 import {
   type CamposAbm,
   diaConBarras,
   type Escrito,
+  MONEDAS,
+  nombreDeMoneda,
 } from "../abm/definicion.ts";
-import { obligatorio, opcional } from "../abm/validaciones.ts";
+import {
+  cambioDeDocumento,
+  obligatorio,
+  opcional,
+} from "../abm/validaciones.ts";
 import type {
   ArchivoSubido,
   DependenciasDeAdjuntos,
@@ -49,10 +56,15 @@ import { exigirRol } from "../usuarios/reglas.ts";
 import { cambiarPorCausa, exigirEtapa } from "./ciclo.ts";
 import {
   bajaDeAdjuntoOpcional,
+  CAMPO_DE_CAMBIO,
+  type CambioListado,
   type DocumentoListado,
   documentosListados,
+  formularioDeCambio,
   guardarAdjuntoOpcional,
+  guardarCambio,
   importeMayorQueCero,
+  type ResultadoDeCambio,
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
 import {
@@ -87,6 +99,8 @@ export type OrdenListada = {
   readonly aviso: string | null;
   /** Las facturas en otra moneda, que no suman: `0000-0002 · USD 100,00`. */
   readonly otraMoneda: readonly string[];
+  /** Pesos por dólar: solo si es en dólares; avisa si falta. */
+  readonly cambio: CambioListado;
   readonly observaciones: string;
   readonly documento: DocumentoListado | null;
   /** El email de quien la cargó. */
@@ -108,6 +122,18 @@ export type CasosUsoOrdenesDeCompra = {
     escrito: Escrito,
     archivo: ArchivoSubido | null,
   ): Promise<ResultadoDeOrden>;
+  /** El formulario para completar o cambiar su tipo de cambio, con lo que ya tiene. */
+  formularioDeCambio(id: string): Promise<{
+    readonly numero: string;
+    readonly campos: CamposAbm;
+    readonly escrito: Escrito;
+  }>;
+  /** Completa o cambia el tipo de cambio de una orden ya cargada, con las reglas del alta. */
+  guardarTipoDeCambio(
+    actor: Actor,
+    id: string,
+    escrito: Escrito,
+  ): Promise<ResultadoDeCambio>;
   /** La anula (baja lógica, con su documento). `DOM-0014` si tiene facturas vigentes. */
   marcarEliminado(actor: Actor, id: string): Promise<void>;
 };
@@ -116,6 +142,7 @@ const CAMPOS: CamposAbm = [
   ["numero", { tipo: "texto", etiqueta: "Número" }],
   ["fecha", { tipo: "fecha", etiqueta: "Fecha" }],
   ["importe", { tipo: "importe", etiqueta: "Importe sin IVA" }],
+  CAMPO_DE_CAMBIO,
   ["observaciones", { tipo: "textoLargo", etiqueta: "Observaciones" }],
 ];
 
@@ -126,6 +153,7 @@ const VALIDACION: z.ZodType<DatosEscritos> = z.object({
   numero: obligatorio("el número", 40),
   fecha: z.string(),
   importe: importeMayorQueCero,
+  cambio: cambioDeDocumento,
   observaciones: opcional(2000),
 });
 
@@ -169,6 +197,7 @@ export function crearCasosUsoOrdenesDeCompra({
               (factura) =>
                 `${factura.numero} · ${formatearImporte(factura.importe)}`,
             ),
+            cambio: cambioVisible(valor.cambio, valor.importe.moneda),
             observaciones: valor.observaciones ?? "",
             documento: documento(valor.documentoId),
             quien: quien(creadoPor),
@@ -182,7 +211,10 @@ export function crearCasosUsoOrdenesDeCompra({
         await servicioVigente(repos, servicioId);
         return {
           campos: CAMPOS,
-          escrito: { fecha: formatearISO(reloj.ahora()).slice(0, 10) },
+          escrito: {
+            fecha: formatearISO(reloj.ahora()).slice(0, 10),
+            [nombreDeMoneda("importe")]: MONEDAS[0],
+          },
         };
       });
     },
@@ -232,6 +264,43 @@ export function crearCasosUsoOrdenesDeCompra({
           `Orden de compra ${validado.datos.numero} cargada`,
         );
         return { ok: true, id };
+      });
+    },
+
+    formularioDeCambio(id) {
+      return transaccional.ejecutar(async (repos) => {
+        const orden = esquemaId.safeParse(id).success
+          ? await repos.ordenesCompra.buscarPorId(id)
+          : null;
+        if (orden === null || orden.eliminadoEn !== undefined) {
+          throw nuevoError(catalogo.DOM_0009, {
+            entidad: "Orden de compra",
+            id,
+          });
+        }
+        return {
+          numero: orden.valor.numero,
+          ...formularioDeCambio(orden.valor),
+        };
+      });
+    },
+
+    guardarTipoDeCambio(actor, id, escrito) {
+      return transaccional.ejecutar(async (repos) => {
+        await exigirRol(
+          repos.usuarios,
+          actor,
+          ROLES_QUE_ESCRIBEN_SERVICIOS,
+          catalogo.AUT_0009,
+        );
+        return guardarCambio(
+          actor,
+          reloj,
+          repos.ordenesCompra,
+          "Orden de compra",
+          id,
+          escrito,
+        );
       });
     },
 

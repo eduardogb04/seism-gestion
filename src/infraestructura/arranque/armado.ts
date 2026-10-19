@@ -184,7 +184,13 @@ function armar(): Armado {
       almacen,
       nuevaClave: nuevaClaveDocumento,
     }),
-    cobros: crearCasosUsoCobros({ transaccional, reloj, generadorId }),
+    cobros: crearCasosUsoCobros({
+      transaccional,
+      reloj,
+      generadorId,
+      almacen,
+      nuevaClave: nuevaClaveDocumento,
+    }),
     sucesos: crearCasosUsoSucesos({ transaccional, reloj, generadorId }),
     facturacion: crearCasosUsoFacturacion({
       transaccional,

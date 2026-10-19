@@ -58,6 +58,7 @@ import {
   validarArchivo,
 } from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
+import { mismoCambio } from "./cambio.ts";
 import {
   type CamposAbm,
   type ColumnaAbm,
@@ -68,6 +69,9 @@ import {
   type DefinicionAbm,
   type Escrito,
   errorDeFecha,
+  esCambio,
+  esImporte,
+  leerCambioDeCampo,
   leerImporte,
   leerNumero,
   textoDeCampo,
@@ -242,6 +246,12 @@ export function validarEscrito<D>(
         errores[nombre] = leido.error;
       }
     }
+    if (campo.tipo === "tipoDeCambio") {
+      const leido = leerCambioDeCampo(nombre, campo, escrito);
+      if ("error" in leido) {
+        errores[nombre] = leido.error;
+      }
+    }
   }
   const leido = validacion.safeParse(valores);
   if (leido.success && Object.keys(errores).length === 0) {
@@ -352,17 +362,22 @@ async function erroresDeBase<E extends EntidadAbm>(
   };
 }
 
-/** Un importe es el mismo si tiene los mismos centavos en la misma moneda, no por ser el mismo objeto. */
+/**
+ * Un importe es el mismo si tiene los mismos centavos en la misma moneda, y un
+ * tipo de cambio si es la misma fracción con la misma fuente: no por ser el
+ * mismo objeto.
+ */
 function mismoValor(
   a: ValoresAbm[string] | undefined,
   b: ValoresAbm[string] | undefined,
 ): boolean {
-  return typeof a === "object" &&
-    a !== null &&
-    typeof b === "object" &&
-    b !== null
-    ? a.centavos === b.centavos && a.moneda === b.moneda
-    : a === b;
+  if (esImporte(a) && esImporte(b)) {
+    return a.centavos === b.centavos && a.moneda === b.moneda;
+  }
+  if (esCambio(a) && esCambio(b)) {
+    return mismoCambio(a, b);
+  }
+  return a === b;
 }
 
 function sinCambios<E extends EntidadAbm>(

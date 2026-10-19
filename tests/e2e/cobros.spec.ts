@@ -93,6 +93,14 @@ async function cargarFactura(
   await nueva
     .getByLabel("Moneda de Importe sin IVA")
     .selectOption(datos.moneda);
+  if (datos.moneda === "USD") {
+    await nueva
+      .getByLabel("Tipo de cambio (pesos por dólar)", { exact: true })
+      .fill("1.100,00");
+    await nueva
+      .getByLabel("Fuente de Tipo de cambio (pesos por dólar)")
+      .fill("Cotización de ejemplo");
+  }
   if (datos.orden !== null) {
     await nueva
       .getByLabel("Orden de compra")
@@ -113,6 +121,7 @@ async function abrirCobro(
     cuenta: string;
     tipoDeCambio?: string;
     fuente?: string;
+    ordenDePago?: string;
   },
 ) {
   await filaDeFactura(page, numero)
@@ -129,6 +138,11 @@ async function abrirCobro(
     .selectOption({ label: datos.cuenta });
   if (datos.tipoDeCambio !== undefined) {
     await cobro.getByLabel(/^Tipo de cambio/).fill(datos.tipoDeCambio);
+  }
+  if (datos.ordenDePago !== undefined) {
+    await cobro
+      .getByLabel("Número de la orden de pago del cliente (opcional)")
+      .fill(datos.ordenDePago);
   }
   if (datos.fuente !== undefined) {
     await cobro.getByLabel("Fuente del tipo de cambio").fill(datos.fuente);
@@ -228,6 +242,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     fecha: "2026-10-05",
     importe: "500,00",
     cuenta: "Caja · ARS",
+    ordenDePago: "OP-E2E-1",
   });
   await primero.getByRole("button", { name: "Cobrar" }).click();
   await expect(ventana(page, "Cobrar factura")).toHaveCount(0);
@@ -245,6 +260,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     "ARS 500,00",
   );
   await expect(filaDelPrimero.getByRole("cell").nth(4)).toHaveText("Caja");
+  await expect(filaDelPrimero.getByRole("cell").nth(9)).toHaveText("OP-E2E-1");
 
   // 3. Cobrar de más: 700,00 más 11,00 de retención pasan los 710,00 que faltan.
   const deMas = await abrirCobro(page, FACTURA_EN_PESOS, {

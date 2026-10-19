@@ -55,6 +55,7 @@ import {
   llevarServicioA,
   sembrarServicio,
 } from "./_arnes/servicio.ts";
+import { conCambioSiEsEnDolares } from "./_arnes/tipo-de-cambio.ts";
 
 function dia(anio: number, mes: number, numero: number): FechaHora {
   const resultado = crearFechaHora({
@@ -125,13 +126,13 @@ async function cargarOrden(moneda = "ARS"): Promise<string> {
   const resultado = await ordenes().crear(
     admin,
     servicioId,
-    {
+    conCambioSiEsEnDolares({
       numero: "OC-1",
       fecha: "2031-04-20",
       importe: "1.000,00",
       importeMoneda: moneda,
       observaciones: "",
-    },
+    }),
     null,
   );
   if (!resultado.ok) {
@@ -148,7 +149,7 @@ async function cargarFactura(cambios: Escrito = {}, hoy?: FechaHora) {
   return facturas(hoy).crear(
     admin,
     servicioId,
-    {
+    conCambioSiEsEnDolares({
       numero: `0000-${String(facturasCargadas).padStart(4, "0")}`,
       fecha: "2031-07-04",
       vencimiento: "2031-08-08",
@@ -157,7 +158,7 @@ async function cargarFactura(cambios: Escrito = {}, hoy?: FechaHora) {
       alicuota: "210",
       ordenCompraId: "",
       ...cambios,
-    },
+    }),
     null,
   );
 }

@@ -4,6 +4,7 @@
  * (`?anularCobro=<id>`) como ventanas sobre la pantalla del servicio.
  */
 
+import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
 import type {
   CobranzaDeFactura,
   CobroVisible,
@@ -12,6 +13,7 @@ import type { FacturaListada } from "../../../casos-uso/servicios/facturas.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
+import { EnlaceDeDescarga } from "../../_ui/enlace-de-descarga.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
@@ -29,6 +31,7 @@ const CABECERAS = [
   "Tipo de cambio",
   "Observaciones",
   "Cargó",
+  "Orden de pago",
 ];
 
 async function VentanaDeCobro({
@@ -59,6 +62,11 @@ async function VentanaDeCobro({
         campos={campos}
         elegibles={elegibles}
         inicial={{ escrito, errores: {} }}
+        archivo={{
+          nombre: "archivo",
+          etiqueta: "Documento de la orden de pago (opcional)",
+          accept: ACEPTA,
+        }}
         enviar={{ texto: "Cobrar", variante: "primario" }}
         rutaAlCancelar={rutaAlCerrar}
       />
@@ -141,6 +149,14 @@ export function Cobros({
                   <td>{cobro.cambio}</td>
                   <td className="whitespace-pre-line">{cobro.observaciones}</td>
                   <td>{cobro.quien}</td>
+                  <td>
+                    {cobro.ordenPagoNumero}
+                    {cobro.ordenPagoDocumento === null ? null : (
+                      <p>
+                        <EnlaceDeDescarga {...cobro.ordenPagoDocumento} />
+                      </p>
+                    )}
+                  </td>
                   {puedeEscribir ? (
                     <td>
                       <Enlace

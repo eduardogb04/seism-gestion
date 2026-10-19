@@ -18,7 +18,16 @@ import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
-import { anularFactura, cargarFactura } from "../acciones.ts";
+import {
+  anularFactura,
+  cargarFactura,
+  guardarCambioDeFactura,
+} from "../acciones.ts";
+import {
+  CambioDelComprobante,
+  textoDelEnlaceDeCambio,
+  VentanaDelCambio,
+} from "./cambio-del-comprobante.tsx";
 import { Cobros } from "./cobros.tsx";
 import { IvaEnVivo } from "./iva-en-vivo.tsx";
 
@@ -37,6 +46,7 @@ const CABECERAS = [
   "Estado",
   "Documento",
   "Cargada por",
+  "Tipo de cambio",
   "Período",
 ];
 
@@ -116,6 +126,8 @@ export async function Facturas({
   const facturas = await armado().facturas.listar(servicioId);
   const cobranza = await armado().cobros.cobranza(servicioId);
   const aAnular = parametros.anularFactura;
+  const aCambiar = parametros.cambioFactura;
+  const facturaACambiar = facturas.find(({ id }) => id === aCambiar);
   return (
     <section className="mt-6">
       <h2 className="mb-2 text-xl font-semibold">Facturas</h2>
@@ -164,6 +176,9 @@ export async function Facturas({
                   )}
                 </td>
                 <td>{factura.quien}</td>
+                <td>
+                  <CambioDelComprobante cambio={factura.cambio} />
+                </td>
                 <td>{factura.periodo}</td>
                 {puedeEscribir ? (
                   <td>
@@ -174,6 +189,15 @@ export async function Facturas({
                           scroll={false}
                         >
                           Cobrar
+                        </Enlace>
+                      )}
+                      {textoDelEnlaceDeCambio(factura.cambio) ===
+                      null ? null : (
+                        <Enlace
+                          href={`${ruta}?cambioFactura=${factura.id}`}
+                          scroll={false}
+                        >
+                          {textoDelEnlaceDeCambio(factura.cambio)}
                         </Enlace>
                       )}
                       <Enlace
@@ -200,6 +224,18 @@ export async function Facturas({
       />
       {puedeEscribir && typeof parametros.factura === "string" ? (
         <VentanaDeCarga servicioId={servicioId} rutaAlCerrar={ruta} />
+      ) : null}
+      {puedeEscribir && typeof aCambiar === "string" ? (
+        <VentanaDelCambio
+          que={`la factura ${facturaACambiar?.numero ?? ""}`}
+          formulario={
+            facturaACambiar === undefined
+              ? undefined
+              : await armado().facturas.formularioDeCambio(facturaACambiar.id)
+          }
+          accion={guardarCambioDeFactura.bind(null, servicioId, aCambiar)}
+          rutaAlCerrar={ruta}
+        />
       ) : null}
       {puedeEscribir && typeof aAnular === "string" ? (
         <VentanaDeAnulacion

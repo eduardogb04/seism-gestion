@@ -47,7 +47,7 @@ import {
   crearAlmacenTemporal,
 } from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
-import { sembrarServicio } from "./_arnes/servicio.ts";
+import { llevarServicioA, sembrarServicio } from "./_arnes/servicio.ts";
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -109,6 +109,25 @@ const facturas = () =>
 
 const abm = () => crearCasosUsoAbm(dependencias());
 
+/** Deja el servicio en la etapa donde se carga el documento que el test arma (F3-01); si ya está, no hace nada. */
+async function llevarA(destino: "cotizado" | "adjudicado"): Promise<void> {
+  const [ultimo] = await cliente().servicioEvento.findMany({
+    where: { servicioId },
+    orderBy: { posicion: "desc" },
+    take: 1,
+  });
+  if (ultimo?.a === destino) {
+    return;
+  }
+  await llevarServicioA(
+    dependencias().transaccional,
+    admin,
+    servicioId,
+    destino === "cotizado" ? ["cotizado"] : ["cotizado", "adjudicado"],
+    HOY,
+  );
+}
+
 function persona(indice: number): Actor {
   const usuario = usuarios[indice];
   if (usuario === undefined) {
@@ -141,7 +160,10 @@ const SIN_COLUMNAS = {
 const documentos: readonly Documento[] = [
   {
     nombre: "orden de compra",
-    crear: (escrito) => ordenes().crear(admin, servicioId, escrito, null),
+    crear: async (escrito) => {
+      await llevarA("cotizado");
+      return ordenes().crear(admin, servicioId, escrito, null);
+    },
     escritoBase: (cambios) => ({
       numero: "OC-0001",
       fecha: "2031-07-01",
@@ -161,7 +183,10 @@ const documentos: readonly Documento[] = [
   },
   {
     nombre: "factura",
-    crear: (escrito) => facturas().crear(admin, servicioId, escrito, null),
+    crear: async (escrito) => {
+      await llevarA("adjudicado");
+      return facturas().crear(admin, servicioId, escrito, null);
+    },
     escritoBase: (cambios) => ({
       numero: "0000-0001",
       fecha: "2031-07-08",

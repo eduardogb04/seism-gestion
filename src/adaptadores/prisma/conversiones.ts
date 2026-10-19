@@ -60,7 +60,7 @@ const esquemaActor = z.discriminatedUnion("tipo", [
 ]);
 
 /** Un `Actor` como objeto JSON para una columna `jsonb`. */
-export function actorAJson(actor: Actor): Prisma.InputJsonObject {
+export function actorAJson(actor: Actor): Prisma.JsonObject {
   return actor.tipo === "persona"
     ? { tipo: actor.tipo, usuarioId: actor.usuarioId }
     : { tipo: actor.tipo, proceso: actor.proceso };

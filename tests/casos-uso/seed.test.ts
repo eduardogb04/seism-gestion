@@ -556,6 +556,35 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Cobro" } })).toBe(2);
   });
 
+  test("siembra dos hitos, uno realizado, y un camión del servicio en ejecución, sin repetir filas, y no en el servidor", async () => {
+    const db = cliente();
+    const foto = async () => ({
+      hitos: await db.servicioHito.findMany({ orderBy: { orden: "asc" } }),
+      recursos: await db.servicioRecurso.findMany(),
+    });
+
+    await sembrar(db, opciones("servidor"));
+    expect(await foto()).toEqual({ hitos: [], recursos: [] });
+
+    await sembrar(db, opciones());
+    const primeraVez = await foto();
+    await sembrar(db, opciones());
+
+    expect(await foto()).toEqual(primeraVez);
+    expect(
+      primeraVez.hitos.map((hito) => [hito.orden, hito.realizadoEn !== null]),
+    ).toEqual([
+      [1, true],
+      [2, false],
+    ]);
+    expect(primeraVez.recursos).toHaveLength(1);
+    expect(primeraVez.recursos[0]).toMatchObject({
+      tipo: "camion",
+      descripcion: null,
+    });
+    expect(primeraVez.recursos[0]?.camionId).not.toBeNull();
+  });
+
   describe("tolera que alguien haya editado un dato de demostración (M-14)", () => {
     /** Cuántas filas hay de cada cosa que siembra la semilla, para ver que no se duplicó nada. */
     async function contarTodo() {
@@ -575,6 +604,8 @@ describe("semilla", () => {
         ordenesCompra: await db.ordenCompra.count(),
         facturas: await db.factura.count(),
         cobros: await db.cobro.count(),
+        hitos: await db.servicioHito.count(),
+        recursos: await db.servicioRecurso.count(),
       };
     }
 

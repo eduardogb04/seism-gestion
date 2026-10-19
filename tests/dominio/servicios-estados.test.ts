@@ -70,6 +70,8 @@ const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   factura: ["adjudicado", "en_ejecucion", "finalizado"],
   cobro: MENOS_CERRADO,
   suceso: MENOS_CERRADO,
+  planificacion: ["adjudicado", "en_ejecucion"],
+  tildarHito: ["en_ejecucion"],
 };
 
 const CARGAS: readonly Carga[] = [
@@ -79,6 +81,8 @@ const CARGAS: readonly Carga[] = [
   "factura",
   "cobro",
   "suceso",
+  "planificacion",
+  "tildarHito",
 ];
 
 function declarada(de: EstadoServicio, a: EstadoServicio): boolean {

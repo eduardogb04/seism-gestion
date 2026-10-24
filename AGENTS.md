@@ -16,21 +16,8 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-10 + F0-06 + F0-11 + F0-12):** TypeScript severo, Biome como formato y lint,
-dependency-cruiser con los límites de arquitectura, Next.js mínimo (una página, el latido
-`GET /api/salud` y el entorno validado con Zod al arrancar), CI en GitHub Actions (el check `ci`
-corre todos los controles y gitleaks en cada push y cada PR — ver *CI*), imagen Docker (se
-construye y se prueba en cada corrida, y se publica en `ghcr.io/eduardogb04/seism-gestion` en cada
-push a `main` — ver *Imagen Docker*), la base: Postgres 16 local en `docker-compose.yml`, Prisma 7
-con la tabla `configuracion` y su primera migración (con `down.sql`), `npm run db:migrate` y
-`npm run db:migrate:down`, el test que aplica y revierte la cadena entera contra un Postgres de
-Testcontainers, el mecanismo de semilla (`npm run db:seed`, con el cliente de Prisma armado con
-`@prisma/adapter-pg`), y el control de drift en CI: un paso propio del check `ci` pone rojo un
-cambio en `schema.prisma` sin su migración — ver *Base de datos* — y `main` protegida con un
-ruleset de GitHub (PR obligatorio, `ci` en verde, sin push directo — ver *Rama principal
-protegida*). La app todavía no se conecta a la base. Y está escrito el script que levanta el
-servidor del ensayo (`infra/oracle/bootstrap.sh`), que todavía no corrió contra ninguna instancia
-— ver *El servidor del ensayo (Oracle)*.
+**Estado:** qué tandas están cerradas y qué hace hoy la app, en `README.md` (*Estado* y *Qué hace
+hoy*). Se actualiza al cerrar cada tanda: ver *Cómo se trabaja*.
 
 ## Leer primero
 
@@ -101,7 +88,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `npm run db:migrate` | `scripts/db-migrate.ts`: lee `.env` si existe, **valida el entorno** (el mismo esquema que la app) y recién entonces corre `prisma migrate deploy`, que aplica las migraciones pendientes de `prisma/migrations/` (desde una base vacía o una ya migrada). Si `DATABASE_URL` falta o no es `postgresql://`/`postgres://`, **sale 1** nombrando la variable y Prisma ni se ejecuta. Necesita la base levantada |
 | `npm run db:migrate:down` | `scripts/db-migrate-down.ts`: valida el entorno igual que `db:migrate` y revierte **la última migración aplicada** en la base local de compose: su `down.sql` y el borrado de su fila de `_prisma_migrations`, en una transacción (así `db:migrate` la vuelve a aplicar). Una por corrida. Sale 1 si `DATABASE_URL` no apunta a `localhost` (no ejecuta nada), si no hay migraciones aplicadas o si la reversión falla. Necesita el servicio `postgres` de compose levantado. Ver ADR 0009 |
 | `npm run db:generar` | `prisma generate`: regenera el cliente en `src/adaptadores/prisma/generado/` después de cambiar `prisma/schema.prisma`. No se conecta a ninguna base |
-| `npm run db:seed` | `scripts/db-seed.ts`: valida el entorno igual que `db:migrate` y corre `prisma/seed.ts` (idempotente) con el cliente real de Prisma (`src/adaptadores/prisma/cliente.ts`, con `@prisma/adapter-pg`): las claves de `configuracion` y, desde F0-30, el **primer administrador** con el email de `ADMIN_INICIAL_EMAIL` (obligatoria), si no hay ya un usuario con ese email, y, desde F1-03, los datos de demostración (tres grupos inventados, desde F1-04 cuatro clientes, desde F1-05 cinco sitios, desde F1-06 cuatro camiones, desde F1-07, los cinco tipos de servicio, desde F2-01, los cinco centros de costo, desde F2-02, las cuatro cuentas y, desde F2-03, seis egresos en pesos y en dólares y, desde F2-09, tres pagos de esos egresos y, desde F2-04, cuatro servicios en distintos estados y, desde F2-05, dos cotizaciones de uno de ellos con su PDF generado en el almacén y, desde F2-06, una orden de compra y dos facturas de otro y, desde F2-07, una factura en dólares y dos cobros y, desde F3-03, la modalidad de facturación de los servicios con facturas y un quinto servicio mensual con su orden de compra, su cuota y un ajuste), solo con `APP_ENTORNO` `local` o `ci`. Sale 1 sin sembrar nada si `APP_ENTORNO=servidor` y falta `SEED_PERMITIDO=si`. Necesita la base levantada |
+| `npm run db:seed` | `scripts/db-seed.ts`: valida el entorno igual que `db:migrate` y corre `prisma/seed.ts` (idempotente) con el cliente real de Prisma (`src/adaptadores/prisma/cliente.ts`, con `@prisma/adapter-pg`): las claves de `configuracion` y, desde F0-30, el **primer administrador** con el email de `ADMIN_INICIAL_EMAIL` (obligatoria), si no hay ya un usuario con ese email, y, desde F1-03, los datos de demostración (tres grupos inventados, desde F1-04 cuatro clientes, desde F1-05 cinco sitios, desde F1-06 cuatro camiones, desde F1-07, los cinco tipos de servicio, desde F2-01, los cinco centros de costo, desde F2-02, las cuatro cuentas y, desde F2-03, seis egresos en pesos y en dólares y, desde F2-09, tres pagos de esos egresos y, desde F2-04, cuatro servicios en distintos estados y, desde F2-05, dos cotizaciones de uno de ellos con su PDF generado en el almacén y, desde F2-06, una orden de compra y dos facturas de otro y, desde F2-07, una factura en dólares y dos cobros y, desde F3-02, dos hitos y un camión asignado al servicio en ejecución y, desde F3-03, la modalidad de facturación de los servicios con facturas y un quinto servicio mensual con su orden de compra, su cuota y un ajuste), solo con `APP_ENTORNO` `local` o `ci`. Sale 1 sin sembrar nada si `APP_ENTORNO=servidor` y falta `SEED_PERMITIDO=si`. Necesita la base levantada |
 
 Antes de abrir un PR: `npm run typecheck && npm run lint && npm run limites && npm run test:dominio
 && npm test && npm run test:extraccion && npm run typecheck:fixtures && npm run lint:fixtures &&
@@ -759,6 +746,9 @@ spec  →  test que falla  →  implementación  →  verde  →  tester verific
 - **El que implementa no se aprueba.** Un tester distinto verifica los criterios.
 - **Tamaño**: una tarea entra en una sesión y su diff se revisa de una sentada. Si no, se parte
   antes de empezar.
+- **El README y la descripción del repo se actualizan al cerrar una tanda** (F1, F2, F3...), en un
+  PR propio, nunca dentro de una tarea: *Estado* y *Qué hace hoy* del `README.md`, y la
+  descripción de GitHub (`gh repo edit --description`). Una tarea no los toca.
 
 ## Formato de una tarea (spec)
 

@@ -170,7 +170,7 @@
   "DOM_0018": {
     "codigo": "DOM-0018",
     "descripcion": "En la etapa en que está el servicio no se puede cargar ni anular eso: no se guardó nada.",
-    "queHacer": "Las cotizaciones van en «Creado» y «Cotizado»; la orden de compra, en «Cotizado» (se anula en «Adjudicado»); las facturas, según la modalidad de facturación: puntual en «Finalizado», por hitos de «Adjudicado» a «Finalizado» y mensual en «En ejecución» y «Finalizado»; la modalidad y la cuota, en «Adjudicado» y «En ejecución»; los cobros y los sucesos, en cualquier etapa menos «Cerrado». Abrí el servicio de nuevo: puede que otra persona le haya cambiado el estado recién.",
+    "queHacer": "Las cotizaciones van en «Creado» y «Cotizado»; la orden de compra, en «Cotizado» (se anula en «Adjudicado»); las facturas, según la modalidad de facturación: puntual en «Finalizado», por hitos de «Adjudicado» a «Finalizado» y mensual en «En ejecución» y «Finalizado»; la modalidad y la cuota, en «Adjudicado» y «En ejecución»; los cobros y los sucesos, en cualquier etapa menos «Cerrado»; el responsable, la fecha estimada, los hitos y los recursos, en «Adjudicado» y «En ejecución» (los hitos se tildan solo en «En ejecución»). Abrí el servicio de nuevo: puede que otra persona le haya cambiado el estado recién.",
     "tipo": "persona"
   },
   "DOM_0019": {

@@ -333,3 +333,66 @@ export async function guardarSitiosDeServicio(
     armado().servicios.guardarSitios(actor, id, sitioIds),
   );
 }
+
+/** Cargar un hito del servicio. */
+export async function cargarHito(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().planificacion.crearHito(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
+/** Quitar un hito de la lista. */
+export async function quitarHito(
+  servicioId: string,
+  id: string,
+): Promise<void> {
+  return enElServicio(servicioId, (actor) =>
+    armado().planificacion.marcarEliminadoHito(actor, id),
+  );
+}
+
+/** Tildar un hito como realizado o destildarlo. */
+export async function cambiarRealizadoDeHito(
+  servicioId: string,
+  id: string,
+  realizado: boolean,
+): Promise<void> {
+  return enElServicio(servicioId, (actor) =>
+    armado().planificacion.cambiarRealizadoDeHito(actor, id, realizado),
+  );
+}
+
+/** Cargar un recurso del servicio. */
+export async function cargarRecurso(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().planificacion.crearRecurso(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
+/** Quitar un recurso de la lista. */
+export async function quitarRecurso(
+  servicioId: string,
+  id: string,
+): Promise<void> {
+  return enElServicio(servicioId, (actor) =>
+    armado().planificacion.marcarEliminadoRecurso(actor, id),
+  );
+}

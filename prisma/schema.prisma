@@ -312,6 +312,8 @@ model Camion {
   eliminadoEn     DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor    Json?     @map("eliminado_por") @db.JsonB
 
+  recursos ServicioRecurso[]
+
   @@map("camiones")
 }
 
@@ -431,28 +433,30 @@ model Pago {
 // (`SRV-2026-014`) lo genera el sistema con `secuencias` y es único. El estado
 // no es una columna: es el último evento de `servicios_eventos`.
 model Servicio {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  codigo         String       @unique
-  clienteId      String       @map("cliente_id") @db.Uuid
-  cliente        Cliente      @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  tipoServicioId String       @map("tipo_servicio_id") @db.Uuid
-  tipoServicio   TipoServicio @relation(fields: [tipoServicioId], references: [id], onDelete: Restrict)
-  titulo         String
-  modalidad      String
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  codigo              String       @unique
+  clienteId           String       @map("cliente_id") @db.Uuid
+  cliente             Cliente      @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  tipoServicioId      String       @map("tipo_servicio_id") @db.Uuid
+  tipoServicio        TipoServicio @relation(fields: [tipoServicioId], references: [id], onDelete: Restrict)
+  titulo              String
+  modalidad           String
   // Cómo se le factura (F3-03, ADR 0041): `puntual`, `por_hitos` o `mensual`; sin elegir, nulo.
-  facturacion    String?      @map("modalidad_facturacion")
-  responsableId  String       @map("responsable_id") @db.Uuid
-  responsable    Usuario      @relation(fields: [responsableId], references: [id], onDelete: Restrict)
-  fechaPedido    DateTime     @map("fecha_pedido") @db.Date
-  vigenciaDesde  DateTime?    @map("vigencia_desde") @db.Date
-  vigenciaHasta  DateTime?    @map("vigencia_hasta") @db.Date
-  observaciones  String?
-  creadoEn       DateTime     @map("creado_en") @db.Timestamptz(3)
-  creadoPor      Json         @map("creado_por") @db.JsonB
-  actualizadoEn  DateTime     @map("actualizado_en") @db.Timestamptz(3)
-  actualizadoPor Json         @map("actualizado_por") @db.JsonB
-  eliminadoEn    DateTime?    @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor   Json?        @map("eliminado_por") @db.JsonB
+  facturacion         String?      @map("modalidad_facturacion")
+  responsableId       String       @map("responsable_id") @db.Uuid
+  responsable         Usuario      @relation(fields: [responsableId], references: [id], onDelete: Restrict)
+  fechaPedido         DateTime     @map("fecha_pedido") @db.Date
+  vigenciaDesde       DateTime?    @map("vigencia_desde") @db.Date
+  vigenciaHasta       DateTime?    @map("vigencia_hasta") @db.Date
+  observaciones       String?
+  // Cuándo se espera empezar (F3-02); no es la vigencia del contrato recurrente.
+  fechaInicioEstimada DateTime?    @map("fecha_inicio_estimada") @db.Date
+  creadoEn            DateTime     @map("creado_en") @db.Timestamptz(3)
+  creadoPor           Json         @map("creado_por") @db.JsonB
+  actualizadoEn       DateTime     @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor      Json         @map("actualizado_por") @db.JsonB
+  eliminadoEn         DateTime?    @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor        Json?        @map("eliminado_por") @db.JsonB
 
   eventos       ServicioEvento[]
   sitios        ServicioSitio[]
@@ -462,6 +466,8 @@ model Servicio {
   egresos       Egreso[]
   sucesos       ServicioSuceso[]
   cuotas        ServicioCuota[]
+  hitos         ServicioHito[]
+  recursos      ServicioRecurso[]
 
   @@map("servicios")
 }
@@ -508,6 +514,53 @@ model ServicioSuceso {
 
   @@index([servicioId])
   @@map("servicios_sucesos")
+}
+
+// Los hitos de un servicio (F3-02): una lista simple con su orden. Al tildarse
+// guardan el día y el autor (`realizado_en`, `realizado_por`); destildar los
+// vuelve a null. No facturan. La baja es lógica.
+model ServicioHito {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId     String    @map("servicio_id") @db.Uuid
+  servicio       Servicio  @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  texto          String
+  orden          Int
+  realizadoEn    DateTime? @map("realizado_en") @db.Date
+  realizadoPor   Json?     @map("realizado_por") @db.JsonB
+  creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json      @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+
+  @@index([servicioId])
+  @@map("servicios_hitos")
+}
+
+// Los recursos de un servicio (F3-02): una persona o un equipo (descripción
+// libre, hasta que haya un padrón) o un camión del ABM. La regla de qué lleva
+// cada tipo está en el caso de uso.
+model ServicioRecurso {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId     String    @map("servicio_id") @db.Uuid
+  servicio       Servicio  @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  tipo           String
+  camionId       String?   @map("camion_id") @db.Uuid
+  camion         Camion?   @relation(fields: [camionId], references: [id], onDelete: Restrict)
+  descripcion    String?
+  desde          DateTime? @db.Date
+  hasta          DateTime? @db.Date
+  creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json      @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+
+  @@index([servicioId])
+  @@index([camionId])
+  @@map("servicios_recursos")
 }
 
 // Los cambios de estado de un servicio: solo se agregan. La `posicion` (0 es

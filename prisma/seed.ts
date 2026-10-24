@@ -68,6 +68,7 @@ import { sembrarCobros } from "./seed-cobros.ts";
 import { pdfDeUnaLinea, sembrarCotizaciones } from "./seed-cotizaciones.ts";
 import { sembrarCuotas } from "./seed-cuotas.ts";
 import { sembrarOrdenesYFacturas } from "./seed-ordenes-y-facturas.ts";
+import { sembrarPlanificacion } from "./seed-planificacion.ts";
 
 /** Lo que la semilla necesita de afuera: lo arma `scripts/db-seed.ts`. */
 export type OpcionesSemilla = {
@@ -141,6 +142,7 @@ export async function sembrar(
     await sembrarOrdenesYFacturas(prisma, actorSemilla(), opciones);
     await sembrarCobros(prisma, actorSemilla(), opciones);
     await sembrarCuotas(prisma, actorSemilla(), opciones.reloj);
+    await sembrarPlanificacion(prisma, actorSemilla(), opciones);
   }
 }
 
@@ -1121,6 +1123,7 @@ async function sembrarServicios(
             vigenciaHasta: demo.vigencia?.[1] ?? null,
             observaciones: null,
             modalidadFacturacion: demo.facturacion,
+            fechaInicioEstimada: null,
           },
           actor,
           RelojFijo(ahora),

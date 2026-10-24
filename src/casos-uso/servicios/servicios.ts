@@ -74,6 +74,7 @@ import { MODALIDADES } from "../abm/tipos-de-servicio.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import {
   cerrarSiEstaCobrado,
+  exigirEtapa,
   historialDe,
   pedirCambioDeEstado,
 } from "./ciclo.ts";
@@ -264,6 +265,7 @@ async function leer(
 ): Promise<Leido> {
   const campos = camposDeServicio(
     await responsables(repos, actual?.valor.responsableId),
+    actual !== null,
   );
   const validado = validarEscrito(campos, VALIDACION, escrito);
   if (!validado.ok) {
@@ -364,6 +366,7 @@ export function crearCasosUsoServicios({
         };
         const campos = camposDeServicio(
           await responsables(repos, actual?.valor.responsableId),
+          actual !== null,
         );
         return {
           campos,
@@ -425,6 +428,14 @@ export function crearCasosUsoServicios({
                   [
                     "Vigencia",
                     `${diaConBarras(valor.vigenciaDesde)} a ${diaConBarras(valor.vigenciaHasta)}`,
+                  ] as const,
+                ]),
+            ...(valor.fechaInicioEstimada === null
+              ? []
+              : [
+                  [
+                    "Fecha estimada de inicio",
+                    diaConBarras(valor.fechaInicioEstimada),
                   ] as const,
                 ]),
             ...(valor.observaciones === null
@@ -517,10 +528,17 @@ export function crearCasosUsoServicios({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        const actual = await servicioVigente(repos, id);
+        const actual = await servicioVigenteBloqueado(repos, id);
         const leido = await leer(repos, escrito, actual);
         if (!leido.ok) {
           return leido;
+        }
+        // El responsable y la fecha estimada de inicio se planifican en «Adjudicado» y en «En ejecución».
+        if (
+          leido.datos.responsableId !== actual.valor.responsableId ||
+          leido.datos.fechaInicioEstimada !== actual.valor.fechaInicioEstimada
+        ) {
+          await exigirEtapa(repos, id, "planificacion");
         }
         const nuevo = { ...actual.valor, ...leido.datos };
         const guardado: ValoresAbm = actual.valor;

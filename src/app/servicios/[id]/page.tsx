@@ -1,6 +1,6 @@
 /**
  * La pantalla de un servicio (F2-04, ADR 0033): sus datos, el cambio de
- * estado, sus cotizaciones (F2-05), sus órdenes de compra y facturas (F2-06), los sitios que abarca, sus sucesos y su historial,
+ * estado, sus hitos y recursos (F3-02), sus cotizaciones (F2-05), sus órdenes de compra y facturas (F2-06), los sitios que abarca, sus sucesos y su historial,
  * con los días en cada etapa (F3-01). La edición (`?editar=1`) y la
  * baja (`?baja=1`) son ventanas sobre esta misma pantalla, como en los ABM.
  */
@@ -35,7 +35,9 @@ import { Cotizaciones } from "./cotizaciones.tsx";
 import { Egresos } from "./egresos.tsx";
 import { Facturacion } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
+import { Hitos } from "./hitos.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
+import { Recursos } from "./recursos.tsx";
 import { Sucesos } from "./sucesos.tsx";
 
 const LISTADO = "/servicios";
@@ -199,6 +201,14 @@ export default async function Servicio({ params, searchParams }: Props) {
     );
   }
   const ruta = `${LISTADO}/${servicio.id}`;
+  const planificacion = await armado().planificacion.ver(servicio.id);
+  const delServicio = {
+    servicioId: servicio.id,
+    detalle: planificacion,
+    ruta,
+    puedeEscribir,
+    parametros,
+  };
   return (
     <Marco email={email} rol={rol} rutaActual={LISTADO}>
       <main>
@@ -244,6 +254,8 @@ export default async function Servicio({ params, searchParams }: Props) {
             <CambiarEstado servicio={servicio} />
           </>
         ) : null}
+        <Hitos {...delServicio} />
+        <Recursos {...delServicio} />
         <Avance servicioId={servicio.id} />
         <Cotizaciones
           servicioId={servicio.id}

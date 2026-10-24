@@ -59,11 +59,11 @@ function estadoDe(texto: string | undefined): EstadoServicio {
   return leido.data;
 }
 
-function diaONada(fecha: Date | null): string | null {
+export function diaONada(fecha: Date | null): string | null {
   return fecha === null ? null : aDia(fecha);
 }
 
-function fechaONada(dia: string | null): Date | null {
+export function fechaONada(dia: string | null): Date | null {
   return dia === null ? null : deDia(dia);
 }
 
@@ -108,6 +108,7 @@ export function crearRepositorioServiciosPrisma(
           fechaPedido,
           vigenciaDesde,
           vigenciaHasta,
+          fechaInicioEstimada,
           facturacion,
           ...resto
         }) => ({
@@ -116,11 +117,13 @@ export function crearRepositorioServiciosPrisma(
           fechaPedido: aDia(fechaPedido),
           vigenciaDesde: diaONada(vigenciaDesde),
           vigenciaHasta: diaONada(vigenciaHasta),
+          fechaInicioEstimada: diaONada(fechaInicioEstimada),
         }),
         aFila: ({
           fechaPedido,
           vigenciaDesde,
           vigenciaHasta,
+          fechaInicioEstimada,
           modalidadFacturacion,
           ...resto
         }) => ({
@@ -129,6 +132,7 @@ export function crearRepositorioServiciosPrisma(
           fechaPedido: deDia(fechaPedido),
           vigenciaDesde: fechaONada(vigenciaDesde),
           vigenciaHasta: fechaONada(vigenciaHasta),
+          fechaInicioEstimada: fechaONada(fechaInicioEstimada),
         }),
       },
     ),

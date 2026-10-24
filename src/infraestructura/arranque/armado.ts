@@ -58,6 +58,10 @@ import {
   crearCasosUsoOrdenesDeCompra,
 } from "../../casos-uso/servicios/ordenes-de-compra.ts";
 import {
+  type CasosUsoPlanificacion,
+  crearCasosUsoPlanificacion,
+} from "../../casos-uso/servicios/planificacion.ts";
+import {
   type CasosUsoServicios,
   crearCasosUsoServicios,
 } from "../../casos-uso/servicios/servicios.ts";
@@ -114,6 +118,8 @@ export type Armado = {
   readonly sucesos: CasosUsoSucesos;
   /** La modalidad de facturación, la cuota mensual y lo devengado (F3-03). */
   readonly facturacion: CasosUsoFacturacion;
+  /** El responsable, la fecha estimada, los hitos y los recursos de un servicio (F3-02). */
+  readonly planificacion: CasosUsoPlanificacion;
   /** El tablero de inicio y los listados a los que lleva (F2-10). */
   readonly tablero: CasosUsoTablero;
   /** Bajar un documento adjunto, de cualquier registro (F2-05). */
@@ -193,6 +199,11 @@ function armar(): Armado {
     }),
     sucesos: crearCasosUsoSucesos({ transaccional, reloj, generadorId }),
     facturacion: crearCasosUsoFacturacion({
+      transaccional,
+      reloj,
+      generadorId,
+    }),
+    planificacion: crearCasosUsoPlanificacion({
       transaccional,
       reloj,
       generadorId,

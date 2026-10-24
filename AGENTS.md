@@ -16,21 +16,8 @@ de negocio verifica los cortes.
 
 **Este repositorio es público.** Ver *Reglas no negociables*, la primera.
 
-**Estado (F0-10 + F0-06 + F0-11 + F0-12):** TypeScript severo, Biome como formato y lint,
-dependency-cruiser con los límites de arquitectura, Next.js mínimo (una página, el latido
-`GET /api/salud` y el entorno validado con Zod al arrancar), CI en GitHub Actions (el check `ci`
-corre todos los controles y gitleaks en cada push y cada PR — ver *CI*), imagen Docker (se
-construye y se prueba en cada corrida, y se publica en `ghcr.io/eduardogb04/seism-gestion` en cada
-push a `main` — ver *Imagen Docker*), la base: Postgres 16 local en `docker-compose.yml`, Prisma 7
-con la tabla `configuracion` y su primera migración (con `down.sql`), `npm run db:migrate` y
-`npm run db:migrate:down`, el test que aplica y revierte la cadena entera contra un Postgres de
-Testcontainers, el mecanismo de semilla (`npm run db:seed`, con el cliente de Prisma armado con
-`@prisma/adapter-pg`), y el control de drift en CI: un paso propio del check `ci` pone rojo un
-cambio en `schema.prisma` sin su migración — ver *Base de datos* — y `main` protegida con un
-ruleset de GitHub (PR obligatorio, `ci` en verde, sin push directo — ver *Rama principal
-protegida*). La app todavía no se conecta a la base. Y está escrito el script que levanta el
-servidor del ensayo (`infra/oracle/bootstrap.sh`), que todavía no corrió contra ninguna instancia
-— ver *El servidor del ensayo (Oracle)*.
+**Estado:** qué tandas están cerradas y qué hace hoy la app, en `README.md` (*Estado* y *Qué hace
+hoy*). Se actualiza al cerrar cada tanda: ver *Cómo se trabaja*.
 
 ## Leer primero
 
@@ -759,6 +746,9 @@ spec  →  test que falla  →  implementación  →  verde  →  tester verific
 - **El que implementa no se aprueba.** Un tester distinto verifica los criterios.
 - **Tamaño**: una tarea entra en una sesión y su diff se revisa de una sentada. Si no, se parte
   antes de empezar.
+- **El README y la descripción del repo se actualizan al cerrar una tanda** (F1, F2, F3...), en un
+  PR propio, nunca dentro de una tarea: *Estado* y *Qué hace hoy* del `README.md`, y la
+  descripción de GitHub (`gh repo edit --description`). Una tarea no los toca.
 
 ## Formato de una tarea (spec)
 

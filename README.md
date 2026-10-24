@@ -1,97 +1,112 @@
 # seism-gestion
 
-Sistema de gestión de operaciones para una consultora de servicios a la minería. En construcción:
-Fase 0 (cimientos).
+Sistema de gestión de operaciones para una consultora de servicios a la minería: lleva cada
+servicio desde que se cotiza hasta que se cobra, con sus documentos, sus ingresos y sus egresos.
+Monolito modular en TypeScript: Next.js, PostgreSQL y Prisma, con un worker aparte para tareas
+programadas. Lo construyen agentes; una persona con criterio de negocio valida cada tanda.
 
-Repositorio **público**. No contiene datos reales ni documentos de negocio: ver `AGENTS.md`,
-regla 1.
+Repositorio **público**. No contiene datos reales ni documentos de negocio: todo lo que se ve
+(clientes, montos, personas) es inventado. Ver `AGENTS.md`, regla 1.
 
 ## Estado
 
-Lote 2, tarea F0-08: esqueleto del proyecto (TypeScript severo, scripts base), Biome como formato
-y lint, dependency-cruiser con los límites de arquitectura, Next.js mínimo (una página, el latido
-`GET /api/salud` y el entorno validado al arrancar), CI (el check `ci` de GitHub Actions corre
-todos los chequeos y gitleaks en cada push y cada PR, `.github/workflows/ci.yml`), imagen Docker
-publicada en GHCR, y la base: Postgres 16 local con Docker Compose y Prisma con la primera
-migración (la tabla `configuracion`). La app todavía no usa la base (ver `docs/adr/` para las
-decisiones ya tomadas).
+En construcción. Cerradas: Fase 0 (cimientos), F1 (catálogos con un molde de ABM y el front base)
+y F2 (finanzas). En curso: F3 (el servicio de punta a punta, del recorrido por etapas al inicio
+con KPI). Corre solo en local: todavía no hay servidor.
 
-## Cómo se levanta (hoy)
+Este README y la descripción del repo se actualizan **al cerrar cada tanda** (F1, F2, F3...), no
+con cada tarea: entre un cierre y otro, `main` puede traer más de lo que dice acá.
 
-Requiere Node 24 (ver `.nvmrc`), git (la versión del build es el SHA corto del commit) y Docker
-corriendo para la base (en Windows, con WSL: `RUNBOOK.md`, sección 1).
+## Qué hace hoy
+
+- **Entrar:** identidad delegada en Google (en local, una pantalla de usuarios de prueba), con
+  sesiones y roles; nadie escribe sin identidad (ADR 0027 y 0029).
+- **Catálogo** (`/catalogo`): clientes y grupos de clientes, sitios, camiones, tipos de servicio,
+  centros de costo y cuentas. Todos salen del mismo molde de ABM, con baja lógica (ADR 0031).
+- **Servicios** (`/servicios`): el recorrido por etapas (cotizado → adjudicado → en ejecución →
+  finalizado), con responsable, hitos y recursos, documentos adjuntos, órdenes de compra y
+  facturas con su tipo de cambio, y cobros. Hay listados de facturas, de lo que falta cobrar y de
+  lo cobrado (ADR 0033 a 0037 y 0039).
+- **Egresos** (`/egresos`): gastos imputados a un centro de costo y a un servicio, lo que falta
+  pagar y lo pagado.
+- **Inicio** (`/`): cuánto entra y cuánto sale en el mes, cada moneda por su lado, y cada número
+  enlaza a su listado (ADR 0038).
+- **Administración** (`/administracion`, `/salud`): usuarios y roles, y el panel de salud del
+  sistema (la base, el worker, los avisos al administrador).
+- Tema claro, oscuro o el del sistema operativo, con barra lateral e íconos (ADR 0040).
+
+Por dentro: errores con código en un catálogo, logs estructurados, importes y fechas con tipos
+propios, historial de estados, almacén de documentos en disco o S3, la IA detrás de un puerto, y
+migraciones que se aplican y se revierten. Cada decisión está en `docs/adr/`.
+
+## Cómo se levanta
+
+Requiere Node 24 (ver `.nvmrc`), git y Docker Desktop abierto (en Windows, con WSL: `RUNBOOK.md`,
+sección 1).
 
 ```
-npm install                  # también genera el cliente de Prisma (no necesita base)
-cp .env.example .env         # en cmd de Windows: copy .env.example .env
-docker compose up -d --wait  # Postgres 16 local, sano
-npm run db:migrate           # aplica las migraciones
-npm run dev                  # http://localhost:3000 y http://localhost:3000/api/salud
+npm ci
+npm run arrancar     # .env, Postgres, migraciones, semilla de demostración y next dev
 ```
 
-**Sin `.env` la app no arranca, a propósito:** el entorno se valida al levantar el servidor y, si
-falta una variable o es inválida, el proceso termina y dice cuál. Lo mismo `npm run db:migrate`.
-`.env.example` no tiene secretos: `APP_ENTORNO=local` y la `DATABASE_URL` del Postgres local de
-`docker-compose.yml`, con credenciales ficticias de desarrollo. `.env` nunca entra al repo. Cómo se
-cambia el esquema: `docs/convenciones-base.md`.
+Deja la app en `http://localhost:3000` e imprime con qué email de prueba entrar. Se puede correr
+de nuevo cuando quieras: no duplica la semilla. Los pasos sueltos (`docker compose up -d --wait`,
+`npm run db:migrate`, `npm run db:seed`, `npm run dev`) y qué hace cada uno: `RUNBOOK.md`.
 
-Los chequeos:
+**Sin `.env` la app no arranca, a propósito:** el entorno se valida al levantar y, si falta una
+variable o es inválida, el proceso termina y dice cuál. `.env.example` no tiene secretos: sus
+credenciales son las del Postgres local, ficticias. `.env` nunca entra al repo.
+
+## Los chequeos
 
 ```
+npm run verificar  # todo lo del check `ci`, en orden
 npm test           # Vitest: niveles dominio y casos de uso (necesita Docker)
-npm run test:e2e   # Playwright: la app levantada con compose, en Chromium
-npm run test:todo  # los cuatro niveles (dominio, casos de uso, extracción, e2e)
+npm run test:e2e   # Playwright: la imagen de la app levantada con compose, en Chromium
 npm run typecheck  # tsc --noEmit + rechazo de 'any' explícito
-npm run lint       # Biome: lint + formato en modo verificación
+npm run lint       # Biome, más los controles propios (errores crudos, marcas de conflicto)
 npm run limites    # dependency-cruiser: qué capa puede importar a cuál
 npm run build      # next build (standalone); no necesita .env
 ```
 
-El servidor de producción, después del build: `node .next/standalone/server.js` con `APP_ENTORNO`
-y `DATABASE_URL` en el entorno del proceso. Ojo: si al compilar había un `.env`, `next build` lo
-copia a `.next/standalone/` y ese servidor lo lee.
+El check `ci` de GitHub Actions corre todo esto (más gitleaks y el control de drift del esquema)
+en cada push y cada PR; `main` solo acepta PR con `ci` en verde. Detalle en `AGENTS.md`, *CI*.
 
 ## Con Docker
-
-Requiere Docker corriendo. No hace falta `npm install`: la app se compila adentro de la imagen.
 
 ```
 npm run imagen          # construye seism-gestion:local (multi-stage, no root)
 npm run imagen:prueba   # la levanta y verifica /, /api/salud, que no lleve .env y el tamaño
-docker run --rm -p 3000:3000 -e APP_ENTORNO=local -e DATABASE_URL=postgresql://prueba:prueba@127.0.0.1:5432/prueba -e ADMIN_INICIAL_EMAIL=admin@ejemplo.test -e IDENTIDAD=falsa -e ALMACEN=disco -e ALMACEN_DIRECTORIO=/tmp/almacen seism-gestion:local
 ```
 
-La imagen de cada commit de `main` se publica sola en
-`ghcr.io/eduardogb04/seism-gestion` (etiquetas: el SHA del commit y `latest`); es pública, se baja
-sin credenciales. Sin `APP_ENTORNO` o sin `DATABASE_URL` el contenedor no arranca, igual que la
-app: el entorno se valida al levantar (la app todavía no se conecta a la base, así que alcanza una
-URL ficticia como la de arriba). Detalle en `docs/adr/0007-imagen-docker.md`; los pasos manuales de GitHub, en
-`RUNBOOK.md` (secciones 14 y 15).
+La imagen de cada commit de `main` se publica en `ghcr.io/eduardogb04/seism-gestion` (etiquetas:
+el SHA del commit y `latest`). Detalle en `docs/adr/0007-imagen-docker.md` y `RUNBOOK.md`
+(secciones 14 y 15).
 
 ## Dónde está todo
 
-Ver `AGENTS.md` — es la puerta de entrada, para personas y para agentes. Resumen de la estructura:
+Ver `AGENTS.md`: es la puerta de entrada, para personas y para agentes. Resumen de la estructura:
 
 ```
 src/      dominio · casos-uso · puertos · adaptadores · infraestructura · app (Next.js) · worker
 tests/    dominio · casos-uso · extraccion · e2e · contratos · fixtures
 scripts/  utilidades de los comandos de package.json
-prisma/   schema.prisma · migrations/ (cada una con migration.sql y down.sql)
+prisma/   schema.prisma · migrations/ (cada una con migration.sql y down.sql) · semillas
 docs/     arquitectura.md (capas y límites) · convenciones-base.md (migraciones) · adr/ · ensayos/
-infra/    oracle/bootstrap.sh (levanta la instancia del ensayo, F0-12)
+infra/    oracle/bootstrap.sh (el script del servidor del ensayo, F0-12)
 .github/  workflows/ci.yml (CI y publicación) · CODEOWNERS · dependabot.yml
 Dockerfile · .dockerignore   la imagen de la app
-docker-compose.yml           Postgres 16 local
+docker-compose.yml           Postgres 16 y MinIO locales; la app y el worker, detrás de perfiles
 ```
 
 Cada carpeta de `src/` y `tests/` tiene su propio `README.md`.
 
 ## Documentos
 
-- `AGENTS.md` — instrucciones para agentes y personas: comandos, reglas no negociables, cómo se
+- `AGENTS.md`: instrucciones para agentes y personas: comandos, reglas no negociables, cómo se
   trabaja.
-- `docs/arquitectura.md` — capas, carpetas y qué puede importar cada una.
-- `RUNBOOK.md` — pasos manuales de infraestructura, con verificación.
-- `docs/adr/` — decisiones de arquitectura, una por archivo, con alternativas descartadas.
-- `LICENSE` — derechos reservados: público no es libre.
-- `SECURITY.md` — cómo reportar una vulnerabilidad o un dato que no debería estar acá.
+- `docs/arquitectura.md`: capas, carpetas y qué puede importar cada una.
+- `RUNBOOK.md`: pasos manuales, con verificación.
+- `docs/adr/`: decisiones de arquitectura, una por archivo, con alternativas descartadas.
+- `LICENSE`: derechos reservados: público no es libre.
+- `SECURITY.md`: cómo reportar una vulnerabilidad o un dato que no debería estar acá.

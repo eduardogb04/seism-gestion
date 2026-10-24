@@ -144,6 +144,7 @@ export async function sembrarOrdenesYFacturas(
             importe: crearImporte(factura.centavos, "ARS"),
             cambio: null,
             alicuota: factura.alicuota,
+            periodo: null,
             documentoId,
           },
           actor,

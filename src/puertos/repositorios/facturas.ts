@@ -28,6 +28,8 @@ export type DatosFactura = {
   /** Pesos por dólar de su fecha (F3-04): solo si el importe es en dólares; las ya cargadas no lo tienen. */
   readonly cambio: CambioDeDocumento | null;
   readonly alicuota: AlicuotaIva;
+  /** El mes que factura, como su día 1 (`aaaa-mm-01`): solo en modalidad mensual (F3-03). */
+  readonly periodo: string | null;
   readonly documentoId: string | null;
 };
 

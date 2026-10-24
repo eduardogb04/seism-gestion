@@ -101,6 +101,7 @@ export async function sembrarCobros(
             fuente: "Cotización de ejemplo",
           },
           alicuota: FACTURA_EN_DOLARES.alicuota,
+          periodo: null,
           documentoId: null,
         },
         actor,

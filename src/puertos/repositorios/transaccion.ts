@@ -12,6 +12,7 @@ import type { Secuencias } from "../secuencias.ts";
 import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
 import type { RepositorioCobros } from "./cobros.ts";
 import type { RepositorioCotizaciones } from "./cotizaciones.ts";
+import type { RepositorioCuotas } from "./cuotas.ts";
 import type { RepositorioDocumentos } from "./documentos.ts";
 import type { RepositorioFacturas } from "./facturas.ts";
 import type { RepositorioOrdenesCompra } from "./ordenes-de-compra.ts";
@@ -45,6 +46,8 @@ export type RepositoriosEnTransaccion = {
   readonly cobros: RepositorioCobros;
   /** El registro de sucesos de un servicio (F3-01). */
   readonly sucesos: RepositorioSucesos;
+  /** La cuota mensual y sus ajustes (F3-03). */
+  readonly cuotas: RepositorioCuotas;
   /** Los hitos y los recursos de un servicio (F3-02). */
   readonly hitos: RepositorioHitos;
   readonly recursos: RepositorioRecursos;

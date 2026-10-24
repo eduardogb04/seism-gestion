@@ -251,7 +251,10 @@ async function responsables(
 }
 
 type Leido =
-  | { readonly ok: true; readonly datos: Omit<DatosServicio, "codigo"> }
+  | {
+      readonly ok: true;
+      readonly datos: Omit<DatosServicio, "codigo" | "modalidadFacturacion">;
+    }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
 /** Lo escrito, validado contra el formulario y contra la base. `actual`: el servicio que se edita. */
@@ -493,7 +496,13 @@ export function crearCasosUsoServicios({
         await repos.servicios.crear(
           actor,
           crearAuditable(
-            { ...leido.datos, codigo: codigo.codigo, id },
+            {
+              ...leido.datos,
+              // Se elige en «Adjudicado» (F3-03).
+              modalidadFacturacion: null,
+              codigo: codigo.codigo,
+              id,
+            },
             actor,
             enEsteInstante,
           ),

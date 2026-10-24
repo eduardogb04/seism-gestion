@@ -6,8 +6,11 @@
  *
  * - Toda escritura recibe el `Actor` primero, exige un rol que escriba
  *   (`AUT-0009`) y corre entera en una transacción: el documento, si hay, y la
- *   cabecera. Se cargan y se anulan de «Adjudicado» a «Finalizado» (`DOM-0018`,
- *   F3-01).
+ *   cabecera. Se anulan de «Adjudicado» a «Finalizado» (`DOM-0018`, F3-01) y se
+ *   cargan en las etapas de la modalidad de facturación del servicio; sin
+ *   modalidad no se factura (`DOM-0021`, F3-03).
+ * - En modalidad mensual la factura lleva el mes que factura (`periodo`), y el
+ *   formulario propone ese mes y su cuota; los dos se pueden cambiar.
  * - El número no se repite entre las vigentes. Facturar más que el saldo de la
  *   orden de compra no se impide: la orden lo avisa (`ordenes-de-compra.ts`).
  * - Lo que la persona corrige (un campo o el archivo) vuelve por campo, no se lanza.
@@ -25,6 +28,7 @@ import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
 import {
   formatearImporte,
+  formatearMonto,
   MONEDA_CON_CAMBIO,
   MONEDAS,
 } from "../../dominio/compartido/importe.ts";
@@ -64,7 +68,7 @@ import type {
   DependenciasDeAdjuntos,
 } from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
-import { exigirEtapa } from "./ciclo.ts";
+import { exigirEtapa, exigirEtapaDeFactura } from "./ciclo.ts";
 import {
   bajaDeAdjuntoOpcional,
   CAMPO_DE_CAMBIO,
@@ -78,6 +82,7 @@ import {
   type ResultadoDeCambio,
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
+import { facturaDelMes, nombreDelPeriodo } from "./facturacion.ts";
 import { etiquetaDeAlicuota, OPCIONES_DE_ALICUOTA } from "./iva-de-factura.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
@@ -105,6 +110,8 @@ export type FacturaListada = {
   readonly fecha: string;
   /** dd/mm/aaaa. */
   readonly vencimiento: string;
+  /** El mes que factura en modalidad mensual (`agosto de 2031`), o vacío. */
+  readonly periodo: string;
   /** El número de su orden de compra, o vacío. */
   readonly ordenCompra: string;
   /** Lo que se cargó: `ARS 400,00`. */
@@ -136,7 +143,7 @@ export type CasosUsoFacturas = {
   listar(servicioId: string): Promise<readonly FacturaListada[]>;
   /** Una factura vigente con su servicio y sus cambios. `DOM-0009` si no existe o está anulada. */
   ver(id: string): Promise<DetalleDeFactura>;
-  /** El formulario de la próxima: las órdenes de compra del servicio, el 21 % y la fecha de hoy. */
+  /** El formulario de la próxima: las órdenes de compra del servicio, el 21 % y la fecha de hoy; en mensual, el período y su cuota. */
   formulario(servicioId: string): Promise<{
     readonly campos: CamposAbm;
     readonly escrito: Escrito;
@@ -165,10 +172,27 @@ export type CasosUsoFacturas = {
 };
 
 /** Lo que se escribe en el formulario: la cabecera sin lo que pone el sistema. */
-type DatosEscritos = Omit<DatosFactura, "servicioId" | "documentoId">;
+type DatosEscritos = Omit<
+  DatosFactura,
+  "servicioId" | "documentoId" | "periodo"
+>;
 
-function camposDeFactura(ordenes: readonly OpcionAbm[]): CamposAbm {
+function camposDeFactura(
+  ordenes: readonly OpcionAbm[],
+  mensual: boolean,
+): CamposAbm {
   return [
+    ...(mensual
+      ? [
+          [
+            "periodo",
+            {
+              tipo: "fecha",
+              etiqueta: "Período que factura (cualquier día del mes)",
+            },
+          ] as const,
+        ]
+      : []),
     ["numero", { tipo: "texto", etiqueta: "Número" }],
     ["fecha", { tipo: "fecha", etiqueta: "Fecha" }],
     ["vencimiento", { tipo: "fecha", etiqueta: "Vencimiento" }],
@@ -258,6 +282,7 @@ function filaDeFactura(
     numero: valor.numero,
     fecha: diaConBarras(valor.fecha),
     vencimiento: diaConBarras(valor.vencimiento),
+    periodo: valor.periodo === null ? "" : nombreDelPeriodo(valor.periodo),
     ordenCompra,
     sinIva: formatearImporte(valor.importe),
     cambio: cambioVisible(valor.cambio, valor.importe.moneda),
@@ -378,16 +403,28 @@ export function crearCasosUsoFacturas({
 
     formulario(servicioId) {
       return transaccional.ejecutar(async (repos) => {
-        await servicioVigente(repos, servicioId);
+        const { valor } = await servicioVigente(repos, servicioId);
         const ordenes = await ordenesParaElegir(repos, servicioId);
         const [masNueva] = ordenes;
+        const hoy = reloj.ahora();
+        const mensual = valor.modalidadFacturacion === "mensual";
+        const delMes = mensual
+          ? await facturaDelMes(repos, servicioId, hoy)
+          : null;
         return {
-          campos: camposDeFactura(ordenes),
+          campos: camposDeFactura(ordenes, mensual),
           escrito: {
-            fecha: formatearISO(reloj.ahora()).slice(0, 10),
+            fecha: formatearISO(hoy).slice(0, 10),
             alicuota: String(ALICUOTA_POR_DEFECTO),
             // La factura no hereda la moneda de su orden: se propone la de la última.
             [nombreDeMoneda("importe")]: masNueva?.moneda ?? MONEDAS[0],
+            ...(delMes === null ? {} : { periodo: delMes.periodo }),
+            ...(delMes === null || delMes.cuota === null
+              ? {}
+              : {
+                  importe: formatearMonto(delMes.cuota),
+                  [nombreDeMoneda("importe")]: delMes.cuota.moneda,
+                }),
           },
         };
       });
@@ -402,10 +439,18 @@ export function crearCasosUsoFacturas({
           catalogo.AUT_0009,
         );
         // Con la fila del servicio tomada, la orden elegida no puede anularse a la vez.
-        await servicioVigenteBloqueado(repos, servicioId);
-        await exigirEtapa(repos, servicioId, "factura");
+        const { valor: servicio } = await servicioVigenteBloqueado(
+          repos,
+          servicioId,
+        );
+        await exigirEtapaDeFactura(
+          repos,
+          servicioId,
+          servicio.modalidadFacturacion,
+        );
+        const mensual = servicio.modalidadFacturacion === "mensual";
         const validado = validarEscrito(
-          camposDeFactura(await ordenesParaElegir(repos, servicioId)),
+          camposDeFactura(await ordenesParaElegir(repos, servicioId), mensual),
           VALIDACION,
           escrito,
         );
@@ -433,7 +478,16 @@ export function crearCasosUsoFacturas({
         await repos.facturas.crear(
           actor,
           crearAuditable(
-            { ...validado.datos, servicioId, documentoId, id },
+            {
+              ...validado.datos,
+              // Ya validado como día por el campo `fecha`: se guarda su mes.
+              periodo: mensual
+                ? `${(escrito.periodo ?? "").slice(0, 7)}-01`
+                : null,
+              servicioId,
+              documentoId,
+              id,
+            },
             actor,
             reloj,
           ),

@@ -51,6 +51,7 @@ import {
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import {
   altaDeServicio,
+  conModalidad,
   llevarServicioA,
   sembrarServicio,
 } from "./_arnes/servicio.ts";
@@ -269,6 +270,8 @@ beforeEach(async () => {
     admin,
     usuarios[0]?.id ?? "",
   );
+  // Factura sin probar la modalidad (F3-03): «Por hitos», en las mismas etapas que antes.
+  await conModalidad(cliente(), servicioId);
 });
 
 describe("cargar una orden de compra", () => {
@@ -790,7 +793,7 @@ describe("el saldo por facturar de una orden de compra, sin IVA", () => {
 });
 
 describe("anular", () => {
-  test("una orden sin facturas sale del listado y deja su documento dado de baja; el estado no vuelve atrás", async () => {
+  test("una orden sin facturas sale del listado y deja su documento dado de baja; el servicio vuelve a «Cotizado» (F3-03)", async () => {
     const id = await cargarOrden({}, archivo());
     const orden = await cliente().ordenCompra.findUniqueOrThrow({
       where: { id },
@@ -807,7 +810,7 @@ describe("anular", () => {
       where: { id: orden.documentoId ?? "" },
     });
     expect(documento.eliminadoEn).not.toBeNull();
-    expect(await estado()).toBe("adjudicado");
+    expect(await estado()).toBe("cotizado");
   });
 
   test("una orden con facturas vigentes no se anula (DOM-0014) y no se escribe nada; sin ellas, sí", async () => {
@@ -849,8 +852,9 @@ describe("anular", () => {
   test("lo que no existe o ya está anulado es DOM-0009; quien no puede escribir, AUT-0009", async () => {
     const orden = await cargarOrden();
     const factura = await cargarFactura();
-    await ordenes().marcarEliminado(admin, orden);
+    // La factura primero: sin orden vigente el servicio vuelve a «Cotizado» (F3-03).
     await facturas().marcarEliminado(admin, factura);
+    await ordenes().marcarEliminado(admin, orden);
 
     for (const id of [
       orden,

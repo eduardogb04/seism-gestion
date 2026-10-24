@@ -14,7 +14,10 @@ import type {
   FechaHora,
   Reloj,
 } from "../../../src/dominio/compartido/reloj.ts";
-import type { EstadoServicio } from "../../../src/dominio/servicios/estados.ts";
+import type {
+  EstadoServicio,
+  ModalidadDeFacturacion,
+} from "../../../src/dominio/servicios/estados.ts";
 import type { Transaccional } from "../../../src/puertos/repositorios/transaccion.ts";
 
 type Dependencias = {
@@ -112,5 +115,21 @@ export function llevarServicioA(
       });
       de = a;
     }
+  });
+}
+
+/**
+ * Le pone la modalidad de facturación directo en la fila (F3-03), sin pasar por
+ * su caso de uso ni por su etapa: la de los tests que facturan sin probar la
+ * modalidad. «Por hitos» factura en las mismas etapas que antes de F3-03.
+ */
+export async function conModalidad(
+  prisma: ReturnType<typeof crearClientePrisma>,
+  id: string,
+  modalidad: ModalidadDeFacturacion = "por_hitos",
+): Promise<void> {
+  await prisma.servicio.update({
+    where: { id },
+    data: { facturacion: modalidad },
   });
 }

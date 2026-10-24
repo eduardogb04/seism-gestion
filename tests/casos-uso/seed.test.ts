@@ -323,7 +323,7 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Pago" } })).toBe(3);
   });
 
-  test("siembra cuatro servicios en distintos estados, con su historial y uno con dos sitios, una sola vez y no en el servidor", async () => {
+  test("siembra cinco servicios en distintos estados, con su historial, uno con dos sitios y la modalidad de facturación de los que facturan (F3-03), una sola vez y no en el servidor", async () => {
     const db = cliente();
     const servicios = () =>
       db.servicio.findMany({
@@ -343,22 +343,33 @@ describe("semilla", () => {
 
     const sembrados = await servicios();
     expect(
-      sembrados.map(({ codigo, modalidad, eventos, sitios, vigenciaDesde }) => [
-        codigo,
-        modalidad,
-        eventos.map(({ a }) => a),
-        sitios.length,
-        vigenciaDesde !== null,
-      ]),
+      sembrados.map(
+        ({
+          codigo,
+          modalidad,
+          eventos,
+          sitios,
+          vigenciaDesde,
+          facturacion,
+        }) => [
+          codigo,
+          modalidad,
+          eventos.map(({ a }) => a),
+          sitios.length,
+          vigenciaDesde !== null,
+          facturacion,
+        ],
+      ),
     ).toEqual([
-      ["SRV-2031-001", "puntual", ["creado"], 2, false],
-      ["SRV-2031-002", "puntual", ["creado", "cotizado"], 0, false],
+      ["SRV-2031-001", "puntual", ["creado"], 2, false, null],
+      ["SRV-2031-002", "puntual", ["creado", "cotizado"], 0, false, null],
       [
         "SRV-2031-003",
         "recurrente",
         ["creado", "cotizado", "adjudicado", "en_ejecucion"],
         0,
         true,
+        "por_hitos",
       ],
       [
         "SRV-2031-004",
@@ -373,6 +384,15 @@ describe("semilla", () => {
         ],
         0,
         false,
+        null,
+      ],
+      [
+        "SRV-2031-005",
+        "recurrente",
+        ["creado", "cotizado", "adjudicado", "en_ejecucion"],
+        0,
+        true,
+        "mensual",
       ],
     ]);
     for (const { eventos, responsable } of sembrados) {
@@ -382,13 +402,58 @@ describe("semilla", () => {
       ]);
       expect(responsable.email).toBe("admin@ejemplo.test");
     }
-    // Cuatro altas y el cambio de sitios de uno.
+    // Cinco altas y el cambio de sitios de uno.
     expect(await db.auditoria.count({ where: { entidad: "Servicio" } })).toBe(
-      5,
+      6,
     );
     expect(await db.secuencia.findMany()).toEqual([
-      { prefijo: "SRV", anio: 2031, ultimo: 4 },
+      { prefijo: "SRV", anio: 2031, ultimo: 5 },
     ]);
+  });
+
+  test("siembra el servicio mensual con su orden de compra, la cuota inicial y un ajuste (F3-03), sin repetir filas, y no en el servidor", async () => {
+    const db = cliente();
+    const delMensual = {
+      servicio: { titulo: "Alquiler mensual de tanques — ejemplo" },
+    };
+    const foto = async () => ({
+      ordenes: await db.ordenCompra.findMany({ where: delMensual }),
+      cuotas: await db.servicioCuota.findMany({
+        where: delMensual,
+        orderBy: { posicion: "asc" },
+      }),
+    });
+
+    await sembrar(db, opciones("servidor"));
+    expect(await foto()).toEqual({ ordenes: [], cuotas: [] });
+
+    await sembrar(db, opciones());
+    const primeraVez = await foto();
+    await sembrar(db, opciones());
+
+    expect(await foto()).toEqual(primeraVez);
+    expect(
+      primeraVez.ordenes.map(({ importeCentavos, importeMoneda }) => [
+        importeCentavos,
+        importeMoneda,
+      ]),
+    ).toEqual([[120_000_000n, "ARS"]]);
+    expect(
+      primeraVez.cuotas.map(
+        ({ posicion, desdeMes, importeCentavos, importeMoneda }) => [
+          posicion,
+          desdeMes.toISOString().slice(0, 10),
+          importeCentavos,
+          importeMoneda,
+        ],
+      ),
+    ).toEqual([
+      [0, "2026-08-01", 9_000_000n, "ARS"],
+      [1, "2026-10-01", 9_500_000n, "ARS"],
+    ]);
+    expect(
+      await db.auditoria.count({ where: { entidad: "ServicioCuota" } }),
+    ).toBe(2);
   });
 
   test("siembra dos cotizaciones del servicio cotizado, con su PDF en el almacén, sin repetir filas ni archivos, y no en el servidor", async () => {
@@ -461,7 +526,9 @@ describe("semilla", () => {
   test("siembra una orden de compra y tres facturas del servicio en ejecución (la tercera, en dólares, es de F2-07), con el PDF de una, sin repetir filas, y no en el servidor", async () => {
     const db = cliente();
     const foto = async () => ({
-      ordenes: await db.ordenCompra.findMany(),
+      ordenes: await db.ordenCompra.findMany({
+        where: { servicio: { titulo: "Operación de tanques — ejemplo" } },
+      }),
       facturas: await db.factura.findMany({ orderBy: { numero: "asc" } }),
     });
 
@@ -510,7 +577,7 @@ describe("semilla", () => {
       await db.auditoria.count({
         where: { entidad: { in: ["OrdenCompra", "Factura"] } },
       }),
-    ).toBe(4);
+    ).toBe(5);
   });
 
   test("siembra dos cobros, uno con retención en pesos y uno en pesos de una factura en dólares con su tipo de cambio, sin repetir filas, y no en el servidor", async () => {
@@ -604,6 +671,7 @@ describe("semilla", () => {
         ordenesCompra: await db.ordenCompra.count(),
         facturas: await db.factura.count(),
         cobros: await db.cobro.count(),
+        cuotas: await db.servicioCuota.count(),
         hitos: await db.servicioHito.count(),
         recursos: await db.servicioRecurso.count(),
       };

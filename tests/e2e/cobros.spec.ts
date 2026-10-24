@@ -214,6 +214,17 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await orden.getByLabel("Importe sin IVA", { exact: true }).fill("1.000,00");
   await orden.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nueva orden de compra")).toHaveCount(0);
+  // Facturar exige la modalidad de facturación (F3-03).
+  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  const modalidad = ventana(page, "Modalidad de facturación");
+  await modalidad
+    .getByLabel("Modalidad de facturación")
+    .selectOption({ label: "Por hitos (libre)" });
+  await modalidad.getByRole("button", { name: "Guardar" }).click();
+  await expect(ventana(page, "Modalidad de facturación")).toHaveCount(0);
+  await expect(page.locator("[data-modalidad]")).toHaveText(
+    "Modalidad: Por hitos (libre)",
+  );
 
   // 1. Una factura en pesos, vencida: 1.000,00 más 21 % de IVA son 1.210,00.
   await cargarFactura(page, {

@@ -50,10 +50,16 @@ const AUTOMATICAS: Readonly<
 > = {
   cotizacion: ["creado", "cotizado"],
   ordenDeCompra: ["cotizado", "adjudicado"],
+  anulacionDeOrdenDeCompra: ["adjudicado", "cotizado"],
   cobrado: ["finalizado", "cerrado"],
 };
 
-const CAUSAS: readonly Causa[] = ["cotizacion", "ordenDeCompra", "cobrado"];
+const CAUSAS: readonly Causa[] = [
+  "cotizacion",
+  "ordenDeCompra",
+  "anulacionDeOrdenDeCompra",
+  "cobrado",
+];
 
 const PIDEN_MOTIVO: readonly EstadoServicio[] = [
   "perdido",
@@ -72,6 +78,7 @@ const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   suceso: MENOS_CERRADO,
   planificacion: ["adjudicado", "en_ejecucion"],
   tildarHito: ["en_ejecucion"],
+  modalidad: ["adjudicado", "en_ejecucion"],
 };
 
 const CARGAS: readonly Carga[] = [
@@ -83,6 +90,7 @@ const CARGAS: readonly Carga[] = [
   "suceso",
   "planificacion",
   "tildarHito",
+  "modalidad",
 ];
 
 function declarada(de: EstadoServicio, a: EstadoServicio): boolean {

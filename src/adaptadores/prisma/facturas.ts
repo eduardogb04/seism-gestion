@@ -42,6 +42,7 @@ const paso = {
     cambioDenominador,
     cambioFuente,
     alicuotaIva,
+    periodo,
     ...resto
   }: DatosDeFila): DatosFactura {
     const alicuota = ALICUOTAS_IVA.find((valor) => valor === alicuotaIva);
@@ -61,6 +62,7 @@ const paso = {
         cambioFuente,
       ),
       alicuota,
+      periodo: periodo === null ? null : aDia(periodo),
     };
   },
 
@@ -70,6 +72,7 @@ const paso = {
     importe,
     cambio,
     alicuota,
+    periodo,
     ...resto
   }: DatosFactura): DatosDeFila {
     return {
@@ -80,6 +83,7 @@ const paso = {
       importeMoneda: importe.moneda,
       ...columnasDeCambio(cambio),
       alicuotaIva: alicuota,
+      periodo: periodo === null ? null : deDia(periodo),
     };
   },
 };

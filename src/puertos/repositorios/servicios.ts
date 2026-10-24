@@ -15,6 +15,7 @@ import type { FechaHora } from "../../dominio/compartido/reloj.ts";
 import type {
   EstadoServicio,
   EventoServicio,
+  ModalidadDeFacturacion,
 } from "../../dominio/servicios/estados.ts";
 import type { EntidadAbm, RegistroDe, RepositorioDe } from "./abm.ts";
 
@@ -25,6 +26,8 @@ export type DatosServicio = {
   readonly tipoServicioId: string;
   readonly titulo: string;
   readonly modalidad: string;
+  /** Cómo se le factura (F3-03): no se elige al crearlo ni al editarlo, sino en «Adjudicado». */
+  readonly modalidadFacturacion: ModalidadDeFacturacion | null;
   readonly responsableId: string;
   /** Un día, `aaaa-mm-dd`, como las vigencias. */
   readonly fechaPedido: string;

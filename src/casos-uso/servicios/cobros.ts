@@ -177,7 +177,7 @@ export type LineaDeAvance = {
 };
 
 /** Las columnas por las que se ordena *Por cobrar*; la primera es el orden por defecto. */
-export const COLUMNAS_POR_COBRAR = [
+const COLUMNAS_POR_COBRAR = [
   "vencimiento",
   "factura",
   "servicio",

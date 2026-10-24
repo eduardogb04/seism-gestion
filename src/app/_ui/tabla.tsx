@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
  * Una cabecera: su texto o, si la columna ordena, también el enlace que la
  * ordena y el sentido actual (`null`: hoy se ordena por otra).
  */
-export type Cabecera =
+type Cabecera =
   | string
   | {
       readonly texto: string;

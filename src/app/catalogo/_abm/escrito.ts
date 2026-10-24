@@ -15,15 +15,18 @@ export function escritoEn(formulario: FormData): Escrito {
 /** El nombre del campo de archivo de un formulario: el de `FormularioAbm` y el que lee `archivoSubidoEn`. */
 export const CAMPO_ARCHIVO = "archivo";
 
+const NOMBRES_DE_PARTE_VACIA = ["", "blob", "undefined"];
+
 /** El archivo elegido en el formulario, o `null` si no se eligió ninguno. */
 export async function archivoSubidoEn(
   formulario: FormData,
 ): Promise<ArchivoSubido | null> {
   const subido = formulario.get(CAMPO_ARCHIVO);
   // Sin archivo elegido el navegador manda una parte vacía, sin nombre; al
-  // decodificarla, Next le pone «blob». Uno vacío que se eligió trae su nombre.
+  // decodificarla, Next le pone «blob» (16.3) o «undefined» (16.4: arma un
+  // `File` con el nombre que busboy no dio). Uno vacío que se eligió trae su nombre.
   return subido instanceof File &&
-    !(subido.size === 0 && (subido.name === "" || subido.name === "blob"))
+    !(subido.size === 0 && NOMBRES_DE_PARTE_VACIA.includes(subido.name))
     ? {
         nombre: subido.name,
         bytes: new Uint8Array(await subido.arrayBuffer()),

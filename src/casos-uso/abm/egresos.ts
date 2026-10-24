@@ -70,6 +70,14 @@ export const EGRESOS: DefinicionAbm<"Egreso"> = {
   filtros: ["centroCostoId", "fecha"],
   rolesQueEscriben: ["administrador", "operador"],
   rutaDeFila: (id) => `/egresos/${id}`,
+  historial: [
+    "fecha",
+    "concepto",
+    "importe",
+    "vencimiento",
+    "numeroComprobante",
+    "observaciones",
+  ],
   rechazosAlGuardar: async (repos, actual, nuevos) => ({
     ...(actual === null ? {} : await rechazosPorPagos(repos, actual, nuevos)),
     ...(await rechazosPorServicio(repos, nuevos)),

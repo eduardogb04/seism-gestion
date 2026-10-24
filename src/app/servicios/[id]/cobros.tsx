@@ -4,14 +4,12 @@
  * (`?anularCobro=<id>`) como ventanas sobre la pantalla del servicio.
  */
 
-import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
 import type {
   CobranzaDeFactura,
   CobroVisible,
 } from "../../../casos-uso/servicios/cobros.ts";
 import type { FacturaListada } from "../../../casos-uso/servicios/facturas.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
-import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { EnlaceDeDescarga } from "../../_ui/enlace-de-descarga.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
@@ -19,7 +17,8 @@ import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
-import { anularCobro, cobrarFactura } from "../acciones.ts";
+import { VentanaDeCobro } from "../../_ui/ventana-de-movimiento.tsx";
+import { anularCobro } from "../acciones.ts";
 
 const CABECERAS = [
   "Fecha del cobro",
@@ -33,46 +32,6 @@ const CABECERAS = [
   "Cargó",
   "Orden de pago",
 ];
-
-async function VentanaDeCobro({
-  servicioId,
-  factura,
-  rutaAlCerrar,
-}: {
-  readonly servicioId: string;
-  readonly factura: FacturaListada | undefined;
-  readonly rutaAlCerrar: string;
-}) {
-  if (factura === undefined) {
-    return (
-      <Ventana titulo="Cobrar factura" rutaAlCerrar={rutaAlCerrar}>
-        <ErrorEnPantalla error={pantallaDeCodigo("DOM-0009")} />
-      </Ventana>
-    );
-  }
-  const { numero, saldo, campos, elegibles, escrito } =
-    await armado().cobros.formulario(factura.id);
-  return (
-    <Ventana titulo="Cobrar factura" rutaAlCerrar={rutaAlCerrar}>
-      <p className="mb-4">
-        Factura {numero}: falta cobrar {saldo}.
-      </p>
-      <FormularioAbm
-        accion={cobrarFactura.bind(null, servicioId, factura.id)}
-        campos={campos}
-        elegibles={elegibles}
-        inicial={{ escrito, errores: {} }}
-        archivo={{
-          nombre: "archivo",
-          etiqueta: "Documento de la orden de pago (opcional)",
-          accept: ACEPTA,
-        }}
-        enviar={{ texto: "Cobrar", variante: "primario" }}
-        rutaAlCancelar={rutaAlCerrar}
-      />
-    </Ventana>
-  );
-}
 
 function VentanaDeAnulacion({
   servicioId,
@@ -175,11 +134,7 @@ export function Cobros({
         );
       })}
       {puedeEscribir && typeof aCobrar === "string" ? (
-        <VentanaDeCobro
-          servicioId={servicioId}
-          factura={facturas.find(({ id }) => id === aCobrar)}
-          rutaAlCerrar={ruta}
-        />
+        <VentanaDeCobro facturaId={aCobrar} rutaAlCerrar={ruta} />
       ) : null}
       {puedeEscribir && typeof aAnular === "string" ? (
         <VentanaDeAnulacion

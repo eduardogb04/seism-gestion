@@ -13,7 +13,13 @@ import { Boton, clasesDeBoton } from "./boton.tsx";
 import { CampoTexto } from "./campo-texto.tsx";
 import { Enlace } from "./enlace-next.ts";
 import { Selector } from "./selector.tsx";
-import { Tabla } from "./tabla.tsx";
+import {
+  CLASES_DE_ACCIONES,
+  CLASES_DE_ENLACE_DE_FILA,
+  CLASES_DE_FILA_ENLAZADA,
+  cabeceraOrdenable,
+  Tabla,
+} from "./tabla.tsx";
 
 export type Vista = {
   readonly buscar: string;
@@ -86,14 +92,6 @@ export function enlace(
 ): string {
   return `${ruta}?${consultaDe(vista, ventana)}`;
 }
-
-/**
- * El enlace de la primera celda se estira a toda la fila (`::after` sobre el
- * `<tr>` relativo): toda la fila lleva al detalle y, como es un `<a>`, anda
- * con Tab y Enter sin JavaScript. El foco se dibuja alrededor de la fila.
- */
-const FILA_ENLAZADA =
-  "font-medium no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-acento";
 
 export function ListadoAbm({
   ruta,
@@ -179,19 +177,18 @@ export function ListadoAbm({
             if (columna === undefined) {
               return texto;
             }
-            const actual = columna === orden;
-            return {
+            return cabeceraOrdenable(
               texto,
-              orden: {
-                sentido: actual ? direccion : null,
-                enlace: enlace(ruta, {
+              columna,
+              { orden, direccion },
+              (ordenNuevo, direccionNueva) =>
+                enlace(ruta, {
                   ...vista,
-                  orden: columna,
-                  direccion: actual && direccion === "asc" ? "desc" : "asc",
+                  orden: ordenNuevo,
+                  direccion: direccionNueva,
                   pagina: 1,
                 }),
-              },
-            };
+            );
           }),
           ...(acciones === null ? [] : ["Acciones"]),
         ]}
@@ -201,9 +198,7 @@ export function ListadoAbm({
             <tr
               key={valor.id}
               className={
-                rutaDeFila === undefined
-                  ? undefined
-                  : "relative cursor-pointer hover:bg-superficie-alta"
+                rutaDeFila === undefined ? undefined : CLASES_DE_FILA_ENLAZADA
               }
             >
               {(celdas[valor.id] ?? []).map((texto, posicion) => (
@@ -218,7 +213,7 @@ export function ListadoAbm({
                   {posicion === 0 && rutaDeFila !== undefined ? (
                     <Enlace
                       href={rutaDeFila(valor.id)}
-                      className={FILA_ENLAZADA}
+                      className={CLASES_DE_ENLACE_DE_FILA}
                     >
                       {texto}
                     </Enlace>
@@ -228,7 +223,7 @@ export function ListadoAbm({
                 </td>
               ))}
               {acciones === null ? null : (
-                <td className="relative z-10">
+                <td className={CLASES_DE_ACCIONES}>
                   <div className="flex flex-wrap gap-2">
                     {acciones(valor.id, vista)}
                   </div>

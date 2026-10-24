@@ -205,10 +205,10 @@ export async function anularFactura(
   });
 }
 
-/** Cobrar una factura del servicio, con el documento de la orden de pago si se eligió uno. */
+/** Cobrar una factura, con el documento de la orden de pago si se eligió uno. Al guardar vuelve a `rutaAlVolver`: la pantalla desde la que se abrió la ventana. */
 export async function cobrarFactura(
-  servicioId: string,
   facturaId: string,
+  rutaAlVolver: string,
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
@@ -220,7 +220,7 @@ export async function cobrarFactura(
       escritoEn(formulario),
       archivo,
     );
-    return cobrada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cobrada;
+    return cobrada.ok ? { ok: true, ruta: rutaAlVolver } : cobrada;
   });
 }
 

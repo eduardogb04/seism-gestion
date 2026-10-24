@@ -802,6 +802,55 @@ describe("pagos de egresos", () => {
       ]);
       expect(segunda.saldos).toEqual(["ARS 27.000,00"]);
     });
+
+    test("se ordena por el título que se toca, en los dos sentidos; uno que no existe cae al vencimiento", async () => {
+      await sembrarPorPagar();
+
+      const ascendente = await pagos().porPagar({ orden: "concepto" });
+      const descendente = await pagos().porPagar({
+        orden: "concepto",
+        direccion: "desc",
+      });
+      const invalido = await pagos().porPagar({ orden: "total; DROP TABLE" });
+
+      expect(ascendente.filas.map(({ concepto }) => concepto)).toEqual([
+        "Licencia",
+        "Sin vencimiento",
+        "Vence mañana",
+        "Vencido hace diez días",
+      ]);
+      expect(descendente.filas.map(({ concepto }) => concepto)).toEqual([
+        "Vencido hace diez días",
+        "Vence mañana",
+        "Sin vencimiento",
+        "Licencia",
+      ]);
+      expect([ascendente.orden, ascendente.direccion]).toEqual([
+        "concepto",
+        "asc",
+      ]);
+      expect([invalido.orden, invalido.direccion]).toEqual([
+        "vencimiento",
+        "asc",
+      ]);
+      expect(invalido.filas[0]?.concepto).toBe("Vencido hace diez días");
+    });
+
+    test("`pendientes` son los egresos con saldo: el que salda sale, el anulado vuelve", async () => {
+      const { tarde, saldado, sinVencer } = await sembrarPorPagar();
+
+      const antes = await pagos().pendientes();
+      const pago = await cliente().pago.findFirstOrThrow({
+        where: { egresoId: saldado },
+      });
+      await pagos().marcarPagoAnulado(admin, pago.id);
+      const despues = await pagos().pendientes();
+
+      expect(antes).toContain(tarde);
+      expect(antes).toContain(sinVencer);
+      expect(antes).not.toContain(saldado);
+      expect(despues).toContain(saldado);
+    });
   });
 
   describe("mientras hay pagos vigentes (la base lo impide)", () => {

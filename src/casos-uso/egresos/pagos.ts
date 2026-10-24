@@ -35,11 +35,16 @@ import type { Reloj } from "../../dominio/compartido/reloj.ts";
 import { pagar, saldoDe } from "../../dominio/compartido/saldo.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
 import type { RegistroAbm } from "../../puertos/repositorios/abm.ts";
+import { COLUMNAS_POR_PAGAR } from "../../puertos/repositorios/pagos.ts";
 import type {
   RepositoriosEnTransaccion,
   Transaccional,
 } from "../../puertos/repositorios/transaccion.ts";
-import type { ErroresPorCampo, OpcionDeRelacion } from "../abm/abm.ts";
+import {
+  type ErroresPorCampo,
+  type OpcionDeRelacion,
+  parametrosDe,
+} from "../abm/abm.ts";
 import { cambioVisible } from "../abm/cambio.ts";
 import {
   type CampoAbm,
@@ -130,12 +135,16 @@ type FilaPorPagarVista = {
   readonly total: string;
   readonly pagado: string;
   readonly saldo: string;
+  /** Todavía debe algo: se le ofrece pagar. */
+  readonly conSaldo: boolean;
   readonly vencimiento: string;
   /** `10 días`, o vacío si no está vencido. */
   readonly atraso: string;
 };
 
 type ListadoPorPagar = {
+  readonly orden: (typeof COLUMNAS_POR_PAGAR)[number];
+  readonly direccion: "asc" | "desc";
   readonly filas: readonly FilaPorPagarVista[];
   /** Cuántos egresos hay en todas las páginas. */
   readonly total: number;
@@ -149,10 +158,12 @@ type ListadoPorPagar = {
 export type CasosUsoPagos = {
   /** El egreso con su saldo, sus pagos y lo que hace falta para cargar uno nuevo. `DOM-0009` si no existe. */
   detalle(egresoId: string): Promise<DetalleEgreso>;
-  /** Los egresos con saldo, por vencimiento. */
+  /** Los egresos con saldo, por vencimiento o por la columna que se pida. */
   porPagar(
     parametros: Readonly<Record<string, unknown>>,
   ): Promise<ListadoPorPagar>;
+  /** Los ids de los egresos que todavía deben algo: a los que se les ofrece pagar. */
+  pendientes(): Promise<readonly string[]>;
   registrarPago(
     actor: Actor,
     egresoId: string,
@@ -326,15 +337,23 @@ export function crearCasosUsoPagos({
           pagina: z.coerce.number().int().min(1).catch(1),
         })
         .parse(parametros);
+      const { orden, direccion } = parametrosDe(
+        { orden: COLUMNAS_POR_PAGAR },
+        parametros,
+      );
       const incluirPagados = leidos.pagados === "si";
       return transaccional.ejecutar(async (repos) => {
         const hoy = reloj.ahora();
         const { filas, total, saldos } = await repos.pagos.porPagar({
           incluirPagados,
+          orden,
+          direccion,
           saltear: (leidos.pagina - 1) * PAGOS_POR_PAGINA,
           cantidad: PAGOS_POR_PAGINA,
         });
         return {
+          orden,
+          direccion,
           filas: filas.map((fila) => {
             return {
               id: fila.id,
@@ -345,6 +364,7 @@ export function crearCasosUsoPagos({
               total: formatearImporte(fila.total),
               pagado: formatearImporte(fila.pagado),
               saldo: formatearImporte(fila.saldo),
+              conSaldo: fila.saldo.centavos > 0n,
               vencimiento:
                 fila.vencimiento === null ? "" : diaConBarras(fila.vencimiento),
               atraso:
@@ -359,6 +379,17 @@ export function crearCasosUsoPagos({
           incluirPagados,
           saldos: saldos.map(formatearImporte),
         };
+      });
+    },
+
+    pendientes() {
+      return transaccional.ejecutar(async (repos) => {
+        const { filas } = await repos.pagos.porPagar({
+          incluirPagados: false,
+          saltear: 0,
+          cantidad: TODAS,
+        });
+        return filas.map(({ id }) => id);
       });
     },
 

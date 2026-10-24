@@ -10,7 +10,9 @@
  *    (queda *Pagado* y ya no ofrece el formulario);
  * 3. un egreso en dólares se paga desde una cuenta en pesos: sin tipo de cambio
  *    el pago no entra, con él se ve lo que salió de la cuenta;
- * 4. la cuenta con pagos no se da de baja, y anular un pago devuelve el saldo.
+ * 4. la cuenta con pagos no se da de baja, y anular un pago devuelve el saldo;
+ * 5. pagar desde *Por pagar* y desde el detalle abre la misma ventana y deja
+ *    lo mismo: el saldo y el pago en el historial (F3-07).
  *
  * Todo inventado.
  */
@@ -60,6 +62,7 @@ async function abrirEgreso(page: Page, concepto: string): Promise<void> {
   await expect(page.getByRole("heading", { name: concepto })).toBeVisible();
 }
 
+/** Abre la ventana de pago desde el botón del detalle del egreso y la completa. */
 async function registrarPago(
   page: Page,
   pago: {
@@ -70,6 +73,10 @@ async function registrarPago(
     readonly fuente?: string;
   },
 ): Promise<void> {
+  await page.getByRole("link", { name: "Registrar pago" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Registrar pago" }),
+  ).toBeVisible();
   await page.getByLabel("Fecha", { exact: true }).fill(pago.fecha);
   await page.getByLabel(/^Importe/).fill(pago.importe);
   await page
@@ -108,7 +115,73 @@ test("una operadora paga un egreso en dos partes y otro en dólares desde una cu
   await page.getByRole("button", { name: "Aplicar" }).click();
   await expect(fila(page, /03\/09\/2026/)).toContainText("ARS 0,00");
 
-  // 2. Un egreso en pesos, en dos partes.
+  // Egresos ofrece lo mismo a los egresos con saldo: la misma ventana, sobre su listado.
+  await page.goto("/egresos");
+  await fila(page, /Curso de capacitación/)
+    .getByRole("link", { name: "Registrar pago" })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Registrar pago" })
+      .locator("[data-pendiente]"),
+  ).toHaveText("USD 500,00");
+  await page.getByRole("dialog").getByRole("link", { name: "Cerrar" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/egresos\?/);
+  await expect(
+    fila(page, /03\/09\/2026/).getByRole("link", { name: "Registrar pago" }),
+  ).toHaveCount(0);
+  await page.goto("/egresos/pagos");
+
+  // Tocar el título de una columna ordena; la fila entera lleva al egreso.
+  await page
+    .getByRole("columnheader", { name: "Concepto" })
+    .getByRole("link")
+    .click();
+  await expect(page).toHaveURL(/orden=concepto&direccion=asc/);
+  await expect(
+    page.getByRole("columnheader", { name: "Concepto" }),
+  ).toHaveAttribute("aria-sort", "ascending");
+  await page
+    .getByRole("columnheader", { name: "Concepto" })
+    .getByRole("link")
+    .click();
+  await expect(
+    page.getByRole("columnheader", { name: "Concepto" }),
+  ).toHaveAttribute("aria-sort", "descending");
+
+  // 2. Pagar desde *Por pagar*: la ventana dice lo que falta y, al guardar, vuelve al listado.
+  await page.goto("/egresos/pagos");
+  await fila(page, /Honorarios contables/)
+    .getByRole("link", { name: "Registrar pago" })
+    .click();
+  const ventanaDelListado = page.getByRole("dialog", {
+    name: "Registrar pago",
+  });
+  await expect(ventanaDelListado.locator("[data-pendiente]")).toHaveText(
+    "ARS 300.000,00",
+  );
+  await ventanaDelListado
+    .getByLabel("Fecha", { exact: true })
+    .fill("2026-10-03");
+  await ventanaDelListado.getByLabel(/^Importe/).fill("100.000,00");
+  await ventanaDelListado
+    .getByLabel("Cuenta", { exact: true })
+    .selectOption({ label: "Caja · ARS" });
+  await ventanaDelListado
+    .getByRole("button", { name: "Registrar pago" })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/egresos\/pagos\?/);
+  await expect(fila(page, /Honorarios contables/)).toContainText(
+    "ARS 200.000,00",
+  );
+  await abrirEgreso(page, "Honorarios contables");
+  await expect(page.locator("[data-pagado]")).toHaveText("ARS 300.000,00");
+  await expect(page.locator("[data-saldo]")).toHaveText("ARS 200.000,00");
+  await expect(fila(page, /03\/10\/2026/)).toContainText("ARS 100.000,00");
+
+  // 3. Un egreso en pesos, en dos partes, desde el detalle: el pago del 03/10 y el saldo quedan como en el paso anterior.
   await abrirEgreso(page, "Repuestos para el servicio");
   await expect(page.locator("[data-saldo]")).toHaveText("ARS 325.000,00");
   await registrarPago(page, {
@@ -138,13 +211,13 @@ test("una operadora paga un egreso en dos partes y otro en dólares desde una cu
   await page.getByRole("button", { name: "Registrar pago" }).click();
   await expect(page.locator("[data-saldo]")).toHaveText("ARS 0,00");
   await expect(page.locator("[data-estado-pagado]")).toHaveText("Pagado");
-  await expect(
-    page.getByRole("button", { name: "Registrar pago" }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Registrar pago" })).toHaveCount(
+    0,
+  );
   await expect(fila(page, /03\/10\/2026/)).toContainText("ARS 100.000,00");
   await expect(fila(page, /04\/10\/2026/)).toContainText("ARS 225.000,00");
 
-  // 3. Un egreso en dólares, desde una cuenta en pesos.
+  // 4. Un egreso en dólares, desde una cuenta en pesos.
   await abrirEgreso(page, "Notebook para el equipo");
   await registrarPago(page, {
     fecha: "2026-10-05",
@@ -169,7 +242,7 @@ test("una operadora paga un egreso en dos partes y otro en dólares desde una cu
     "1.200,00 · Cotización de ejemplo",
   );
 
-  // 4. La cuenta con pagos no se da de baja; anular un pago devuelve el saldo.
+  // 5. La cuenta con pagos no se da de baja; anular un pago devuelve el saldo.
   await page.goto("/catalogo/cuentas");
   await fila(page, /^Caja/).getByRole("link", { name: "Dar de baja" }).click();
   await page.getByRole("button", { name: "Confirmar baja" }).click();

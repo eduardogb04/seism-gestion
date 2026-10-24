@@ -12,7 +12,10 @@
  *    ya no ofrece cobrar y sale de *Por cobrar*;
  * 4. una factura en dólares se cobra desde una cuenta en pesos: sin tipo de
  *    cambio el cobro no entra, con él se ve lo que entró a la cuenta;
- * 5. el servicio y la orden de compra muestran el avance.
+ * 5. el servicio y la orden de compra muestran el avance;
+ * 6. cobrar desde *Por cobrar* y desde el servicio abre la misma ventana, que
+ *    dice lo que falta cobrar, y la factura saldada sale de *Por cobrar*;
+ *    la fila lleva a la pantalla de la factura (F3-07).
  *
  * Usa `operador.catalogos@ejemplo.test`, como los otros catálogos. Todo inventado.
  */
@@ -110,10 +113,14 @@ async function cargarFactura(
   await expect(ventana(page, "Nueva factura")).toHaveCount(0);
 }
 
-/** Abre la ventana de cobro de una factura y escribe lo que se pasa. */
+/**
+ * Abre la ventana de cobro de una factura —desde su fila en la pantalla del
+ * servicio, o desde *Por cobrar*— y escribe lo que se pasa.
+ */
 async function abrirCobro(
   page: Page,
   numero: string,
+  desde: "servicio" | "por cobrar",
   datos: {
     fecha: string;
     importe: string;
@@ -124,9 +131,17 @@ async function abrirCobro(
     ordenDePago?: string;
   },
 ) {
-  await filaDeFactura(page, numero)
-    .getByRole("link", { name: "Cobrar", exact: true })
-    .click();
+  if (desde === "servicio") {
+    await filaDeFactura(page, numero)
+      .getByRole("link", { name: "Cobrar", exact: true })
+      .click();
+  } else {
+    await page
+      .getByRole("row")
+      .filter({ hasText: numero })
+      .getByRole("link", { name: "Registrar cobro" })
+      .click();
+  }
   const cobro = ventana(page, "Cobrar factura");
   await cobro.getByLabel("Fecha").fill(datos.fecha);
   await cobro.getByLabel(/^Importe \(/).fill(datos.importe);
@@ -215,26 +230,61 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await expect(factura.getByRole("cell").nth(10)).toHaveText("ARS 1.210,00");
   await expect(factura.getByRole("cell").nth(11)).toHaveText("Con saldo");
 
+  // Ingresos (menú de Finanzas): la factura del mes ofrece cobrar, con la misma ventana.
+  await page.goto("/?mes=2026-09");
+  await page
+    .getByRole("navigation", { name: "Secciones" })
+    .getByRole("link", { name: "Ingresos" })
+    .click();
+  await page.goto("/servicios/facturas?mes=2026-09&moneda=ARS");
+  const ingreso = page.getByRole("row").filter({ hasText: FACTURA_EN_PESOS });
+  await ingreso.getByRole("link", { name: "Registrar cobro" }).click();
+  await expect(
+    ventana(page, "Cobrar factura").locator("[data-pendiente]"),
+  ).toHaveText("ARS 1.210,00");
+  await ventana(page, "Cobrar factura")
+    .getByRole("link", { name: "Cerrar" })
+    .click();
+  await expect(ventana(page, "Cobrar factura")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/servicios\/facturas\?mes=2026-09/);
+
   await page.goto("/servicios/por-cobrar");
   const porCobrar = page.getByRole("row").filter({ hasText: FACTURA_EN_PESOS });
-  await expect(porCobrar.getByRole("cell").nth(1)).toHaveText(
+  await expect(porCobrar.getByRole("cell").nth(2)).toHaveText(
     "Empresa Ejemplo Uno S.A.",
   );
   await expect(porCobrar.getByRole("cell").nth(3)).toHaveText("15/09/2026");
   await expect(porCobrar.getByRole("cell").nth(5)).toHaveText("ARS 1.210,00");
   await expect(porCobrar.getByRole("cell").nth(6)).toHaveText(/^\d+ días$/);
-  await porCobrar.getByRole("link").click();
+  // La fila entera lleva a la factura: sus datos, lo que falta cobrar y el mismo botón.
+  await porCobrar.getByRole("link", { name: FACTURA_EN_PESOS }).click();
+  await expect(page).toHaveURL(/\/servicios\/facturas\/[0-9a-f-]{36}$/);
+  await expect(
+    page.getByRole("heading", { name: `Factura ${FACTURA_EN_PESOS}` }),
+  ).toBeVisible();
+  await expect(page.locator("[data-saldo]")).toHaveText("ARS 1.210,00");
+  await expect(page.getByText("Todavía no tiene cobros.")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Registrar cobro" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: /^SRV-/ }).click();
   await expect(page).toHaveURL(servicioUrl);
 
-  // 2. El primer cobro, parcial: 500,00 de 1.210,00, a 34 días de la factura.
-  const primero = await abrirCobro(page, FACTURA_EN_PESOS, {
+  // 2. El primer cobro, desde *Por cobrar*: la ventana dice lo que falta y,
+  //    al guardar, vuelve al listado con el saldo nuevo. 500,00 de 1.210,00, a 34 días de la factura.
+  await page.goto("/servicios/por-cobrar");
+  const primero = await abrirCobro(page, FACTURA_EN_PESOS, "por cobrar", {
     fecha: "2026-10-05",
     importe: "500,00",
     cuenta: "Caja · ARS",
     ordenDePago: "OP-E2E-1",
   });
+  await expect(primero.locator("[data-pendiente]")).toHaveText("ARS 1.210,00");
   await primero.getByRole("button", { name: "Cobrar" }).click();
   await expect(ventana(page, "Cobrar factura")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/servicios\/por-cobrar/);
+  await expect(porCobrar.getByRole("cell").nth(5)).toHaveText("ARS 710,00");
+  await page.goto(servicioUrl);
   await expect(factura.getByRole("cell").nth(8)).toHaveText("ARS 500,00");
   await expect(factura.getByRole("cell").nth(9)).toHaveText("ARS 0,00");
   await expect(factura.getByRole("cell").nth(10)).toHaveText("ARS 710,00");
@@ -252,7 +302,8 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await expect(filaDelPrimero.getByRole("cell").nth(9)).toHaveText("OP-E2E-1");
 
   // 3. Cobrar de más: 700,00 más 11,00 de retención pasan los 710,00 que faltan.
-  const deMas = await abrirCobro(page, FACTURA_EN_PESOS, {
+  await page.goto("/servicios/por-cobrar");
+  const deMas = await abrirCobro(page, FACTURA_EN_PESOS, "por cobrar", {
     fecha: "2026-10-06",
     importe: "700,00",
     retencion: "11,00",
@@ -264,13 +315,19 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   );
   await expect(deMas.getByLabel(/^Importe \(/)).toHaveValue("700,00");
   await expect(deMas.getByLabel(/^Retención/)).toHaveValue("11,00");
-  await expect(cobros.getByRole("row")).toHaveCount(2);
 
   // El segundo, con retención, salda la factura.
   await deMas.getByLabel(/^Importe \(/).fill("500,00");
   await deMas.getByLabel(/^Retención/).fill("210,00");
   await deMas.getByRole("button", { name: "Cobrar" }).click();
   await expect(ventana(page, "Cobrar factura")).toHaveCount(0);
+  await expect(porCobrar).toHaveCount(0);
+  await page.goto("/servicios/facturas?mes=2026-09&moneda=ARS");
+  await expect(ingreso).toContainText("1.210,00");
+  await expect(
+    ingreso.getByRole("link", { name: "Registrar cobro" }),
+  ).toHaveCount(0);
+  await page.goto(servicioUrl);
   await expect(factura.getByRole("cell").nth(8)).toHaveText("ARS 1.000,00");
   await expect(factura.getByRole("cell").nth(9)).toHaveText("ARS 210,00");
   await expect(factura.getByRole("cell").nth(10)).toHaveText("ARS 0,00");
@@ -279,12 +336,6 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     factura.getByRole("link", { name: "Cobrar", exact: true }),
   ).toHaveCount(0);
   await expect(cobros.getByRole("row")).toHaveCount(3);
-
-  await page.goto("/servicios/por-cobrar");
-  await expect(
-    page.getByRole("row").filter({ hasText: FACTURA_EN_PESOS }),
-  ).toHaveCount(0);
-  await page.goto(servicioUrl);
 
   // 4. Una factura en dólares (100,00 más IVA son 121,00), cobrada desde una cuenta en pesos.
   await cargarFactura(page, {
@@ -298,7 +349,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   const enDolares = filaDeFactura(page, FACTURA_EN_DOLARES);
   await expect(enDolares.getByRole("cell").nth(7)).toHaveText("USD 121,00");
 
-  const sinCambio = await abrirCobro(page, FACTURA_EN_DOLARES, {
+  const sinCambio = await abrirCobro(page, FACTURA_EN_DOLARES, "servicio", {
     fecha: "2026-10-12",
     importe: "50,00",
     cuenta: "Caja · ARS",

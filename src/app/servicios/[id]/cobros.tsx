@@ -66,6 +66,56 @@ function VentanaDeAnulacion({
   );
 }
 
+/** Los cobros de una factura; con `rutaParaAnular`, cada uno ofrece anularse (una ventana sobre esa pantalla). */
+export function TablaDeCobros({
+  cobros,
+  rutaParaAnular,
+}: {
+  readonly cobros: readonly CobroVisible[];
+  readonly rutaParaAnular: string | null;
+}) {
+  return (
+    <Tabla
+      cabeceras={
+        rutaParaAnular === null ? CABECERAS : [...CABECERAS, "Acciones"]
+      }
+    >
+      {cobros.map((cobro) => (
+        <tr key={cobro.id}>
+          <td>{cobro.fecha}</td>
+          <td>{cobro.dias}</td>
+          <td>{cobro.importe}</td>
+          <td>{cobro.retencion}</td>
+          <td>{cobro.cuenta}</td>
+          <td>{cobro.entrada}</td>
+          <td>{cobro.cambio}</td>
+          <td className="whitespace-pre-line">{cobro.observaciones}</td>
+          <td>{cobro.quien}</td>
+          <td>
+            {cobro.ordenPagoNumero}
+            {cobro.ordenPagoDocumento === null ? null : (
+              <p>
+                <EnlaceDeDescarga {...cobro.ordenPagoDocumento} />
+              </p>
+            )}
+          </td>
+          {rutaParaAnular === null ? null : (
+            <td>
+              <Enlace
+                href={`${rutaParaAnular}?anularCobro=${cobro.id}`}
+                scroll={false}
+                className={clasesDeBoton("peligro")}
+              >
+                Anular cobro
+              </Enlace>
+            </td>
+          )}
+        </tr>
+      ))}
+    </Tabla>
+  );
+}
+
 export function Cobros({
   servicioId,
   ruta,
@@ -94,42 +144,10 @@ export function Cobros({
             <h3 className="mb-2 text-lg font-semibold">
               Cobros de la factura {factura.numero}
             </h3>
-            <Tabla
-              cabeceras={puedeEscribir ? [...CABECERAS, "Acciones"] : CABECERAS}
-            >
-              {cobros.map((cobro) => (
-                <tr key={cobro.id}>
-                  <td>{cobro.fecha}</td>
-                  <td>{cobro.dias}</td>
-                  <td>{cobro.importe}</td>
-                  <td>{cobro.retencion}</td>
-                  <td>{cobro.cuenta}</td>
-                  <td>{cobro.entrada}</td>
-                  <td>{cobro.cambio}</td>
-                  <td className="whitespace-pre-line">{cobro.observaciones}</td>
-                  <td>{cobro.quien}</td>
-                  <td>
-                    {cobro.ordenPagoNumero}
-                    {cobro.ordenPagoDocumento === null ? null : (
-                      <p>
-                        <EnlaceDeDescarga {...cobro.ordenPagoDocumento} />
-                      </p>
-                    )}
-                  </td>
-                  {puedeEscribir ? (
-                    <td>
-                      <Enlace
-                        href={`${ruta}?anularCobro=${cobro.id}`}
-                        scroll={false}
-                        className={clasesDeBoton("peligro")}
-                      >
-                        Anular cobro
-                      </Enlace>
-                    </td>
-                  ) : null}
-                </tr>
-              ))}
-            </Tabla>
+            <TablaDeCobros
+              cobros={cobros}
+              rutaParaAnular={puedeEscribir ? ruta : null}
+            />
           </div>
         );
       })}

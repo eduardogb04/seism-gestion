@@ -48,6 +48,7 @@ export type RentabilidadDeServicio = {
 };
 
 export type FacturaDeLaLista = {
+  readonly id: string;
   readonly servicioId: string;
   readonly servicio: string;
   readonly numero: string;

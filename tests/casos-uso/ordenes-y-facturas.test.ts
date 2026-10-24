@@ -989,3 +989,43 @@ describe("el orden del listado con la misma fecha (M-12)", () => {
     expect(listado.map(({ id }) => id)).toEqual([mayor, menor]);
   });
 });
+
+describe("el detalle de una factura (F3-07)", () => {
+  test("trae los datos de la fila, su servicio y cómo cambió su tipo de cambio", async () => {
+    const id = await cargarFactura(
+      { importeMoneda: "USD", importe: "100,00" },
+      archivo(),
+    );
+    await facturas().guardarTipoDeCambio(admin, id, {
+      cambio: "1.200",
+      cambioFuente: "Otra cotización",
+    });
+
+    const detalle = await facturas().ver(id);
+
+    const [fila] = await facturas().listar(servicioId);
+    expect(detalle).toMatchObject({ ...fila, servicioId });
+    expect(detalle.servicio).toMatch(/^SRV-/);
+    expect(detalle.cambios).toEqual([
+      {
+        cuando: expect.stringMatching(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/),
+        quien: expect.any(String),
+        campo: "Tipo de cambio (pesos por dólar)",
+        de: expect.stringContaining(" · "),
+        a: "1.200 · Otra cotización",
+      },
+    ]);
+  });
+
+  test("una factura anulada o que no existe: DOM-0009", async () => {
+    const id = await cargarFactura();
+    await facturas().marcarEliminado(admin, id);
+
+    await expect(facturas().ver(id)).rejects.toMatchObject({
+      codigo: catalogo.DOM_0009.codigo,
+    });
+    await expect(facturas().ver("no-es-un-id")).rejects.toMatchObject({
+      codigo: catalogo.DOM_0009.codigo,
+    });
+  });
+});

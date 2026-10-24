@@ -18,11 +18,16 @@ import type { Actor } from "../../dominio/compartido/actor.ts";
 import {
   crearAuditable,
   marcarEliminado,
+  type RegistroAuditoria,
 } from "../../dominio/compartido/auditable.ts";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
-import { formatearImporte, MONEDAS } from "../../dominio/compartido/importe.ts";
+import {
+  formatearImporte,
+  MONEDA_CON_CAMBIO,
+  MONEDAS,
+} from "../../dominio/compartido/importe.ts";
 import { esDiaValido, formatearISO } from "../../dominio/compartido/reloj.ts";
 import {
   ALICUOTA_POR_DEFECTO,
@@ -30,12 +35,17 @@ import {
   ivaDe,
   totalConIva,
 } from "../../dominio/servicios/factura.ts";
-import type { DatosFactura } from "../../puertos/repositorios/facturas.ts";
+import type {
+  DatosFactura,
+  Factura,
+} from "../../puertos/repositorios/facturas.ts";
 import type {
   RepositoriosEnTransaccion,
   Transaccional,
 } from "../../puertos/repositorios/transaccion.ts";
 import {
+  type CambioAbm,
+  cuandoDe,
   type ErroresPorCampo,
   nombresDeActores,
   validarEscrito,
@@ -112,9 +122,20 @@ export type FacturaListada = {
   readonly quien: string;
 };
 
+/** Una factura con su servicio y los cambios de su tipo de cambio: lo único que se corrige en una factura ya cargada. */
+export type DetalleDeFactura = FacturaListada & {
+  readonly servicioId: string;
+  /** El código del servicio: `SRV-2026-014`. */
+  readonly servicio: string;
+  /** Del más nuevo al más viejo. */
+  readonly cambios: readonly CambioAbm[];
+};
+
 export type CasosUsoFacturas = {
   /** Las no anuladas, la más nueva primero. */
   listar(servicioId: string): Promise<readonly FacturaListada[]>;
+  /** Una factura vigente con su servicio y sus cambios. `DOM-0009` si no existe o está anulada. */
+  ver(id: string): Promise<DetalleDeFactura>;
   /** El formulario de la próxima: las órdenes de compra del servicio, el 21 % y la fecha de hoy. */
   formulario(servicioId: string): Promise<{
     readonly campos: CamposAbm;
@@ -213,6 +234,91 @@ async function ordenesParaElegir(
   }));
 }
 
+async function facturaVigente(
+  repos: RepositoriosEnTransaccion,
+  id: string,
+): Promise<Factura> {
+  const factura = esquemaId.safeParse(id).success
+    ? await repos.facturas.buscarPorId(id)
+    : null;
+  if (factura === null || factura.eliminadoEn !== undefined) {
+    throw nuevoError(catalogo.DOM_0009, { entidad: "Factura", id });
+  }
+  return factura;
+}
+
+function filaDeFactura(
+  { valor }: Factura,
+  ordenCompra: string,
+  documento: DocumentoListado | null,
+  quien: string,
+): FacturaListada {
+  return {
+    id: valor.id,
+    numero: valor.numero,
+    fecha: diaConBarras(valor.fecha),
+    vencimiento: diaConBarras(valor.vencimiento),
+    ordenCompra,
+    sinIva: formatearImporte(valor.importe),
+    cambio: cambioVisible(valor.cambio, valor.importe.moneda),
+    alicuota: etiquetaDeAlicuota(valor.alicuota),
+    iva: formatearImporte(ivaDe(valor.importe, valor.alicuota)),
+    total: formatearImporte(totalConIva(valor.importe, valor.alicuota)),
+    documento,
+    quien,
+  };
+}
+
+/** Cómo guarda la auditoría el tipo de cambio: los enteros grandes van como texto. */
+const esquemaDeCambioAuditado = z
+  .object({
+    valor: z.object({ numerador: z.string(), denominador: z.string() }),
+    fuente: z.string(),
+  })
+  .nullable()
+  .catch(null);
+
+function textoDeCambioAuditado(foto: unknown): string {
+  const cambio = esquemaDeCambioAuditado.parse(foto);
+  return (
+    cambioVisible(
+      cambio === null
+        ? null
+        : {
+            valor: {
+              numerador: BigInt(cambio.valor.numerador),
+              denominador: BigInt(cambio.valor.denominador),
+            },
+            fuente: cambio.fuente,
+          },
+      MONEDA_CON_CAMBIO,
+    )?.texto ?? ""
+  );
+}
+
+/** El cambio del tipo de cambio que describe un registro de auditoría (la alta y la baja no cambian nada). */
+function cambiosDeTipoDeCambio(
+  registro: RegistroAuditoria,
+  quien: string,
+): readonly CambioAbm[] {
+  if (registro.antes === null || registro.despues === null) {
+    return [];
+  }
+  const de = textoDeCambioAuditado(registro.antes.cambio);
+  const a = textoDeCambioAuditado(registro.despues.cambio);
+  return de === a
+    ? []
+    : [
+        {
+          cuando: cuandoDe(registro.en),
+          quien,
+          campo: CAMPO_DE_CAMBIO[1].etiqueta,
+          de,
+          a,
+        },
+      ];
+}
+
 export function crearCasosUsoFacturas({
   transaccional,
   ...adjuntos
@@ -229,22 +335,44 @@ export function crearCasosUsoFacturas({
           facturas.map(({ valor }) => valor.documentoId),
         );
         const quien = await nombresDeActores(repos);
-        return facturas.map(({ valor, creadoPor }) => ({
-          id: valor.id,
-          numero: valor.numero,
-          fecha: diaConBarras(valor.fecha),
-          vencimiento: diaConBarras(valor.vencimiento),
-          ordenCompra:
-            ordenes.find(({ valor: orden }) => orden.id === valor.ordenCompraId)
-              ?.valor.numero ?? "",
-          sinIva: formatearImporte(valor.importe),
-          cambio: cambioVisible(valor.cambio, valor.importe.moneda),
-          alicuota: etiquetaDeAlicuota(valor.alicuota),
-          iva: formatearImporte(ivaDe(valor.importe, valor.alicuota)),
-          total: formatearImporte(totalConIva(valor.importe, valor.alicuota)),
-          documento: documento(valor.documentoId),
-          quien: quien(creadoPor),
-        }));
+        return facturas.map((factura) =>
+          filaDeFactura(
+            factura,
+            ordenes.find(
+              ({ valor }) => valor.id === factura.valor.ordenCompraId,
+            )?.valor.numero ?? "",
+            documento(factura.valor.documentoId),
+            quien(factura.creadoPor),
+          ),
+        );
+      });
+    },
+
+    ver(id) {
+      return transaccional.ejecutar(async (repos) => {
+        const factura = await facturaVigente(repos, id);
+        const { servicioId, ordenCompraId, documentoId } = factura.valor;
+        const servicio = await servicioVigente(repos, servicioId);
+        const orden =
+          ordenCompraId === null
+            ? null
+            : await repos.ordenesCompra.buscarPorId(ordenCompraId);
+        const documento = await documentosListados(repos, [documentoId]);
+        const quien = await nombresDeActores(repos);
+        return {
+          ...filaDeFactura(
+            factura,
+            orden?.valor.numero ?? "",
+            documento(documentoId),
+            quien(factura.creadoPor),
+          ),
+          servicioId,
+          servicio: servicio.valor.codigo,
+          cambios: (await repos.auditoria.registrosDe("Factura", id)).flatMap(
+            (registro) =>
+              cambiosDeTipoDeCambio(registro, quien(registro.actor)),
+          ),
+        };
       });
     },
 
@@ -316,12 +444,7 @@ export function crearCasosUsoFacturas({
 
     formularioDeCambio(id) {
       return transaccional.ejecutar(async (repos) => {
-        const factura = esquemaId.safeParse(id).success
-          ? await repos.facturas.buscarPorId(id)
-          : null;
-        if (factura === null || factura.eliminadoEn !== undefined) {
-          throw nuevoError(catalogo.DOM_0009, { entidad: "Factura", id });
-        }
+        const factura = await facturaVigente(repos, id);
         return {
           numero: factura.valor.numero,
           ...formularioDeCambio(factura.valor),

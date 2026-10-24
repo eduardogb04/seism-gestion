@@ -1,14 +1,13 @@
 /**
- * F3-03 · El aviso que se lee antes de confirmar un ajuste de la cuota: el
- * formulario de la ventana, dibujado con el mes propuesto, lo muestra al lado
- * de los campos y del botón de confirmar.
+ * F3-03 · El aviso que se lee antes de confirmar un ajuste de la cuota: la
+ * ventana del ajuste de la pantalla del servicio, dibujada con el mes
+ * propuesto, lo muestra al lado de los campos y del botón de confirmar.
  */
 
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
-import { FormularioAbm } from "../../src/app/_ui/formulario-abm.tsx";
-import { AvisoDeAjuste } from "../../src/app/servicios/[id]/aviso-de-ajuste.tsx";
+import { VentanaDeAjuste } from "../../src/app/servicios/[id]/facturacion.tsx";
 import type { Escrito } from "../../src/casos-uso/abm/definicion.ts";
 import { avisoDeAjuste } from "../../src/casos-uso/servicios/aviso-de-ajuste.ts";
 
@@ -17,21 +16,17 @@ vi.mock("next/navigation.js", () => ({ useRouter: () => ({ refresh() {} }) }));
 
 function ventana(escrito: Escrito): string {
   const html = renderToStaticMarkup(
-    createElement(
-      FormularioAbm,
-      {
-        accion: async (previo) => previo,
+    createElement(VentanaDeAjuste, {
+      servicioId: "uno",
+      rutaAlCerrar: "/servicios/uno",
+      formulario: {
         campos: [
           ["cuota", { tipo: "texto", etiqueta: "Cuota mensual sin IVA (ARS)" }],
           ["desde", { tipo: "fecha", etiqueta: "Rige desde" }],
         ],
-        elegibles: {},
-        inicial: { escrito, errores: {} },
-        enviar: { texto: "Confirmar ajuste", variante: "primario" },
-        rutaAlCancelar: "/servicios/uno",
+        escrito,
       },
-      createElement(AvisoDeAjuste),
-    ),
+    }),
   );
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 }

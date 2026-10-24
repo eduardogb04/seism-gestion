@@ -7,7 +7,10 @@
  * misma pantalla.
  */
 
-import type { Facturacion as DatosDeFacturacion } from "../../../casos-uso/servicios/facturacion.ts";
+import type {
+  CasosUsoFacturacion,
+  Facturacion as DatosDeFacturacion,
+} from "../../../casos-uso/servicios/facturacion.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
@@ -44,15 +47,18 @@ async function VentanaDeModalidad({
   );
 }
 
-async function VentanaDeAjuste({
+/** Sin `armado()`: la sección le pasa el formulario y un test la dibuja con el aviso. */
+export function VentanaDeAjuste({
   servicioId,
   rutaAlCerrar,
+  formulario: { campos, escrito },
 }: {
   readonly servicioId: string;
   readonly rutaAlCerrar: string;
+  readonly formulario: Awaited<
+    ReturnType<CasosUsoFacturacion["formularioDeAjuste"]>
+  >;
 }) {
-  const { campos, escrito } =
-    await armado().facturacion.formularioDeAjuste(servicioId);
   return (
     <Ventana titulo="Ajustar la cuota" rutaAlCerrar={rutaAlCerrar}>
       <FormularioAbm
@@ -133,6 +139,12 @@ export async function Facturacion({
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const facturacion = await armado().facturacion.ver(servicioId);
+  const formularioDeAjuste =
+    puedeEscribir &&
+    facturacion.esMensual &&
+    typeof parametros.ajusteDeCuota === "string"
+      ? await armado().facturacion.formularioDeAjuste(servicioId)
+      : null;
   return (
     <section className="mt-6">
       <h2 className="mb-2 text-xl font-semibold">Facturación</h2>
@@ -162,11 +174,13 @@ export async function Facturacion({
       {puedeEscribir && typeof parametros.modalidad === "string" ? (
         <VentanaDeModalidad servicioId={servicioId} rutaAlCerrar={ruta} />
       ) : null}
-      {puedeEscribir &&
-      facturacion.esMensual &&
-      typeof parametros.ajusteDeCuota === "string" ? (
-        <VentanaDeAjuste servicioId={servicioId} rutaAlCerrar={ruta} />
-      ) : null}
+      {formularioDeAjuste === null ? null : (
+        <VentanaDeAjuste
+          servicioId={servicioId}
+          rutaAlCerrar={ruta}
+          formulario={formularioDeAjuste}
+        />
+      )}
     </section>
   );
 }

@@ -534,6 +534,25 @@ describe("cambio de estado", () => {
     ]);
   });
 
+  test("dice en qué etapa está y por cuáles pasó, sin repetir", async () => {
+    const id = await alta();
+    expect(await casos().ver(id)).toMatchObject({
+      etapa: "creado",
+      recorridas: ["creado"],
+    });
+    await llevarServicioA(
+      dependencias().transaccional,
+      admin,
+      id,
+      ["cotizado", "adjudicado", "cotizado"],
+      HOY,
+    );
+    expect(await casos().ver(id)).toMatchObject({
+      etapa: "cotizado",
+      recorridas: ["creado", "cotizado", "adjudicado"],
+    });
+  });
+
   test("el cliente que vuelve pasa de «Sin respuesta» a «Cotizado», y perder pide motivo", async () => {
     const id = await alta();
     await llevarServicioA(

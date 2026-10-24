@@ -12,11 +12,13 @@ import type { Reloj } from "../../dominio/compartido/reloj.ts";
 import { todoCobrado } from "../../dominio/servicios/cobro.ts";
 import {
   admiteCarga,
+  admiteFactura,
   type Carga,
   type Causa,
   cicloServicio,
   type EstadoServicio,
   type HistorialServicio,
+  type ModalidadDeFacturacion,
   pedirCambio,
   porCausa,
 } from "../../dominio/servicios/estados.ts";
@@ -115,6 +117,29 @@ export async function exigirEtapa(
   const estado = cicloServicio.estadoActual(await historialDe(repos, id));
   if (!admiteCarga(estado, carga)) {
     throw nuevoError(catalogo.DOM_0018, { id, estado, carga });
+  }
+}
+
+/**
+ * Para cargar una factura (F3-03): `DOM-0021` si el servicio no tiene modalidad
+ * de facturación, `DOM-0018` si con la suya no se factura en la etapa actual.
+ */
+export async function exigirEtapaDeFactura(
+  repos: RepositoriosEnTransaccion,
+  id: string,
+  modalidad: ModalidadDeFacturacion | null,
+): Promise<void> {
+  if (modalidad === null) {
+    throw nuevoError(catalogo.DOM_0021, { id });
+  }
+  const estado = cicloServicio.estadoActual(await historialDe(repos, id));
+  if (!admiteFactura(estado, modalidad)) {
+    throw nuevoError(catalogo.DOM_0018, {
+      id,
+      estado,
+      carga: "factura",
+      modalidad,
+    });
   }
 }
 

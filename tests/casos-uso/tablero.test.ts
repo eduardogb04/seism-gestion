@@ -47,6 +47,7 @@ import {
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import {
   altaDeServicio,
+  conModalidad,
   llevarServicioA,
   sembrarServicio,
 } from "./_arnes/servicio.ts";
@@ -148,6 +149,7 @@ beforeAll(async () => {
   );
   // Las facturas entran «En ejecución» (F3-01): los dos se llevan ahí a mano.
   for (const id of [servicioA, servicioB]) {
+    await conModalidad(cliente(), id);
     await llevarServicioA(
       dependencias().transaccional,
       admin,

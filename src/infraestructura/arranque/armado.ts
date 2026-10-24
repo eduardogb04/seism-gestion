@@ -46,6 +46,10 @@ import {
   crearCasosUsoEgresosDeServicio,
 } from "../../casos-uso/servicios/egresos.ts";
 import {
+  type CasosUsoFacturacion,
+  crearCasosUsoFacturacion,
+} from "../../casos-uso/servicios/facturacion.ts";
+import {
   type CasosUsoFacturas,
   crearCasosUsoFacturas,
 } from "../../casos-uso/servicios/facturas.ts";
@@ -112,6 +116,8 @@ export type Armado = {
   readonly cobros: CasosUsoCobros;
   /** El registro de sucesos de un servicio (F3-01). */
   readonly sucesos: CasosUsoSucesos;
+  /** La modalidad de facturación, la cuota mensual y lo devengado (F3-03). */
+  readonly facturacion: CasosUsoFacturacion;
   /** El responsable, la fecha estimada, los hitos y los recursos de un servicio (F3-02). */
   readonly planificacion: CasosUsoPlanificacion;
   /** El tablero de inicio y los listados a los que lleva (F2-10). */
@@ -192,6 +198,11 @@ function armar(): Armado {
       nuevaClave: nuevaClaveDocumento,
     }),
     sucesos: crearCasosUsoSucesos({ transaccional, reloj, generadorId }),
+    facturacion: crearCasosUsoFacturacion({
+      transaccional,
+      reloj,
+      generadorId,
+    }),
     planificacion: crearCasosUsoPlanificacion({
       transaccional,
       reloj,

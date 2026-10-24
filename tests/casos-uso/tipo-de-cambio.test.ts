@@ -47,7 +47,11 @@ import {
   crearAlmacenTemporal,
 } from "./_arnes/almacen-temporal.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
-import { llevarServicioA, sembrarServicio } from "./_arnes/servicio.ts";
+import {
+  conModalidad,
+  llevarServicioA,
+  sembrarServicio,
+} from "./_arnes/servicio.ts";
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -261,6 +265,8 @@ beforeEach(async () => {
     admin,
     usuarios[0]?.id ?? "",
   );
+  // Factura sin probar la modalidad (F3-03): «Por hitos», en las mismas etapas que antes.
+  await conModalidad(cliente(), servicioId);
   const centro = await abm().crear(admin, CENTROS_DE_COSTO, {
     nombre: "Administración",
     clase: "gestion_administrativa",

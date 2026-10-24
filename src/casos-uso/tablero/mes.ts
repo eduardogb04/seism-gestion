@@ -15,21 +15,7 @@ import {
 } from "../../dominio/compartido/reloj.ts";
 import type { Rango } from "../../puertos/repositorios/tablero.ts";
 import { esquemaMes } from "../abm/abm.ts";
-
-const NOMBRES = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
+import { nombreDelMes } from "../compartido/meses.ts";
 
 export type MesElegido = {
   /** `AAAA-MM`. */
@@ -46,7 +32,8 @@ export type MesElegido = {
   readonly pedidoInvalido: boolean;
 };
 
-function primerDia(mes: string): FechaHora | null {
+/** El día 1 de `mes` (`AAAA-MM`), o `null` si no es un mes. */
+export function primerDia(mes: string): FechaHora | null {
   if (!esquemaMes.safeParse(mes).success) {
     return null;
   }
@@ -54,7 +41,8 @@ function primerDia(mes: string): FechaHora | null {
   return resultado.ok ? resultado.fechaHora : null;
 }
 
-const mesDe = (fechaHora: FechaHora): string =>
+/** `AAAA-MM`. */
+export const mesDe = (fechaHora: FechaHora): string =>
   formatearISO(fechaHora).slice(0, 7);
 
 /** El mes de `pedido` si es un `AAAA-MM`; si no, el de `hoy` (y lo avisa). */
@@ -70,7 +58,7 @@ export function elegirMes(pedido: unknown, hoy: FechaHora): MesElegido {
   const hace11 = sumarMeses(inicio, -11);
   return {
     mes: mesDe(inicio),
-    nombre: `${NOMBRES[inicio.mes - 1]} de ${inicio.anio}`,
+    nombre: nombreDelMes(inicio),
     rango: {
       desde: formatearISO(inicio).slice(0, 10),
       hasta: formatearISO(siguiente).slice(0, 10),

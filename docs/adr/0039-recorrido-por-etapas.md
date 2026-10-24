@@ -54,6 +54,8 @@ El estado sigue siendo el último evento de `servicios_eventos` (ADR 0010) y cam
 - Las pantallas por etapa (F3-06) leen `transicionesManualesDesde` y `admiteCarga`: no repiten reglas.
 - Una sola orden de compra por servicio en el recorrido normal (entra solo en cotizado y lo adjudica). Si hiciera
   falta más de una, se decide en F3-03 (modalidades).
+- F3-03 (ADR 0041) suma la carga `modalidad` (elegirla y ajustar la cuota, en «Adjudicado» y «En ejecución»), decide en qué etapas se factura con cada
+  modalidad y agrega la transición automática «Adjudicado» → «Cotizado» al anular la orden de compra.
 - El `down.sql` lleva `finalizado` a `vigente`: un evento en_ejecucion → finalizado queda vigente → vigente. Pérdida
   aceptada; los eventos, sus fechas y sus autores quedan. Los sucesos se pierden con su tabla.
 - Lo hacen cumplir: la propiedad de `tests/dominio/servicios-estados.test.ts` (secuencias de acciones contra una

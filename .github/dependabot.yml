@@ -11,6 +11,13 @@ updates:
     # mutantes bajo vitest 5.x (ADR 0017); subirlo exige repetir la
     # comprobación manual del ADR antes de sacar este ignore. Subir de major
     # en cualquiera de los tres es una decisión aparte.
+    # Menores y parches juntos en un PR por semana (M-17): de a uno eran 5-7 PRs
+    # que chocaban en el lockfile. `next` va aparte porque una menor ya rompió el
+    # e2e (#104, M-16); las mayores siguen saliendo de a una.
+    groups:
+      menores:
+        update-types: ["minor", "patch"]
+        exclude-patterns: ["next"]
     ignore:
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
@@ -23,6 +30,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      acciones:
+        patterns: ["*"]
 
   # La imagen base del Dockerfile está fijada por digest (F0-07): Dependabot
   # sube tag y digest juntos, como hace con el SHA de las acciones.

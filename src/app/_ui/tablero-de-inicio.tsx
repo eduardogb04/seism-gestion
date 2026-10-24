@@ -23,7 +23,6 @@ import type { Tablero } from "../../casos-uso/tablero/tablero.ts";
 import type { Moneda } from "../../dominio/compartido/importe.ts";
 import { clasesDeBoton } from "./boton.tsx";
 import { Grafico } from "./grafico.tsx";
-import { Tabla } from "./tabla.tsx";
 import { TarjetaKpi } from "./tarjeta-kpi.tsx";
 
 const NOMBRES: Record<Moneda, string> = { ARS: "Pesos", USD: "Dólares" };
@@ -59,14 +58,7 @@ function documentos(cantidad: number): string {
 }
 
 export function TableroDeInicio({ tablero }: { readonly tablero: Tablero }) {
-  const {
-    mes,
-    delMes,
-    pendientes,
-    rentabilidad,
-    egresosPorCentro,
-    convertido,
-  } = tablero;
+  const { mes, delMes, pendientes, convertido } = tablero;
   const { moneda } = convertido;
   const enlaceDeMes = (elegido: string) =>
     `/?${new URLSearchParams({ mes: elegido, moneda })}`;
@@ -343,71 +335,6 @@ export function TableroDeInicio({ tablero }: { readonly tablero: Tablero }) {
               />
             ))}
           </div>
-        </section>
-      ))}
-
-      <h2 className="mt-6">Rentabilidad por servicio, sin convertir</h2>
-      {rentabilidad.length === 0 ? (
-        <p data-sin-rentabilidad>
-          Todavía no hay facturas ni egresos de proyecto.
-        </p>
-      ) : (
-        <Tabla
-          cabeceras={[
-            "Servicio",
-            "Moneda",
-            "Facturado sin IVA",
-            "Egresos de proyecto",
-            "Resultado",
-          ]}
-        >
-          {rentabilidad.map((fila) => (
-            <tr key={`${fila.enlace}-${fila.moneda}`}>
-              <td>
-                <a href={fila.enlace}>{fila.servicio}</a>
-              </td>
-              <td>{fila.moneda}</td>
-              <td>{fila.facturado}</td>
-              <td>{fila.egresos}</td>
-              <td>{fila.resultado}</td>
-            </tr>
-          ))}
-        </Tabla>
-      )}
-
-      <h2 className="mt-6">Egresos por centro de costo</h2>
-      {egresosPorCentro.length === 0 ? (
-        <p data-sin-egresos>No hay egresos en este mes.</p>
-      ) : null}
-      {egresosPorCentro.map(({ moneda: codigo, bloques }) => (
-        <section key={codigo} data-egresos-moneda={codigo}>
-          <h3>{codigo}</h3>
-          {bloques.map((bloque) => (
-            <div key={bloque.clase} data-clase={bloque.clase}>
-              <h4>{bloque.nombre}</h4>
-              <Tabla cabeceras={["Centro de costo", "Total"]}>
-                {bloque.centros.map((centro) => (
-                  <tr key={centro.nombre}>
-                    <td>{centro.nombre}</td>
-                    <td>
-                      <Numero
-                        cifra={centro.total}
-                        id={`${codigo}-${bloque.clase}-${centro.nombre}`}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                <tr>
-                  <td>
-                    <strong>Subtotal de {bloque.nombre}</strong>
-                  </td>
-                  <td data-subtotal={`${codigo}-${bloque.clase}`}>
-                    {bloque.subtotal}
-                  </td>
-                </tr>
-              </Tabla>
-            </div>
-          ))}
         </section>
       ))}
     </>

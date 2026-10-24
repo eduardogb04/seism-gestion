@@ -471,45 +471,20 @@ describe("pendientes a la fecha del reloj", () => {
   });
 });
 
+/** Los dólares de esta base tienen todos el tipo de cambio de ejemplo (1.100,00 pesos por dólar). */
+const PESOS_POR_DOLAR = 1100n;
+
+/** Lo que dibuja el gráfico de rentabilidad del inicio en pesos: el resultado de cada servicio, con los dólares convertidos. */
+async function rentabilidadEnPesos() {
+  return (await tablero().tablero({ moneda: "ARS" })).convertido.rentabilidad;
+}
+
 describe("rentabilidad por servicio", () => {
   test("facturado sin IVA menos los egresos de proyecto del servicio, de siempre y por moneda", async () => {
-    const { rentabilidad } = await tablero().tablero({});
-
-    expect(
-      rentabilidad.map(({ enlace, ...resto }) => ({
-        ...resto,
-        enlace: enlace.replace(/[0-9a-f-]{36}/, "<id>"),
-      })),
-    ).toEqual([
-      {
-        moneda: "ARS",
-        servicio: "SRV-2031-001 · Auditoría de ejemplo",
-        enlace: "/servicios/<id>",
-        facturado: "ARS 2.201,00",
-        egresos: "ARS 640,00",
-        resultado: "ARS 1.561,00",
-      },
-      {
-        moneda: "USD",
-        servicio: "SRV-2031-001 · Auditoría de ejemplo",
-        enlace: "/servicios/<id>",
-        facturado: "USD 1.100,00",
-        egresos: "USD 80,00",
-        resultado: "USD 1.020,00",
-      },
-      {
-        moneda: "ARS",
-        servicio: "SRV-2031-002 · Servicio B de ejemplo",
-        enlace: "/servicios/<id>",
-        facturado: "ARS 2.000,50",
-        egresos: "ARS 250,00",
-        resultado: "ARS 1.750,50",
-      },
-    ]);
-    expect(rentabilidad.map(({ enlace }) => enlace)).toEqual([
-      `/servicios/${servicioA}`,
-      `/servicios/${servicioA}`,
-      `/servicios/${servicioB}`,
+    // A: 1.561,00 en pesos más 1.020,00 en dólares a 1.100,00; B: 1.750,50 en pesos.
+    expect(await rentabilidadEnPesos()).toEqual([
+      { etiqueta: "001/31", resultado: 1123561 },
+      { etiqueta: "002/31", resultado: 1750.5 },
     ]);
   });
 });
@@ -529,12 +504,9 @@ describe("la rentabilidad solo cuenta los centros de proyecto", () => {
       data: { servicioId: servicioB },
     });
     try {
-      const { rentabilidad } = await tablero().tablero({});
-
-      expect(rentabilidad.map(({ egresos }) => egresos)).toEqual([
-        "ARS 640,00",
-        "USD 80,00",
-        "ARS 250,00",
+      expect(await rentabilidadEnPesos()).toEqual([
+        { etiqueta: "001/31", resultado: 1123561 },
+        { etiqueta: "002/31", resultado: 1750.5 },
       ]);
     } finally {
       await cliente().egreso.update({
@@ -545,56 +517,14 @@ describe("la rentabilidad solo cuenta los centros de proyecto", () => {
   });
 });
 
-describe("egresos por centro de costo", () => {
-  test("las tres clases separadas y en orden, cada centro con su total y cada clase con su subtotal", async () => {
-    const { egresosPorCentro } = await tablero().tablero({});
-
-    expect(egresosPorCentro.map(({ moneda }) => moneda)).toEqual([
-      "ARS",
-      "USD",
-    ]);
-    const pesos = egresosPorCentro[0]?.bloques ?? [];
-    expect(
-      pesos.map(({ clase, nombre, subtotal }) => [clase, nombre, subtotal]),
-    ).toEqual([
-      ["proyecto", "Proyecto", "ARS 850,00"],
-      ["gestion_administrativa", "Gestión administrativa", "ARS 300,00"],
-      ["fuera_de_rentabilidad", "Fuera de rentabilidad", "ARS 1.000,00"],
-    ]);
-    expect(
-      pesos.map(({ centros }) =>
-        centros.map(({ nombre, total }) => [nombre, total.valor, total.enlace]),
-      ),
-    ).toEqual([
-      [
-        [
-          "Obra de ejemplo",
-          "ARS 850,00",
-          `/egresos?fecha=2031-07&centroCostoId=${centros.obra}`,
-        ],
-      ],
-      [
-        [
-          "Oficina de ejemplo",
-          "ARS 300,00",
-          `/egresos?fecha=2031-07&centroCostoId=${centros.oficina}`,
-        ],
-      ],
-      [
-        [
-          "Inversión de ejemplo",
-          "ARS 1.000,00",
-          `/egresos?fecha=2031-07&centroCostoId=${centros.inversion}`,
-        ],
-      ],
-    ]);
-    const dolares = egresosPorCentro[1]?.bloques ?? [];
-    expect(dolares.map(({ subtotal }) => subtotal)).toEqual([
-      "USD 80,00",
-      "USD 20,00",
-      "USD 0,00",
-    ]);
-    expect(dolares[2]?.centros).toEqual([]);
+describe("egresos por clase de centro de costo", () => {
+  test("los egresos del mes y el resultado devengado dejan afuera lo de fuera de rentabilidad", async () => {
+    const pesos = (await tablero().tablero({ moneda: "ARS" })).convertido;
+    // Egresos: 2.150,00 en pesos más 100,00 dólares a 1.100,00. Se devengan 850,00 de proyecto,
+    // 300,00 de gestión y los 100,00 dólares; los 1.000,00 de inversión, no.
+    // Facturado sin IVA: 3.001,50 más 1.100,00 dólares a 1.100,00.
+    expect(pesos.egresos.valor).toBe("ARS 112.150,00");
+    expect(pesos.resultadoDevengado.valor).toBe("ARS 1.101.851,50");
   });
 });
 
@@ -767,7 +697,7 @@ describe("cada número cierra con la suma del listado al que lleva", () => {
     );
   });
 
-  test("los egresos del mes y de cada centro cierran con el listado de /egresos al que llevan", async () => {
+  test("los egresos del mes cierran con el listado de /egresos al que llevan", async () => {
     const principal = await tablero().tablero({});
 
     async function delListado(enlace: string, moneda: Moneda): Promise<string> {
@@ -793,50 +723,34 @@ describe("cada número cierra con la suma del listado al que lleva", () => {
       expect(linea.egresos.valor).toBe(
         await delListado(linea.egresos.enlace ?? "", moneda),
       );
-      const bloques =
-        principal.egresosPorCentro.find((bloque) => bloque.moneda === moneda)
-          ?.bloques ?? [];
-      for (const bloque of bloques) {
-        for (const centro of bloque.centros) {
-          expect(centro.total.valor).toBe(
-            await delListado(centro.total.enlace ?? "", moneda),
-          );
-        }
-        expect(bloque.subtotal).toBe(
-          sumaDe(
-            moneda,
-            bloque.centros.map(({ total }) => importeDe(total.valor, moneda)),
-          ),
-        );
-      }
     }
   });
 
   test("la rentabilidad de cada servicio cierra con sus facturas y sus egresos en la pantalla del servicio", async () => {
-    const { rentabilidad } = await tablero().tablero({});
-    const sinIvaDe = (texto: string) =>
-      importeDe(texto, texto.startsWith("USD") ? "USD" : "ARS");
-
-    for (const fila of rentabilidad) {
-      const servicioId = fila.enlace.replace("/servicios/", "");
-      const deLaFactura = (
-        await facturas(almacenTemporal.almacen).listar(servicioId)
-      )
-        .map(({ sinIva }) => sinIva)
-        .filter((texto) => texto.startsWith(fila.moneda));
+    const servicios: Record<string, string> = {
+      "001/31": servicioA,
+      "002/31": servicioB,
+    };
+    for (const fila of await rentabilidadEnPesos()) {
+      const servicioId = servicios[fila.etiqueta] ?? "";
       const { egresos } = await crearCasosUsoEgresosDeServicio(
         dependencias(),
       ).listar(servicioId);
-      const deLosEgresos = egresos
-        .map(({ importe }) => importe)
-        .filter((texto) => texto.startsWith(fila.moneda));
+      // Cada importe de la pantalla del servicio, en pesos: los dólares a 1.100,00.
+      const enPesos = (texto: string): bigint => {
+        const moneda = texto.startsWith("USD") ? "USD" : "ARS";
+        const { centavos } = importeDe(texto, moneda);
+        return moneda === "USD" ? centavos * PESOS_POR_DOLAR : centavos;
+      };
+      const facturado = (
+        await facturas(almacenTemporal.almacen).listar(servicioId)
+      ).reduce((suma, { sinIva }) => suma + enPesos(sinIva), 0n);
+      const gastado = egresos.reduce(
+        (suma, { importe }) => suma + enPesos(importe),
+        0n,
+      );
 
-      expect(fila.facturado).toBe(
-        sumaDe(fila.moneda, deLaFactura.map(sinIvaDe)),
-      );
-      expect(fila.egresos).toBe(
-        sumaDe(fila.moneda, deLosEgresos.map(sinIvaDe)),
-      );
+      expect(fila.resultado).toBe(Number(facturado - gastado) / 100);
     }
   });
 });
@@ -851,20 +765,6 @@ async function inicioDibujado(mes?: string): Promise<string> {
 
 function cifraVista(html: string, id: string): string | undefined {
   return new RegExp(`data-cifra="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
-}
-
-function subtotalVisto(html: string, id: string): string | undefined {
-  return new RegExp(`data-subtotal="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
-}
-
-function celdasDeLaFila(html: string, que: string): string[] | undefined {
-  return [...html.matchAll(/<tr[^>]*>(.*?)<\/tr>/g)]
-    .map(([, fila]) =>
-      [...(fila ?? "").matchAll(/<t[dh][^>]*>(.*?)<\/t[dh]>/g)].map(
-        ([, celda]) => (celda ?? "").replace(/<[^>]+>/g, ""),
-      ),
-    )
-    .find((celdas) => celdas.join("|").startsWith(que));
 }
 
 describe("lo que se ve en el inicio", () => {
@@ -906,7 +806,7 @@ describe("lo que se ve en el inicio", () => {
     });
   });
 
-  test("los pendientes con su vencido, la rentabilidad y los egresos por centro con sus subtotales", async () => {
+  test("los pendientes con su vencido", async () => {
     const html = await inicioDibujado();
 
     expect(
@@ -933,47 +833,5 @@ describe("lo que se ve en el inicio", () => {
       "USD-por-pagar": "USD 70,00",
       "USD-por-pagar-vencido": "USD 20,00",
     });
-    expect(
-      celdasDeLaFila(html, "SRV-2031-001 · Auditoría de ejemplo|ARS"),
-    ).toEqual([
-      "SRV-2031-001 · Auditoría de ejemplo",
-      "ARS",
-      "ARS 2.201,00",
-      "ARS 640,00",
-      "ARS 1.561,00",
-    ]);
-    expect(
-      celdasDeLaFila(html, "SRV-2031-002 · Servicio B de ejemplo|ARS"),
-    ).toEqual([
-      "SRV-2031-002 · Servicio B de ejemplo",
-      "ARS",
-      "ARS 2.000,50",
-      "ARS 250,00",
-      "ARS 1.750,50",
-    ]);
-    expect(
-      [
-        "ARS-proyecto",
-        "ARS-gestion_administrativa",
-        "ARS-fuera_de_rentabilidad",
-        "USD-proyecto",
-        "USD-gestion_administrativa",
-        "USD-fuera_de_rentabilidad",
-      ].map((id) => subtotalVisto(html, id)),
-    ).toEqual([
-      "ARS 850,00",
-      "ARS 300,00",
-      "ARS 1.000,00",
-      "USD 80,00",
-      "USD 20,00",
-      "USD 0,00",
-    ]);
-    expect(cifraVista(html, "ARS-proyecto-Obra de ejemplo")).toBe("ARS 850,00");
-    expect(
-      cifraVista(html, "ARS-gestion_administrativa-Oficina de ejemplo"),
-    ).toBe("ARS 300,00");
-    expect(
-      cifraVista(html, "ARS-fuera_de_rentabilidad-Inversión de ejemplo"),
-    ).toBe("ARS 1.000,00");
   });
 });

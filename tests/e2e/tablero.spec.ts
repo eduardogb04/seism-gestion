@@ -245,25 +245,3 @@ test("el selector de moneda convierte cada documento con su tipo de cambio y avi
     /^(Factura|Egreso)$/,
   );
 });
-
-test("la facturación del mes cambia de moneda con el selector", async ({
-  page,
-}) => {
-  await entrarComo(page, ADMIN);
-  await page.goto("/?mes=2026-10");
-  const pesos = (
-    await page.locator('[data-kpi="facturacion"]').innerText()
-  ).trim();
-  expect(pesos).toMatch(/^ARS [0-9.]+,[0-9]{2}$/);
-
-  await page.locator('[data-selector-moneda="USD"]').click();
-
-  const dolares = (
-    await page.locator('[data-kpi="facturacion"]').innerText()
-  ).trim();
-  expect(dolares).toMatch(/^USD [0-9.]+,[0-9]{2}$/);
-  // La factura en dólares de la semilla (USD 10.000,00) ya está en esa moneda: no baja de ahí.
-  expect(
-    Number(dolares.replace(/[^0-9,]/g, "").replace(",", ".")),
-  ).toBeGreaterThanOrEqual(10000);
-});

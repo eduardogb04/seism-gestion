@@ -4,7 +4,7 @@
  * (`RepositorioTablero`); acá solo se arman, se restan y se escriben.
  *
  * - *Facturado*, *cobrado* y *pagado* son del mes elegido. *Pendiente* es a la
- *   fecha del reloj, y la rentabilidad por servicio es de siempre.
+ *   fecha del reloj.
  * - *Pendiente de cobro* sale de `facturasPorCobrar` y *de pago* de
  *   `pagos.porPagar`: las mismas consultas que las pantallas que lo listan.
  * - Cada cifra lleva el enlace a su listado; las que son una resta de otras
@@ -22,12 +22,10 @@ import type { Reloj } from "../../dominio/compartido/reloj.ts";
 import { restarEnMoneda } from "../../dominio/compartido/saldo.ts";
 import { sumaEn } from "../../dominio/servicios/avance.ts";
 import { ivaDe } from "../../dominio/servicios/factura.ts";
-import type { ClaseDeCentro } from "../../puertos/repositorios/tablero.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
-import { textoDeServicio } from "../abm/definicion.ts";
 import { estaVencido, TODAS } from "../compartido/movimientos.ts";
 import { facturasPorCobrar } from "../servicios/cobros.ts";
-import { CLASES, devenga } from "./clases.ts";
+import { devenga } from "./clases.ts";
 import {
   armarConvertido,
   armarSinTipoDeCambio,
@@ -64,38 +62,10 @@ export type PendienteEnMoneda = {
   readonly porPagarVencido: Cifra;
 };
 
-export type RentabilidadDeUnServicio = {
-  readonly moneda: Moneda;
-  /** `SRV-2026-014 · Título`. */
-  readonly servicio: string;
-  readonly enlace: string;
-  readonly facturado: string;
-  readonly egresos: string;
-  readonly resultado: string;
-};
-
-export type BloqueDeClase = {
-  readonly clase: ClaseDeCentro;
-  readonly nombre: string;
-  readonly centros: readonly {
-    readonly nombre: string;
-    readonly total: Cifra;
-  }[];
-  readonly subtotal: string;
-};
-
-export type EgresosDeUnaMoneda = {
-  readonly moneda: Moneda;
-  /** Siempre los tres, en este orden. */
-  readonly bloques: readonly BloqueDeClase[];
-};
-
 export type Tablero = {
   readonly mes: MesElegido;
   readonly delMes: readonly MesEnMoneda[];
   readonly pendientes: readonly PendienteEnMoneda[];
-  readonly rentabilidad: readonly RentabilidadDeUnServicio[];
-  readonly egresosPorCentro: readonly EgresosDeUnaMoneda[];
   /** Todo en la moneda elegida, convirtiendo cada documento con su tipo de cambio. */
   readonly convertido: Convertido;
 };
@@ -155,7 +125,6 @@ export function crearCasosUsoTablero({
         const cobrado = await tablero.cobradoEnElRango(mes.rango);
         const pagado = await tablero.pagadoEnElRango(mes.rango);
         const centros = await tablero.egresosPorCentro(mes.rango);
-        const rentabilidad = await tablero.rentabilidadPorServicio();
         const porCobrar = await facturasPorCobrar(repos);
         const porPagar = await repos.pagos.porPagar({
           incluirPagados: false,
@@ -270,16 +239,6 @@ export function crearCasosUsoTablero({
           mes,
           delMes,
           pendientes,
-          rentabilidad: rentabilidad.map(
-            ({ servicioId, codigo, titulo, facturado, egresos }) => ({
-              moneda: facturado.moneda,
-              servicio: textoDeServicio(codigo, titulo),
-              enlace: `/servicios/${servicioId}`,
-              facturado: formatearImporte(facturado),
-              egresos: formatearImporte(egresos),
-              resultado: formatearImporte(restarEnMoneda(facturado, egresos)),
-            }),
-          ),
           convertido: await armarConvertido(repos, {
             mes,
             moneda: monedaElegida,
@@ -295,35 +254,6 @@ export function crearCasosUsoTablero({
               vencimiento,
             })),
           }),
-          egresosPorCentro: MONEDAS.filter(
-            (moneda) => egresosDe(moneda).length > 0,
-          ).map(
-            (moneda): EgresosDeUnaMoneda => ({
-              moneda,
-              bloques: CLASES.map(({ clase, nombre }) => {
-                const delBloque = egresosDe(moneda).filter(
-                  (centro) => centro.clase === clase,
-                );
-                return {
-                  clase,
-                  nombre,
-                  centros: delBloque.map(({ centroId, centro, total }) => ({
-                    nombre: centro,
-                    total: {
-                      valor: formatearImporte(total),
-                      enlace: `/egresos?${new URLSearchParams({ fecha: mes.mes, centroCostoId: centroId })}`,
-                    },
-                  })),
-                  subtotal: formatearImporte(
-                    sumaEn(
-                      moneda,
-                      delBloque.map(({ total }) => total),
-                    ),
-                  ),
-                };
-              }),
-            }),
-          ),
         };
       });
     },

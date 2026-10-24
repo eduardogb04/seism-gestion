@@ -42,15 +42,6 @@ const esquemaEgresosDeUnCentro = z.object({
   total_centavos: z.bigint(),
 });
 
-const esquemaRentabilidad = z.object({
-  servicio_id: z.uuid(),
-  codigo: z.string(),
-  titulo: z.string(),
-  moneda: z.string(),
-  facturado_centavos: z.bigint(),
-  egresos_centavos: z.bigint(),
-});
-
 const esquemaFacturaDeLaLista = z.object({
   servicio_id: z.uuid(),
   servicio: z.string(),
@@ -271,41 +262,6 @@ export function crearRepositorioTableroPrisma(
         centro: fila.centro,
         clase: fila.clase,
         total: importeDeColumnas(fila.total_centavos, fila.moneda),
-      }));
-    },
-
-    async rentabilidadPorServicio() {
-      const filas = leer(
-        esquemaRentabilidad,
-        await cliente.$queryRaw`
-          WITH facturado AS (
-            SELECT servicio_id, importe_moneda AS moneda, SUM(importe_centavos)::bigint AS centavos
-              FROM facturas
-             WHERE eliminado_en IS NULL
-             GROUP BY servicio_id, importe_moneda
-          ), gastado AS (
-            SELECT e.servicio_id, e.importe_moneda AS moneda, SUM(e.importe_centavos)::bigint AS centavos
-              FROM egresos e
-              JOIN centros_costo cc ON cc.id = e.centro_costo_id
-             WHERE e.eliminado_en IS NULL AND e.servicio_id IS NOT NULL AND cc.clase = 'proyecto'
-             GROUP BY e.servicio_id, e.importe_moneda
-          )
-          SELECT s.id AS servicio_id, s.codigo, s.titulo,
-                 COALESCE(f.moneda, g.moneda) AS moneda,
-                 COALESCE(f.centavos, 0)::bigint AS facturado_centavos,
-                 COALESCE(g.centavos, 0)::bigint AS egresos_centavos
-            FROM facturado f
-            FULL JOIN gastado g ON g.servicio_id = f.servicio_id AND g.moneda = f.moneda
-            JOIN servicios s ON s.id = COALESCE(f.servicio_id, g.servicio_id)
-           WHERE s.eliminado_en IS NULL
-           ORDER BY s.codigo, COALESCE(f.moneda, g.moneda)`,
-      );
-      return filas.map((fila) => ({
-        servicioId: fila.servicio_id,
-        codigo: fila.codigo,
-        titulo: fila.titulo,
-        facturado: importeDeColumnas(fila.facturado_centavos, fila.moneda),
-        egresos: importeDeColumnas(fila.egresos_centavos, fila.moneda),
       }));
     },
 

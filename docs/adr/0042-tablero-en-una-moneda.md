@@ -21,6 +21,7 @@ Se convierte **documento por documento y recién después se suma**: `convertirD
 - **Sin tipo de cambio:** el documento queda **fuera** de las sumas y se cuenta aparte, nunca como cero en silencio. El aviso del inicio («3 documentos sin tipo de cambio») es el largo de la lista de `/sin-tipo-de-cambio`: las facturas y egresos vigentes, de toda la historia, que no se pueden mirar en la moneda elegida. Es el mismo caso de uso (`documentosSinCambio`) el que cuenta y el que lista.
 - **Selector:** `?moneda=ARS|USD` (pesos por defecto; un valor inválido vuelve a pesos), validado con Zod, junto a `?mes=AAAA-MM`. Son enlaces, sin JavaScript de cliente.
 - **Los doce meses** salen de una consulta agrupada por mes, importe y tipo de cambio por tabla (`facturadoPorMes`, `egresosPorMes`), no de doce llamadas.
+- **El inicio ya no lleva las tablas de F2-10** (rentabilidad por servicio sin convertir y egresos por centro de costo): el criterio pide tarjetas y gráficos. Se borraron con su consulta (`rentabilidadPorServicio`); el gráfico de rentabilidad sale de `rentabilidadConCambio`. A confirmar por Eduardo en el corte.
 - **La rentabilidad por servicio sigue siendo «de siempre»** (definición de F2-10): los diez servicios de mayor facturación convertida y el resto sumado en «Otros».
 - Las tarjetas de cada moneda, los totales sin convertir y los listados a los que llevan no cambian.
 

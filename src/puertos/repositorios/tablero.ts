@@ -42,16 +42,6 @@ export type EgresosDeUnCentro = {
   readonly total: Importe<Moneda>;
 };
 
-export type RentabilidadDeServicio = {
-  readonly servicioId: string;
-  readonly codigo: string;
-  readonly titulo: string;
-  /** Sin IVA, desde siempre. */
-  readonly facturado: Importe<Moneda>;
-  /** Los egresos de centros de proyecto imputados al servicio, en la misma moneda. */
-  readonly egresos: Importe<Moneda>;
-};
-
 export type FacturaDeLaLista = {
   readonly servicioId: string;
   readonly servicio: string;
@@ -123,8 +113,6 @@ export type RepositorioTablero = {
   pagadoEnElRango(rango: Rango): Promise<readonly Importe<Moneda>[]>;
   /** Egresos vigentes con fecha en el rango, un total por moneda y centro de costo. */
   egresosPorCentro(rango: Rango): Promise<readonly EgresosDeUnCentro[]>;
-  /** Una fila por servicio y moneda con facturas o con egresos de proyecto; por código. */
-  rentabilidadPorServicio(): Promise<readonly RentabilidadDeServicio[]>;
   /** Las facturas que suma `facturasDelRango`, de esa moneda, por fecha y número. */
   facturasDeLaLista(
     rango: Rango,
@@ -148,7 +136,7 @@ export type RepositorioTablero = {
   cobradoConCambio(rango: Rango): Promise<readonly MontoParaConvertir[]>;
   /** Los pagos que suma `pagadoEnElRango`, con el tipo de cambio del egreso que cancelan. */
   pagadoConCambio(rango: Rango): Promise<readonly MontoParaConvertir[]>;
-  /** Lo que suma `rentabilidadPorServicio`, documento por documento: facturas y egresos de proyecto. */
+  /** Facturas y egresos de proyecto de siempre, documento por documento. */
   rentabilidadConCambio(): Promise<{
     readonly facturado: readonly MontoDeUnServicio[];
     readonly egresos: readonly MontoDeUnServicio[];

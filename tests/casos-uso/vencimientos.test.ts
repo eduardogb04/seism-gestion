@@ -736,6 +736,37 @@ describe("cotizar la renovación", () => {
     expect(nuevo.vigenciaHasta?.toISOString().slice(0, 10)).toBe("2031-12-31");
   });
 
+  test("el servicio nuevo recurrente tiene su propio «Renovar contrato» al día de su vigencia (F4-03)", async () => {
+    const { id } = await conUnVencimientoDeCamion();
+    await cliente().servicio.update({
+      where: { id: servicioId },
+      data: {
+        modalidad: "recurrente",
+        vigenciaDesde: new Date("2031-01-01"),
+        vigenciaHasta: new Date("2031-12-31"),
+      },
+    });
+
+    const { servicioId: nuevoId } = await vencimientos().renovar(admin, id);
+
+    const deContrato = await cliente().servicioVencimiento.findMany({
+      where: { servicioId: nuevoId, clase: "contrato", eliminadoEn: null },
+    });
+    expect(
+      deContrato.map(({ fecha, estado, descripcion }) => ({
+        fecha: fecha.toISOString().slice(0, 10),
+        estado,
+        descripcion,
+      })),
+    ).toEqual([
+      {
+        fecha: "2031-12-31",
+        estado: "pendiente",
+        descripcion: "Renovar contrato",
+      },
+    ]);
+  });
+
   test("también se renueva con el servicio ya «Cerrado»", async () => {
     const { id } = await conUnVencimientoDeCamion();
     await llevarA("cerrado");

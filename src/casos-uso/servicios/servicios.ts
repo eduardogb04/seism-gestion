@@ -85,7 +85,10 @@ import {
   ETIQUETAS_DE_ESTADO,
   VALIDACION,
 } from "./formulario.ts";
-import { generarVencimientos } from "./generacion-de-vencimientos.ts";
+import {
+  generarVencimientos,
+  sincronizarRenovacionDeContrato,
+} from "./generacion-de-vencimientos.ts";
 
 export const ROLES_QUE_ESCRIBEN_SERVICIOS: readonly Rol[] = [
   "administrador",
@@ -348,6 +351,14 @@ export async function altaDeServicio(
     ...alta,
     posicion: 0,
   });
+  await sincronizarRenovacionDeContrato(
+    actor,
+    repos,
+    reloj,
+    generadorId,
+    id,
+    leido.datos.vigenciaHasta,
+  );
   return { ok: true, id };
 }
 
@@ -598,6 +609,16 @@ export function crearCasosUsoServicios({
           throw nuevoError(catalogo.DOM_0009, { entidad: "Servicio", id });
         }
         await repos.servicios.actualizar(actor, cambiado.valor, "actualizar");
+        if (nuevo.vigenciaHasta !== actual.valor.vigenciaHasta) {
+          await sincronizarRenovacionDeContrato(
+            actor,
+            repos,
+            reloj,
+            generadorId,
+            id,
+            nuevo.vigenciaHasta,
+          );
+        }
         return { ok: true, id };
       });
     },

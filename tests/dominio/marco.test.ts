@@ -86,7 +86,7 @@ function botonDe(html: string, nombre: string): string | undefined {
 describe("Marco", () => {
   test("el menú tiene tres grupos: Operación, Finanzas y Configuración, con lo que existe", () => {
     expect(gruposDe(marcoDe("administrador"))).toEqual({
-      Operación: ["Inicio", "Servicios"],
+      Operación: ["Inicio", "Servicios", "Calendario"],
       Finanzas: ["Ingresos", "Egresos", "Por cobrar", "Por pagar"],
       Configuración: [
         "Grupos",
@@ -105,10 +105,17 @@ describe("Marco", () => {
   test("cada entrada del menú lleva su ícono, oculto para el lector de pantalla", () => {
     const enlaces = enlacesDe(marcoDe("administrador"));
 
-    expect(enlaces).toHaveLength(15);
+    expect(enlaces).toHaveLength(16);
     for (const { interior } of enlaces) {
       expect(interior).toMatch(/^<svg [^>]*aria-hidden="true"/);
     }
+  });
+
+  test("el menú tiene Calendario, que lleva a /calendario", () => {
+    expect(
+      enlacesDe(marcoDe("operador")).find(({ texto }) => texto === "Calendario")
+        ?.apertura,
+    ).toContain('href="/calendario"');
   });
 
   test("el administrador ve en el menú Usuarios y Salud, con sus rutas", () => {

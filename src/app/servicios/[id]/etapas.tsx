@@ -12,6 +12,7 @@ import type { EstadoServicio } from "../../../dominio/servicios/estados.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { Avance } from "./avance.tsx";
 import { Cotizaciones } from "./cotizaciones.tsx";
+import { DocumentosDeAlcance } from "./documentos-de-alcance.tsx";
 import { Egresos } from "./egresos.tsx";
 import { Facturacion } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
@@ -112,6 +113,9 @@ const SECCIONES = {
   sitios: ({ servicio, puedeEscribir }: Datos): ReactNode => (
     <Sitios servicio={servicio} puedeEscribir={puedeEscribir} />
   ),
+  alcance: (datos: Datos): ReactNode => (
+    <DocumentosDeAlcance {...propias(datos)} />
+  ),
   cotizaciones: (datos: Datos): ReactNode => (
     <Cotizaciones {...propias(datos)} />
   ),
@@ -151,8 +155,8 @@ const SECCIONES = {
 const VISTAS: Readonly<
   Record<EstadoServicio, readonly (keyof typeof SECCIONES)[]>
 > = {
-  creado: ["sitios", "cotizaciones"],
-  cotizado: ["cotizaciones", "ordenes"],
+  creado: ["sitios", "alcance", "cotizaciones"],
+  cotizado: ["alcance", "cotizaciones", "ordenes"],
   adjudicado: [
     "ordenes",
     "facturacion",

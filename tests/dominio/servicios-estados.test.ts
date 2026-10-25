@@ -70,6 +70,7 @@ const PIDEN_MOTIVO: readonly EstadoServicio[] = [
 const MENOS_CERRADO = ESTADOS_SERVICIO.filter((estado) => estado !== "cerrado");
 
 const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
+  alcance: ["creado", "cotizado"],
   cotizacion: ["creado", "cotizado"],
   ordenDeCompra: ["cotizado"],
   anulacionDeOrdenDeCompra: ["adjudicado"],
@@ -83,6 +84,7 @@ const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
 };
 
 const CARGAS: readonly Carga[] = [
+  "alcance",
   "cotizacion",
   "ordenDeCompra",
   "anulacionDeOrdenDeCompra",

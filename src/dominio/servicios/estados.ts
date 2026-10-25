@@ -79,6 +79,7 @@ const PIDEN_MOTIVO: readonly EstadoServicio[] = [
 ];
 
 const CARGAS = [
+  "alcance",
   "cotizacion",
   "ordenDeCompra",
   "anulacionDeOrdenDeCompra",
@@ -100,6 +101,8 @@ export type Carga = (typeof CARGAS)[number];
 const MENOS_CERRADO = ESTADOS_SERVICIO.filter((estado) => estado !== "cerrado");
 
 const ETAPAS_DE_CARGA: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
+  // Los documentos de alcance (F5-01): antes de que haya una orden de compra.
+  alcance: ["creado", "cotizado"],
   cotizacion: ["creado", "cotizado"],
   ordenDeCompra: ["cotizado"],
   // Cargarla pasa el servicio a «Adjudicado»: si se anulara solo en «Cotizado», no se anularía nunca.

@@ -14,6 +14,7 @@ import type { RepositorioCobros } from "./cobros.ts";
 import type { RepositorioCotizaciones } from "./cotizaciones.ts";
 import type { RepositorioCuotas } from "./cuotas.ts";
 import type { RepositorioDocumentos } from "./documentos.ts";
+import type { RepositorioDocumentosDeAlcance } from "./documentos-de-alcance.ts";
 import type { RepositorioFacturas } from "./facturas.ts";
 import type { RepositorioOrdenesCompra } from "./ordenes-de-compra.ts";
 import type { RepositorioPagos } from "./pagos.ts";
@@ -41,6 +42,8 @@ export type RepositoriosEnTransaccion = {
   /** Los archivos adjuntos (F2-05): el registro dueño los crea en su misma transacción. */
   readonly documentos: RepositorioDocumentos;
   readonly cotizaciones: RepositorioCotizaciones;
+  /** Los documentos de alcance de un servicio (F5-01). */
+  readonly documentosDeAlcance: RepositorioDocumentosDeAlcance;
   readonly ordenesCompra: RepositorioOrdenesCompra;
   readonly facturas: RepositorioFacturas;
   /** Los cobros de las facturas (F2-07). */

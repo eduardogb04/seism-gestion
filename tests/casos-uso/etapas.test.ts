@@ -25,6 +25,7 @@ import { CUENTAS } from "../../src/casos-uso/abm/cuentas.ts";
 import type { Escrito } from "../../src/casos-uso/abm/definicion.ts";
 import { crearCasosUsoCobros } from "../../src/casos-uso/servicios/cobros.ts";
 import { crearCasosUsoCotizaciones } from "../../src/casos-uso/servicios/cotizaciones.ts";
+import { crearCasosUsoDocumentosDeAlcance } from "../../src/casos-uso/servicios/documentos-de-alcance.ts";
 import { crearCasosUsoFacturas } from "../../src/casos-uso/servicios/facturas.ts";
 import { crearCasosUsoOrdenesDeCompra } from "../../src/casos-uso/servicios/ordenes-de-compra.ts";
 import { crearCasosUsoServicios } from "../../src/casos-uso/servicios/servicios.ts";
@@ -103,6 +104,7 @@ function conAlmacen(transaccional?: Transaccional) {
 
 const servicios = () => crearCasosUsoServicios(dependencias());
 const cotizaciones = () => crearCasosUsoCotizaciones(conAlmacen());
+const alcance = () => crearCasosUsoDocumentosDeAlcance(conAlmacen());
 const ordenes = () => crearCasosUsoOrdenesDeCompra(conAlmacen());
 const facturas = () => crearCasosUsoFacturas(conAlmacen());
 const cobros = (transaccional?: Transaccional) =>
@@ -153,6 +155,14 @@ const cargarCotizacion = async () =>
       },
       { nombre: "cotizacion.pdf", bytes: PDF },
     ),
+  );
+
+const cargarAlcance = async () =>
+  exigirOk(
+    await alcance().crear(admin, servicioId, {
+      nombre: "alcance.pdf",
+      bytes: PDF,
+    }),
   );
 
 const cargarOrden = async (numero = "OC-1") =>
@@ -235,6 +245,7 @@ async function foto() {
   const db = cliente();
   return {
     cotizaciones: await db.cotizacion.count({ where: { eliminadoEn: null } }),
+    alcance: await db.servicioDocumento.count({ where: { eliminadoEn: null } }),
     ordenes: await db.ordenCompra.count({ where: { eliminadoEn: null } }),
     facturas: await db.factura.count({ where: { eliminadoEn: null } }),
     cobros: await db.cobro.count({ where: { eliminadoEn: null } }),
@@ -309,6 +320,35 @@ describe("cada etapa limita lo que se carga (R6)", () => {
       await llevarA(afuera);
       await fueraDeEtapa(cargarCotizacion);
     }
+  });
+
+  test("documentos de alcance: entran en «Creado» y en «Cotizado»; en cualquier otra, DOM-0018 sin escribir nada, tampoco el archivo", async () => {
+    await cargarAlcance();
+    await cargarCotizacion();
+    await cargarAlcance();
+    expect(await estado()).toBe("cotizado");
+    expect(
+      (await alcance().listar(servicioId)).map(({ nombre }) => nombre),
+    ).toEqual(["alcance.pdf", "alcance.pdf"]);
+
+    for (const afuera of fueraDe(["creado", "cotizado"])) {
+      await llevarA(afuera);
+      await fueraDeEtapa(cargarAlcance);
+    }
+  });
+
+  test("un documento de alcance sin archivo, o con uno que no es lo que dice ser, vuelve como mensaje del campo y no escribe nada", async () => {
+    const antes = await foto();
+    for (const archivo of [
+      null,
+      { nombre: "alcance.pdf", bytes: new Uint8Array([1, 2, 3]) },
+    ]) {
+      expect(await alcance().crear(admin, servicioId, archivo)).toMatchObject({
+        ok: false,
+        errores: { archivo: expect.any(String) },
+      });
+    }
+    expect(await foto()).toEqual(antes);
   });
 
   test("anular una cotización sigue la misma regla: en «Cotizado» sí, en «Adjudicado» DOM-0018", async () => {

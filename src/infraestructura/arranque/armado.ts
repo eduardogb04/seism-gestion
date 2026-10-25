@@ -47,6 +47,10 @@ import {
   crearCasosUsoCotizaciones,
 } from "../../casos-uso/servicios/cotizaciones.ts";
 import {
+  type CasosUsoDocumentosDeAlcance,
+  crearCasosUsoDocumentosDeAlcance,
+} from "../../casos-uso/servicios/documentos-de-alcance.ts";
+import {
   type CasosUsoEgresosDeServicio,
   crearCasosUsoEgresosDeServicio,
 } from "../../casos-uso/servicios/egresos.ts";
@@ -118,6 +122,7 @@ export type Armado = {
   readonly servicios: CasosUsoServicios;
   readonly egresosDeServicio: CasosUsoEgresosDeServicio;
   readonly cotizaciones: CasosUsoCotizaciones;
+  readonly documentosDeAlcance: CasosUsoDocumentosDeAlcance;
   /** Las órdenes de compra y las facturas de un servicio (F2-06). */
   readonly ordenesDeCompra: CasosUsoOrdenesDeCompra;
   readonly facturas: CasosUsoFacturas;
@@ -183,6 +188,13 @@ function armar(): Armado {
     servicios: crearCasosUsoServicios({ transaccional, reloj, generadorId }),
     egresosDeServicio: crearCasosUsoEgresosDeServicio({ transaccional }),
     cotizaciones: crearCasosUsoCotizaciones({
+      transaccional,
+      reloj,
+      generadorId,
+      almacen,
+      nuevaClave: nuevaClaveDocumento,
+    }),
+    documentosDeAlcance: crearCasosUsoDocumentosDeAlcance({
       transaccional,
       reloj,
       generadorId,

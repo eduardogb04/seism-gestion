@@ -97,6 +97,23 @@ export async function cargarCotizacion(
   });
 }
 
+/** Cargar un documento de alcance: vuelve a la pantalla del servicio. */
+export async function cargarDocumentoDeAlcance(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().documentosDeAlcance.crear(
+      actor,
+      servicioId,
+      archivo,
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
 /** La anulación, ya confirmada. */
 export async function anularCotizacion(
   servicioId: string,

@@ -7,10 +7,12 @@
 import { z } from "zod";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
+import type { ValorTipoDeCambio } from "../../dominio/compartido/importe.ts";
 import { ALICUOTAS_IVA } from "../../dominio/servicios/factura.ts";
+import type { MontoParaConvertir } from "../../dominio/tablero/conversion.ts";
 import type { RepositorioTablero } from "../../puertos/repositorios/tablero.ts";
 import { aDia, importeDeColumnas } from "./abm/egresos.ts";
-import type { Prisma } from "./generado/client.ts";
+import { Prisma } from "./generado/client.ts";
 
 const alicuota = z.literal(ALICUOTAS_IVA);
 const clase = z.enum([
@@ -40,15 +42,6 @@ const esquemaEgresosDeUnCentro = z.object({
   total_centavos: z.bigint(),
 });
 
-const esquemaRentabilidad = z.object({
-  servicio_id: z.uuid(),
-  codigo: z.string(),
-  titulo: z.string(),
-  moneda: z.string(),
-  facturado_centavos: z.bigint(),
-  egresos_centavos: z.bigint(),
-});
-
 const esquemaFacturaDeLaLista = z.object({
   servicio_id: z.uuid(),
   servicio: z.string(),
@@ -75,6 +68,117 @@ const esquemaPagoDeLaLista = z.object({
   moneda: z.string(),
   importe_centavos: z.bigint(),
 });
+
+const montoConCambio = {
+  moneda: z.string(),
+  importe_centavos: z.bigint(),
+  numerador: z.bigint().nullable(),
+  denominador: z.bigint().nullable(),
+  cantidad: z.number(),
+};
+
+const esquemaMontoConCambio = z.object(montoConCambio);
+
+const esquemaMontoDeUnMes = z.object({ ...montoConCambio, mes: z.string() });
+
+const esquemaEgresoDeUnMes = z.object({
+  ...montoConCambio,
+  mes: z.string(),
+  clase,
+});
+
+const esquemaMontoDeUnServicio = z.object({
+  ...montoConCambio,
+  servicio_id: z.uuid(),
+  codigo: z.string(),
+});
+
+const esquemaCambioDeUnDocumento = z.object({
+  id: z.uuid(),
+  numerador: z.bigint().nullable(),
+  denominador: z.bigint().nullable(),
+});
+
+const esquemaDocumentoSinCambio = z.object({
+  tipo: z.enum(["factura", "egreso"]),
+  id: z.uuid(),
+  servicio_id: z.uuid().nullable(),
+  numero: z.string(),
+  fecha: z.date(),
+  moneda: z.string(),
+  importe_centavos: z.bigint(),
+});
+
+/**
+ * El tipo de cambio (pesos por dólar) que le toca a cada factura y egreso, como
+ * `cambio_de_documento(id, numerador, denominador)`: el propio si es en
+ * dólares y el más reciente cargado en un documento en dólares con fecha
+ * igual o anterior si es en pesos (ADR 0042). Un tipo de cambio de cero o
+ * negativo no cuenta. Las consultas de abajo lo anteponen y lo juntan por `id`.
+ */
+const CAMBIO_DE_CADA_DOCUMENTO = Prisma.sql`
+  WITH cambios_en_dolares AS (
+    SELECT fecha, creado_en, id, cambio_numerador AS numerador, cambio_denominador AS denominador
+      FROM ordenes_de_compra
+     WHERE eliminado_en IS NULL AND importe_moneda = 'USD' AND cambio_numerador > 0 AND cambio_denominador > 0
+    UNION ALL
+    SELECT fecha, creado_en, id, cambio_numerador, cambio_denominador
+      FROM facturas
+     WHERE eliminado_en IS NULL AND importe_moneda = 'USD' AND cambio_numerador > 0 AND cambio_denominador > 0
+    UNION ALL
+    SELECT fecha, creado_en, id, cambio_numerador, cambio_denominador
+      FROM egresos
+     WHERE eliminado_en IS NULL AND importe_moneda = 'USD' AND cambio_numerador > 0 AND cambio_denominador > 0
+    UNION ALL
+    SELECT fecha, creado_en, id, cambio_numerador, cambio_denominador
+      FROM cobros
+     WHERE eliminado_en IS NULL AND importe_moneda = 'USD' AND cambio_numerador > 0 AND cambio_denominador > 0
+    UNION ALL
+    SELECT fecha, creado_en, id, cambio_numerador, cambio_denominador
+      FROM pagos
+     WHERE eliminado_en IS NULL AND importe_moneda = 'USD' AND cambio_numerador > 0 AND cambio_denominador > 0
+  ), cambio_de_documento AS (
+    SELECT d.id,
+           CASE WHEN d.importe_moneda = 'USD' THEN d.numerador ELSE u.numerador END AS numerador,
+           CASE WHEN d.importe_moneda = 'USD' THEN d.denominador ELSE u.denominador END AS denominador
+      FROM (
+        SELECT id, fecha, importe_moneda,
+               CASE WHEN cambio_numerador > 0 AND cambio_denominador > 0 THEN cambio_numerador END AS numerador,
+               CASE WHEN cambio_numerador > 0 AND cambio_denominador > 0 THEN cambio_denominador END AS denominador
+          FROM facturas
+        UNION ALL
+        SELECT id, fecha, importe_moneda,
+               CASE WHEN cambio_numerador > 0 AND cambio_denominador > 0 THEN cambio_numerador END,
+               CASE WHEN cambio_numerador > 0 AND cambio_denominador > 0 THEN cambio_denominador END
+          FROM egresos
+      ) d
+      LEFT JOIN LATERAL (
+        SELECT c.numerador, c.denominador
+          FROM cambios_en_dolares c
+         WHERE c.fecha <= d.fecha
+         ORDER BY c.fecha DESC, c.creado_en DESC, c.id DESC
+         LIMIT 1
+      ) u ON d.importe_moneda <> 'USD'
+  )`;
+
+function cambioDe(fila: {
+  readonly numerador: bigint | null;
+  readonly denominador: bigint | null;
+}): ValorTipoDeCambio | null {
+  return fila.numerador === null || fila.denominador === null
+    ? null
+    : { numerador: fila.numerador, denominador: fila.denominador };
+}
+
+function montoDe(
+  fila: z.output<typeof esquemaMontoConCambio>,
+): MontoParaConvertir {
+  return {
+    importe: importeDeColumnas(fila.importe_centavos, fila.moneda),
+    cambio: cambioDe(fila),
+    cantidad: fila.cantidad,
+  };
+}
 
 function leer<S extends z.ZodType>(esquema: S, filas: unknown): z.output<S>[] {
   const leidas = z.array(esquema).safeParse(filas);
@@ -161,41 +265,6 @@ export function crearRepositorioTableroPrisma(
       }));
     },
 
-    async rentabilidadPorServicio() {
-      const filas = leer(
-        esquemaRentabilidad,
-        await cliente.$queryRaw`
-          WITH facturado AS (
-            SELECT servicio_id, importe_moneda AS moneda, SUM(importe_centavos)::bigint AS centavos
-              FROM facturas
-             WHERE eliminado_en IS NULL
-             GROUP BY servicio_id, importe_moneda
-          ), gastado AS (
-            SELECT e.servicio_id, e.importe_moneda AS moneda, SUM(e.importe_centavos)::bigint AS centavos
-              FROM egresos e
-              JOIN centros_costo cc ON cc.id = e.centro_costo_id
-             WHERE e.eliminado_en IS NULL AND e.servicio_id IS NOT NULL AND cc.clase = 'proyecto'
-             GROUP BY e.servicio_id, e.importe_moneda
-          )
-          SELECT s.id AS servicio_id, s.codigo, s.titulo,
-                 COALESCE(f.moneda, g.moneda) AS moneda,
-                 COALESCE(f.centavos, 0)::bigint AS facturado_centavos,
-                 COALESCE(g.centavos, 0)::bigint AS egresos_centavos
-            FROM facturado f
-            FULL JOIN gastado g ON g.servicio_id = f.servicio_id AND g.moneda = f.moneda
-            JOIN servicios s ON s.id = COALESCE(f.servicio_id, g.servicio_id)
-           WHERE s.eliminado_en IS NULL
-           ORDER BY s.codigo, COALESCE(f.moneda, g.moneda)`,
-      );
-      return filas.map((fila) => ({
-        servicioId: fila.servicio_id,
-        codigo: fila.codigo,
-        titulo: fila.titulo,
-        facturado: importeDeColumnas(fila.facturado_centavos, fila.moneda),
-        egresos: importeDeColumnas(fila.egresos_centavos, fila.moneda),
-      }));
-    },
-
     async facturasDeLaLista({ desde, hasta }, monedaElegida) {
       const filas = leer(
         esquemaFacturaDeLaLista,
@@ -239,6 +308,152 @@ export function crearRepositorioTableroPrisma(
           fila.retencion_centavos === null
             ? null
             : importeDeColumnas(fila.retencion_centavos, fila.moneda),
+      }));
+    },
+
+    async facturadoPorMes({ desde, hasta }) {
+      const filas = leer(
+        esquemaMontoDeUnMes,
+        await cliente.$queryRaw`
+          ${CAMBIO_DE_CADA_DOCUMENTO}
+          SELECT to_char(f.fecha, 'YYYY-MM') AS mes, f.importe_moneda AS moneda, f.importe_centavos,
+                 d.numerador, d.denominador, COUNT(*)::int AS cantidad
+            FROM facturas f
+            JOIN cambio_de_documento d ON d.id = f.id
+           WHERE f.eliminado_en IS NULL AND f.fecha >= ${desde}::date AND f.fecha < ${hasta}::date
+           GROUP BY 1, 2, 3, 4, 5
+           ORDER BY 1, 2, 3, 4, 5`,
+      );
+      return filas.map((fila) => ({ mes: fila.mes, ...montoDe(fila) }));
+    },
+
+    async egresosPorMes({ desde, hasta }) {
+      const filas = leer(
+        esquemaEgresoDeUnMes,
+        await cliente.$queryRaw`
+          ${CAMBIO_DE_CADA_DOCUMENTO}
+          SELECT to_char(e.fecha, 'YYYY-MM') AS mes, cc.clase, e.importe_moneda AS moneda, e.importe_centavos,
+                 d.numerador, d.denominador, COUNT(*)::int AS cantidad
+            FROM egresos e
+            JOIN centros_costo cc ON cc.id = e.centro_costo_id
+            JOIN cambio_de_documento d ON d.id = e.id
+           WHERE e.eliminado_en IS NULL AND e.fecha >= ${desde}::date AND e.fecha < ${hasta}::date
+           GROUP BY 1, 2, 3, 4, 5, 6
+           ORDER BY 1, 2, 3, 4, 5, 6`,
+      );
+      return filas.map((fila) => ({
+        mes: fila.mes,
+        clase: fila.clase,
+        ...montoDe(fila),
+      }));
+    },
+
+    async cobradoConCambio({ desde, hasta }) {
+      const filas = leer(
+        esquemaMontoConCambio,
+        await cliente.$queryRaw`
+          ${CAMBIO_DE_CADA_DOCUMENTO}
+          SELECT c.importe_moneda AS moneda,
+                 (c.importe_centavos + COALESCE(c.retencion_centavos, 0))::bigint AS importe_centavos,
+                 d.numerador, d.denominador, COUNT(*)::int AS cantidad
+            FROM cobros c
+            JOIN cambio_de_documento d ON d.id = c.factura_id
+           WHERE c.eliminado_en IS NULL AND c.fecha >= ${desde}::date AND c.fecha < ${hasta}::date
+           GROUP BY 1, 2, 3, 4
+           ORDER BY 1, 2, 3, 4`,
+      );
+      return filas.map(montoDe);
+    },
+
+    async pagadoConCambio({ desde, hasta }) {
+      const filas = leer(
+        esquemaMontoConCambio,
+        await cliente.$queryRaw`
+          ${CAMBIO_DE_CADA_DOCUMENTO}
+          SELECT p.importe_moneda AS moneda, p.importe_centavos,
+                 d.numerador, d.denominador, COUNT(*)::int AS cantidad
+            FROM pagos p
+            JOIN cambio_de_documento d ON d.id = p.egreso_id
+           WHERE p.eliminado_en IS NULL AND p.fecha >= ${desde}::date AND p.fecha < ${hasta}::date
+           GROUP BY 1, 2, 3, 4
+           ORDER BY 1, 2, 3, 4`,
+      );
+      return filas.map(montoDe);
+    },
+
+    async rentabilidadConCambio() {
+      const facturado = leer(
+        esquemaMontoDeUnServicio,
+        await cliente.$queryRaw`
+          ${CAMBIO_DE_CADA_DOCUMENTO}
+          SELECT s.id AS servicio_id, s.codigo, f.importe_moneda AS moneda, f.importe_centavos,
+                 d.numerador, d.denominador, COUNT(*)::int AS cantidad
+            FROM facturas f
+            JOIN servicios s ON s.id = f.servicio_id
+            JOIN cambio_de_documento d ON d.id = f.id
+           WHERE f.eliminado_en IS NULL AND s.eliminado_en IS NULL
+           GROUP BY 1, 2, 3, 4, 5, 6
+           ORDER BY 2, 3, 4, 5, 6`,
+      );
+      const egresos = leer(
+        esquemaMontoDeUnServicio,
+        await cliente.$queryRaw`
+          ${CAMBIO_DE_CADA_DOCUMENTO}
+          SELECT s.id AS servicio_id, s.codigo, e.importe_moneda AS moneda, e.importe_centavos,
+                 d.numerador, d.denominador, COUNT(*)::int AS cantidad
+            FROM egresos e
+            JOIN centros_costo cc ON cc.id = e.centro_costo_id
+            JOIN servicios s ON s.id = e.servicio_id
+            JOIN cambio_de_documento d ON d.id = e.id
+           WHERE e.eliminado_en IS NULL AND s.eliminado_en IS NULL AND cc.clase = 'proyecto'
+           GROUP BY 1, 2, 3, 4, 5, 6
+           ORDER BY 2, 3, 4, 5, 6`,
+      );
+      const aMonto = (fila: z.output<typeof esquemaMontoDeUnServicio>) => ({
+        servicioId: fila.servicio_id,
+        codigo: fila.codigo,
+        ...montoDe(fila),
+      });
+      return { facturado: facturado.map(aMonto), egresos: egresos.map(aMonto) };
+    },
+
+    async cambiosDe(ids) {
+      const filas = leer(
+        esquemaCambioDeUnDocumento,
+        await cliente.$queryRaw`
+          ${CAMBIO_DE_CADA_DOCUMENTO}
+          SELECT id, numerador, denominador
+            FROM cambio_de_documento
+           WHERE id = ANY(${[...ids]}::uuid[])`,
+      );
+      return filas.map((fila) => ({ id: fila.id, cambio: cambioDe(fila) }));
+    },
+
+    async documentosSinCambio(moneda) {
+      const filas = leer(
+        esquemaDocumentoSinCambio,
+        await cliente.$queryRaw`
+          ${CAMBIO_DE_CADA_DOCUMENTO}
+          SELECT 'factura' AS tipo, f.id, f.servicio_id, f.numero, f.fecha,
+                 f.importe_moneda AS moneda, f.importe_centavos
+            FROM facturas f
+            JOIN cambio_de_documento d ON d.id = f.id
+           WHERE f.eliminado_en IS NULL AND f.importe_moneda <> ${moneda} AND d.numerador IS NULL
+          UNION ALL
+          SELECT 'egreso', e.id, NULL::uuid, COALESCE(e.numero_comprobante, e.concepto), e.fecha,
+                 e.importe_moneda, e.importe_centavos
+            FROM egresos e
+            JOIN cambio_de_documento d ON d.id = e.id
+           WHERE e.eliminado_en IS NULL AND e.importe_moneda <> ${moneda} AND d.numerador IS NULL
+          ORDER BY fecha, numero, id`,
+      );
+      return filas.map((fila) => ({
+        tipo: fila.tipo,
+        id: fila.id,
+        servicioId: fila.servicio_id,
+        numero: fila.numero,
+        fecha: aDia(fila.fecha),
+        importe: importeDeColumnas(fila.importe_centavos, fila.moneda),
       }));
     },
 

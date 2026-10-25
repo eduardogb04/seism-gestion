@@ -29,7 +29,7 @@ const COLORES = [
 
 const ANCHO = 640;
 const ALTO = 260;
-const MARGEN = { arriba: 12, derecha: 12, abajo: 32, izquierda: 64 };
+const MARGEN = { arriba: 12, derecha: 12, abajo: 32, izquierda: 88 };
 const NUMERO = new Intl.NumberFormat("es-AR");
 
 function colorDe(posicion: number) {

@@ -147,3 +147,101 @@ test("un mes inválido avisa y muestra el actual", async ({ page }) => {
     mesDe(new Date(), 0),
   );
 });
+
+/** Un egreso por la pantalla de egresos, como lo carga una persona. */
+async function cargarEgreso(
+  page: Page,
+  datos: {
+    readonly fecha: string;
+    readonly concepto: string;
+    readonly importe: string;
+    readonly dolares?: string;
+  },
+): Promise<void> {
+  await page.goto("/egresos");
+  await page.getByRole("link", { name: "Alta de egreso" }).click();
+  const ventana = page.getByRole("dialog", { name: "Alta de egreso" });
+  await expect(ventana).toBeVisible();
+  await page.getByLabel("Fecha", { exact: true }).fill(datos.fecha);
+  await page.getByLabel("Concepto").fill(datos.concepto);
+  await ventana
+    .getByLabel("Centro de costo")
+    .selectOption({ label: "Administración" });
+  await page.getByLabel("Importe", { exact: true }).fill(datos.importe);
+  if (datos.dolares !== undefined) {
+    await page.getByLabel("Moneda de Importe").selectOption("USD");
+    await page
+      .getByLabel("Tipo de cambio (pesos por dólar)", { exact: true })
+      .fill(datos.dolares);
+    await page
+      .getByLabel("Fuente de Tipo de cambio (pesos por dólar)")
+      .fill("Cotización de ejemplo");
+  }
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+test("el selector de moneda convierte cada documento con su tipo de cambio y avisa los que no tienen", async ({
+  page,
+}) => {
+  await entrarComo(page, ADMIN);
+  // Marzo de 2029 no tiene nada de la semilla ni de los otros recorridos: un egreso
+  // en dólares a 1.000,00 y otro en pesos que toma ese tipo de cambio.
+  await cargarEgreso(page, {
+    fecha: "2029-03-05",
+    concepto: "Gasto en dólares de ejemplo",
+    importe: "10,00",
+    dolares: "1.000,00",
+  });
+  await cargarEgreso(page, {
+    fecha: "2029-03-10",
+    concepto: "Gasto en pesos de ejemplo",
+    importe: "12.000,00",
+  });
+
+  await page.goto("/?mes=2029-03");
+  await expect(page.locator('[data-selector-moneda="ARS"]')).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await expect(page.locator('[data-kpi="egresos"]')).toHaveText(
+    "ARS 22.000,00",
+  );
+  await expect(page.locator('[data-kpi="facturacion"]')).toHaveText("ARS 0,00");
+  await expect(page.locator("[data-sin-cambio]")).toHaveCount(0);
+
+  await page.locator('[data-selector-moneda="USD"]').click();
+  await expect(page).toHaveURL(/\/\?mes=2029-03&moneda=USD$/);
+  await expect(page.locator('[data-selector-moneda="USD"]')).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await expect(page.locator('[data-kpi="egresos"]')).toHaveText("USD 22,00");
+  await expect(page.locator("[data-nota-de-cambio]")).toHaveText(
+    "Pesos convertidos con el último tipo de cambio cargado a esa fecha.",
+  );
+  // Las tarjetas de cada moneda no se convierten.
+  await expect(page.locator('[data-cifra="ARS-egresos"]')).toHaveText(
+    "ARS 12.000,00",
+  );
+  await expect(page.locator('[data-cifra="USD-egresos"]')).toHaveText(
+    "USD 10,00",
+  );
+
+  // En dólares, los egresos en pesos anteriores a todo tipo de cambio quedan afuera y se cuentan aparte.
+  const aviso = page.locator("[data-sin-cambio] a");
+  await expect(aviso).toHaveText(/^[0-9]+ documentos? sin tipo de cambio$/);
+  const cantidad = Number.parseInt(
+    (await aviso.innerText()).split(" ")[0] ?? "",
+    10,
+  );
+  await aviso.click();
+  await expect(page).toHaveURL(/\/sin-tipo-de-cambio\?moneda=USD$/);
+  await expect(
+    page.getByRole("heading", { name: "Documentos sin tipo de cambio" }),
+  ).toBeVisible();
+  await expect(page.locator("tbody tr")).toHaveCount(cantidad);
+  await expect(page.locator("tbody tr").first().getByRole("link")).toHaveText(
+    /^(Factura|Egreso)$/,
+  );
+});

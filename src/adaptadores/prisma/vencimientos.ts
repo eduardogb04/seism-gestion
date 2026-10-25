@@ -71,5 +71,28 @@ export function crearRepositorioVencimientosPrisma(
       });
       return fila === null ? null : desdeFila(fila, paso);
     },
+
+    async pendientesEntre({ desde, hasta }) {
+      const filas = await cliente.servicioVencimiento.findMany({
+        where: {
+          eliminadoEn: null,
+          estado: "pendiente",
+          fecha: { gte: deDia(desde), lt: deDia(hasta) },
+        },
+        orderBy: [{ fecha: "asc" }, { creadoEn: "asc" }],
+        select: {
+          id: true,
+          servicioId: true,
+          fecha: true,
+          descripcion: true,
+          servicio: { select: { codigo: true } },
+        },
+      });
+      return filas.map(({ servicio, fecha, ...resto }) => ({
+        ...resto,
+        servicioCodigo: servicio.codigo,
+        fecha: aDia(fecha),
+      }));
+    },
   };
 }

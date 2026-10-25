@@ -25,6 +25,10 @@ import {
   crearCasosUsoClientesDeGrupo,
 } from "../../casos-uso/abm/clientes-de-grupo.ts";
 import {
+  type CasosUsoCalendario,
+  crearCasosUsoCalendario,
+} from "../../casos-uso/calendario/calendario.ts";
+import {
   type CasosUsoDocumentos,
   crearCasosUsoDocumentos,
 } from "../../casos-uso/documentos/documentos.ts";
@@ -126,6 +130,8 @@ export type Armado = {
   readonly planificacion: CasosUsoPlanificacion;
   /** Los vencimientos de un servicio terminado (F4-02). */
   readonly vencimientos: CasosUsoVencimientos;
+  /** Lo que vence o empieza en un mes (F4-04). */
+  readonly calendario: CasosUsoCalendario;
   /** El tablero de inicio y los listados a los que lleva (F2-10). */
   readonly tablero: CasosUsoTablero;
   /** Bajar un documento adjunto, de cualquier registro (F2-05). */
@@ -219,6 +225,7 @@ function armar(): Armado {
       reloj,
       generadorId,
     }),
+    calendario: crearCasosUsoCalendario({ transaccional, reloj }),
     tablero: crearCasosUsoTablero({ transaccional, reloj }),
     documentos: crearCasosUsoDocumentos({ transaccional, almacen }),
     salud: armarSalud(prisma, reloj),

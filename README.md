@@ -11,8 +11,9 @@ Repositorio **público**. No contiene datos reales ni documentos de negocio: tod
 ## Estado
 
 En construcción. Cerradas: Fase 0 (cimientos), F1 (catálogos con un molde de ABM y el front base)
-y F2 (finanzas). En curso: F3 (el servicio de punta a punta, del recorrido por etapas al inicio
-con KPI). Corre solo en local: todavía no hay servidor.
+F2 (finanzas) y F3 (el servicio de punta a punta, del recorrido por etapas al inicio con KPI). En
+curso: F4 (vencimientos, calendario y situaciones con el cliente). Corre solo en local: todavía no
+hay servidor.
 
 Este README y la descripción del repo se actualizan **al cerrar cada tanda** (F1, F2, F3...), no
 con cada tarea: entre un cierre y otro, `main` puede traer más de lo que dice acá.
@@ -21,16 +22,23 @@ con cada tarea: entre un cierre y otro, `main` puede traer más de lo que dice a
 
 - **Entrar:** identidad delegada en Google (en local, una pantalla de usuarios de prueba), con
   sesiones y roles; nadie escribe sin identidad (ADR 0027 y 0029).
-- **Catálogo** (`/catalogo`): clientes y grupos de clientes, sitios, camiones, tipos de servicio,
-  centros de costo y cuentas. Todos salen del mismo molde de ABM, con baja lógica (ADR 0031).
-- **Servicios** (`/servicios`): el recorrido por etapas (cotizado → adjudicado → en ejecución →
-  finalizado), con responsable, hitos y recursos, documentos adjuntos, órdenes de compra y
-  facturas con su tipo de cambio, y cobros. Hay listados de facturas, de lo que falta cobrar y de
-  lo cobrado (ADR 0033 a 0037 y 0039).
+- **Catálogo** (`/catalogo`): clientes y grupos de clientes (asignables desde los dos lados),
+  sitios, camiones, tipos de servicio, centros de costo y cuentas. Todos salen del mismo molde de
+  ABM, con baja lógica (ADR 0031).
+- **Servicios** (`/servicios`): una pantalla por etapa (creado → cotizado → adjudicado → en
+  ejecución → finalizado → cerrado) que muestra solo lo que se carga en esa etapa, con la línea de
+  etapas y el registro de sucesos al costado. Responsable, hitos y recursos; documentos adjuntos;
+  órdenes de compra y facturas con su tipo de cambio; cobros con la orden de pago del cliente.
+  Tres modalidades de facturación (puntual, por hitos y mensual con cuota ajustable) que definen lo
+  devengado, lo que falta facturar y lo que falta cobrar (ADR 0033 a 0037, 0039 y 0041).
+- **Listados con pago o cobro rápido:** facturas, por cobrar, egresos y por pagar, con el botón al
+  costado de cada fila, orden por columna y un detalle con la trazabilidad del documento.
 - **Egresos** (`/egresos`): gastos imputados a un centro de costo y a un servicio, lo que falta
   pagar y lo pagado.
-- **Inicio** (`/`): cuánto entra y cuánto sale en el mes, cada moneda por su lado, y cada número
-  enlaza a su listado (ADR 0038).
+- **Inicio** (`/`): tarjetas de KPI y gráficos (facturación del mes, cobrado, egresos, pagado,
+  resultado, pendientes con lo vencido, 12 meses y rentabilidad por servicio), con un selector
+  pesos/dólares que convierte con el tipo de cambio de cada documento; lo que no lo tiene se
+  avisa aparte (ADR 0038 y 0042).
 - **Administración** (`/administracion`, `/salud`): usuarios y roles, y el panel de salud del
   sistema (la base, el worker, los avisos al administrador).
 - Tema claro, oscuro o el del sistema operativo, con barra lateral e íconos (ADR 0040).

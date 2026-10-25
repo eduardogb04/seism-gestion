@@ -87,7 +87,7 @@ describe("Marco", () => {
   test("el menú tiene tres grupos: Operación, Finanzas y Configuración, con lo que existe", () => {
     expect(gruposDe(marcoDe("administrador"))).toEqual({
       Operación: ["Inicio", "Servicios"],
-      Finanzas: ["Egresos", "Por cobrar", "Por pagar"],
+      Finanzas: ["Ingresos", "Egresos", "Por cobrar", "Por pagar"],
       Configuración: [
         "Grupos",
         "Clientes y proveedores",
@@ -105,7 +105,7 @@ describe("Marco", () => {
   test("cada entrada del menú lleva su ícono, oculto para el lector de pantalla", () => {
     const enlaces = enlacesDe(marcoDe("administrador"));
 
-    expect(enlaces).toHaveLength(14);
+    expect(enlaces).toHaveLength(15);
     for (const { interior } of enlaces) {
       expect(interior).toMatch(/^<svg [^>]*aria-hidden="true"/);
     }

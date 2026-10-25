@@ -15,7 +15,10 @@ import type { Reloj } from "../../dominio/compartido/reloj.ts";
 import { sumaEn } from "../../dominio/servicios/avance.ts";
 import { ivaDe, totalConIva } from "../../dominio/servicios/factura.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
+import { parametrosDe } from "../abm/abm.ts";
 import { diaConBarras } from "../abm/definicion.ts";
+import { ordenarPor } from "../compartido/orden.ts";
+import { facturasPorCobrar } from "../servicios/cobros.ts";
 import { elegirMes, type MesElegido } from "./mes.ts";
 import { elegirMoneda } from "./moneda.ts";
 
@@ -27,10 +30,20 @@ type Encabezado = {
 type Parametros = {
   readonly mes?: unknown;
   readonly moneda?: unknown;
+  readonly orden?: unknown;
+  readonly direccion?: unknown;
 };
 
+/** Las columnas por las que se ordena el listado de facturas; la primera es el orden por defecto. */
+const COLUMNAS_DE_FACTURAS = ["fecha", "numero", "servicio"] as const;
+
 export type ListadoDeFacturas = Encabezado & {
+  readonly orden: (typeof COLUMNAS_DE_FACTURAS)[number];
+  readonly direccion: "asc" | "desc";
   readonly filas: readonly {
+    readonly facturaId: string;
+    /** Todavía no se cobró entera: se le ofrece cobrar. */
+    readonly conSaldo: boolean;
     readonly servicioId: string;
     readonly servicio: string;
     readonly numero: string;
@@ -100,9 +113,20 @@ export function armarListadosDelTablero({
   return {
     facturas(parametros) {
       const { mes, moneda } = encabezado(parametros);
+      const { orden, direccion } = parametrosDe(
+        { orden: COLUMNAS_DE_FACTURAS },
+        parametros,
+      );
       return transaccional.ejecutar(async (repos) => {
-        const filas = (
-          await repos.tablero.facturasDeLaLista(mes.rango, moneda)
+        const conSaldo = new Set<string>(
+          (await facturasPorCobrar(repos)).map(
+            ({ factura }) => factura.valor.id,
+          ),
+        );
+        const filas = ordenarPor(
+          await repos.tablero.facturasDeLaLista(mes.rango, moneda),
+          (factura) => factura[orden],
+          direccion,
         ).map((factura) => ({
           factura,
           iva: ivaDe(factura.importe, factura.alicuota),
@@ -111,7 +135,11 @@ export function armarListadosDelTablero({
         return {
           mes,
           moneda,
+          orden,
+          direccion,
           filas: filas.map(({ factura, iva, total }) => ({
+            facturaId: factura.id,
+            conSaldo: conSaldo.has(factura.id),
             servicioId: factura.servicioId,
             servicio: factura.servicio,
             numero: factura.numero,

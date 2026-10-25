@@ -809,7 +809,7 @@ describe("Por cobrar", () => {
     await cobrado(saldada, cuenta, { importe: "1.210,00" });
     await cobrado(vencida, cuenta, { importe: "210,00" });
 
-    const lista = await cobros().porCobrar();
+    const lista = await cobros().porCobrar({});
 
     expect(
       lista.filas.map(({ numero, vencimiento, saldo, atraso }) => [
@@ -831,8 +831,27 @@ describe("Por cobrar", () => {
     expect(lista.filas[0]?.servicio).toMatch(/^SRV-/);
     expect(lista.filas[1]?.servicioId).toBe(otroServicio);
     expect(lista.saldos).toEqual(["ARS 2.210,00", "USD 121,00"]);
-    expect(futura).toBeDefined();
-    expect(dolares).toBeDefined();
+    expect(lista.filas.map(({ facturaId }) => facturaId)).toEqual([
+      vencida,
+      dolares,
+      futura,
+    ]);
+
+    const porNumero = await cobros().porCobrar({
+      orden: "factura",
+      direccion: "desc",
+    });
+    expect(porNumero.filas.map(({ numero }) => numero)).toEqual([
+      "F-3",
+      "F-2",
+      "F-1",
+    ]);
+    expect([porNumero.orden, porNumero.direccion]).toEqual(["factura", "desc"]);
+    const porCliente = await cobros().porCobrar({ orden: "cliente; DROP" });
+    expect([porCliente.orden, porCliente.direccion]).toEqual([
+      "vencimiento",
+      "asc",
+    ]);
   });
 
   test("una factura saldada sale de la lista, y una anulada no entra", async () => {
@@ -842,7 +861,7 @@ describe("Por cobrar", () => {
     const anulada = await cargarFactura({ numero: "X-9" });
     await facturas().marcarEliminado(admin, anulada);
 
-    expect(await cobros().porCobrar()).toEqual({ filas: [], saldos: [] });
+    expect((await cobros().porCobrar({})).filas).toEqual([]);
   });
 });
 
@@ -960,6 +979,7 @@ describe("el formulario de cobro", () => {
     const formulario = await cobros().formulario(factura);
 
     expect(formulario).toMatchObject({
+      servicioId,
       numero: "0000-0001",
       saldo: "ARS 1.210,00",
       escrito: { fecha: "2031-07-09" },

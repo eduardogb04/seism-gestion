@@ -9,10 +9,7 @@
  */
 
 import type { ReactNode } from "react";
-import type {
-  CambioAbm,
-  OpcionesPorCampo,
-} from "../../../casos-uso/abm/abm.ts";
+import type { OpcionesPorCampo } from "../../../casos-uso/abm/abm.ts";
 import {
   cabecerasDe,
   camposDe,
@@ -30,6 +27,7 @@ import type { SesionValida } from "../../../casos-uso/sesion/sesion.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import type { EntidadAbm } from "../../../puertos/repositorios/abm.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
+import { Cambios } from "../../_ui/cambios.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
@@ -37,11 +35,12 @@ import {
   consultaDe,
   enlace,
   ListadoAbm,
+  type ListadoVisible,
   type VentanaPedida,
+  type Vista,
   vistaDe,
 } from "../../_ui/listado-abm.tsx";
 import { Marco } from "../../_ui/marco.tsx";
-import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import {
   crearRegistro,
@@ -50,9 +49,20 @@ import {
 } from "./acciones.ts";
 import { CAMPO_ARCHIVO } from "./escrito.ts";
 
+type Parametros = Record<string, string | string[] | undefined>;
+
 export type PropsListado = {
-  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+  readonly searchParams: Promise<Parametros>;
 };
+
+/** Lo que una pantalla suma al listado de su ABM (F3-07): una acción por fila y la ventana que esa acción abre. */
+export type ExtrasDelListado = (
+  listado: ListadoVisible,
+  parametros: Parametros,
+) => Promise<{
+  readonly acciones: (id: string, vista: Vista) => ReactNode;
+  readonly ventana: ReactNode;
+}>;
 
 /** Lo que se muestra de cada registro que se puede elegir, por id. */
 function etiquetasDe(elegibles: OpcionesPorCampo): ReadonlyMap<string, string> {
@@ -76,29 +86,6 @@ function ventanaPedida(
     }
   }
   return null;
-}
-
-/** Cómo cambiaron los campos con historial; sin cambios, nada. */
-function Cambios({ cambios }: { readonly cambios: readonly CambioAbm[] }) {
-  if (cambios.length === 0) {
-    return null;
-  }
-  return (
-    <section className="mt-6">
-      <h3 className="mb-2 font-semibold">Cambios</h3>
-      <Tabla cabeceras={["Cuándo", "Quién", "Campo", "De", "A"]}>
-        {cambios.map(({ cuando, quien, campo, de, a }) => (
-          <tr key={`${cuando}-${campo}-${de}-${a}`}>
-            <td>{cuando}</td>
-            <td>{quien}</td>
-            <td>{campo}</td>
-            <td>{de}</td>
-            <td>{a}</td>
-          </tr>
-        ))}
-      </Tabla>
-    </section>
-  );
 }
 
 /** El campo de archivo del formulario, si la definición adjunta uno. */
@@ -207,9 +194,11 @@ export async function PaginaListado<E extends EntidadAbm>({
   definicion,
   sesion,
   searchParams,
+  extras,
 }: {
   readonly definicion: DefinicionAbm<E>;
   readonly sesion: SesionValida;
+  readonly extras?: ExtrasDelListado;
 } & PropsListado) {
   const parametros = await searchParams;
   const listado = await armado().abm.listar(definicion, parametros);
@@ -218,6 +207,10 @@ export async function PaginaListado<E extends EntidadAbm>({
   const { email, rol } = sesion.usuario;
   const { ruta } = definicion;
   const puedeEscribir = definicion.rolesQueEscriben.includes(rol);
+  const sumado =
+    puedeEscribir && extras !== undefined
+      ? await extras(listado, parametros)
+      : null;
   return (
     <Marco email={email} rol={rol} rutaActual={definicion.ruta}>
       <main>
@@ -257,12 +250,14 @@ export async function PaginaListado<E extends EntidadAbm>({
                     >
                       Dar de baja
                     </Enlace>
+                    {sumado?.acciones(id, deLaVista)}
                   </>
                 )
               : null
           }
         />
       </main>
+      {sumado?.ventana}
       {pedida === null ? null : (
         <ContenidoDeVentana
           definicion={definicion}

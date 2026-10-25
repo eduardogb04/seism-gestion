@@ -201,13 +201,25 @@ describe("semilla", () => {
     expect(await db.auditoria.count({ where: { entidad: "Camion" } })).toBe(4);
   });
 
-  test("siembra los cinco tipos de servicio activos, uno solo recurrente, una sola vez y no en el servidor", async () => {
+  test("siembra los cinco tipos de servicio activos, uno solo recurrente, tres con su regla de vencimiento (F4-01), una sola vez y no en el servidor", async () => {
     const db = cliente();
     const tipos = () =>
       db.tipoServicio.findMany({
         orderBy: { nombre: "asc" },
-        select: { nombre: true, modalidad: true, activo: true },
+        select: {
+          nombre: true,
+          modalidad: true,
+          activo: true,
+          vencimientoMeses: true,
+          vencimientoMesesAntiguos: true,
+          antiguedadCorteAnios: true,
+        },
       });
+    const sinRegla = {
+      vencimientoMeses: null,
+      vencimientoMesesAntiguos: null,
+      antiguedadCorteAnios: null,
+    };
 
     await sembrar(db, opciones("servidor"));
     expect(await tipos()).toEqual([]);
@@ -216,18 +228,34 @@ describe("semilla", () => {
     await sembrar(db, opciones());
 
     expect(await tipos()).toEqual([
-      { nombre: "Auditoría de tanques", modalidad: "puntual", activo: true },
+      {
+        nombre: "Auditoría de tanques",
+        modalidad: "puntual",
+        activo: true,
+        ...sinRegla,
+        vencimientoMeses: 12,
+      },
       {
         nombre: "Certificación de camiones",
         modalidad: "puntual",
         activo: true,
+        vencimientoMeses: 60,
+        vencimientoMesesAntiguos: 36,
+        antiguedadCorteAnios: 10,
       },
-      { nombre: "Informes", modalidad: "puntual", activo: true },
-      { nombre: "Logística", modalidad: "puntual", activo: true },
+      {
+        nombre: "Informes",
+        modalidad: "puntual",
+        activo: true,
+        ...sinRegla,
+        vencimientoMeses: 24,
+      },
+      { nombre: "Logística", modalidad: "puntual", activo: true, ...sinRegla },
       {
         nombre: "Servicio de operación / alquiler de tanques",
         modalidad: "recurrente",
         activo: true,
+        ...sinRegla,
       },
     ]);
   });

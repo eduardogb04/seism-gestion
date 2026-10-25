@@ -319,17 +319,22 @@ model Camion {
 }
 
 model TipoServicio {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre         String
-  descripcion    String?
-  modalidad      String
-  activo         Boolean
-  creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)
-  creadoPor      Json      @map("creado_por") @db.JsonB
-  actualizadoEn  DateTime  @map("actualizado_en") @db.Timestamptz(3)
-  actualizadoPor Json      @map("actualizado_por") @db.JsonB
-  eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre                   String
+  descripcion              String?
+  modalidad                String
+  activo                   Boolean
+  // La regla de vencimiento (F4-01, ADR 0043). El CHECK de la migración exige positivos y el plazo de
+  // antiguos con el corte juntos o ninguno.
+  vencimientoMeses         Int?      @map("vencimiento_meses")
+  vencimientoMesesAntiguos Int?      @map("vencimiento_meses_antiguos")
+  antiguedadCorteAnios     Int?      @map("antiguedad_corte_anios")
+  creadoEn                 DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor                Json      @map("creado_por") @db.JsonB
+  actualizadoEn            DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor           Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn              DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor             Json?     @map("eliminado_por") @db.JsonB
 
   servicios Servicio[]
 

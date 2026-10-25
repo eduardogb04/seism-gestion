@@ -736,8 +736,13 @@ de Playwright instalado una vez** (paso 1). El e2e levanta la app con compose: c
 - Si por un corte de luz o un `Ctrl+C` quedó la app levantada, se baja con:
   ```
   docker compose --profile e2e rm --stop --force --volumes app postgres-e2e
+  docker network rm <proyecto>_default
   ```
-  (Nunca `docker compose down -v`: eso borra el volumen de la base local.)
+  (`<proyecto>` es `COMPOSE_PROJECT_NAME` o, si no la tenés definida, `seism-` y un hash de la ruta de
+  tu copia del repo: `docker network ls` muestra la red. Si dice que está en uso, es que el Postgres
+  de desarrollo del mismo proyecto sigue levantado: dejala. Nunca `docker compose down -v`: eso borra
+  el volumen de la base local. Sin borrar la red, tras muchas corridas Docker dice «all predefined
+  address pools have been fully subnetted» y ningún e2e arranca.)
 
 ### Secretos que quedan (solo nombres)
 

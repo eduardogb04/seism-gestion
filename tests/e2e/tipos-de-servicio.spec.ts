@@ -5,7 +5,10 @@
  * 1. ve los cinco tipos de la semilla, con su modalidad;
  * 2. da de alta uno: «Activo» viene marcado; con un nombre repetido la ventana
  *    vuelve con el mensaje al lado y lo escrito;
- * 3. lo edita desmarcando «Activo» y lo ve en *No* en el listado;
+ *    con el plazo para camiones antiguos sin la antigüedad de corte, la ventana
+ *    pide el corte al lado de su campo (F4-01); con los dos, guarda;
+ * 3. lo edita: trae los plazos guardados; desmarca «Activo» y lo ve en *No*
+ *    en el listado;
  * 4. lo da de baja.
  *
  * Todo inventado.
@@ -29,7 +32,7 @@ function campo(page: Page, etiqueta: string) {
   return page.getByLabel(etiqueta, { exact: true });
 }
 
-test("un administrador da de alta un tipo de servicio, lo edita para dejarlo inactivo y lo da de baja; un nombre repetido vuelve con lo escrito", async ({
+test("un administrador da de alta un tipo de servicio con su regla de vencimiento, lo edita para dejarlo inactivo y lo da de baja; un nombre repetido o el plazo de antiguos sin el corte vuelven con lo escrito", async ({
   page,
 }) => {
   await entrarComoAdmin(page);
@@ -72,8 +75,22 @@ test("un administrador da de alta un tipo de servicio, lo edita para dejarlo ina
   await expect(campo(page, "Modalidad por defecto")).toHaveValue("recurrente");
   await expect(campo(page, "Activo")).toBeChecked();
 
-  // Con otro nombre, da de alta.
+  // Con otro nombre y el plazo de antiguos sin el corte, pide el corte (F4-01).
   await campo(page, "Nombre").fill("Capacitación de operarios");
+  await campo(page, "Plazo de vencimiento (meses)").fill("60");
+  await campo(page, "Plazo para camiones antiguos (meses)").fill("36");
+  await page.getByRole("button", { name: "Guardar" }).click();
+  await expect(
+    campo(page, "Antigüedad de corte (años)"),
+  ).toHaveAccessibleDescription(
+    "Escribí la antigüedad de corte: va junto con el plazo para camiones antiguos.",
+  );
+  await expect(campo(page, "Plazo para camiones antiguos (meses)")).toHaveValue(
+    "36",
+  );
+
+  // Con el corte, da de alta.
+  await campo(page, "Antigüedad de corte (años)").fill("10");
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(fila(page, "Capacitación de operarios")).toContainText(
@@ -81,10 +98,15 @@ test("un administrador da de alta un tipo de servicio, lo edita para dejarlo ina
   );
   await expect(fila(page, "Capacitación de operarios")).toContainText("Sí");
 
-  // 3. Edición: desmarca «Activo» y el listado lo muestra en No.
+  // 3. Edición: trae los plazos; desmarca «Activo» y el listado lo muestra en No.
   await fila(page, "Capacitación de operarios")
     .getByRole("link", { name: "Editar" })
     .click();
+  await expect(campo(page, "Plazo de vencimiento (meses)")).toHaveValue("60");
+  await expect(campo(page, "Plazo para camiones antiguos (meses)")).toHaveValue(
+    "36",
+  );
+  await expect(campo(page, "Antigüedad de corte (años)")).toHaveValue("10");
   await expect(campo(page, "Activo")).toBeChecked();
   await campo(page, "Activo").uncheck();
   await page.getByRole("button", { name: "Guardar" }).click();

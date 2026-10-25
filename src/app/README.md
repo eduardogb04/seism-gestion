@@ -24,7 +24,7 @@ su color, fallidos pendientes, integraciones y gasto de IA). Server Component, s
 sigue pública. El color lo trae ya decidido `listarSalud`: la página solo lo muestra.
 
 Desde F1-02: `globales.css` (Tailwind 4 por CSS, importado en `layout.tsx`) y
-`_ui/`: `Marco` (menú lateral y cabecera con *Salir*, que cada página de detrás
+`_ui/`: `Marco` (menú lateral y cabecera con _Salir_, que cada página de detrás
 del login renderiza después de su control de acceso), `Tarjeta` (pantallas sin
 marco: entrar y sus errores) y los componentes de las pantallas (`Boton`,
 `CampoTexto`, `Selector`, `Tabla`, `ErrorEnPantalla`). Todo es HTML del
@@ -41,5 +41,5 @@ tiene su carpeta (`grupos/`) con una `page.tsx` de pocas líneas: llama a
 y le pasa la definición al molde. Alta, edición y baja (F1-09) son una `Ventana`
 de `_ui/` sobre ese mismo listado, según `?nuevo=1`, `?editar=<id>` o `?baja=<id>`.
 En `_ui/`, `ListadoAbm` y `FormularioAbm`: este es de cliente (`useActionState`) para volver con lo escrito
-y el mensaje al lado del campo, y funciona igual sin JavaScript. Ver *Cómo se
-agrega...un ABM* en `AGENTS.md`.
+y el mensaje al lado del campo, y funciona igual sin JavaScript. Ver _Cómo se
+agrega...un ABM_ en `AGENTS.md`.

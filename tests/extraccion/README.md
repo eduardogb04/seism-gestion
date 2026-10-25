@@ -5,7 +5,6 @@ Golden files: regresión de la extracción de documentos.
 Es un nivel propio (proyecto `extraccion` de Vitest, F0-14): corre con
 `npm run test:todo` o con `npx vitest run --project extraccion`, y no entra en
 `npm test`.
-
 - `_arnes/golden.ts` (F0-16): `compararConGolden(nombre, valor)` serializa
   `valor` determinísticamente (claves ordenadas, rechaza cualquier `Date`) y
   lo compara con `golden/<nombre>.json`. Si el golden falta, falla y **no lo

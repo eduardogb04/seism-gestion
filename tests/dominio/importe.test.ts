@@ -216,7 +216,9 @@ describe("aritmética en centavos", () => {
 
         expect(montos).toHaveLength(partes);
         expect(montos.reduce((suma, monto) => suma + monto, 0n)).toBe(centavos);
+        // biome-ignore lint/complexity/useMathMinMax: Math.max/min no aceptan bigint
         const mayor = montos.reduce((a, b) => (a > b ? a : b));
+        // biome-ignore lint/complexity/useMathMinMax: Math.max/min no aceptan bigint
         const menor = montos.reduce((a, b) => (a < b ? a : b));
         expect(mayor - menor <= 1n).toBe(true);
       },

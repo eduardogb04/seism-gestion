@@ -310,35 +310,54 @@ async function sembrarClientesDeDemostracion(
   });
 }
 
+/** Desde F4-01, tres con regla de vencimiento: plazos inventados, no los de ningún caso real. */
 const TIPOS_DE_SERVICIO_DE_DEMOSTRACION: readonly {
   readonly nombre: string;
   readonly descripcion: string;
   readonly modalidad: "puntual" | "recurrente";
+  readonly vencimientoMeses: number | null;
+  readonly vencimientoMesesAntiguos: number | null;
+  readonly antiguedadCorteAnios: number | null;
 }[] = [
   {
     nombre: "Auditoría de tanques",
     descripcion: "Relevamiento y verificación del estado de tanques.",
     modalidad: "puntual",
+    vencimientoMeses: 12,
+    vencimientoMesesAntiguos: null,
+    antiguedadCorteAnios: null,
   },
   {
     nombre: "Logística",
     descripcion: "Traslado y coordinación de cargas.",
     modalidad: "puntual",
+    vencimientoMeses: null,
+    vencimientoMesesAntiguos: null,
+    antiguedadCorteAnios: null,
   },
   {
     nombre: "Certificación de camiones",
     descripcion: "Verificación y certificación de camiones.",
     modalidad: "puntual",
+    vencimientoMeses: 60,
+    vencimientoMesesAntiguos: 36,
+    antiguedadCorteAnios: 10,
   },
   {
     nombre: "Informes",
     descripcion: "Informes técnicos a pedido.",
     modalidad: "puntual",
+    vencimientoMeses: 24,
+    vencimientoMesesAntiguos: null,
+    antiguedadCorteAnios: null,
   },
   {
     nombre: "Servicio de operación / alquiler de tanques",
     descripcion: "Operación o alquiler de tanques, con servicio continuo.",
     modalidad: "recurrente",
+    vencimientoMeses: null,
+    vencimientoMesesAntiguos: null,
+    antiguedadCorteAnios: null,
   },
 ];
 

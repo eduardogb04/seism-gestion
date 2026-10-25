@@ -646,9 +646,37 @@ describe("cada número cierra con la suma del listado al que lleva", () => {
     ]);
   });
 
+  test("cada factura del listado trae su id, si todavía tiene saldo (como Por cobrar) y se ordena por el título que se toca", async () => {
+    const { listados } = tablero();
+    const parametros = { mes: "2031-07", moneda: "ARS" };
+
+    const facturas = await listados.facturas(parametros);
+    const porCobrar = await cobros(almacenTemporal.almacen).porCobrar({});
+    const conSaldo = porCobrar.filas.map(({ facturaId }) => facturaId);
+
+    expect(facturas.filas.map(({ facturaId }) => facturaId)).not.toContain("");
+    for (const fila of facturas.filas) {
+      expect(fila.conSaldo).toBe(conSaldo.includes(fila.facturaId));
+    }
+    expect(facturas.filas.some(({ conSaldo: debe }) => debe)).toBe(true);
+
+    const alReves = await listados.facturas({
+      ...parametros,
+      orden: "numero",
+      direccion: "desc",
+    });
+    expect(alReves.filas.map(({ numero }) => numero)).toEqual(
+      facturas.filas.map(({ numero }) => numero).toReversed(),
+    );
+    expect([alReves.orden, alReves.direccion]).toEqual(["numero", "desc"]);
+    expect((await listados.facturas({ ...parametros, orden: "x" })).orden).toBe(
+      "fecha",
+    );
+  });
+
   test("los pendientes salen de las mismas consultas que Por cobrar y Por pagar", async () => {
     const principal = await tablero().tablero({});
-    const porCobrar = await cobros(almacenTemporal.almacen).porCobrar();
+    const porCobrar = await cobros(almacenTemporal.almacen).porCobrar({});
     const porPagar = await pagos().porPagar({});
 
     for (const moneda of MONEDAS) {

@@ -12,7 +12,6 @@ Cero llamadas a la fecha del sistema (`Date`): el reloj se inyecta
 estricto: cada regla nace como test en `tests/dominio/`.
 
 Lo que ya vive acá:
-
 - `compartido/reloj.ts` (F0-18) — `Reloj { ahora(): FechaHora }`, el tipo
   `FechaHora` (fecha civil argentina, sin zona horaria) con sus operaciones, y
   `RelojFijo` para los tests.

@@ -66,6 +66,17 @@ export function pasa<T extends { readonly ok: boolean }>(
   return resultado as Extract<T, { ok: true }>;
 }
 
+/** El tipo de cambio de un cobro o pago que cruza monedas; vacío, el que no lo necesita. */
+function conFuenteDelCambio(cambio: string): {
+  readonly tipoDeCambio: string;
+  readonly fuenteDelCambio: string;
+} {
+  return {
+    tipoDeCambio: cambio,
+    fuenteDelCambio: cambio === "" ? "" : "Cotización de ejemplo",
+  };
+}
+
 export function ayudasDelTablero(contexto: ContextoDelTablero) {
   const abm = () => crearCasosUsoAbm(contexto.dependencias());
   const adjuntos = () => ({
@@ -124,6 +135,7 @@ export function ayudasDelTablero(contexto: ContextoDelTablero) {
       dia: string,
       importe: string,
       retencion = "",
+      cambio = "",
     ): Promise<void> {
       pasa(
         await crearCasosUsoCobros(adjuntos()).registrar(
@@ -134,8 +146,7 @@ export function ayudasDelTablero(contexto: ContextoDelTablero) {
             importe,
             retencion,
             cuentaId,
-            tipoDeCambio: "",
-            fuenteDelCambio: "",
+            ...conFuenteDelCambio(cambio),
             observaciones: "",
           },
         ),
@@ -169,6 +180,7 @@ export function ayudasDelTablero(contexto: ContextoDelTablero) {
       cuentaId: string,
       dia: string,
       importe: string,
+      cambio = "",
     ): Promise<void> {
       pasa(
         await crearCasosUsoPagos(contexto.dependencias()).registrarPago(
@@ -178,8 +190,7 @@ export function ayudasDelTablero(contexto: ContextoDelTablero) {
             fecha: dia,
             importe,
             cuentaId,
-            tipoDeCambio: "",
-            fuenteDelCambio: "",
+            ...conFuenteDelCambio(cambio),
             observaciones: "",
           },
         ),

@@ -62,6 +62,7 @@ const prisma = {
 };
 let almacenTemporal: AlmacenTemporal;
 let admin: Actor;
+let adminId: string;
 
 function cliente(): ReturnType<typeof crearClientePrisma> {
   expect(prisma.actual, "el cliente de Prisma no se armó").toBeDefined();
@@ -110,6 +111,7 @@ beforeAll(async () => {
   if (primero === undefined) {
     throw new Error("no se sembró el usuario");
   }
+  adminId = primero.id;
   admin = { tipo: "persona", usuarioId: primero.id };
   const servicioA = await sembrarServicio(
     cliente(),
@@ -565,11 +567,27 @@ function kpiVisto(html: string, id: string): string | undefined {
   return new RegExp(`data-kpi="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
 }
 
+/** A dónde lleva el número `id` de las tarjetas de arriba; `null` si no es un enlace. */
+function enlaceDelKpi(html: string, id: string): string | null {
+  return (
+    new RegExp(`<a href="([^"]*)"[^>]*data-kpi="${id}"`).exec(html)?.[1] ?? null
+  );
+}
+
+/** El tamaño del valor de una tarjeta: la clase del párrafo que contiene el número `marca`. */
+function tamanoDelNumero(html: string, marca: string): string | undefined {
+  return new RegExp(
+    `<p class="[^"]*\\b(text-4xl|text-2xl|text-lg)\\b[^"]*"><(?:a|span)[^>]*${marca}`,
+  ).exec(html)?.[1];
+}
+
 describe("lo que se ve en el inicio, en una sola moneda", () => {
   test("en pesos: la facturación en grande, el resto de los números y el aviso que lleva a la lista", async () => {
     const html = await inicioDibujado("ARS");
 
     expect(kpiVisto(html, "facturacion")).toBe("ARS 180.330,03");
+    expect(tamanoDelNumero(html, 'data-kpi="facturacion"')).toBe("text-4xl");
+    expect(tamanoDelNumero(html, 'data-kpi="cobrado"')).toBe("text-2xl");
     expect(kpiVisto(html, "resultado-de-caja")).toBe("ARS 4.020,00");
     expect(kpiVisto(html, "por-cobrar-vencido")).toBe("ARS 18.000,00");
     expect(html).toMatch(
@@ -606,12 +624,86 @@ describe("lo que se ve en el inicio, en una sola moneda", () => {
     expect(sinEtiquetas(html)).toContain("001/31126.050002/3155.280,03");
   });
 
+  test("egresos y pendientes de cobro y de pago llevan a su listado, con y sin lo vencido", async () => {
+    const html = await inicioDibujado("ARS");
+
+    expect(enlaceDelKpi(html, "egresos")).toBe("/egresos?fecha=2031-07");
+    expect(enlaceDelKpi(html, "por-cobrar")).toBe("/servicios/por-cobrar");
+    expect(enlaceDelKpi(html, "por-cobrar-vencido")).toBe(
+      "/servicios/por-cobrar",
+    );
+    expect(enlaceDelKpi(html, "por-pagar")).toBe("/egresos/pagos");
+    expect(enlaceDelKpi(html, "por-pagar-vencido")).toBe("/egresos/pagos");
+  });
+
   test("las tarjetas de cada moneda siguen sin convertir y con su enlace", async () => {
     const html = await inicioDibujado("USD");
 
     expect(cifraVista(html, "ARS-facturado-sin-iva")).toBeDefined();
+    expect(tamanoDelNumero(html, 'data-cifra="USD-facturado-sin-iva"')).toBe(
+      "text-lg",
+    );
     expect(html).toMatch(
       /<a href="\/servicios\/facturas\?mes=2031-07&amp;moneda=USD"[^>]*data-cifra="USD-facturado-sin-iva"/,
     );
+  });
+});
+
+// Cobros y pagos desde una cuenta en pesos de documentos en dólares, con un
+// tipo de cambio propio distinto del de la factura y del egreso: los números
+// convertidos usan el del documento que cancelan (R3), no el del movimiento.
+// Marzo de 2030, un mes que ningún otro test toca; va al final del archivo
+// porque suma una factura y un egreso a la base compartida.
+describe("cobrado y pagado, con el tipo de cambio del documento que cancelan", () => {
+  beforeAll(async () => {
+    const servicio = await altaDeServicio(
+      cliente(),
+      dependencias(),
+      admin,
+      adminId,
+      "Servicio de marzo de 2030",
+    );
+    await conModalidad(cliente(), servicio);
+    await llevarServicioA(
+      dependencias().transaccional,
+      admin,
+      servicio,
+      ["cotizado", "adjudicado", "en_ejecucion"],
+      HOY,
+    );
+    const centro = await altaDeCentro("Centro de marzo", "proyecto");
+    const cajaPesos = await altaDeCuenta("Caja en pesos de marzo", "ARS");
+
+    const factura = await cargarFactura(servicio, {
+      numero: "F-0300",
+      fecha: "2030-03-10",
+      vencimiento: "2030-04-10",
+      importe: "100,00",
+      moneda: "USD",
+      cambio: "1.000,00",
+      alicuota: "0",
+    });
+    await cobrar(factura, cajaPesos, "2030-03-20", "100,00", "", "1.200,00");
+
+    const egreso = await cargarEgreso({
+      centroCostoId: centro,
+      fecha: "2030-03-05",
+      servicioId: servicio,
+      importe: "50,00",
+      moneda: "USD",
+      cambio: "900,00",
+    });
+    await pagar(egreso, cajaPesos, "2030-03-15", "20,00", "1.100,00");
+  }, 60_000);
+
+  // Cobrado: USD 100,00 a 1.000,00 (el de la factura), no a 1.200,00 (el del cobro).
+  // Pagado: USD 20,00 a 900,00 (el del egreso), no a 1.100,00 (el del pago).
+  test("el cobro y el pago convierten con el cambio de su factura y de su egreso", async () => {
+    const { convertido } = await tablero().tablero({ mes: "2030-03" });
+
+    expect({
+      cobrado: convertido.cobrado.valor,
+      pagado: convertido.pagado.valor,
+    }).toEqual({ cobrado: "ARS 100.000,00", pagado: "ARS 18.000,00" });
   });
 });

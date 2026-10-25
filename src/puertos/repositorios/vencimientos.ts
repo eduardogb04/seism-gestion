@@ -16,6 +16,8 @@ export type DatosVencimiento = {
   /** Un día, `aaaa-mm-dd`. */
   readonly fecha: string;
   readonly descripcion: string;
+  /** `trabajo` (lo terminado, F4-02) o `contrato` (renovar la vigencia, F4-03). */
+  readonly clase: string;
   /** `calculado` (al finalizar el servicio) o `manual` (cargado o con la fecha corregida a mano). */
   readonly origen: string;
   /** `pendiente`, `renovado` o `descartado`. */
@@ -42,6 +44,8 @@ export type RepositorioVencimientos = Pick<
 > & {
   /** Los no eliminados de un servicio, por fecha. */
   listarDe(servicioId: string): Promise<readonly Vencimiento[]>;
+  /** El vencimiento de contrato pendiente del servicio, si lo tiene (a lo sumo uno). */
+  pendienteDeContratoDe(servicioId: string): Promise<Vencimiento | null>;
   /** Los pendientes no eliminados con fecha en `rango`, por fecha. */
   pendientesEntre(rango: Rango): Promise<readonly VencimientoPendiente[]>;
 };

@@ -155,3 +155,81 @@ test("al finalizar un servicio con dos camiones aparecen dos vencimientos; se co
   ).toHaveCount(0);
   await expect(segundo.getByRole("link", { name: "Descartar" })).toHaveCount(0);
 });
+
+test("un servicio recurrente muestra «Renovar contrato» desde «Adjudicado» y lo mueve al cambiar la vigencia", async ({
+  page,
+}) => {
+  await entrarComo(page, OPERADORA);
+  const titulo = "Contrato recurrente de prueba — ejemplo";
+  const vencimientos = page.getByRole("heading", {
+    name: "Vencimientos",
+    exact: true,
+  });
+  const renovar = page.locator('[data-vencimiento="Renovar contrato"]');
+
+  await page.goto("/servicios");
+  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  const alta = ventana(page, "Alta de servicio");
+  await alta
+    .getByLabel("Cliente")
+    .selectOption({ label: "Empresa Ejemplo Uno S.A." });
+  await alta
+    .getByLabel("Tipo de servicio")
+    .selectOption({ label: "Certificación de camiones" });
+  await alta.getByLabel("Título").fill(titulo);
+  await alta.getByLabel("Modalidad").selectOption("recurrente");
+  await alta.getByLabel("Responsable").selectOption({ label: ADMIN });
+  await alta.getByLabel("Fecha de pedido").fill("2026-10-10");
+  await alta.getByLabel("Vigencia desde").fill("2026-11-01");
+  await alta.getByLabel("Vigencia hasta").fill("2027-10-31");
+  await alta.getByRole("button", { name: "Guardar" }).click();
+  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
+
+  // Antes de «Adjudicado» la sección no está.
+  await expect(vencimientos).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Nueva cotización" }).click();
+  const cotizacion = ventana(page, "Nueva cotización");
+  await cotizacion.getByLabel("Fecha").fill("2026-10-11");
+  await cotizacion.getByLabel("Importe", { exact: true }).fill("1.000,00");
+  await cotizacion.getByLabel("Documento").setInputFiles({
+    name: "cotizacion.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\nCotización de ejemplo\n"),
+  });
+  await cotizacion.getByRole("button", { name: "Cargar" }).click();
+  await expect(ventana(page, "Nueva cotización")).toHaveCount(0);
+  await page.getByRole("link", { name: "Nueva orden de compra" }).click();
+  const orden = ventana(page, "Nueva orden de compra");
+  await orden.getByLabel("Número").fill("OC-E2E-CONTRATO");
+  await orden.getByLabel("Fecha").fill("2026-10-12");
+  await orden.getByLabel("Importe sin IVA", { exact: true }).fill("1.000,00");
+  await orden.getByRole("button", { name: "Cargar" }).click();
+  await expect(ventana(page, "Nueva orden de compra")).toHaveCount(0);
+  const estado = page.locator("[data-estado-del-servicio]");
+  await expect(estado).toHaveText("Adjudicado");
+
+  // En «Adjudicado» y en «En ejecución» se ve, sin nada para cargar ni corregir.
+  await expect(vencimientos).toBeVisible();
+  await expect(renovar.locator("td").nth(0)).toHaveText("31/10/2027");
+  await expect(renovar.locator("td").nth(2)).toHaveText("Calculado");
+  await expect(renovar.locator("td").nth(3)).toHaveText("Pendiente");
+  await expect(
+    page.getByRole("link", { name: "Nuevo vencimiento" }),
+  ).toHaveCount(0);
+  await expect(
+    renovar.getByRole("link", { name: "Corregir fecha" }),
+  ).toHaveCount(0);
+  await confirmar(page, "Iniciar ejecución");
+  await expect(estado).toHaveText("En ejecución");
+  await expect(renovar.locator("td").nth(0)).toHaveText("31/10/2027");
+
+  // Cambiar la vigencia lo mueve.
+  await page.getByRole("link", { name: "Editar", exact: true }).click();
+  const edicion = ventana(page, "Edición de servicio");
+  await edicion.getByLabel("Vigencia hasta").fill("2028-04-30");
+  await edicion.getByRole("button", { name: "Guardar" }).click();
+  await expect(ventana(page, "Edición de servicio")).toHaveCount(0);
+  await expect(renovar).toHaveCount(1);
+  await expect(renovar.locator("td").nth(0)).toHaveText("30/04/2028");
+});

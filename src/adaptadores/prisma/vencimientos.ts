@@ -60,6 +60,18 @@ export function crearRepositorioVencimientosPrisma(
       return filas.map((fila) => desdeFila(fila, paso));
     },
 
+    async pendienteDeContratoDe(servicioId) {
+      const fila = await cliente.servicioVencimiento.findFirst({
+        where: {
+          servicioId,
+          clase: "contrato",
+          estado: "pendiente",
+          eliminadoEn: null,
+        },
+      });
+      return fila === null ? null : desdeFila(fila, paso);
+    },
+
     async pendientesEntre({ desde, hasta }) {
       const filas = await cliente.servicioVencimiento.findMany({
         where: {

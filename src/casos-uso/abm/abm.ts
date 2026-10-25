@@ -506,7 +506,7 @@ async function serviciosOfrecidos(
 }
 
 /** Lo que se muestra de cada registro relacionado con `registros`, por id, en una sola consulta por campo. */
-async function etiquetasDe<E extends EntidadAbm>(
+export async function etiquetasDe<E extends EntidadAbm>(
   repos: RepositoriosEnTransaccion,
   definicion: DefinicionAbm<E>,
   registros: readonly RegistroAbm<E>[],

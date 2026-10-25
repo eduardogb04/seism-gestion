@@ -1,7 +1,9 @@
 /**
- * El registro de sucesos de un servicio (F3-01, ADR 0039): una entrada con su
- * día, su texto y su autor, que sirve de traza. No se edita: se anula, con un
- * motivo. Se carga y se anula en cualquier etapa menos «Cerrado» (`DOM-0018`).
+ * El registro de sucesos —las situaciones— de un cliente (F3-01, ADR 0039;
+ * F4-05, ADR 0044): una entrada con su día, su texto y su autor, que sirve de
+ * traza. Cuelga del cliente y, si es de uno, de su servicio. No se edita: se
+ * anula, con un motivo. La de un servicio se carga y se anula en cualquier
+ * etapa menos «Cerrado» (`DOM-0018`); una suelta no tiene etapa.
  *
  * - Toda escritura recibe el `Actor` primero, exige un rol que escriba
  *   (`AUT-0009`) y corre entera en una transacción, con la fila del servicio
@@ -20,16 +22,21 @@ import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
 import { formatearISO, type Reloj } from "../../dominio/compartido/reloj.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
+import type { Suceso } from "../../puertos/repositorios/sucesos.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
 import {
   type ErroresPorCampo,
+  etiquetasDe,
   nombresDeActores,
   validarEscrito,
+  vigente,
 } from "../abm/abm.ts";
+import { CLIENTES } from "../abm/clientes.ts";
 import {
   type CamposAbm,
   diaConBarras,
   type Escrito,
+  textosDe,
 } from "../abm/definicion.ts";
 import { obligatorio } from "../abm/validaciones.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
@@ -61,14 +68,37 @@ export type SucesoListado = {
   readonly autor: string;
 };
 
+/** Una situación de la traza de un cliente: la de un servicio lleva el suyo, para enlazarlo. */
+export type SituacionListada = SucesoListado & {
+  readonly servicio: { readonly id: string; readonly codigo: string } | null;
+};
+
+export type FichaDelCliente = {
+  readonly id: string;
+  readonly razonSocial: string;
+  /** Los datos del cliente, de solo lectura, con su etiqueta. */
+  readonly datos: readonly (readonly [string, string])[];
+  /** Las suyas y las de todos sus servicios, la más nueva primero. */
+  readonly situaciones: readonly SituacionListada[];
+};
+
+/** Dónde se carga una situación: siempre de un cliente y, si es de uno, de su servicio. */
+export type DestinoDeSuceso = {
+  readonly clienteId: string;
+  readonly servicioId: string | null;
+};
+
 export type CasosUsoSucesos = {
   /** Los no anulados, el más nuevo primero. */
   listar(servicioId: string): Promise<readonly SucesoListado[]>;
+  /** El cliente vigente con sus datos y su traza. `DOM-0009` si no existe o está dado de baja. */
+  delCliente(clienteId: string): Promise<FichaDelCliente>;
   /** Los campos de la carga, con la fecha de hoy. */
   formulario(): { readonly campos: CamposAbm; readonly escrito: Escrito };
+  /** `DOM-0026` si el cliente no es el del servicio; `DOM-0009` si alguno no existe. */
   crear(
     actor: Actor,
-    servicioId: string,
+    destino: DestinoDeSuceso,
     escrito: Escrito,
   ): Promise<ResultadoDeSuceso>;
   /** La anulación (baja lógica), con el motivo en `escrito.motivo`. */
@@ -97,6 +127,18 @@ const VALIDACION_DE_ANULACION = z.object({
   motivo: obligatorio("el motivo de la anulación", 500),
 });
 
+function listadoDe(
+  { valor, creadoPor }: Suceso,
+  quien: (actor: Actor) => string,
+): SucesoListado {
+  return {
+    id: valor.id,
+    fecha: diaConBarras(valor.fecha),
+    texto: valor.texto,
+    autor: quien(creadoPor),
+  };
+}
+
 export function crearCasosUsoSucesos({
   transaccional,
   reloj,
@@ -108,12 +150,26 @@ export function crearCasosUsoSucesos({
         await servicioVigente(repos, servicioId);
         const sucesos = await repos.sucesos.listarDe(servicioId);
         const quien = await nombresDeActores(repos);
-        return sucesos.map(({ valor, creadoPor }) => ({
-          id: valor.id,
-          fecha: diaConBarras(valor.fecha),
-          texto: valor.texto,
-          autor: quien(creadoPor),
-        }));
+        return sucesos.map((suceso) => listadoDe(suceso, quien));
+      });
+    },
+
+    delCliente(clienteId) {
+      return transaccional.ejecutar(async (repos) => {
+        const cliente = await vigente(repos, CLIENTES, clienteId);
+        const quien = await nombresDeActores(repos);
+        const etiquetas = await etiquetasDe(repos, CLIENTES, [cliente]);
+        return {
+          id: cliente.valor.id,
+          razonSocial: cliente.valor.razonSocial,
+          datos: textosDe(CLIENTES, cliente.valor, etiquetas),
+          situaciones: (await repos.sucesos.delCliente(clienteId)).map(
+            ({ suceso, servicio }) => ({
+              ...listadoDe(suceso, quien),
+              servicio,
+            }),
+          ),
+        };
       });
     },
 
@@ -124,7 +180,7 @@ export function crearCasosUsoSucesos({
       };
     },
 
-    crear(actor, servicioId, escrito) {
+    crear(actor, { clienteId, servicioId }, escrito) {
       return transaccional.ejecutar(async (repos) => {
         await exigirRol(
           repos.usuarios,
@@ -132,8 +188,15 @@ export function crearCasosUsoSucesos({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        await servicioVigenteBloqueado(repos, servicioId);
-        await exigirEtapa(repos, servicioId, "suceso");
+        if (servicioId === null) {
+          await vigente(repos, CLIENTES, clienteId);
+        } else {
+          const servicio = await servicioVigenteBloqueado(repos, servicioId);
+          if (servicio.valor.clienteId !== clienteId) {
+            throw nuevoError(catalogo.DOM_0026, { servicioId, clienteId });
+          }
+          await exigirEtapa(repos, servicioId, "suceso");
+        }
         const validado = validarEscrito(CAMPOS, VALIDACION, escrito);
         if (!validado.ok) {
           return validado;
@@ -143,6 +206,7 @@ export function crearCasosUsoSucesos({
           crearAuditable(
             {
               ...validado.datos,
+              clienteId,
               servicioId,
               motivoAnulacion: null,
               id: identificadorDesde<string>(generadorId.generar()),
@@ -166,11 +230,12 @@ export function crearCasosUsoSucesos({
         const actual = esquemaId.safeParse(id).success
           ? await repos.sucesos.buscarPorId(id)
           : null;
-        if (actual === null) {
+        const servicioId = actual?.valor.servicioId ?? null;
+        if (actual === null || servicioId === null) {
           throw nuevoError(catalogo.DOM_0009, { entidad: "Suceso", id });
         }
-        await servicioVigenteBloqueado(repos, actual.valor.servicioId);
-        await exigirEtapa(repos, actual.valor.servicioId, "suceso");
+        await servicioVigenteBloqueado(repos, servicioId);
+        await exigirEtapa(repos, servicioId, "suceso");
         const validado = validarEscrito(
           CAMPOS_DE_ANULACION,
           VALIDACION_DE_ANULACION,

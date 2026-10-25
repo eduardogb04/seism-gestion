@@ -221,6 +221,14 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Abrí el servicio de nuevo: puede que otra persona le haya cambiado la modalidad recién.",
   },
+  DOM_0026: {
+    codigo: "DOM-0026",
+    tipo: "persona",
+    descripcion:
+      "La situación no se cargó: el cliente no es el del servicio. No se guardó nada.",
+    queHacer:
+      "Abrí el servicio de nuevo: puede que otra persona le haya cambiado el cliente recién.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",

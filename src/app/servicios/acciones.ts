@@ -12,6 +12,7 @@
 
 import { redirect } from "next/navigation.js";
 import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
+import { CLIENTES } from "../../casos-uso/abm/clientes.ts";
 import { pantallaDeCodigo } from "../../casos-uso/sesion/errores.ts";
 import type { Actor } from "../../dominio/compartido/actor.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
@@ -237,19 +238,28 @@ export async function anularCobro(
   });
 }
 
-/** Cargar un suceso del servicio. */
+/** Cargar un suceso de un servicio o, sin servicio, una situación suelta del cliente. */
 export async function registrarSuceso(
-  servicioId: string,
+  clienteId: string,
+  servicioId: string | null,
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
   return escribir(formulario, async (actor) => {
     const cargado = await armado().sucesos.crear(
       actor,
-      servicioId,
+      { clienteId, servicioId },
       escritoEn(formulario),
     );
-    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+    return cargado.ok
+      ? {
+          ok: true,
+          ruta:
+            servicioId === null
+              ? `${CLIENTES.ruta}/${clienteId}`
+              : `${RUTA}/${servicioId}`,
+        }
+      : cargado;
   });
 }
 

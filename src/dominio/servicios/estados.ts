@@ -88,6 +88,7 @@ const CARGAS = [
   "planificacion",
   "tildarHito",
   "modalidad",
+  "vencimiento",
 ] as const;
 
 /**
@@ -110,6 +111,8 @@ const ETAPAS_DE_CARGA: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   tildarHito: ["en_ejecucion"],
   // Elegir la modalidad de facturación o ajustar la cuota mensual (F3-03).
   modalidad: ["adjudicado", "en_ejecucion"],
+  // Corregir la fecha de un vencimiento, cargar uno o descartarlo (F4-02): en «Cerrado» solo se ven.
+  vencimiento: ["finalizado"],
 };
 
 /** Cómo se le factura a un servicio (F3-03, ADR 0041); no es la modalidad del contrato (`Servicio.modalidad`). */

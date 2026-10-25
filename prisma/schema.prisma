@@ -282,7 +282,8 @@ model Sitio {
   eliminadoEn          DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor         Json?     @map("eliminado_por") @db.JsonB
 
-  servicios ServicioSitio[]
+  servicios    ServicioSitio[]
+  vencimientos ServicioVencimiento[]
 
   @@map("sitios")
 }
@@ -312,7 +313,8 @@ model Camion {
   eliminadoEn     DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor    Json?     @map("eliminado_por") @db.JsonB
 
-  recursos ServicioRecurso[]
+  recursos     ServicioRecurso[]
+  vencimientos ServicioVencimiento[]
 
   @@map("camiones")
 }
@@ -473,6 +475,7 @@ model Servicio {
   cuotas        ServicioCuota[]
   hitos         ServicioHito[]
   recursos      ServicioRecurso[]
+  vencimientos  ServicioVencimiento[]
 
   @@map("servicios")
 }
@@ -566,6 +569,36 @@ model ServicioRecurso {
   @@index([servicioId])
   @@index([camionId])
   @@map("servicios_recursos")
+}
+
+// Cuándo vence un trabajo terminado (F4-02, ADR 0045): uno por camión, por sitio
+// o por servicio, calculado al finalizarlo o cargado a mano. Con baja lógica y
+// auditoría como el resto; a lo sumo un sitio o un camión (CHECK en la migración).
+model ServicioVencimiento {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId     String    @map("servicio_id") @db.Uuid
+  servicio       Servicio  @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  sitioId        String?   @map("sitio_id") @db.Uuid
+  sitio          Sitio?    @relation(fields: [sitioId], references: [id], onDelete: Restrict)
+  camionId       String?   @map("camion_id") @db.Uuid
+  camion         Camion?   @relation(fields: [camionId], references: [id], onDelete: Restrict)
+  fecha          DateTime  @db.Date
+  descripcion    String
+  // `calculado` o `manual`.
+  origen         String
+  // `pendiente`, `renovado` o `descartado`.
+  estado         String
+  motivoDescarte String?   @map("motivo_descarte")
+  creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json      @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+
+  @@index([servicioId])
+  @@index([fecha])
+  @@map("servicios_vencimientos")
 }
 
 // Los cambios de estado de un servicio: solo se agregan. La `posicion` (0 es

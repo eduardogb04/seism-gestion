@@ -199,7 +199,7 @@ function aTexto(dia: string | null): string {
 }
 
 /** El registro con ese id; `DOM-0009` si no existe o ya está dado de baja. */
-async function vigentePorId<D>(
+export async function vigentePorId<D>(
   buscar: (id: string) => Promise<RegistroDe<D> | null>,
   entidad: string,
   id: string,
@@ -211,29 +211,29 @@ async function vigentePorId<D>(
   return registro;
 }
 
+/** Rol, servicio tomado y etapa: lo que toda escritura exige antes de mirar lo escrito. */
+export async function prepararEscritura(
+  repos: RepositoriosEnTransaccion,
+  actor: Actor,
+  servicioId: string,
+  carga: Carga,
+) {
+  await exigirRol(
+    repos.usuarios,
+    actor,
+    ROLES_QUE_ESCRIBEN_SERVICIOS,
+    catalogo.AUT_0009,
+  );
+  await servicioVigenteBloqueado(repos, servicioId);
+  await exigirEtapa(repos, servicioId, carga);
+}
+
 export function crearCasosUsoPlanificacion({
   transaccional,
   reloj,
   generadorId,
 }: Dependencias): CasosUsoPlanificacion {
   const nuevoId = () => identificadorDesde<string>(generadorId.generar());
-
-  /** Rol, servicio tomado y etapa: lo que toda escritura exige antes de mirar lo escrito. */
-  async function prepararEscritura(
-    repos: RepositoriosEnTransaccion,
-    actor: Actor,
-    servicioId: string,
-    carga: Carga,
-  ) {
-    await exigirRol(
-      repos.usuarios,
-      actor,
-      ROLES_QUE_ESCRIBEN_SERVICIOS,
-      catalogo.AUT_0009,
-    );
-    await servicioVigenteBloqueado(repos, servicioId);
-    await exigirEtapa(repos, servicioId, carga);
-  }
 
   return {
     ver(servicioId) {

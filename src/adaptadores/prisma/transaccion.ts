@@ -26,6 +26,7 @@ import { crearRepositorioSesionesPrisma } from "./sesiones.ts";
 import { crearRepositorioSucesosPrisma } from "./sucesos.ts";
 import { crearRepositorioTableroPrisma } from "./tablero.ts";
 import { crearRepositorioUsuariosPrisma } from "./usuarios.ts";
+import { crearRepositorioVencimientosPrisma } from "./vencimientos.ts";
 
 /** Un `Transaccional` sobre `prisma`. */
 export function crearTransaccionalPrisma(prisma: PrismaClient): Transaccional {
@@ -49,6 +50,7 @@ export function crearTransaccionalPrisma(prisma: PrismaClient): Transaccional {
           cuotas: crearRepositorioCuotasPrisma(tx),
           hitos: crearRepositorioHitosPrisma(tx),
           recursos: crearRepositorioRecursosPrisma(tx),
+          vencimientos: crearRepositorioVencimientosPrisma(tx),
           tablero: crearRepositorioTableroPrisma(tx),
         }),
       );

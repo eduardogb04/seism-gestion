@@ -75,9 +75,8 @@ test("una operadora carga un suceso en un servicio y uno suelto, y los ve juntos
     .getByRole("link")
     .click();
   await cargarSuceso(page, DEL_SERVICIO);
-  const codigo = (
-    await page.getByRole("heading", { level: 1 }).innerText()
-  ).split(" · ")[0];
+  const titulo = await page.getByRole("heading", { level: 1 }).innerText();
+  const codigo = titulo.slice(0, titulo.indexOf(" · "));
   expect(codigo).toMatch(/^SRV-\d{4}-\d{3}$/);
 
   // 2. La ficha del cliente, desde su listado.

@@ -786,10 +786,17 @@ describe("cada número cierra con la suma del listado al que lleva", () => {
 });
 
 /** El inicio dibujado con los números de la base sembrada: lo que se ve, no el dato intermedio. */
+const AVISOS = {
+  dias: 30,
+  proximos: 0,
+  vencidos: 0,
+  enlace: "/calendario?mes=2031-07",
+};
+
 async function inicioDibujado(mes?: string): Promise<string> {
   const resultado = await tablero().tablero(mes === undefined ? {} : { mes });
   return renderToStaticMarkup(
-    createElement(TableroDeInicio, { tablero: resultado }),
+    createElement(TableroDeInicio, { tablero: resultado, avisos: AVISOS }),
   );
 }
 

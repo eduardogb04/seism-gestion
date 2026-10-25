@@ -103,6 +103,8 @@ const CONFIGURACION_POR_DEFECTO: ReadonlyArray<{
   // Costo estimado de una llamada, para el perfil que no tenga su propia
   // clave `ia.costo_estimado_usd.<perfil>`.
   { clave: "ia.costo_estimado_usd.defecto", valor: "0.01" },
+  // Los días que cuenta «Vence en los próximos N días» en el inicio.
+  { clave: "calendario.dias_de_aviso", valor: "30" },
 ];
 
 /**

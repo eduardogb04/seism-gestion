@@ -119,7 +119,10 @@ test("una operadora carga un hito y un camión en «Adjudicado», inicia la ejec
   ).toBeVisible();
 
   // 2. Iniciar la ejecución no exige nada más de esto.
-  await page.getByRole("button", { name: "Iniciar ejecución" }).click();
+  await page.getByRole("link", { name: "Iniciar ejecución" }).click();
+  await ventana(page, "Iniciar ejecución")
+    .getByRole("button", { name: "Confirmar" })
+    .click();
   await expect(estado).toHaveText("En ejecución");
 
   // 3. Ahora sí: se tilda, con la fecha y quién.

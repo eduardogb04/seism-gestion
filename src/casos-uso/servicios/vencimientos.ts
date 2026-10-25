@@ -206,6 +206,7 @@ export function crearCasosUsoVencimientos({
               servicioId,
               sitioId: null,
               camionId: null,
+              clase: "trabajo",
               origen: "manual",
               estado: "pendiente",
               motivoDescarte: null,

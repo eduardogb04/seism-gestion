@@ -135,8 +135,14 @@ const SECCIONES = {
   egresos: ({ servicio }: Datos): ReactNode => (
     <Egresos servicioId={servicio.id} />
   ),
+  // Antes de «Finalizado» solo hay el de renovar el contrato: sin él no se dibuja.
   vencimientos: (datos: Datos): ReactNode => (
-    <Vencimientos {...propias(datos)} />
+    <Vencimientos
+      {...propias(datos)}
+      sinFilasNoSeDibuja={
+        datos.etapa === "adjudicado" || datos.etapa === "en_ejecucion"
+      }
+    />
   ),
 };
 
@@ -152,6 +158,7 @@ const VISTAS: Readonly<
     "recursos",
     "facturas",
     "avance",
+    "vencimientos",
   ],
   en_ejecucion: [
     "facturacion",
@@ -160,6 +167,7 @@ const VISTAS: Readonly<
     "facturas",
     "avance",
     "egresos",
+    "vencimientos",
   ],
   finalizado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],
   cerrado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],

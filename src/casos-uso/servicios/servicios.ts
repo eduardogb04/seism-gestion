@@ -34,6 +34,7 @@ import {
   diasPorEtapa,
   ESTADO_INICIAL,
   ESTADOS_SERVICIO,
+  type EstadoServicio,
   PREFIJO_DE_CODIGO,
   transicionesManualesDesde,
 } from "../../dominio/servicios/estados.ts";
@@ -163,6 +164,10 @@ export type DetalleDeServicio = {
   readonly codigo: string;
   readonly titulo: string;
   readonly estado: string;
+  /** El estado como valor, para decidir qué etapa se dibuja. */
+  readonly etapa: EstadoServicio;
+  /** Los estados por los que pasó, en orden y sin repetir; el actual incluido. */
+  readonly recorridas: readonly EstadoServicio[];
   /** Cada dato con su etiqueta, en el orden en que se muestra. */
   readonly datos: readonly (readonly [string, string])[];
   /** Del más nuevo al más viejo. */
@@ -410,6 +415,8 @@ export function crearCasosUsoServicios({
           codigo: valor.codigo,
           titulo: valor.titulo,
           estado: ETIQUETAS_DE_ESTADO[estado],
+          etapa: estado,
+          recorridas: [...new Set(historial.eventos.map(({ a }) => a))],
           datos: [
             ["Cliente", cliente?.valor.razonSocial ?? ""],
             ["Tipo de servicio", tipo?.valor.nombre ?? ""],

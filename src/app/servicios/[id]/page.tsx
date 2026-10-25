@@ -1,10 +1,13 @@
 /**
- * La pantalla de un servicio (F2-04, ADR 0033): sus datos, el cambio de
- * estado, sus hitos y recursos (F3-02), sus cotizaciones (F2-05), sus órdenes de compra y facturas (F2-06), los sitios que abarca, sus sucesos y su historial,
- * con los días en cada etapa (F3-01). La edición (`?editar=1`) y la
- * baja (`?baja=1`) son ventanas sobre esta misma pantalla, como en los ABM.
+ * La pantalla de un servicio (F2-04, ADR 0033, F3-06): sus datos, el estado,
+ * la línea de etapas y, debajo, solo la vista de la etapa actual (o, en solo
+ * lectura, de una ya recorrida: `?etapa=`), con los sucesos en una columna
+ * lateral y el historial con los días en cada etapa (F3-01). La edición
+ * (`?editar=1`), la baja (`?baja=1`) y cada cambio de etapa (`?pasar=`) son
+ * ventanas sobre esta misma pantalla, como en los ABM.
  */
 
+import { ETIQUETAS_DE_ESTADO } from "../../../casos-uso/servicios/formulario.ts";
 import {
   type DetalleDeServicio,
   ROLES_QUE_ESCRIBEN_SERVICIOS,
@@ -14,8 +17,7 @@ import {
   pantallaDeCodigo,
 } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import { Boton, clasesDeBoton } from "../../_ui/boton.tsx";
-import { CampoTexto, CasillaSiNo } from "../../_ui/campo-texto.tsx";
+import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
@@ -24,21 +26,10 @@ import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { sesionExigida } from "../../(auth)/sesion-actual.ts";
 import type { PropsListado } from "../../catalogo/_abm/paginas.tsx";
-import {
-  cambiarEstadoDeServicio,
-  darDeBajaServicio,
-  guardarServicio,
-  guardarSitiosDeServicio,
-} from "../acciones.ts";
-import { Avance } from "./avance.tsx";
-import { Cotizaciones } from "./cotizaciones.tsx";
-import { Egresos } from "./egresos.tsx";
-import { Facturacion } from "./facturacion.tsx";
-import { Facturas } from "./facturas.tsx";
-import { Hitos } from "./hitos.tsx";
-import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
-import { Recursos } from "./recursos.tsx";
+import { darDeBajaServicio, guardarServicio } from "../acciones.ts";
+import { etapaPasada, LineaDeEtapas, VistaDeEtapa } from "./etapas.tsx";
 import { Sucesos } from "./sucesos.tsx";
+import { Transiciones, VentanaDeTransicion } from "./transiciones.tsx";
 
 const LISTADO = "/servicios";
 
@@ -73,85 +64,6 @@ function VentanaDeBaja({
         <ErrorEnPantalla error={pantallaDeCodigo("DOM-0011")} />
       )}
     </Ventana>
-  );
-}
-
-function CambiarEstado({
-  servicio: { id, transiciones },
-}: {
-  readonly servicio: DetalleDeServicio;
-}) {
-  if (transiciones.length === 0) {
-    return null;
-  }
-  return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Cambiar estado</h2>
-      <form
-        action={cambiarEstadoDeServicio.bind(null, id)}
-        className="flex max-w-xl flex-col gap-3"
-      >
-        <CampoTexto
-          etiqueta="Nota o motivo"
-          type="text"
-          name="nota"
-          maxLength={500}
-        />
-        <div className="flex flex-wrap gap-2">
-          {transiciones.map(({ valor, etiqueta }) => (
-            <Boton
-              key={valor}
-              variante="secundario"
-              type="submit"
-              name="a"
-              value={valor}
-            >
-              {etiqueta}
-            </Boton>
-          ))}
-        </div>
-      </form>
-    </section>
-  );
-}
-
-function Sitios({
-  servicio: { id, sitios },
-  puedeEscribir,
-}: {
-  readonly servicio: DetalleDeServicio;
-  readonly puedeEscribir: boolean;
-}) {
-  return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Sitios que abarca</h2>
-      {sitios.length === 0 ? (
-        <p>Su cliente no tiene sitios cargados.</p>
-      ) : (
-        <form
-          action={guardarSitiosDeServicio.bind(null, id)}
-          className="flex flex-col gap-2"
-        >
-          {sitios.map((sitio) => (
-            <CasillaSiNo
-              key={sitio.id}
-              etiqueta={sitio.nombre}
-              name="sitio"
-              value={sitio.id}
-              defaultChecked={sitio.marcado}
-              disabled={!puedeEscribir}
-            />
-          ))}
-          {puedeEscribir ? (
-            <div>
-              <Boton variante="primario" type="submit">
-                Guardar sitios
-              </Boton>
-            </div>
-          ) : null}
-        </form>
-      )}
-    </section>
   );
 }
 
@@ -201,13 +113,18 @@ export default async function Servicio({ params, searchParams }: Props) {
     );
   }
   const ruta = `${LISTADO}/${servicio.id}`;
-  const planificacion = await armado().planificacion.ver(servicio.id);
+  const pasada = etapaPasada(servicio, parametros.etapa);
+  // Una etapa pasada y «Cerrado» se miran: no se carga ni se cambia nada.
+  const puedeCambiar =
+    puedeEscribir && pasada === null && servicio.etapa !== "cerrado";
+  const etapa = pasada ?? servicio.etapa;
   const delServicio = {
-    servicioId: servicio.id,
-    detalle: planificacion,
+    servicio,
+    detalle: await armado().planificacion.ver(servicio.id),
     ruta,
-    puedeEscribir,
-    parametros,
+    puedeEscribir: puedeCambiar,
+    parametros: pasada === null ? parametros : {},
+    etapa,
   };
   return (
     <Marco email={email} rol={rol} rutaActual={LISTADO}>
@@ -233,69 +150,59 @@ export default async function Servicio({ params, searchParams }: Props) {
             </div>
           ))}
         </dl>
-        {puedeEscribir ? (
-          <>
-            <div className="flex flex-wrap gap-2">
-              <Enlace
-                href={`${ruta}?editar=1`}
-                scroll={false}
-                className={clasesDeBoton("secundario")}
-              >
-                Editar
-              </Enlace>
-              <Enlace
-                href={`${ruta}?baja=1`}
-                scroll={false}
-                className={clasesDeBoton("peligro")}
-              >
-                Dar de baja
-              </Enlace>
-            </div>
-            <CambiarEstado servicio={servicio} />
-          </>
+        {puedeCambiar ? (
+          <div className="flex flex-wrap gap-2">
+            <Enlace
+              href={`${ruta}?editar=1`}
+              scroll={false}
+              className={clasesDeBoton("secundario")}
+            >
+              Editar
+            </Enlace>
+            <Enlace
+              href={`${ruta}?baja=1`}
+              scroll={false}
+              className={clasesDeBoton("peligro")}
+            >
+              Dar de baja
+            </Enlace>
+          </div>
         ) : null}
-        <Hitos {...delServicio} />
-        <Recursos {...delServicio} />
-        <Avance servicioId={servicio.id} />
-        <Cotizaciones
-          servicioId={servicio.id}
-          ruta={ruta}
-          puedeEscribir={puedeEscribir}
-          parametros={parametros}
-        />
-        <OrdenesDeCompra
-          servicioId={servicio.id}
-          ruta={ruta}
-          puedeEscribir={puedeEscribir}
-          parametros={parametros}
-        />
-        <Facturacion
-          servicioId={servicio.id}
-          ruta={ruta}
-          puedeEscribir={puedeEscribir}
-          parametros={parametros}
-        />
-        <Facturas
-          servicioId={servicio.id}
-          ruta={ruta}
-          puedeEscribir={puedeEscribir}
-          parametros={parametros}
-        />
-        <Egresos servicioId={servicio.id} />
-        <Sitios servicio={servicio} puedeEscribir={puedeEscribir} />
-        <Sucesos
-          servicioId={servicio.id}
-          ruta={ruta}
-          puedeEscribir={puedeEscribir}
-          parametros={parametros}
-        />
+        <LineaDeEtapas servicio={servicio} ruta={ruta} />
+        {pasada === null ? null : (
+          <p data-solo-lectura className="mt-4">
+            Solo lectura: esta es la etapa «{ETIQUETAS_DE_ESTADO[pasada]}».{" "}
+            <Enlace href={ruta}>Volver a la etapa actual</Enlace>
+          </p>
+        )}
+        {puedeCambiar ? <Transiciones servicio={servicio} ruta={ruta} /> : null}
+        <div className="mt-2 grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
+          <div>
+            <VistaDeEtapa {...delServicio} />
+          </div>
+          <aside aria-label="Registro de sucesos">
+            <Sucesos
+              servicioId={servicio.id}
+              ruta={ruta}
+              puedeEscribir={delServicio.puedeEscribir}
+              parametros={delServicio.parametros}
+            />
+          </aside>
+        </div>
         <Historial historial={servicio.historial} />
       </main>
-      {puedeEscribir && typeof parametros.editar === "string" ? (
+      {puedeCambiar && typeof parametros.editar === "string" ? (
         <VentanaDeEdicion id={servicio.id} rutaAlCerrar={ruta} />
       ) : null}
-      {puedeEscribir && typeof parametros.baja === "string" ? (
+      {puedeCambiar && typeof parametros.baja === "string" ? (
         <VentanaDeBaja servicio={servicio} rutaAlCerrar={ruta} />
+      ) : null}
+      {puedeCambiar && typeof parametros.pasar === "string" ? (
+        <VentanaDeTransicion
+          servicio={servicio}
+          destino={parametros.pasar}
+          rutaAlCerrar={ruta}
+        />
       ) : null}
     </Marco>
   );

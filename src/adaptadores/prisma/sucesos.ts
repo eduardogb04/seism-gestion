@@ -51,8 +51,10 @@ export function crearRepositorioSucesosPrisma(
     async delCliente(clienteId) {
       const filas = await cliente.servicioSuceso.findMany({
         where: {
-          eliminadoEn: null,
-          OR: [{ servicioId: null, clienteId }, { servicio: { clienteId } }],
+          OR: [
+            { servicioId: null, clienteId },
+            { eliminadoEn: null, servicio: { clienteId } },
+          ],
         },
         include: { servicio: { select: { id: true, codigo: true } } },
         orderBy: [{ fecha: "desc" }, { creadoEn: "desc" }],

@@ -36,9 +36,9 @@ export type RepositorioSucesos = Pick<
   /** Los no anulados de un servicio, del día más nuevo al más viejo. */
   listarDe(servicioId: string): Promise<readonly Suceso[]>;
   /**
-   * Los no anulados del cliente: los suyos sin servicio y los de todos sus
-   * servicios (el cliente de un servicio es el que el servicio tiene hoy),
-   * del día más nuevo al más viejo.
+   * Las del cliente: las suyas sin servicio, anuladas o no, y las no anuladas de
+   * todos sus servicios (el cliente de un servicio es el que el servicio tiene
+   * hoy), del día más nuevo al más viejo.
    */
   delCliente(clienteId: string): Promise<readonly SituacionDelCliente[]>;
   /** ¿Tiene el cliente alguna situación suelta (sin servicio) no anulada? */

@@ -266,6 +266,9 @@ afterAll(async () => {
 describe("el mes de julio", () => {
   test("trae una entrada de cada tipo, por fecha, con su importe, su marca de vencida y su enlace", async () => {
     const { entradas, mes } = await calendario().mes({ mes: "2031-07" });
+    const habilitacion = await cliente().servicioVencimiento.findFirstOrThrow({
+      where: { descripcion: "Habilitación de ejemplo" },
+    });
 
     expect(mes).toMatchObject({
       mes: "2031-07",
@@ -281,6 +284,7 @@ describe("el mes de julio", () => {
         importe: "ARS 100,00",
         vencida: true,
         enlace: `/egresos/${ids.egresoVencido}`,
+        vencimiento: null,
       },
       {
         tipo: "vencimiento",
@@ -289,6 +293,10 @@ describe("el mes de julio", () => {
         importe: null,
         vencida: true,
         enlace: `/servicios/${ids.servicioQueFinaliza}`,
+        vencimiento: {
+          id: habilitacion.id,
+          servicioId: ids.servicioQueFinaliza,
+        },
       },
       {
         tipo: "factura",
@@ -297,6 +305,7 @@ describe("el mes de julio", () => {
         importe: "ARS 1.010,00",
         vencida: false,
         enlace: `/servicios/facturas/${ids.facturaConSaldo}`,
+        vencimiento: null,
       },
       {
         tipo: "egreso",
@@ -305,6 +314,7 @@ describe("el mes de julio", () => {
         importe: "ARS 200,00",
         vencida: false,
         enlace: `/egresos/${ids.egresoConSaldo}`,
+        vencimiento: null,
       },
       {
         tipo: "inicio",
@@ -313,6 +323,7 @@ describe("el mes de julio", () => {
         importe: null,
         vencida: false,
         enlace: `/servicios/${ids.servicioAdjudicado}`,
+        vencimiento: null,
       },
     ]);
   });

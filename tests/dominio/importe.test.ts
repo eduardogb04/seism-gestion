@@ -216,9 +216,10 @@ describe("aritmética en centavos", () => {
 
         expect(montos).toHaveLength(partes);
         expect(montos.reduce((suma, monto) => suma + monto, 0n)).toBe(centavos);
-        const mayor = montos.reduce((a, b) => (a > b ? a : b));
-        const menor = montos.reduce((a, b) => (a < b ? a : b));
-        expect(mayor - menor <= 1n).toBe(true);
+        const centavosPartes = montos.map(Number);
+        const mayor = Math.max(...centavosPartes);
+        const menor = Math.min(...centavosPartes);
+        expect(mayor - menor <= 1).toBe(true);
       },
     );
   });

@@ -105,6 +105,7 @@ describe("semilla", () => {
     // Valores inventados (F0-28, R6): el tope del mes y el costo estimado
     // por defecto de una llamada a la IA, en dólares con punto decimal.
     expect(primeraVez.map((fila) => [fila.clave, fila.valor])).toEqual([
+      ["calendario.dias_de_aviso", "30"],
       ["ia.costo_estimado_usd.defecto", "0.01"],
       ["ia.tope_mensual_usd", "10.00"],
     ]);

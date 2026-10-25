@@ -17,6 +17,7 @@
 
 import { crearGeneradorIdCrypto } from "../../adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../adaptadores/prisma/cliente.ts";
+import { crearLectorConfiguracion } from "../../adaptadores/prisma/configuracion.ts";
 import { crearTransaccionalPrisma } from "../../adaptadores/prisma/transaccion.ts";
 import { crearRelojSistema } from "../../adaptadores/reloj/sistema.ts";
 import { type CasosUsoAbm, crearCasosUsoAbm } from "../../casos-uso/abm/abm.ts";
@@ -225,7 +226,11 @@ function armar(): Armado {
       reloj,
       generadorId,
     }),
-    calendario: crearCasosUsoCalendario({ transaccional, reloj }),
+    calendario: crearCasosUsoCalendario({
+      transaccional,
+      reloj,
+      configuracion: crearLectorConfiguracion(prisma),
+    }),
     tablero: crearCasosUsoTablero({ transaccional, reloj }),
     documentos: crearCasosUsoDocumentos({ transaccional, almacen }),
     salud: armarSalud(prisma, reloj),

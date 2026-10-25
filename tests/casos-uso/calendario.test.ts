@@ -8,12 +8,17 @@
  * Reloj fijo: 09/07/2031 (un miércoles; el 1 de julio fue martes).
  */
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
+import { crearLectorConfiguracion } from "../../src/adaptadores/prisma/configuracion.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
+import { TableroDeInicio } from "../../src/app/_ui/tablero-de-inicio.tsx";
 import { crearCasosUsoCalendario } from "../../src/casos-uso/calendario/calendario.ts";
 import { crearCasosUsoVencimientos } from "../../src/casos-uso/servicios/vencimientos.ts";
+import { crearCasosUsoTablero } from "../../src/casos-uso/tablero/tablero.ts";
 import type { Actor } from "../../src/dominio/compartido/actor.ts";
 import {
   crearFechaHora,
@@ -69,6 +74,7 @@ function dependencias() {
     transaccional: crearTransaccionalPrisma(cliente()),
     reloj: RelojFijo(HOY),
     generadorId: crearGeneradorIdCrypto(),
+    configuracion: crearLectorConfiguracion(cliente()),
   };
 }
 
@@ -228,6 +234,19 @@ beforeAll(async () => {
     fecha: "2031-06-04",
     importe: "75,00",
   });
+  // Vencido de un mes anterior: el calendario de julio no lo trae, los avisos sí.
+  await cargarEgreso({
+    centroCostoId: centro,
+    fecha: "2031-06-05",
+    importe: "20,00",
+    vencimiento: "2031-06-10",
+  });
+  await cargarEgreso({
+    centroCostoId: centro,
+    fecha: "2031-05-05",
+    importe: "30,00",
+    vencimiento: "2031-05-10",
+  });
 
   ids = {
     facturaConSaldo: parcial,
@@ -363,5 +382,72 @@ describe("otros meses", () => {
   test("sin mes, o con uno ilegible, es el del reloj", async () => {
     expect((await calendario().mes({})).mes.mes).toBe("2031-07");
     expect((await calendario().mes({ mes: "mañana" })).mes.mes).toBe("2031-07");
+  });
+});
+
+describe("los avisos del inicio", () => {
+  const conDias = async (dias: string) => {
+    await cliente().configuracion.upsert({
+      where: { clave: "calendario.dias_de_aviso" },
+      update: { valor: dias },
+      create: { clave: "calendario.dias_de_aviso", valor: dias },
+    });
+    return calendario().avisos();
+  };
+
+  test("cuenta lo que vence entre hoy y hoy más N días, y lo vencido de cualquier mes", async () => {
+    // Próximos: la factura del 12, el egreso del 20 y el inicio del 25. Vencidos:
+    // los del 3 y el 5 de julio, el del 10 de junio y el del 10 de mayo.
+    expect(await conDias("30")).toEqual({
+      dias: 30,
+      proximos: 3,
+      vencidos: 4,
+      enlace: "/calendario?mes=2031-07",
+    });
+  });
+
+  test("N sale de la configuración y el día N entra: hoy más 3 días es el 12", async () => {
+    expect((await conDias("3")).proximos).toBe(1);
+    expect((await conDias("2")).proximos).toBe(0);
+    expect((await conDias("60")).proximos).toBe(5);
+  });
+
+  test("una cantidad de días que no sirve es un error de infraestructura", async () => {
+    for (const dias of ["0", "treinta", "-5", "1,5"]) {
+      await expect(conDias(dias)).rejects.toMatchObject({
+        codigo: "INF-0001",
+      });
+    }
+  });
+  test("el inicio dibuja las dos tarjetas con la cantidad exacta y el enlace al calendario del mes de hoy", async () => {
+    await conDias("30");
+    const html = renderToStaticMarkup(
+      createElement(TableroDeInicio, {
+        tablero: await crearCasosUsoTablero(dependencias()).tablero({}),
+        avisos: await calendario().avisos(),
+      }),
+    );
+    const tarjeta = (id: string) => {
+      const articulo = html
+        .split("</article>")
+        .find((trozo) => trozo.includes(`data-kpi="${id}"`))
+        ?.split("<article")
+        .pop();
+      return {
+        texto: articulo?.replace(/<[^>]+>/g, "").replace(/^[^>]*>/, ""),
+        enlace: new RegExp(`<a href="([^"]*)" data-kpi="${id}"`).exec(
+          articulo ?? "",
+        )?.[1],
+      };
+    };
+
+    expect(tarjeta("vence-pronto")).toEqual({
+      texto: "Vence en los próximos 30 días3",
+      enlace: "/calendario?mes=2031-07",
+    });
+    expect(tarjeta("vencidas")).toEqual({
+      texto: "Vencido4",
+      enlace: "/calendario?mes=2031-07",
+    });
   });
 });

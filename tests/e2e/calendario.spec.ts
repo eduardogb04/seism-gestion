@@ -8,7 +8,12 @@
  * 2. «Mes siguiente» lleva a noviembre de 2026, con la factura 0000-00000002
  *    y sin el egreso, y «Mes anterior» vuelve a octubre;
  * 3. filtrar por «Egresos por pagar» deja solo egresos y abrir la entrada lleva
- *    a su detalle.
+ *    a su detalle;
+ * 4. el inicio trae las tarjetas «Vence en los próximos 30 días» y «Vencido»
+ *    (F4-06), con su cantidad, y las dos llevan al calendario del mes de hoy.
+ *    Las cantidades exactas las afirma `tests/casos-uso/calendario.test.ts`
+ *    con un reloj fijo: acá corre el reloj real y la semilla compartida no
+ *    deja cuentas estables.
  *
  * Todo inventado (`@ejemplo.test`).
  */
@@ -69,4 +74,30 @@ test("navega entre meses, filtra por tipo y abre una entrada", async ({
   await expect(
     page.getByRole("heading", { level: 1, name: "Curso de capacitación" }),
   ).toBeVisible();
+});
+
+test("el inicio avisa lo que vence y lo vencido, y las tarjetas llevan al calendario del mes de hoy", async ({
+  page,
+}) => {
+  await page.goto("/ingresar");
+  await page.getByRole("link", { name: ADMIN }).click();
+  await expect(page).toHaveURL(/\/sesion$/);
+
+  await page.goto("/");
+  const proximos = page.locator('[data-kpi="vence-pronto"]');
+  const vencidas = page.locator('[data-kpi="vencidas"]');
+  await expect(
+    page.getByRole("heading", { name: "Vence en los próximos 30 días" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Vencido", exact: true }),
+  ).toBeVisible();
+  await expect(proximos).toHaveText(/^[0-9]+$/);
+  await expect(vencidas).toHaveText(/^[0-9]+$/);
+
+  const hoy = new Date();
+  const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+  await vencidas.click();
+  await expect(page).toHaveURL(new RegExp(`/calendario[?]mes=${mes}$`));
+  await expect(page.getByRole("heading", { name: "Calendario" })).toBeVisible();
 });

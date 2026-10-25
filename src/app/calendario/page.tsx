@@ -10,16 +10,24 @@ import {
   ETIQUETAS_DE_TIPO,
   TIPOS_DE_ENTRADA,
 } from "../../casos-uso/calendario/calendario.ts";
+import { ROLES_QUE_ESCRIBEN_SERVICIOS } from "../../casos-uso/servicios/servicios.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
 import { clasesDeBoton } from "../_ui/boton.tsx";
 import { Marco } from "../_ui/marco.tsx";
 import {
+  CLASES_DE_ACCIONES,
   CLASES_DE_ENLACE_DE_FILA,
   CLASES_DE_FILA_ENLAZADA,
   Tabla,
 } from "../_ui/tabla.tsx";
+import { VentanaDeRenovacion } from "../servicios/[id]/ventana-de-renovacion.tsx";
 import { sesionExigida } from "../(auth)/sesion-actual.ts";
-import { BORDE_DE_TIPO, EstadoDeEntrada, GrillaDelMes } from "./grilla.tsx";
+import {
+  BORDE_DE_TIPO,
+  EnlaceDeRenovacion,
+  EstadoDeEntrada,
+  GrillaDelMes,
+} from "./grilla.tsx";
 
 type Props = {
   readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -29,20 +37,33 @@ const RUTA = "/calendario";
 
 export default async function Calendario({ searchParams }: Props) {
   const sesion = await sesionExigida();
-  const { mes, tipos, entradas, semanas } = await armado().calendario.mes(
-    await searchParams,
-  );
+  const parametros = await searchParams;
+  const { mes, tipos, entradas, semanas } =
+    await armado().calendario.mes(parametros);
   const { email, rol } = sesion.usuario;
+  const puedeRenovar = ROLES_QUE_ESCRIBEN_SERVICIOS.includes(rol);
   // Con todos los tipos no hace falta decirlo en la dirección.
-  const enlaceAlMes = (aaaaMm: string) => {
+  const enlaceAlMes = (aaaaMm: string, renovar?: string) => {
     const consulta = new URLSearchParams({ mes: aaaaMm });
     if (tipos.length < TIPOS_DE_ENTRADA.length) {
       for (const tipo of tipos) {
         consulta.append("tipo", tipo);
       }
     }
+    if (renovar !== undefined) {
+      consulta.set("renovar", renovar);
+    }
     return `${RUTA}?${consulta}`;
   };
+  const enlaceDeRenovacion = puedeRenovar
+    ? (vencimientoId: string) => enlaceAlMes(mes.mes, vencimientoId)
+    : null;
+  const aRenovar = puedeRenovar
+    ? entradas.find(
+        ({ vencimiento }) =>
+          vencimiento !== null && vencimiento.id === parametros.renovar,
+      )
+    : undefined;
   return (
     <Marco email={email} rol={rol} rutaActual={RUTA}>
       <main>
@@ -91,12 +112,24 @@ export default async function Calendario({ searchParams }: Props) {
             Filtrar
           </button>
         </form>
-        <GrillaDelMes semanas={semanas} />
+        <GrillaDelMes
+          semanas={semanas}
+          enlaceDeRenovacion={enlaceDeRenovacion}
+        />
         <h2 id="lista">Lista de {mes.nombre}</h2>
         {entradas.length === 0 ? (
           <p>No hay nada para este mes.</p>
         ) : (
-          <Tabla cabeceras={["Fecha", "Tipo", "Entrada", "Importe", "Estado"]}>
+          <Tabla
+            cabeceras={[
+              "Fecha",
+              "Tipo",
+              "Entrada",
+              "Importe",
+              "Estado",
+              ...(puedeRenovar ? ["Acciones"] : []),
+            ]}
+          >
             {entradas.map((entrada) => (
               <tr
                 key={entrada.tipo + entrada.enlace + entrada.fecha}
@@ -115,10 +148,27 @@ export default async function Calendario({ searchParams }: Props) {
                 <td>
                   <EstadoDeEntrada vencida={entrada.vencida} />
                 </td>
+                {enlaceDeRenovacion === null ? null : (
+                  <td className={CLASES_DE_ACCIONES}>
+                    {entrada.vencimiento === null ? null : (
+                      <EnlaceDeRenovacion
+                        href={enlaceDeRenovacion(entrada.vencimiento.id)}
+                      />
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </Tabla>
         )}
+        {aRenovar?.vencimiento ? (
+          <VentanaDeRenovacion
+            servicioId={aRenovar.vencimiento.servicioId}
+            vencimientoId={aRenovar.vencimiento.id}
+            detalle={`${aRenovar.titulo} · ${diaConBarras(aRenovar.fecha)}`}
+            rutaAlCerrar={enlaceAlMes(mes.mes)}
+          />
+        ) : null}
       </main>
     </Marco>
   );

@@ -3,6 +3,7 @@ import type {
   TipoDeEntrada,
 } from "../../casos-uso/calendario/calendario.ts";
 import type { DiaDeLaGrilla } from "../../casos-uso/calendario/semanas.ts";
+import { Enlace } from "../_ui/enlace-next.ts";
 
 const POR_DIA = 3;
 
@@ -25,9 +26,21 @@ export function EstadoDeEntrada({ vencida }: { readonly vencida: boolean }) {
   );
 }
 
+/** Abre la confirmación de cotizar la renovación de un vencimiento pendiente. */
+export function EnlaceDeRenovacion({ href }: { readonly href: string }) {
+  return (
+    <Enlace href={href} scroll={false} className="text-xs">
+      Cotizar renovación
+    </Enlace>
+  );
+}
+
 export function GrillaDelMes({
   semanas,
+  enlaceDeRenovacion,
 }: {
+  /** El enlace que abre la renovación de un vencimiento; `null` si quien mira no puede. */
+  readonly enlaceDeRenovacion: ((vencimientoId: string) => string) | null;
   readonly semanas: readonly (readonly (DiaDeLaGrilla<EntradaDelCalendario> | null)[])[];
 }) {
   return (
@@ -70,6 +83,14 @@ export function GrillaDelMes({
                               ) : null}
                               {entrada.titulo}
                             </a>
+                            {enlaceDeRenovacion !== null &&
+                            entrada.vencimiento !== null ? (
+                              <EnlaceDeRenovacion
+                                href={enlaceDeRenovacion(
+                                  entrada.vencimiento.id,
+                                )}
+                              />
+                            ) : null}
                           </li>
                         ))}
                       </ul>

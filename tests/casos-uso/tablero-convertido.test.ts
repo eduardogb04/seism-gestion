@@ -35,6 +35,7 @@ import {
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
 import {
   altaDeServicio,
+  conModalidad,
   llevarServicioA,
   sembrarServicio,
 } from "./_arnes/servicio.ts";
@@ -136,6 +137,7 @@ beforeAll(async () => {
     );
   }
   for (const id of [servicioA, servicioB, ...extras]) {
+    await conModalidad(cliente(), id);
     await llevarServicioA(
       dependencias().transaccional,
       admin,

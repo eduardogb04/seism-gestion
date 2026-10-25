@@ -182,6 +182,7 @@ export default async function Servicio({ params, searchParams }: Props) {
           </div>
           <aside aria-label="Registro de sucesos">
             <Sucesos
+              clienteId={servicio.clienteId}
               servicioId={servicio.id}
               ruta={ruta}
               puedeEscribir={delServicio.puedeEscribir}

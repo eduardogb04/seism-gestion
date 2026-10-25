@@ -544,8 +544,23 @@ describe("la base", () => {
   test("no deja un sitio y un camión a la vez, ni un origen ni un estado que el dominio no conoce", async () => {
     await conRegla();
     await finalizar();
-    const { id: _id, ...base } =
-      await cliente().servicioVencimiento.findFirstOrThrow();
+    const {
+      servicioId: duenio,
+      fecha,
+      creadoEn,
+      actualizadoEn,
+    } = await cliente().servicioVencimiento.findFirstOrThrow();
+    const base = {
+      servicioId: duenio,
+      fecha,
+      descripcion: "Con una restricción rota",
+      origen: "manual",
+      estado: "pendiente",
+      creadoEn,
+      creadoPor: { tipo: "sistema" },
+      actualizadoEn,
+      actualizadoPor: { tipo: "sistema" },
+    };
     const sitioId = await altaDeSitio("Planta Ejemplo Norte");
     const camionId = await altaDeCamion("ZZ001ZZ", "2018");
 

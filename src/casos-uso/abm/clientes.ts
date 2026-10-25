@@ -28,6 +28,7 @@ export const CLIENTES: DefinicionAbm<"Cliente"> = {
   singular: "cliente o proveedor",
   plural: "Clientes y proveedores",
   ruta: "/catalogo/clientes",
+  rutaDeFila: (id) => `/catalogo/clientes/${id}`,
   campos: {
     razonSocial: { tipo: "texto", etiqueta: "Razón social" },
     cuit: { tipo: "texto", etiqueta: "CUIT" },

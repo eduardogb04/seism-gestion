@@ -252,6 +252,7 @@ model Cliente {
   egresos          Egreso[]
   camiones         Camion[]
   servicios        Servicio[]
+  sucesos          ServicioSuceso[]
 
   @@map("clientes")
 }
@@ -503,13 +504,16 @@ model ServicioCuota {
   @@map("servicios_cuotas")
 }
 
-// El registro de sucesos de un servicio (F3-01, ADR 0039): lo que pasó, con su
-// día y su texto; el autor es `creado_por`. No se edita: se anula (baja
+// El registro de sucesos —las situaciones— de un cliente (F3-01, ADR 0039; F4-05,
+// ADR 0044): lo que pasó, con su día y su texto; el autor es `creado_por`. Cuelga
+// del cliente y, si es de un servicio, también de él. No se edita: se anula (baja
 // lógica) con un motivo.
 model ServicioSuceso {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  servicioId      String    @map("servicio_id") @db.Uuid
-  servicio        Servicio  @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  clienteId       String    @map("cliente_id") @db.Uuid
+  cliente         Cliente   @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  servicioId      String?   @map("servicio_id") @db.Uuid
+  servicio        Servicio? @relation(fields: [servicioId], references: [id], onDelete: Restrict)
   fecha           DateTime  @db.Date
   texto           String
   motivoAnulacion String?   @map("motivo_anulacion")
@@ -521,6 +525,7 @@ model ServicioSuceso {
   eliminadoPor    Json?     @map("eliminado_por") @db.JsonB
 
   @@index([servicioId])
+  @@index([clienteId])
   @@map("servicios_sucesos")
 }
 

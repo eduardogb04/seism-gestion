@@ -48,6 +48,29 @@ export function crearRepositorioSucesosPrisma(
       paso,
     ),
 
+    async delCliente(clienteId) {
+      const filas = await cliente.servicioSuceso.findMany({
+        where: {
+          eliminadoEn: null,
+          OR: [{ servicioId: null, clienteId }, { servicio: { clienteId } }],
+        },
+        include: { servicio: { select: { id: true, codigo: true } } },
+        orderBy: [{ fecha: "desc" }, { creadoEn: "desc" }],
+      });
+      return filas.map(({ servicio, ...fila }) => ({
+        suceso: desdeFila(fila, paso),
+        servicio,
+      }));
+    },
+
+    async haySueltasDe(clienteId) {
+      return (
+        (await cliente.servicioSuceso.findFirst({
+          where: { clienteId, servicioId: null, eliminadoEn: null },
+        })) !== null
+      );
+    },
+
     async listarDe(servicioId) {
       const filas = await cliente.servicioSuceso.findMany({
         where: { servicioId, eliminadoEn: null },

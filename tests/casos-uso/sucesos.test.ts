@@ -16,6 +16,8 @@ import {
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
+import { crearCasosUsoAbm } from "../../src/casos-uso/abm/abm.ts";
+import { CLIENTES } from "../../src/casos-uso/abm/clientes.ts";
 import { crearCasosUsoSucesos } from "../../src/casos-uso/servicios/sucesos.ts";
 import type { Actor } from "../../src/dominio/compartido/actor.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
@@ -53,6 +55,7 @@ let admin: Actor;
 let operador: Actor;
 let exAdmin: Actor;
 let servicioId: string;
+let clienteId: string;
 
 function cliente(): ReturnType<typeof crearClientePrisma> {
   expect(prisma, "el cliente de Prisma no se armó").toBeDefined();
@@ -66,6 +69,8 @@ function dependencias() {
     generadorId: crearGeneradorIdCrypto(),
   };
 }
+
+const delServicio = () => ({ clienteId, servicioId });
 
 const sucesos = () => crearCasosUsoSucesos(dependencias());
 
@@ -104,17 +109,18 @@ beforeEach(async () => {
     admin,
     usuarios[0]?.id ?? "",
   );
+  clienteId = (await cliente().cliente.findFirstOrThrow()).id;
 });
 
 describe("cargar un suceso", () => {
   test("guarda fecha, texto y autor, con su auditoría; el listado trae el más nuevo primero", async () => {
     expect(sucesos().formulario().escrito).toEqual({ fecha: "2031-07-09" });
 
-    await sucesos().crear(operador, servicioId, {
+    await sucesos().crear(operador, delServicio(), {
       fecha: "2031-07-02",
       texto: "  Llamó el cliente para cambiar el día  ",
     });
-    await sucesos().crear(admin, servicioId, {
+    await sucesos().crear(admin, delServicio(), {
       fecha: "2031-07-05",
       texto: "Se reprogramó la visita",
     });
@@ -123,6 +129,7 @@ describe("cargar un suceso", () => {
       where: { texto: "Llamó el cliente para cambiar el día" },
     });
     expect(fila).toMatchObject({
+      clienteId,
       servicioId,
       fecha: new Date("2031-07-02T00:00:00.000Z"),
       motivoAnulacion: null,
@@ -153,7 +160,7 @@ describe("cargar un suceso", () => {
     const antes = await filas();
 
     expect(
-      await sucesos().crear(admin, servicioId, {
+      await sucesos().crear(admin, delServicio(), {
         fecha: "2031-02-30",
         texto: "   ",
       }),
@@ -166,24 +173,231 @@ describe("cargar un suceso", () => {
 
   test("quien no puede escribir servicios recibe AUT-0009; un servicio que no existe es DOM-0009", async () => {
     await expect(
-      sucesos().crear(exAdmin, servicioId, {
+      sucesos().crear(exAdmin, delServicio(), {
         fecha: "2031-07-09",
         texto: "No",
       }),
     ).rejects.toMatchObject({ codigo: catalogo.AUT_0009.codigo });
     await expect(
-      sucesos().crear(admin, "00000000-0000-4000-8000-000000000000", {
-        fecha: "2031-07-09",
-        texto: "No",
-      }),
+      sucesos().crear(
+        admin,
+        { clienteId, servicioId: "00000000-0000-4000-8000-000000000000" },
+        { fecha: "2031-07-09", texto: "No" },
+      ),
     ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
     expect(await cliente().servicioSuceso.count()).toBe(0);
   });
 });
 
+describe("una situación suelta del cliente", () => {
+  async function otroCliente(): Promise<string> {
+    const resultado = await crearCasosUsoAbm(dependencias()).crear(
+      admin,
+      CLIENTES,
+      {
+        razonSocial: "Otra Empresa S.R.L.",
+        cuit: "30-00000002-3",
+        condicionIva: "responsable_inscripto",
+        domicilio: "Calle Falsa 456",
+        localidad: "Ciudad Ejemplo",
+        provincia: "cordoba",
+        codigoPostal: "X5000",
+        esCliente: "si",
+        esProveedor: "",
+      },
+    );
+    expect(resultado.ok).toBe(true);
+    return (
+      await cliente().cliente.findFirstOrThrow({
+        where: { razonSocial: "Otra Empresa S.R.L." },
+      })
+    ).id;
+  }
+
+  test("se carga sin servicio, con su auditoría, y no mira etapas", async () => {
+    expect(
+      await sucesos().crear(
+        operador,
+        { clienteId, servicioId: null },
+        { fecha: "2031-07-03", texto: "Reunión por la renovación" },
+      ),
+    ).toEqual({ ok: true });
+
+    const fila = await cliente().servicioSuceso.findFirstOrThrow();
+    expect(fila).toMatchObject({
+      clienteId,
+      servicioId: null,
+      texto: "Reunión por la renovación",
+      creadoPor: operador,
+    });
+    const auditoria = await cliente().auditoria.findMany({
+      where: { entidad: "ServicioSuceso", entidadId: fila.id },
+    });
+    expect(auditoria.map(({ accion }) => accion)).toEqual(["crear"]);
+  });
+
+  test("con servicio, el cliente tiene que ser el del servicio: si no, DOM-0026 y no escribe", async () => {
+    const otro = await otroCliente();
+
+    await expect(
+      sucesos().crear(
+        admin,
+        { clienteId: otro, servicioId },
+        { fecha: "2031-07-09", texto: "De otro cliente" },
+      ),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0026.codigo });
+    expect(await cliente().servicioSuceso.count()).toBe(0);
+  });
+
+  test("un cliente que no existe o está dado de baja es DOM-0009", async () => {
+    const otro = await otroCliente();
+    await crearCasosUsoAbm(dependencias()).marcarEliminado(
+      admin,
+      CLIENTES,
+      otro,
+    );
+
+    for (const destino of [
+      { clienteId: "00000000-0000-4000-8000-000000000000", servicioId: null },
+      { clienteId: otro, servicioId: null },
+    ]) {
+      await expect(
+        sucesos().crear(admin, destino, { fecha: "2031-07-09", texto: "No" }),
+      ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
+    }
+    expect(await cliente().servicioSuceso.count()).toBe(0);
+  });
+
+  test("quien no puede escribir servicios recibe AUT-0009", async () => {
+    await expect(
+      sucesos().crear(
+        exAdmin,
+        { clienteId, servicioId: null },
+        { fecha: "2031-07-09", texto: "No" },
+      ),
+    ).rejects.toMatchObject({ codigo: catalogo.AUT_0009.codigo });
+  });
+
+  test("anularla por el servicio no se puede: DOM-0009", async () => {
+    await sucesos().crear(
+      admin,
+      { clienteId, servicioId: null },
+      { fecha: "2031-07-09", texto: "Suelta" },
+    );
+    const { id } = await cliente().servicioSuceso.findFirstOrThrow();
+
+    await expect(
+      sucesos().marcarAnulado(admin, id, { motivo: "Error" }),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
+  });
+
+  test("la ficha del cliente trae sus datos y su traza: las suyas y las de sus servicios, por fecha y creación, sin las anuladas ni las de otro cliente", async () => {
+    const otro = await otroCliente();
+    await sucesos().crear(
+      admin,
+      { clienteId, servicioId: null },
+      { fecha: "2031-07-05", texto: "Suelta del cinco" },
+    );
+    await sucesos().crear(operador, delServicio(), {
+      fecha: "2031-07-05",
+      texto: "Del servicio, el mismo día",
+    });
+    await sucesos().crear(admin, delServicio(), {
+      fecha: "2031-07-01",
+      texto: "Del servicio, el uno",
+    });
+    await sucesos().crear(
+      admin,
+      { clienteId, servicioId: null },
+      { fecha: "2031-07-08", texto: "Suelta anulada" },
+    );
+    await sucesos().crear(
+      admin,
+      { clienteId: otro, servicioId: null },
+      { fecha: "2031-07-08", texto: "De otro cliente" },
+    );
+    // Con el reloj fijo todas se crean a la misma hora: el desempate por creación necesita horas distintas.
+    await cliente().servicioSuceso.updateMany({
+      where: { texto: "Suelta del cinco" },
+      data: { creadoEn: new Date("2031-07-09T08:00:00.000Z") },
+    });
+    await cliente().servicioSuceso.updateMany({
+      where: { texto: "Suelta anulada" },
+      data: { eliminadoEn: new Date("2031-07-09T00:00:00.000Z") },
+    });
+    const { codigo } = await cliente().servicio.findUniqueOrThrow({
+      where: { id: servicioId },
+    });
+
+    const ficha = await sucesos().delCliente(clienteId);
+
+    expect(ficha).toMatchObject({
+      id: clienteId,
+      razonSocial: "Minera Ejemplo S.A.",
+    });
+    expect(ficha.datos).toContainEqual(["CUIT", "30-00000001-5"]);
+    expect(
+      ficha.situaciones.map(({ texto, servicio, autor }) => [
+        texto,
+        servicio?.codigo ?? null,
+        autor,
+      ]),
+    ).toEqual([
+      ["Del servicio, el mismo día", codigo, OPERADOR.email],
+      ["Suelta del cinco", null, ADMIN_UNO.email],
+      ["Del servicio, el uno", codigo, ADMIN_UNO.email],
+    ]);
+    expect(ficha.situaciones[0]?.servicio?.id).toBe(servicioId);
+    expect(ficha.situaciones[0]?.fecha).toBe("05/07/2031");
+  });
+
+  test("si el servicio cambia de cliente, sus situaciones pasan con él", async () => {
+    const otro = await otroCliente();
+    await sucesos().crear(admin, delServicio(), {
+      fecha: "2031-07-01",
+      texto: "Del servicio",
+    });
+    await cliente().servicio.update({
+      where: { id: servicioId },
+      data: { clienteId: otro },
+    });
+
+    expect((await sucesos().delCliente(clienteId)).situaciones).toEqual([]);
+    expect(
+      (await sucesos().delCliente(otro)).situaciones.map(({ texto }) => texto),
+    ).toEqual(["Del servicio"]);
+  });
+
+  test("un cliente con situaciones sueltas vigentes no se da de baja (DOM-0010); con la suelta anulada, sí", async () => {
+    const otro = await otroCliente();
+    const abm = crearCasosUsoAbm(dependencias());
+    await sucesos().crear(
+      admin,
+      { clienteId: otro, servicioId: null },
+      { fecha: "2031-07-09", texto: "Suelta" },
+    );
+
+    await expect(
+      abm.marcarEliminado(admin, CLIENTES, otro),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0010.codigo });
+
+    await cliente().servicioSuceso.updateMany({
+      where: { clienteId: otro },
+      data: { eliminadoEn: new Date("2031-07-09T00:00:00.000Z") },
+    });
+    await abm.marcarEliminado(admin, CLIENTES, otro);
+  });
+
+  test("la ficha de un cliente que no existe es DOM-0009", async () => {
+    await expect(
+      sucesos().delCliente("00000000-0000-4000-8000-000000000000"),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
+  });
+});
+
 describe("anular un suceso", () => {
   async function uno(): Promise<string> {
-    await sucesos().crear(admin, servicioId, {
+    await sucesos().crear(admin, delServicio(), {
       fecha: "2031-07-09",
       texto: "Suceso cargado por error",
     });

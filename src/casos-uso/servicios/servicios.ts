@@ -162,6 +162,7 @@ export type CambioDeEstado = {
 
 export type DetalleDeServicio = {
   readonly id: string;
+  readonly clienteId: string;
   readonly codigo: string;
   readonly titulo: string;
   readonly estado: string;
@@ -413,6 +414,7 @@ export function crearCasosUsoServicios({
         const marcados = new Set(await repos.servicios.sitiosDe(id));
         return {
           id: valor.id,
+          clienteId: valor.clienteId,
           codigo: valor.codigo,
           titulo: valor.titulo,
           estado: ETIQUETAS_DE_ESTADO[estado],

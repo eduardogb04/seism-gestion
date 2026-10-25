@@ -197,6 +197,12 @@
     "queHacer": "Abrí el servicio de nuevo: puede que otra persona le haya cambiado la modalidad recién.",
     "tipo": "persona"
   },
+  "DOM_0026": {
+    "codigo": "DOM-0026",
+    "descripcion": "La situación no se cargó: el cliente no es el del servicio. No se guardó nada.",
+    "queHacer": "Abrí el servicio de nuevo: puede que otra persona le haya cambiado el cliente recién.",
+    "tipo": "persona"
+  },
   "DOM_0029": {
     "codigo": "DOM-0029",
     "descripcion": "El vencimiento ya no está pendiente: solo se corrige o se descarta uno pendiente. No se guardó nada.",

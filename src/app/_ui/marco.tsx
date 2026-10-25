@@ -18,6 +18,7 @@ import {
   MapPin,
   Receipt,
   Tags,
+  TrendingUp,
   Truck,
   UserCog,
   Wallet,
@@ -57,6 +58,12 @@ const GRUPOS: readonly {
   {
     nombre: "Finanzas",
     secciones: [
+      {
+        texto: "Ingresos",
+        ruta: "/servicios/facturas",
+        Icono: TrendingUp,
+        soloAdministrador: false,
+      },
       {
         texto: "Egresos",
         ruta: "/egresos",

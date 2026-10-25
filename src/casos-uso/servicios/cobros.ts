@@ -56,6 +56,7 @@ import {
   type ErroresPorCampo,
   nombresDeActores,
   type OpcionesPorCampo,
+  parametrosDe,
 } from "../abm/abm.ts";
 import {
   type CamposAbm,
@@ -76,6 +77,7 @@ import {
   movimientoEnCuenta,
   type TextosDeSaldo,
 } from "../compartido/movimientos.ts";
+import { ordenarPor } from "../compartido/orden.ts";
 import type {
   ArchivoSubido,
   DependenciasDeAdjuntos,
@@ -174,8 +176,29 @@ export type LineaDeAvance = {
   readonly pendiente: string;
 };
 
+/** Las columnas por las que se ordena *Por cobrar*; la primera es el orden por defecto. */
+const COLUMNAS_POR_COBRAR = [
+  "vencimiento",
+  "factura",
+  "servicio",
+  "cliente",
+] as const;
+
+const CLAVE_DE_ORDEN: Readonly<
+  Record<
+    (typeof COLUMNAS_POR_COBRAR)[number],
+    (pendiente: Awaited<ReturnType<typeof facturasPorCobrar>>[number]) => string
+  >
+> = {
+  vencimiento: ({ factura }) => factura.valor.vencimiento,
+  factura: ({ factura }) => factura.valor.numero,
+  servicio: ({ servicioCodigo }) => servicioCodigo,
+  cliente: ({ cliente }) => cliente,
+};
+
 /** Una fila de *Por cobrar*, con todo escrito para mostrarse. */
 type FilaPorCobrar = {
+  readonly facturaId: string;
   readonly servicioId: string;
   /** El código del servicio: `SRV-2026-014`. */
   readonly servicio: string;
@@ -197,16 +220,19 @@ export type CasosUsoCobros = {
     readonly servicio: readonly LineaDeAvance[];
     readonly ordenes: Readonly<Record<string, readonly LineaDeAvance[]>>;
   }>;
-  /** Lo que hace falta para cobrar una factura: su número, lo que falta cobrar y el formulario. */
+  /** Lo que hace falta para cobrar una factura: su servicio, su número, lo que falta cobrar y el formulario. */
   formulario(facturaId: string): Promise<{
+    readonly servicioId: string;
     readonly numero: string;
     readonly saldo: string;
     readonly campos: CamposAbm;
     readonly elegibles: OpcionesPorCampo;
     readonly escrito: Escrito;
   }>;
-  /** Las facturas con saldo, por vencimiento, y lo que queda por cobrar en cada moneda. */
-  porCobrar(): Promise<{
+  /** Las facturas con saldo, por vencimiento o por la columna que se pida, y lo que queda por cobrar en cada moneda. */
+  porCobrar(parametros: Readonly<Record<string, unknown>>): Promise<{
+    readonly orden: (typeof COLUMNAS_POR_COBRAR)[number];
+    readonly direccion: "asc" | "desc";
     readonly filas: readonly FilaPorCobrar[];
     readonly saldos: readonly string[];
   }>;
@@ -409,6 +435,7 @@ export function crearCasosUsoCobros({
           await repos.cobros.listarDe([facturaId]),
         );
         return {
+          servicioId: factura.valor.servicioId,
           numero: factura.valor.numero,
           saldo: formatearImporte(saldo.saldo),
           campos: camposDeCobro(factura.valor.importe.moneda),
@@ -418,13 +445,20 @@ export function crearCasosUsoCobros({
       });
     },
 
-    porCobrar() {
+    porCobrar(parametros) {
+      const { orden, direccion } = parametrosDe(
+        { orden: COLUMNAS_POR_COBRAR },
+        parametros,
+      );
       return transaccional.ejecutar(async (repos) => {
         const hoy = reloj.ahora();
         const pendientes = await facturasPorCobrar(repos);
         return {
-          filas: pendientes.map(
+          orden,
+          direccion,
+          filas: ordenarPor(pendientes, CLAVE_DE_ORDEN[orden], direccion).map(
             ({ factura, servicioCodigo, cliente, saldo }) => ({
+              facturaId: factura.valor.id,
               servicioId: factura.valor.servicioId,
               servicio: servicioCodigo,
               cliente,

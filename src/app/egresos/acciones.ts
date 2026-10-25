@@ -26,8 +26,10 @@ function escritoEn(formulario: FormData): Escrito {
   return escrito;
 }
 
+/** Al guardar vuelve a `rutaAlVolver`: el detalle del egreso o el listado desde el que se abrió la ventana. */
 export async function registrarPagoDeEgreso(
   egresoId: string,
+  rutaAlVolver: string,
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
@@ -41,7 +43,7 @@ export async function registrarPagoDeEgreso(
   if (!resultado.valor.ok) {
     return { escrito, errores: resultado.valor.errores };
   }
-  redirect(`/egresos/${egresoId}`);
+  redirect(rutaAlVolver);
 }
 
 /** La anulación, ya confirmada. */

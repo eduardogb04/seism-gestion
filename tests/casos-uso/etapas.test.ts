@@ -212,10 +212,17 @@ const cobrar = async (facturaId: string, cambios: Escrito = {}) =>
 
 const cargarSuceso = async () =>
   exigirOk(
-    await sucesos().crear(admin, servicioId, {
-      fecha: "2031-07-09",
-      texto: "Llamó el cliente",
-    }),
+    await sucesos().crear(
+      admin,
+      {
+        clienteId: (await cliente().cliente.findFirstOrThrow()).id,
+        servicioId,
+      },
+      {
+        fecha: "2031-07-09",
+        texto: "Llamó el cliente",
+      },
+    ),
   );
 
 async function archivos(): Promise<number> {

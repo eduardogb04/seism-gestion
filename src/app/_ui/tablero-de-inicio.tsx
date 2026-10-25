@@ -9,6 +9,8 @@
  */
 
 import {
+  CalendarClock,
+  CalendarX,
   ChartColumn,
   FileText,
   HandCoins,
@@ -18,6 +20,7 @@ import {
   Wallet,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import type { Avisos } from "../../casos-uso/calendario/calendario.ts";
 import type { Cifra } from "../../casos-uso/tablero/convertido.ts";
 import type { Tablero } from "../../casos-uso/tablero/tablero.ts";
 import type { Moneda } from "../../dominio/compartido/importe.ts";
@@ -57,7 +60,13 @@ function documentos(cantidad: number): string {
     : `${cantidad} documentos sin tipo de cambio`;
 }
 
-export function TableroDeInicio({ tablero }: { readonly tablero: Tablero }) {
+export function TableroDeInicio({
+  tablero,
+  avisos,
+}: {
+  readonly tablero: Tablero;
+  readonly avisos: Avisos;
+}) {
   const { mes, delMes, pendientes, convertido } = tablero;
   const { moneda } = convertido;
   const enlaceDeMes = (elegido: string) =>
@@ -118,6 +127,26 @@ export function TableroDeInicio({ tablero }: { readonly tablero: Tablero }) {
           <span className="font-normal">y no entran en estos números.</span>
         </p>
       )}
+
+      <h2>Vencimientos, a hoy</h2>
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <TarjetaKpi
+          titulo={`Vence en los próximos ${avisos.dias} días`}
+          Icono={CalendarClock}
+          valor={kpi("vence-pronto", {
+            valor: String(avisos.proximos),
+            enlace: avisos.enlace,
+          })}
+        />
+        <TarjetaKpi
+          titulo="Vencido"
+          Icono={CalendarX}
+          valor={kpi("vencidas", {
+            valor: String(avisos.vencidos),
+            enlace: avisos.enlace,
+          })}
+        />
+      </div>
 
       <h2>{`Del mes, en ${NOMBRES[moneda].toLowerCase()}`}</h2>
       <div className="mb-4">

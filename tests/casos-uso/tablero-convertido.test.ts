@@ -542,6 +542,13 @@ function cifraVista(html: string, id: string): string | undefined {
   return new RegExp(`data-cifra="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
 }
 
+const AVISOS = {
+  dias: 30,
+  proximos: 0,
+  vencidos: 0,
+  enlace: "/calendario?mes=2031-07",
+};
+
 /** El inicio dibujado con los números de la base sembrada: lo que se ve, no el dato intermedio. */
 async function inicioDibujado(
   moneda: string,
@@ -550,6 +557,7 @@ async function inicioDibujado(
   const resultado = await tablero().tablero({ mes: "2031-07", moneda });
   return renderToStaticMarkup(
     createElement(TableroDeInicio, {
+      avisos: AVISOS,
       tablero:
         sinCambio === undefined
           ? resultado

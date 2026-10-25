@@ -8,13 +8,17 @@
  * Reloj fijo: 09/07/2031 (un miércoles; el 1 de julio fue martes).
  */
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearLectorConfiguracion } from "../../src/adaptadores/prisma/configuracion.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
+import { TableroDeInicio } from "../../src/app/_ui/tablero-de-inicio.tsx";
 import { crearCasosUsoCalendario } from "../../src/casos-uso/calendario/calendario.ts";
 import { crearCasosUsoVencimientos } from "../../src/casos-uso/servicios/vencimientos.ts";
+import { crearCasosUsoTablero } from "../../src/casos-uso/tablero/tablero.ts";
 import type { Actor } from "../../src/dominio/compartido/actor.ts";
 import {
   crearFechaHora,
@@ -237,6 +241,12 @@ beforeAll(async () => {
     importe: "20,00",
     vencimiento: "2031-06-10",
   });
+  await cargarEgreso({
+    centroCostoId: centro,
+    fecha: "2031-05-05",
+    importe: "30,00",
+    vencimiento: "2031-05-10",
+  });
 
   ids = {
     facturaConSaldo: parcial,
@@ -387,11 +397,11 @@ describe("los avisos del inicio", () => {
 
   test("cuenta lo que vence entre hoy y hoy más N días, y lo vencido de cualquier mes", async () => {
     // Próximos: la factura del 12, el egreso del 20 y el inicio del 25. Vencidos:
-    // los del 3 y el 5 de julio y el del 10 de junio.
+    // los del 3 y el 5 de julio, el del 10 de junio y el del 10 de mayo.
     expect(await conDias("30")).toEqual({
       dias: 30,
       proximos: 3,
-      vencidos: 3,
+      vencidos: 4,
       enlace: "/calendario?mes=2031-07",
     });
   });
@@ -408,5 +418,36 @@ describe("los avisos del inicio", () => {
         codigo: "INF-0001",
       });
     }
+  });
+  test("el inicio dibuja las dos tarjetas con la cantidad exacta y el enlace al calendario del mes de hoy", async () => {
+    await conDias("30");
+    const html = renderToStaticMarkup(
+      createElement(TableroDeInicio, {
+        tablero: await crearCasosUsoTablero(dependencias()).tablero({}),
+        avisos: await calendario().avisos(),
+      }),
+    );
+    const tarjeta = (id: string) => {
+      const articulo = html
+        .split("</article>")
+        .find((trozo) => trozo.includes(`data-kpi="${id}"`))
+        ?.split("<article")
+        .pop();
+      return {
+        texto: articulo?.replace(/<[^>]+>/g, "").replace(/^[^>]*>/, ""),
+        enlace: new RegExp(`<a href="([^"]*)" data-kpi="${id}"`).exec(
+          articulo ?? "",
+        )?.[1],
+      };
+    };
+
+    expect(tarjeta("vence-pronto")).toEqual({
+      texto: "Vence en los próximos 30 días3",
+      enlace: "/calendario?mes=2031-07",
+    });
+    expect(tarjeta("vencidas")).toEqual({
+      texto: "Vencido4",
+      enlace: "/calendario?mes=2031-07",
+    });
   });
 });

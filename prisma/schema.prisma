@@ -469,6 +469,7 @@ model Servicio {
   eventos       ServicioEvento[]
   sitios        ServicioSitio[]
   cotizaciones  Cotizacion[]
+  documentos    ServicioDocumento[]
   ordenesCompra OrdenCompra[]
   facturas      Factura[]
   egresos       Egreso[]
@@ -675,8 +676,27 @@ model Documento {
   facturas      Factura[]
   egresos       Egreso[]
   cobros        Cobro[]
+  deServicios   ServicioDocumento[]
 
   @@map("documentos")
+}
+
+// Un documento de alcance del servicio (F5-01): lo que se adjunta antes de
+// cotizar. El dueño apunta al documento, como las cotizaciones (ADR 0035).
+model ServicioDocumento {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId     String    @map("servicio_id") @db.Uuid
+  servicio       Servicio  @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  documentoId    String    @map("documento_id") @db.Uuid
+  documento      Documento @relation(fields: [documentoId], references: [id], onDelete: Restrict)
+  creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json      @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+
+  @@map("servicios_documentos")
 }
 
 // La cabecera de una cotización de un servicio; el detalle es su documento.

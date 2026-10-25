@@ -28,6 +28,7 @@ import type { DefinicionAbm } from "../../../src/casos-uso/abm/definicion.ts";
 import type { CasosUsoPagos } from "../../../src/casos-uso/egresos/pagos.ts";
 import type { CasosUsoCobros } from "../../../src/casos-uso/servicios/cobros.ts";
 import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/cotizaciones.ts";
+import type { CasosUsoDocumentosDeAlcance } from "../../../src/casos-uso/servicios/documentos-de-alcance.ts";
 import type { CasosUsoFacturacion } from "../../../src/casos-uso/servicios/facturacion.ts";
 import type { CasosUsoFacturas } from "../../../src/casos-uso/servicios/facturas.ts";
 import type { CasosUsoOrdenesDeCompra } from "../../../src/casos-uso/servicios/ordenes-de-compra.ts";
@@ -58,6 +59,10 @@ import type {
   Documento,
   RepositorioDocumentos,
 } from "../../../src/puertos/repositorios/documentos.ts";
+import type {
+  DocumentoDeAlcance,
+  RepositorioDocumentosDeAlcance,
+} from "../../../src/puertos/repositorios/documentos-de-alcance.ts";
 import type {
   Factura,
   RepositorioFacturas,
@@ -95,6 +100,9 @@ declare const servicio: Servicio;
 declare const casosCotizaciones: CasosUsoCotizaciones;
 declare const repositorioCotizaciones: RepositorioCotizaciones;
 declare const cotizacion: Cotizacion;
+declare const casosDocumentosDeAlcance: CasosUsoDocumentosDeAlcance;
+declare const repositorioDocumentosDeAlcance: RepositorioDocumentosDeAlcance;
+declare const documentoDeAlcance: DocumentoDeAlcance;
 declare const repositorioDocumentos: RepositorioDocumentos;
 declare const documento: Documento;
 declare const casosOrdenes: CasosUsoOrdenesDeCompra;
@@ -150,6 +158,8 @@ function casosDeUsoSinActor(): void {
   casosServicios.guardarSitios("id", []);
   // @ts-expect-error `crear` de cotizaciones exige un `Actor` primero.
   casosCotizaciones.crear("id", {}, null);
+  // @ts-expect-error `crear` de documentos de alcance exige un `Actor` primero.
+  casosDocumentosDeAlcance.crear("id", null);
   // @ts-expect-error `crear` de sucesos exige un `Actor` primero.
   casosSucesos.crear("id", {});
   // @ts-expect-error `marcarAnulado` de sucesos exige un `Actor` primero.
@@ -209,6 +219,8 @@ function repositoriosSinActor(): void {
   repositorioServicios.guardarSitios("id", [], ahora);
   // @ts-expect-error `crear` del repositorio de cotizaciones exige un `Actor` primero.
   repositorioCotizaciones.crear(cotizacion);
+  // @ts-expect-error `crear` del repositorio de documentos de alcance exige un `Actor` primero.
+  repositorioDocumentosDeAlcance.crear(documentoDeAlcance);
   // @ts-expect-error `crear` del repositorio de sucesos exige un `Actor` primero.
   repositorioSucesos.crear(suceso);
   // @ts-expect-error `actualizar` del repositorio de sucesos exige un `Actor` primero.

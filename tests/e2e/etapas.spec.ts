@@ -24,6 +24,7 @@ const FACTURA = `0000-E2E-ETAPAS-${Date.now()}`;
 
 const SECCIONES = [
   "Sitios que abarca",
+  "Documentación de alcance",
   "Cotizaciones",
   "Órdenes de compra",
   "Facturación",
@@ -90,6 +91,16 @@ async function transicionesOfrecidas(page: Page): Promise<readonly string[]> {
     .allTextContents();
 }
 
+/** La sección «Documentación de alcance». */
+function alcance(page: Page) {
+  return page.locator("section").filter({
+    has: page.getByRole("heading", {
+      name: "Documentación de alcance",
+      exact: true,
+    }),
+  });
+}
+
 function etapa(page: Page, valor: string) {
   return page.locator(`[data-etapa="${valor}"]`);
 }
@@ -100,14 +111,8 @@ async function confirmar(page: Page, boton: string): Promise<void> {
   await ventana(page, boton).getByRole("button", { name: "Confirmar" }).click();
 }
 
-test.beforeEach(async ({ browser, baseURL }) => {
-  await asegurarOperadora(browser, baseURL);
-});
-
-test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", async ({
-  page,
-}) => {
-  await entrarComo(page, OPERADORA);
+/** Da de alta un servicio de ejemplo y deja la pantalla en su detalle, en «Creado». */
+async function altaDeServicio(page: Page, titulo: string): Promise<void> {
   await page.goto("/servicios");
   await page.getByRole("link", { name: "Alta de servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
@@ -117,17 +122,32 @@ test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", as
   await alta
     .getByLabel("Tipo de servicio")
     .selectOption({ label: "Logística" });
-  await alta.getByLabel("Título").fill(TITULO);
+  await alta.getByLabel("Título").fill(titulo);
   await alta.getByLabel("Responsable").selectOption({ label: ADMIN });
   await alta.getByLabel("Fecha de pedido").fill("2026-10-10");
   await alta.getByRole("button", { name: "Guardar" }).click();
   await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
+}
+
+test.beforeEach(async ({ browser, baseURL }) => {
+  await asegurarOperadora(browser, baseURL);
+});
+
+test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", async ({
+  page,
+}) => {
+  await entrarComo(page, OPERADORA);
+  await altaDeServicio(page, TITULO);
   const servicioUrl = page.url();
   const estado = page.locator("[data-estado-del-servicio]");
 
   // Creado: datos y cotización. Todavía no hay a dónde ir más que a cancelar.
   await expect(estado).toHaveText("Creado");
-  await seVeSolo(page, ["Sitios que abarca", "Cotizaciones"]);
+  await seVeSolo(page, [
+    "Sitios que abarca",
+    "Documentación de alcance",
+    "Cotizaciones",
+  ]);
   await expect(etapa(page, "creado")).toHaveAttribute(
     "data-situacion",
     "actual",
@@ -141,6 +161,23 @@ test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", as
   ).toHaveCount(0);
   expect(await transicionesOfrecidas(page)).toEqual(["Pasar a «Cancelado»"]);
 
+  // Un documento de alcance se adjunta en «Creado» y se ve en su sección.
+  await page.getByRole("link", { name: "Nuevo documento de alcance" }).click();
+  await ventana(page, "Nuevo documento de alcance")
+    .getByLabel("Documento")
+    .setInputFiles({
+      name: "alcance.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\nAlcance de ejemplo\n"),
+    });
+  await ventana(page, "Nuevo documento de alcance")
+    .getByRole("button", { name: "Cargar" })
+    .click();
+  await expect(ventana(page, "Nuevo documento de alcance")).toHaveCount(0);
+  await expect(
+    alcance(page).getByRole("link", { name: /^alcance.pdf/ }),
+  ).toBeVisible();
+
   // Cotizado: aclaraciones, nueva versión de la cotización y la orden de compra.
   await page.getByRole("link", { name: "Nueva cotización" }).click();
   const cotizacion = ventana(page, "Nueva cotización");
@@ -153,7 +190,17 @@ test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", as
   });
   await cotizacion.getByRole("button", { name: "Cargar" }).click();
   await expect(estado).toHaveText("Cotizado");
-  await seVeSolo(page, ["Cotizaciones", "Órdenes de compra"]);
+  await seVeSolo(page, [
+    "Documentación de alcance",
+    "Cotizaciones",
+    "Órdenes de compra",
+  ]);
+  await expect(
+    page.getByRole("link", { name: "Nuevo documento de alcance" }),
+  ).toBeVisible();
+  await expect(
+    alcance(page).getByRole("link", { name: /^alcance.pdf/ }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Nueva cotización" }),
   ).toBeVisible();
@@ -271,8 +318,13 @@ test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", as
   await expect(page.locator("[data-solo-lectura]")).toContainText(
     "Solo lectura",
   );
-  await seVeSolo(page, ["Cotizaciones", "Órdenes de compra"]);
+  await seVeSolo(page, [
+    "Documentación de alcance",
+    "Cotizaciones",
+    "Órdenes de compra",
+  ]);
   for (const enlace of [
+    "Nuevo documento de alcance",
     "Nueva cotización",
     "Nueva orden de compra",
     "Nuevo suceso",
@@ -371,3 +423,74 @@ test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", as
     page.locator("[data-etapa]:not([data-situacion='actual']) a"),
   ).toHaveCount(5);
 });
+
+const CIERRES = [
+  { estado: "Perdido", cotizado: true, motivo: "Eligió a otro proveedor" },
+  { estado: "Sin respuesta", cotizado: true, motivo: "No contestó en un mes" },
+  { estado: "Cancelado", cotizado: false, motivo: "El cliente desistió" },
+] as const;
+
+for (const { estado, cotizado, motivo } of CIERRES) {
+  test(`un servicio «${estado}» se ve en solo lectura, con su cierre y sus cotizaciones`, async ({
+    page,
+  }) => {
+    await entrarComo(page, OPERADORA);
+    await altaDeServicio(page, `${TITULO} · ${estado}`);
+    if (cotizado) {
+      await page.getByRole("link", { name: "Nueva cotización" }).click();
+      const cotizacion = ventana(page, "Nueva cotización");
+      await cotizacion.getByLabel("Fecha").fill("2026-10-11");
+      await cotizacion.getByLabel("Importe", { exact: true }).fill("1.000,00");
+      await cotizacion.getByLabel("Documento").setInputFiles({
+        name: "cotizacion-cerrada.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from("%PDF-1.4\nCotización de ejemplo\n"),
+      });
+      await cotizacion.getByRole("button", { name: "Cargar" }).click();
+    }
+    await expect(page.locator("[data-estado-del-servicio]")).toHaveText(
+      cotizado ? "Cotizado" : "Creado",
+    );
+    await page.getByRole("link", { name: `Pasar a «${estado}»` }).click();
+    await ventana(page, `Pasar a «${estado}»`)
+      .getByLabel("Nota o motivo")
+      .fill(motivo);
+    await ventana(page, `Pasar a «${estado}»`)
+      .getByRole("button", { name: "Confirmar" })
+      .click();
+
+    await expect(page.locator("[data-estado-del-servicio]")).toHaveText(estado);
+    await seVeSolo(page, ["Cotizaciones"]);
+    // Las cotizaciones que tuvo.
+    if (cotizado) {
+      await expect(
+        page.getByRole("link", { name: /^cotizacion-cerrada\.pdf/ }),
+      ).toBeVisible();
+    } else {
+      await expect(
+        page.getByText("Todavía no hay cotizaciones cargadas."),
+      ).toBeVisible();
+    }
+    // La fecha y el motivo del cierre, en el historial.
+    const cierre = page
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: motivo, exact: true }) });
+    await expect(cierre.getByRole("cell").nth(0)).toHaveText(
+      /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/,
+    );
+    await expect(cierre.getByRole("cell").nth(2)).toHaveText(estado);
+    // Sin botones de carga ni de cambio.
+    for (const enlace of [
+      "Nueva cotización",
+      "Anular",
+      "Nuevo suceso",
+      "Editar",
+      "Dar de baja",
+    ]) {
+      await expect(
+        page.getByRole("link", { name: enlace, exact: true }),
+      ).toHaveCount(0);
+    }
+    expect(await transicionesOfrecidas(page)).toEqual([]);
+  });
+}

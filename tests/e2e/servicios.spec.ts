@@ -12,7 +12,7 @@
  * 4. carga un suceso y lo ve en *Sucesos*, con quién (F3-01);
  * 5. lo cancela: sin motivo dice que lo pide (DOM-0017); con motivo cambia el
  *    estado y lo ve en el historial, con los días y quién;
- * 6. intenta darlo de baja: ya no se puede, y dice por qué.
+ * 6. ya cancelado, no se le ofrece la baja ni la edición.
  *
  * Usa `operador.catalogos@ejemplo.test`, como los otros catálogos (la identidad falsa no ofrece más). Todo inventado.
  */
@@ -203,15 +203,10 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   await expect(elAlta.getByRole("cell").nth(2)).toHaveText("Creado");
   await expect(historial.getByRole("row")).toHaveCount(3);
 
-  // 6. La baja ya no se puede: un servicio que salió de «Creado» se cancela.
-  await page.getByRole("link", { name: "Dar de baja" }).click();
-  const baja = ventana(page, "Baja de servicio");
-  await expect(baja.locator("[data-codigo-error]")).toHaveText("DOM-0011");
-  await expect(baja).toContainText("no se da de baja: se cancela");
-  await expect(
-    baja.getByRole("button", { name: "Confirmar baja" }),
-  ).toHaveCount(0);
-  await baja.getByRole("link", { name: "Cerrar" }).click();
+  // 6. Cancelado se mira (F5-01): ni la baja ni la edición se ofrecen.
+  for (const enlace of ["Dar de baja", "Editar"]) {
+    await expect(page.getByRole("link", { name: enlace })).toHaveCount(0);
+  }
 
   await page.getByRole("link", { name: "Volver a Servicios" }).click();
   await expect(fila(page, new RegExp(TITULO)).first()).toContainText(

@@ -12,6 +12,7 @@ import type { EstadoServicio } from "../../../dominio/servicios/estados.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { Avance } from "./avance.tsx";
 import { Cotizaciones } from "./cotizaciones.tsx";
+import { DocumentosDeAlcance } from "./documentos-de-alcance.tsx";
 import { Egresos } from "./egresos.tsx";
 import { Facturacion } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
@@ -112,6 +113,9 @@ const SECCIONES = {
   sitios: ({ servicio, puedeEscribir }: Datos): ReactNode => (
     <Sitios servicio={servicio} puedeEscribir={puedeEscribir} />
   ),
+  alcance: (datos: Datos): ReactNode => (
+    <DocumentosDeAlcance {...propias(datos)} />
+  ),
   cotizaciones: (datos: Datos): ReactNode => (
     <Cotizaciones {...propias(datos)} />
   ),
@@ -151,8 +155,8 @@ const SECCIONES = {
 const VISTAS: Readonly<
   Record<EstadoServicio, readonly (keyof typeof SECCIONES)[]>
 > = {
-  creado: ["sitios", "cotizaciones"],
-  cotizado: ["cotizaciones", "ordenes"],
+  creado: ["sitios", "alcance", "cotizaciones"],
+  cotizado: ["alcance", "cotizaciones", "ordenes"],
   adjudicado: [
     "ordenes",
     "facturacion",
@@ -173,11 +177,21 @@ const VISTAS: Readonly<
   ],
   finalizado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],
   cerrado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],
-  // Salidas del recorrido: lo único que se carga es un suceso, en la columna lateral.
-  perdido: [],
-  sin_respuesta: [],
-  cancelado: [],
+  // Salidas del recorrido: se miran, como «Cerrado».
+  perdido: ["cotizaciones"],
+  sin_respuesta: ["cotizaciones"],
+  cancelado: ["cotizaciones"],
 };
+
+/** Las etapas donde no se carga ni se cambia nada: el servicio se mira. */
+export function esSoloLectura(etapa: EstadoServicio): boolean {
+  return (
+    etapa === "cerrado" ||
+    etapa === "perdido" ||
+    etapa === "sin_respuesta" ||
+    etapa === "cancelado"
+  );
+}
 
 export function VistaDeEtapa(datos: Datos) {
   // En «Creado» no se cargan recursos, pero los camiones de una renovación llegan copiados: se ven.

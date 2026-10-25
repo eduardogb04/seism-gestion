@@ -20,8 +20,8 @@ import {
   CLASES_DE_FILA_ENLAZADA,
   Tabla,
 } from "../_ui/tabla.tsx";
-import { VentanaDeRenovacion } from "../servicios/[id]/ventana-de-renovacion.tsx";
 import { sesionExigida } from "../(auth)/sesion-actual.ts";
+import { VentanaDeRenovacion } from "../servicios/[id]/ventana-de-renovacion.tsx";
 import {
   BORDE_DE_TIPO,
   EnlaceDeRenovacion,

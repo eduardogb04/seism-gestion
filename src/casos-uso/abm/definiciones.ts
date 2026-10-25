@@ -101,5 +101,9 @@ export async function enUso(
     }
   }
   // Un servicio no es un ABM del molde, pero también usa clientes, tipos y sitios (F2-04).
-  return repos.servicios.usa(destino, id);
+  if (await repos.servicios.usa(destino, id)) {
+    return true;
+  }
+  // Las situaciones sueltas de un cliente (F4-05); las de un servicio las cubre el servicio.
+  return destino === "Cliente" && repos.sucesos.haySueltasDe(id);
 }

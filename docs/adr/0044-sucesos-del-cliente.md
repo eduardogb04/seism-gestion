@@ -40,7 +40,7 @@ servicio no se renombran (`servicios_sucesos`, `ServicioSuceso`, «sucesos»): e
 
 - Una pantalla más (la ficha) y una consulta más en el repositorio de sucesos; la columna lateral del servicio no cambia.
 - `servicios_sucesos.cliente_id` de un suceso de servicio puede quedar atrás si el servicio cambia de cliente: nada lo lee.
-- Dar de baja a un cliente no mira sus sucesos sueltos (la baja es lógica); su ficha deja de abrirse.
+- Un cliente con situaciones sueltas vigentes está en uso y no se da de baja (`DOM-0010`, `enUso`), como con sitios o camiones; las de un servicio las cubre el servicio.
 - Lo hacen cumplir `tests/casos-uso/migracion-sucesos-del-cliente.test.ts`, `tests/casos-uso/sucesos.test.ts` y
   `tests/e2e/situaciones.spec.ts`.
 

@@ -41,4 +41,6 @@ export type RepositorioSucesos = Pick<
    * del día más nuevo al más viejo.
    */
   delCliente(clienteId: string): Promise<readonly SituacionDelCliente[]>;
+  /** ¿Tiene el cliente alguna situación suelta (sin servicio) no anulada? */
+  haySueltasDe(clienteId: string): Promise<boolean>;
 };

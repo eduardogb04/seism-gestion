@@ -63,6 +63,14 @@ export function crearRepositorioSucesosPrisma(
       }));
     },
 
+    async haySueltasDe(clienteId) {
+      return (
+        (await cliente.servicioSuceso.findFirst({
+          where: { clienteId, servicioId: null, eliminadoEn: null },
+        })) !== null
+      );
+    },
+
     async listarDe(servicioId) {
       const filas = await cliente.servicioSuceso.findMany({
         where: { servicioId, eliminadoEn: null },

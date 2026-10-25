@@ -368,6 +368,26 @@ describe("una situación suelta del cliente", () => {
     ).toEqual(["Del servicio"]);
   });
 
+  test("un cliente con situaciones sueltas vigentes no se da de baja (DOM-0010); con la suelta anulada, sí", async () => {
+    const otro = await otroCliente();
+    const abm = crearCasosUsoAbm(dependencias());
+    await sucesos().crear(
+      admin,
+      { clienteId: otro, servicioId: null },
+      { fecha: "2031-07-09", texto: "Suelta" },
+    );
+
+    await expect(
+      abm.marcarEliminado(admin, CLIENTES, otro),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0010.codigo });
+
+    await cliente().servicioSuceso.updateMany({
+      where: { clienteId: otro },
+      data: { eliminadoEn: new Date("2031-07-09T00:00:00.000Z") },
+    });
+    await abm.marcarEliminado(admin, CLIENTES, otro);
+  });
+
   test("la ficha de un cliente que no existe es DOM-0009", async () => {
     await expect(
       sucesos().delCliente("00000000-0000-4000-8000-000000000000"),

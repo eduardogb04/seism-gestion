@@ -11,6 +11,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
+import { crearLectorConfiguracion } from "../../src/adaptadores/prisma/configuracion.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
 import { crearCasosUsoCalendario } from "../../src/casos-uso/calendario/calendario.ts";
 import { crearCasosUsoVencimientos } from "../../src/casos-uso/servicios/vencimientos.ts";
@@ -69,6 +70,7 @@ function dependencias() {
     transaccional: crearTransaccionalPrisma(cliente()),
     reloj: RelojFijo(HOY),
     generadorId: crearGeneradorIdCrypto(),
+    configuracion: crearLectorConfiguracion(cliente()),
   };
 }
 
@@ -228,6 +230,13 @@ beforeAll(async () => {
     fecha: "2031-06-04",
     importe: "75,00",
   });
+  // Vencido de un mes anterior: el calendario de julio no lo trae, los avisos sí.
+  await cargarEgreso({
+    centroCostoId: centro,
+    fecha: "2031-06-05",
+    importe: "20,00",
+    vencimiento: "2031-06-10",
+  });
 
   ids = {
     facturaConSaldo: parcial,
@@ -363,5 +372,41 @@ describe("otros meses", () => {
   test("sin mes, o con uno ilegible, es el del reloj", async () => {
     expect((await calendario().mes({})).mes.mes).toBe("2031-07");
     expect((await calendario().mes({ mes: "mañana" })).mes.mes).toBe("2031-07");
+  });
+});
+
+describe("los avisos del inicio", () => {
+  const conDias = async (dias: string) => {
+    await cliente().configuracion.upsert({
+      where: { clave: "calendario.dias_de_aviso" },
+      update: { valor: dias },
+      create: { clave: "calendario.dias_de_aviso", valor: dias },
+    });
+    return calendario().avisos();
+  };
+
+  test("cuenta lo que vence entre hoy y hoy más N días, y lo vencido de cualquier mes", async () => {
+    // Próximos: la factura del 12, el egreso del 20 y el inicio del 25. Vencidos:
+    // los del 3 y el 5 de julio y el del 10 de junio.
+    expect(await conDias("30")).toEqual({
+      dias: 30,
+      proximos: 3,
+      vencidos: 3,
+      enlace: "/calendario?mes=2031-07",
+    });
+  });
+
+  test("N sale de la configuración y el día N entra: hoy más 3 días es el 12", async () => {
+    expect((await conDias("3")).proximos).toBe(1);
+    expect((await conDias("2")).proximos).toBe(0);
+    expect((await conDias("60")).proximos).toBe(5);
+  });
+
+  test("una cantidad de días que no sirve es un error de infraestructura", async () => {
+    for (const dias of ["0", "treinta", "-5", "1,5"]) {
+      await expect(conDias(dias)).rejects.toMatchObject({
+        codigo: "INF-0001",
+      });
+    }
   });
 });

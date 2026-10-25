@@ -109,7 +109,8 @@ const ETAPAS_DE_CARGA: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   anulacionDeOrdenDeCompra: ["adjudicado"],
   factura: ["adjudicado", "en_ejecucion", "finalizado"],
   cobro: MENOS_CERRADO,
-  suceso: MENOS_CERRADO,
+  // Las salidas del recorrido (perdido, sin respuesta, cancelado) y «Cerrado» se miran (F5-01).
+  suceso: ["creado", "cotizado", "adjudicado", "en_ejecucion", "finalizado"],
   planificacion: ["adjudicado", "en_ejecucion"],
   tildarHito: ["en_ejecucion"],
   // Elegir la modalidad de facturación o ajustar la cuota mensual (F3-03).

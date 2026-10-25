@@ -436,18 +436,27 @@ describe("cada etapa limita lo que se carga (R6)", () => {
     await fueraDeEtapa(() => cobros().marcarAnulado(admin, segundo?.id ?? ""));
   });
 
-  test("sucesos: en cualquier etapa menos «Cerrado», también perdido, sin respuesta y cancelado", async () => {
-    for (const adentro of fueraDe(["cerrado"])) {
-      await llevarA(adentro);
+  test("sucesos: de «Creado» a «Finalizado»; en Perdido, Sin respuesta, Cancelado y Cerrado, DOM-0018 sin escribir nada", async () => {
+    const adentro = [
+      "creado",
+      "cotizado",
+      "adjudicado",
+      "en_ejecucion",
+      "finalizado",
+    ] as const;
+    for (const etapa of adentro) {
+      await llevarA(etapa);
       await cargarSuceso();
     }
-    expect(await cliente().servicioSuceso.count()).toBe(8);
+    expect(await cliente().servicioSuceso.count()).toBe(adentro.length);
 
-    await llevarA("cerrado");
-    await fueraDeEtapa(cargarSuceso);
+    for (const afuera of fueraDe(adentro)) {
+      await llevarA(afuera);
+      await fueraDeEtapa(cargarSuceso);
+    }
   });
 
-  test("anular un suceso: antes de «Cerrado» sí; en «Cerrado», DOM-0018", async () => {
+  test("anular un suceso sigue la misma regla: antes de «Cerrado» sí; en «Cerrado», DOM-0018", async () => {
     await cargarSuceso();
     await cargarSuceso();
     const [uno, otro] = await sucesos().listar(servicioId);

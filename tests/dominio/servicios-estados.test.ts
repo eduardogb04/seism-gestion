@@ -76,7 +76,7 @@ const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   anulacionDeOrdenDeCompra: ["adjudicado"],
   factura: ["adjudicado", "en_ejecucion", "finalizado"],
   cobro: MENOS_CERRADO,
-  suceso: MENOS_CERRADO,
+  suceso: ["creado", "cotizado", "adjudicado", "en_ejecucion", "finalizado"],
   planificacion: ["adjudicado", "en_ejecucion"],
   tildarHito: ["en_ejecucion"],
   modalidad: ["adjudicado", "en_ejecucion"],

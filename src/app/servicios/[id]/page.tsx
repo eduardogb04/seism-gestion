@@ -27,7 +27,12 @@ import { Ventana } from "../../_ui/ventana.tsx";
 import { sesionExigida } from "../../(auth)/sesion-actual.ts";
 import type { PropsListado } from "../../catalogo/_abm/paginas.tsx";
 import { darDeBajaServicio, guardarServicio } from "../acciones.ts";
-import { etapaPasada, LineaDeEtapas, VistaDeEtapa } from "./etapas.tsx";
+import {
+  esSoloLectura,
+  etapaPasada,
+  LineaDeEtapas,
+  VistaDeEtapa,
+} from "./etapas.tsx";
 import { Sucesos } from "./sucesos.tsx";
 import { Transiciones, VentanaDeTransicion } from "./transiciones.tsx";
 
@@ -114,9 +119,9 @@ export default async function Servicio({ params, searchParams }: Props) {
   }
   const ruta = `${LISTADO}/${servicio.id}`;
   const pasada = etapaPasada(servicio, parametros.etapa);
-  // Una etapa pasada y «Cerrado» se miran: no se carga ni se cambia nada.
+  // Una etapa pasada, «Cerrado» y las salidas se miran: no se carga ni se cambia nada.
   const puedeCambiar =
-    puedeEscribir && pasada === null && servicio.etapa !== "cerrado";
+    puedeEscribir && pasada === null && !esSoloLectura(servicio.etapa);
   const etapa = pasada ?? servicio.etapa;
   const delServicio = {
     servicio,

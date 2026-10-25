@@ -173,11 +173,21 @@ const VISTAS: Readonly<
   ],
   finalizado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],
   cerrado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],
-  // Salidas del recorrido: lo único que se carga es un suceso, en la columna lateral.
-  perdido: [],
-  sin_respuesta: [],
-  cancelado: [],
+  // Salidas del recorrido: se miran, como «Cerrado».
+  perdido: ["cotizaciones"],
+  sin_respuesta: ["cotizaciones"],
+  cancelado: ["cotizaciones"],
 };
+
+/** Las etapas donde no se carga ni se cambia nada: el servicio se mira. */
+export function esSoloLectura(etapa: EstadoServicio): boolean {
+  return (
+    etapa === "cerrado" ||
+    etapa === "perdido" ||
+    etapa === "sin_respuesta" ||
+    etapa === "cancelado"
+  );
+}
 
 export function VistaDeEtapa(datos: Datos) {
   // En «Creado» no se cargan recursos, pero los camiones de una renovación llegan copiados: se ven.

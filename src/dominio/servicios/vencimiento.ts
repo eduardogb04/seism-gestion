@@ -15,7 +15,7 @@ export interface ReglaDeVencimiento {
   readonly antiguedadCorteAnios: number | null;
 }
 
-export interface AniosDelCamion {
+interface AniosDelCamion {
   readonly anioTractor: number;
   readonly anioCisterna: number | null;
 }
@@ -49,7 +49,7 @@ interface CamionDelTrabajo extends AniosDelCamion {
 }
 
 /** Aquello por lo que vence un trabajo terminado. */
-export interface ObjetivoDeVencimiento {
+interface ObjetivoDeVencimiento {
   readonly camionId: string | null;
   readonly sitioId: string | null;
   readonly descripcion: string;

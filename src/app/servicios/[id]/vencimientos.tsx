@@ -3,7 +3,8 @@
  * cada cosa del trabajo terminado. En «Finalizado» se agrega uno (`?vencimiento=1`),
  * se corrige la fecha (`?corregir=<id>`) o se descarta con motivo
  * (`?descartar=<id>`), cada uno en una ventana sobre esta misma pantalla; en
- * «Cerrado» se ven y nada más.
+ * «Cerrado» se ven y nada más. Cotizar la renovación (F4-07, `?renovar=<id>`) se
+ * confirma en una ventana y vale también en «Cerrado».
  */
 
 import {
@@ -13,7 +14,7 @@ import {
   type DetalleDeVencimientos,
 } from "../../../casos-uso/servicios/vencimientos.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import { clasesDeBoton } from "../../_ui/boton.tsx";
+import { Boton, clasesDeBoton } from "../../_ui/boton.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
@@ -21,6 +22,7 @@ import { Ventana } from "../../_ui/ventana.tsx";
 import {
   cargarVencimiento,
   corregirFechaDeVencimiento,
+  cotizarRenovacion,
   descartarVencimiento,
 } from "../acciones.ts";
 
@@ -97,15 +99,44 @@ function VentanaDeDescarte({
   );
 }
 
+function VentanaDeRenovacion({
+  servicioId,
+  fila,
+  rutaAlCerrar,
+}: {
+  readonly servicioId: string;
+  readonly fila: Fila;
+  readonly rutaAlCerrar: string;
+}) {
+  return (
+    <Ventana titulo="Cotizar renovación" rutaAlCerrar={rutaAlCerrar}>
+      <p className="mb-3">
+        {fila.descripcion} · {fila.fecha}
+      </p>
+      <p className="mb-3">
+        Se crea un servicio nuevo en «Creado», con el cliente, el tipo, los
+        sitios y los camiones de este.
+      </p>
+      <form action={cotizarRenovacion.bind(null, servicioId, fila.id)}>
+        <Boton variante="primario" type="submit">
+          Confirmar
+        </Boton>
+      </form>
+    </Ventana>
+  );
+}
+
 export async function Vencimientos({
   servicioId,
   ruta,
   puedeEscribir,
+  puedeRenovar,
   parametros,
 }: {
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
+  readonly puedeRenovar: boolean;
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const { vencimientos, editable } =
@@ -117,6 +148,9 @@ export async function Vencimientos({
   );
   const aDescartar = vencimientos.find(
     ({ id, pendiente }) => pendiente && id === parametros.descartar,
+  );
+  const aRenovar = vencimientos.find(
+    ({ id, pendiente }) => pendiente && id === parametros.renovar,
   );
   return (
     <section className="mt-6">
@@ -136,7 +170,7 @@ export async function Vencimientos({
         <p>No hay vencimientos.</p>
       ) : (
         <Tabla
-          cabeceras={puedeCambiar ? [...cabeceras, "Acciones"] : cabeceras}
+          cabeceras={puedeRenovar ? [...cabeceras, "Acciones"] : cabeceras}
         >
           {vencimientos.map((fila) => (
             <tr key={fila.id} data-vencimiento={fila.descripcion}>
@@ -144,28 +178,50 @@ export async function Vencimientos({
               <td>{fila.descripcion}</td>
               <td>{fila.origen}</td>
               <td>
-                {fila.motivoDeDescarte === null
-                  ? fila.estado
-                  : `${fila.estado} · ${fila.motivoDeDescarte}`}
+                {fila.renovacion === null ? (
+                  fila.motivoDeDescarte === null ? (
+                    fila.estado
+                  ) : (
+                    `${fila.estado} · ${fila.motivoDeDescarte}`
+                  )
+                ) : (
+                  <>
+                    {fila.estado} ·{" "}
+                    <Enlace href={`/servicios/${fila.renovacion.id}`}>
+                      {fila.renovacion.codigo}
+                    </Enlace>
+                  </>
+                )}
               </td>
-              {puedeCambiar ? (
+              {puedeRenovar ? (
                 <td>
                   {fila.pendiente ? (
                     <span className="flex flex-wrap gap-2">
                       <Enlace
-                        href={`${ruta}?corregir=${fila.id}`}
+                        href={`${ruta}?renovar=${fila.id}`}
                         scroll={false}
-                        className={clasesDeBoton("secundario")}
+                        className={clasesDeBoton("primario")}
                       >
-                        Corregir fecha
+                        Cotizar renovación
                       </Enlace>
-                      <Enlace
-                        href={`${ruta}?descartar=${fila.id}`}
-                        scroll={false}
-                        className={clasesDeBoton("peligro")}
-                      >
-                        Descartar
-                      </Enlace>
+                      {puedeCambiar ? (
+                        <>
+                          <Enlace
+                            href={`${ruta}?corregir=${fila.id}`}
+                            scroll={false}
+                            className={clasesDeBoton("secundario")}
+                          >
+                            Corregir fecha
+                          </Enlace>
+                          <Enlace
+                            href={`${ruta}?descartar=${fila.id}`}
+                            scroll={false}
+                            className={clasesDeBoton("peligro")}
+                          >
+                            Descartar
+                          </Enlace>
+                        </>
+                      ) : null}
                     </span>
                   ) : null}
                 </td>
@@ -174,6 +230,13 @@ export async function Vencimientos({
           ))}
         </Tabla>
       )}
+      {puedeRenovar && aRenovar !== undefined ? (
+        <VentanaDeRenovacion
+          servicioId={servicioId}
+          fila={aRenovar}
+          rutaAlCerrar={ruta}
+        />
+      ) : null}
       {puedeCambiar && parametros.vencimiento === "1" ? (
         <VentanaDeVencimiento servicioId={servicioId} rutaAlCerrar={ruta} />
       ) : null}

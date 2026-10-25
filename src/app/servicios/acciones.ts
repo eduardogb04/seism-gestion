@@ -407,6 +407,21 @@ export async function quitarRecurso(
   );
 }
 
+/** Cotizar la renovación de un vencimiento: sigue en el servicio nuevo, o vuelve a este con el error. */
+export async function cotizarRenovacion(
+  servicioId: string,
+  id: string,
+): Promise<never> {
+  const resultado = await conActorDeSesion((actor) =>
+    armado().vencimientos.renovar(actor, id),
+  );
+  redirect(
+    resultado.ok
+      ? `${RUTA}/${encodeURIComponent(resultado.valor.servicioId)}`
+      : `${RUTA}/${encodeURIComponent(servicioId)}?error=${resultado.codigo}`,
+  );
+}
+
 /** Cargar un vencimiento a mano. */
 export async function cargarVencimiento(
   servicioId: string,

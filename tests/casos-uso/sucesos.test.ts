@@ -316,6 +316,11 @@ describe("una situación suelta del cliente", () => {
       { clienteId: otro, servicioId: null },
       { fecha: "2031-07-08", texto: "De otro cliente" },
     );
+    // Con el reloj fijo todas se crean a la misma hora: el desempate por creación necesita horas distintas.
+    await cliente().servicioSuceso.updateMany({
+      where: { texto: "Suelta del cinco" },
+      data: { creadoEn: new Date("2031-07-09T08:00:00.000Z") },
+    });
     await cliente().servicioSuceso.updateMany({
       where: { texto: "Suelta anulada" },
       data: { eliminadoEn: new Date("2031-07-09T00:00:00.000Z") },

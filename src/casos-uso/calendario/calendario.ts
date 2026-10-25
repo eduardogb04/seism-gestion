@@ -3,7 +3,8 @@
  * cada módulo con una consulta por tipo de entrada. No guarda nada ni vuelve a
  * calcular un saldo: el de las facturas y el de los egresos es el que ya
  * calculan *Por cobrar* y *Por pagar*. Los avisos del inicio (F4-06) cuentan las
- * mismas entradas en otro tramo de días.
+ * mismas entradas en otro tramo de días, salvo los vencimientos ya renovados
+ * (F5-03): el calendario los muestra y los avisos no.
  */
 
 import { z } from "zod";
@@ -53,10 +54,15 @@ export type EntradaDelCalendario = {
   /** Su fecha es anterior a hoy y sigue pendiente. */
   readonly vencida: boolean;
   readonly enlace: string;
-  /** El vencimiento a cotizar como renovación; `null` si la entrada no es un vencimiento. */
+  /** El vencimiento a cotizar como renovación; `null` si la entrada no es un vencimiento pendiente. */
   readonly vencimiento: {
     readonly id: string;
     readonly servicioId: string;
+  } | null;
+  /** El servicio que renovó el vencimiento; `null` si la entrada no es un vencimiento renovado. */
+  readonly renovacion: {
+    readonly id: string;
+    readonly codigo: string;
   } | null;
 };
 
@@ -113,13 +119,15 @@ async function entradasEntre(
   hoy: FechaHora,
   tipos: readonly TipoDeEntrada[],
   { desde, hasta }: Rango,
+  conRenovados: boolean,
 ): Promise<EntradaDelCalendario[]> {
   const delTramo = (fecha: string) => fecha >= desde && fecha < hasta;
   const entrada = (
-    datos: Omit<EntradaDelCalendario, "vencida">,
+    datos: Omit<EntradaDelCalendario, "vencida" | "renovacion">,
   ): EntradaDelCalendario => ({
     ...datos,
     vencida: estaVencido(hoy, datos.fecha),
+    renovacion: null,
   });
   const entradas: EntradaDelCalendario[] = [];
   if (tipos.includes("vencimiento")) {
@@ -137,6 +145,26 @@ async function entradasEntre(
           vencimiento: { id: v.id, servicioId: v.servicioId },
         }),
       );
+    }
+    if (conRenovados) {
+      for (const v of await repos.vencimientos.renovadosEntre({
+        desde,
+        hasta,
+      })) {
+        // Ya no vence: no se marca vencida ni se ofrece cotizarlo de nuevo.
+        entradas.push({
+          ...entrada({
+            tipo: "vencimiento",
+            fecha: v.fecha,
+            titulo: `${v.descripcion} · ${v.servicioCodigo}`,
+            importe: null,
+            enlace: `/servicios/${v.servicioId}`,
+            vencimiento: null,
+          }),
+          vencida: false,
+          renovacion: v.renovacion,
+        });
+      }
     }
   }
   if (tipos.includes("factura")) {
@@ -221,7 +249,13 @@ export function crearCasosUsoCalendario({
       const mes = elegirMes(pedido, hoy);
       const tipos = elegirTipos(tipo);
       return transaccional.ejecutar(async (repos) => {
-        const entradas = await entradasEntre(repos, hoy, tipos, mes.rango);
+        const entradas = await entradasEntre(
+          repos,
+          hoy,
+          tipos,
+          mes.rango,
+          true,
+        );
         return {
           mes,
           tipos,
@@ -237,10 +271,13 @@ export function crearCasosUsoCalendario({
       // Una sola lectura hasta el último día del aviso: lo ya vencido y lo que vence.
       const hasta = formatearISO(sumarDias(hoy, dias + 1)).slice(0, 10);
       const entradas = await transaccional.ejecutar((repos) =>
-        entradasEntre(repos, hoy, TIPOS_DE_ENTRADA, {
-          desde: DESDE_SIEMPRE,
-          hasta,
-        }),
+        entradasEntre(
+          repos,
+          hoy,
+          TIPOS_DE_ENTRADA,
+          { desde: DESDE_SIEMPRE, hasta },
+          false,
+        ),
       );
       const vencidos = entradas.filter(({ vencida }) => vencida).length;
       return {

@@ -285,6 +285,7 @@ describe("el mes de julio", () => {
         vencida: true,
         enlace: `/egresos/${ids.egresoVencido}`,
         vencimiento: null,
+        renovacion: null,
       },
       {
         tipo: "vencimiento",
@@ -297,6 +298,7 @@ describe("el mes de julio", () => {
           id: habilitacion.id,
           servicioId: ids.servicioQueFinaliza,
         },
+        renovacion: null,
       },
       {
         tipo: "factura",
@@ -306,6 +308,7 @@ describe("el mes de julio", () => {
         vencida: false,
         enlace: `/servicios/facturas/${ids.facturaConSaldo}`,
         vencimiento: null,
+        renovacion: null,
       },
       {
         tipo: "egreso",
@@ -315,6 +318,7 @@ describe("el mes de julio", () => {
         vencida: false,
         enlace: `/egresos/${ids.egresoConSaldo}`,
         vencimiento: null,
+        renovacion: null,
       },
       {
         tipo: "inicio",
@@ -324,6 +328,7 @@ describe("el mes de julio", () => {
         vencida: false,
         enlace: `/servicios/${ids.servicioAdjudicado}`,
         vencimiento: null,
+        renovacion: null,
       },
     ]);
   });
@@ -459,6 +464,96 @@ describe("los avisos del inicio", () => {
     expect(tarjeta("vencidas")).toEqual({
       texto: "Vencido4",
       enlace: "/calendario?mes=2031-07",
+    });
+  });
+});
+
+describe("los vencimientos renovados", () => {
+  let renovaciones: { readonly pasado: string; readonly futuro: string };
+
+  beforeAll(async () => {
+    const vencimientos = crearCasosUsoVencimientos(dependencias());
+    const renovar = async (fecha: string, descripcion: string) => {
+      expect(
+        await vencimientos.crear(admin, ids.servicioQueFinaliza, {
+          fecha,
+          descripcion,
+        }),
+      ).toMatchObject({ ok: true });
+      const { id } = await cliente().servicioVencimiento.findFirstOrThrow({
+        where: { descripcion },
+      });
+      const { servicioId } = await vencimientos.renovar(admin, id);
+      return servicioId;
+    };
+    renovaciones = {
+      pasado: await renovar("2031-07-06", "Habilitación renovada de ayer"),
+      futuro: await renovar("2031-07-18", "Habilitación renovada de mañana"),
+    };
+  });
+
+  const renovados = async (tipo?: string | readonly string[]) =>
+    (await calendario().mes({ mes: "2031-07", tipo })).entradas.filter(
+      ({ renovacion }) => renovacion !== null,
+    );
+
+  test("el calendario los trae, sin marca de vencidos, con el servicio que los renovó y sin vencimiento para cotizar", async () => {
+    const servicios = await cliente().servicio.findMany({
+      where: { id: { in: Object.values(renovaciones) } },
+      select: { id: true, codigo: true },
+    });
+    const codigoDe = (id: string) =>
+      servicios.find((servicio) => servicio.id === id)?.codigo;
+
+    expect(await renovados()).toEqual([
+      {
+        tipo: "vencimiento",
+        fecha: "2031-07-06",
+        titulo: "Habilitación renovada de ayer · SRV-2031-002",
+        importe: null,
+        vencida: false,
+        enlace: `/servicios/${ids.servicioQueFinaliza}`,
+        vencimiento: null,
+        renovacion: {
+          id: renovaciones.pasado,
+          codigo: codigoDe(renovaciones.pasado),
+        },
+      },
+      {
+        tipo: "vencimiento",
+        fecha: "2031-07-18",
+        titulo: "Habilitación renovada de mañana · SRV-2031-002",
+        importe: null,
+        vencida: false,
+        enlace: `/servicios/${ids.servicioQueFinaliza}`,
+        vencimiento: null,
+        renovacion: {
+          id: renovaciones.futuro,
+          codigo: codigoDe(renovaciones.futuro),
+        },
+      },
+    ]);
+  });
+
+  test("el filtro «Vencimientos» los incluye y los demás tipos no", async () => {
+    expect(await renovados("vencimiento")).toHaveLength(2);
+    expect(await renovados(["factura", "egreso", "inicio"])).toHaveLength(0);
+  });
+
+  test("otro mes no los trae", async () => {
+    const agosto = await calendario().mes({ mes: "2031-08" });
+    expect(agosto.entradas.filter(({ renovacion }) => renovacion)).toEqual([]);
+  });
+
+  test("los avisos del inicio no los cuentan: siguen contando solo los pendientes", async () => {
+    await cliente().configuracion.upsert({
+      where: { clave: "calendario.dias_de_aviso" },
+      update: { valor: "30" },
+      create: { clave: "calendario.dias_de_aviso", valor: "30" },
+    });
+    expect(await calendario().avisos()).toMatchObject({
+      proximos: 3,
+      vencidos: 4,
     });
   });
 });

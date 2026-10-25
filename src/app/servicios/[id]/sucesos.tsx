@@ -18,18 +18,21 @@ import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { anularSuceso, registrarSuceso } from "../acciones.ts";
 
-function VentanaDeCarga({
+/** La carga de un suceso, de un servicio o (sin `servicioId`) suelta del cliente. */
+export function VentanaDeCarga({
+  clienteId,
   servicioId,
   rutaAlCerrar,
 }: {
-  readonly servicioId: string;
+  readonly clienteId: string;
+  readonly servicioId: string | null;
   readonly rutaAlCerrar: string;
 }) {
   const { campos, escrito } = armado().sucesos.formulario();
   return (
     <Ventana titulo="Nuevo suceso" rutaAlCerrar={rutaAlCerrar}>
       <FormularioAbm
-        accion={registrarSuceso.bind(null, servicioId)}
+        accion={registrarSuceso.bind(null, clienteId, servicioId)}
         campos={campos}
         elegibles={{}}
         inicial={{ escrito, errores: {} }}
@@ -74,11 +77,13 @@ function VentanaDeAnulacion({
 }
 
 export async function Sucesos({
+  clienteId,
   servicioId,
   ruta,
   puedeEscribir,
   parametros,
 }: {
+  readonly clienteId: string;
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
@@ -127,7 +132,11 @@ export async function Sucesos({
         </Tabla>
       )}
       {puedeEscribir && typeof parametros.suceso === "string" ? (
-        <VentanaDeCarga servicioId={servicioId} rutaAlCerrar={ruta} />
+        <VentanaDeCarga
+          clienteId={clienteId}
+          servicioId={servicioId}
+          rutaAlCerrar={ruta}
+        />
       ) : null}
       {puedeEscribir && typeof aAnular === "string" ? (
         <VentanaDeAnulacion

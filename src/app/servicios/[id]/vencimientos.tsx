@@ -3,7 +3,8 @@
  * cada cosa del trabajo terminado. En «Finalizado» se agrega uno (`?vencimiento=1`),
  * se corrige la fecha (`?corregir=<id>`) o se descarta con motivo
  * (`?descartar=<id>`), cada uno en una ventana sobre esta misma pantalla; en
- * «Cerrado» se ven y nada más.
+ * «Cerrado» se ven y nada más. Desde «Adjudicado» se ve el de renovar el contrato
+ * de un servicio recurrente (F4-03), y solo si lo hay.
  */
 
 import {
@@ -102,14 +103,19 @@ export async function Vencimientos({
   ruta,
   puedeEscribir,
   parametros,
+  sinFilasNoSeDibuja,
 }: {
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
+  readonly sinFilasNoSeDibuja: boolean;
 }) {
   const { vencimientos, editable } =
     await armado().vencimientos.ver(servicioId);
+  if (sinFilasNoSeDibuja && vencimientos.length === 0) {
+    return null;
+  }
   const puedeCambiar = puedeEscribir && editable;
   const cabeceras = ["Vence el", "Descripción", "Origen", "Estado"];
   const aCorregir = vencimientos.find(

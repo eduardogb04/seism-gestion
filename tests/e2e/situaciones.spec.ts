@@ -108,3 +108,48 @@ test("una operadora carga un suceso en un servicio y uno suelto, y los ve juntos
   await expect(lateral.getByText(DEL_SERVICIO)).toBeVisible();
   await expect(lateral.getByText(SUELTO)).toHaveCount(0);
 });
+
+test("una operadora anula una situación suelta desde la ficha: sigue a la vista, tachada y con su motivo; la de un servicio no se ofrece", async ({
+  page,
+}) => {
+  const delServicio = "Se midió otra vez el tanque";
+  const suelta = "Se anotó en el cliente equivocado";
+  const motivo = "Era de otro cliente";
+  await entrarComo(page, OPERADORA);
+  await page.goto("/servicios");
+  await page
+    .getByRole("row", { name: /Operación de tanques — ejemplo/ })
+    .getByRole("link")
+    .click();
+  await cargarSuceso(page, delServicio);
+  await page.goto("/catalogo/clientes");
+  await page.getByRole("link", { name: CLIENTE }).click();
+  await cargarSuceso(page, suelta);
+  const filaSuelta = page.getByRole("row").filter({ hasText: suelta });
+  const filaDelServicio = page
+    .getByRole("row")
+    .filter({ hasText: delServicio });
+  await expect(filaDelServicio).toBeVisible();
+  await expect(
+    filaDelServicio.getByRole("link", { name: "Anular" }),
+  ).toHaveCount(0);
+
+  await filaSuelta.getByRole("link", { name: "Anular" }).click();
+  const anular = ventana(page, "Anular suceso");
+  await anular.getByRole("button", { name: "Confirmar anulación" }).click();
+  await expect(
+    anular.getByText("Escribí el motivo de la anulación."),
+  ).toBeVisible();
+  await anular.getByLabel("Motivo de la anulación").fill(motivo);
+  await anular.getByRole("button", { name: "Confirmar anulación" }).click();
+  await expect(ventana(page, "Anular suceso")).toHaveCount(0);
+
+  await expect(filaSuelta).toContainText(motivo);
+  await expect(filaSuelta.locator("del")).toHaveText(suelta);
+  await expect(filaSuelta.locator("del")).toHaveCSS(
+    "text-decoration-line",
+    "line-through",
+  );
+  await expect(filaSuelta.getByRole("link", { name: "Anular" })).toHaveCount(0);
+  await expect(filaDelServicio.locator("del")).toHaveCount(0);
+});

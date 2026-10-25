@@ -13,6 +13,7 @@
 import { redirect } from "next/navigation.js";
 import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
 import { CLIENTES } from "../../casos-uso/abm/clientes.ts";
+import type { OrigenDeAnulacion } from "../../casos-uso/servicios/sucesos.ts";
 import { pantallaDeCodigo } from "../../casos-uso/sesion/errores.ts";
 import type { Actor } from "../../dominio/compartido/actor.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
@@ -263,9 +264,9 @@ export async function registrarSuceso(
   });
 }
 
-/** La anulación de un suceso, con su motivo. */
+/** La anulación de un suceso, con su motivo; vuelve a la pantalla desde la que se pidió. */
 export async function anularSuceso(
-  servicioId: string,
+  origen: OrigenDeAnulacion,
   id: string,
   _previo: EstadoFormulario,
   formulario: FormData,
@@ -273,10 +274,19 @@ export async function anularSuceso(
   return escribir(formulario, async (actor) => {
     const anulado = await armado().sucesos.marcarAnulado(
       actor,
+      origen,
       id,
       escritoEn(formulario),
     );
-    return anulado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : anulado;
+    return anulado.ok
+      ? {
+          ok: true,
+          ruta:
+            "servicioId" in origen
+              ? `${RUTA}/${origen.servicioId}`
+              : `${CLIENTES.ruta}/${origen.clienteId}`,
+        }
+      : anulado;
   });
 }
 

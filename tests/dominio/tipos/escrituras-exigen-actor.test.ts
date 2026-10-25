@@ -153,7 +153,7 @@ function casosDeUsoSinActor(): void {
   // @ts-expect-error `crear` de sucesos exige un `Actor` primero.
   casosSucesos.crear("id", {});
   // @ts-expect-error `marcarAnulado` de sucesos exige un `Actor` primero.
-  casosSucesos.marcarAnulado("id", {});
+  casosSucesos.marcarAnulado({ servicioId: "id" }, "id", {});
   // @ts-expect-error `crearHito` (planificación, F3-02) exige un `Actor` primero.
   casosPlanificacion.crearHito("id", {});
   // @ts-expect-error `marcarEliminadoHito` (planificación, F3-02) exige un `Actor` primero.

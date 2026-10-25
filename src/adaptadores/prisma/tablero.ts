@@ -43,6 +43,7 @@ const esquemaEgresosDeUnCentro = z.object({
 });
 
 const esquemaFacturaDeLaLista = z.object({
+  id: z.uuid(),
   servicio_id: z.uuid(),
   servicio: z.string(),
   numero: z.string(),
@@ -269,7 +270,7 @@ export function crearRepositorioTableroPrisma(
       const filas = leer(
         esquemaFacturaDeLaLista,
         await cliente.$queryRaw`
-          SELECT s.id AS servicio_id, s.codigo AS servicio, f.numero, f.fecha,
+          SELECT f.id, s.id AS servicio_id, s.codigo AS servicio, f.numero, f.fecha,
                  f.importe_moneda AS moneda, f.importe_centavos, f.alicuota_iva AS alicuota
             FROM facturas f
             JOIN servicios s ON s.id = f.servicio_id
@@ -278,6 +279,7 @@ export function crearRepositorioTableroPrisma(
            ORDER BY f.fecha, f.numero, f.id`,
       );
       return filas.map((fila) => ({
+        id: fila.id,
         servicioId: fila.servicio_id,
         servicio: fila.servicio,
         numero: fila.numero,

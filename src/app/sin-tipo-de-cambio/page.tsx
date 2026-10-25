@@ -5,9 +5,9 @@
  */
 
 import { armado } from "../../infraestructura/arranque/armado.ts";
-import { FILA_ENLAZADA } from "../_ui/listado-abm.tsx";
+
 import { Marco } from "../_ui/marco.tsx";
-import { Tabla } from "../_ui/tabla.tsx";
+import { CLASES_DE_ENLACE_DE_FILA, Tabla } from "../_ui/tabla.tsx";
 import { sesionExigida } from "../(auth)/sesion-actual.ts";
 
 type Props = {
@@ -59,7 +59,7 @@ export default async function SinTipoDeCambio({ searchParams }: Props) {
                 className="relative cursor-pointer hover:bg-superficie-alta"
               >
                 <td>
-                  <a href={fila.enlace} className={FILA_ENLAZADA}>
+                  <a href={fila.enlace} className={CLASES_DE_ENLACE_DE_FILA}>
                     {fila.tipo}
                   </a>
                 </td>

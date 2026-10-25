@@ -9,6 +9,7 @@ import { z } from "zod";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type {
+  COLUMNAS_POR_PAGAR,
   DatosPago,
   RepositorioPagos,
 } from "../../puertos/repositorios/pagos.ts";
@@ -19,6 +20,17 @@ import {
   enColumna,
 } from "./abm/repositorio.ts";
 import { type Pago as FilaPago, Prisma } from "./generado/client.ts";
+
+/** Por qué columna de la consulta de *Por pagar* se ordena: texto fijo, nunca lo que escribe la persona. */
+const COLUMNA_DE_ORDEN: Readonly<
+  Record<(typeof COLUMNAS_POR_PAGAR)[number], string>
+> = {
+  vencimiento: "vencimiento",
+  fecha: "fecha",
+  concepto: "lower(concepto)",
+  centroCosto: "lower(centro_costo)",
+  proveedor: "lower(proveedor)",
+};
 
 const CONVERSION_PAGO: Conversion<FilaPago, DatosPago> = {
   aDatos({
@@ -126,7 +138,13 @@ export function crearRepositorioPagosPrisma(
       await cliente.$queryRaw`SELECT 1 FROM cuentas WHERE id = ${cuentaId}::uuid FOR SHARE`;
     },
 
-    async porPagar({ incluirPagados, saltear, cantidad }) {
+    async porPagar({
+      incluirPagados,
+      orden = "vencimiento",
+      direccion = "asc",
+      saltear,
+      cantidad,
+    }) {
       const conSaldo = Prisma.sql`
         SELECT *, total_centavos - pagado_centavos AS saldo_centavos
           FROM (${EGRESOS_CON_PAGADO}) AS egresos_con_pagado
@@ -135,7 +153,7 @@ export function crearRepositorioPagosPrisma(
         esquemaFilaPorPagar,
         await cliente.$queryRaw`
           SELECT * FROM (${conSaldo}) AS por_pagar
-           ORDER BY vencimiento ASC NULLS LAST, fecha ASC, id ASC
+           ORDER BY ${Prisma.raw(COLUMNA_DE_ORDEN[orden])} ${Prisma.raw(direccion === "asc" ? "ASC" : "DESC")} NULLS LAST, fecha ASC, id ASC
            LIMIT ${cantidad} OFFSET ${saltear}`,
       );
       const porMoneda = leer(

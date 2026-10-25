@@ -163,22 +163,30 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   await expect(elSuceso).toContainText("Llamó el cliente para posponer");
   await expect(elSuceso).toContainText(OPERADORA);
 
-  // 5. Cancelar pide motivo: sin él, el código en pantalla y el estado igual.
+  // 5. Cancelar pide confirmación y motivo: sin él, el código en pantalla y el estado igual.
   await expect(
-    page.getByRole("button", { name: "Pasar a «Cotizado»" }),
+    page.getByRole("link", { name: "Pasar a «Cotizado»" }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "Pasar a «Cancelado»" }).click();
+  await page.getByRole("link", { name: "Pasar a «Cancelado»" }).click();
+  await ventana(page, "Pasar a «Cancelado»")
+    .getByRole("button", { name: "Confirmar" })
+    .click();
   await expect(page.locator("[data-codigo-error]")).toHaveText("DOM-0017");
   await expect(
     page.getByText("Ese cambio de estado pide un motivo"),
   ).toBeVisible();
   await expect(estado).toHaveText("Creado");
 
-  await page.getByLabel("Nota o motivo").fill("Ya no lo necesita");
-  await page.getByRole("button", { name: "Pasar a «Cancelado»" }).click();
+  await page.getByRole("link", { name: "Pasar a «Cancelado»" }).click();
+  await ventana(page, "Pasar a «Cancelado»")
+    .getByLabel("Nota o motivo")
+    .fill("Ya no lo necesita");
+  await ventana(page, "Pasar a «Cancelado»")
+    .getByRole("button", { name: "Confirmar" })
+    .click();
   await expect(estado).toHaveText("Cancelado");
   await expect(
-    page.getByRole("button", { name: "Pasar a «Cancelado»" }),
+    page.getByRole("link", { name: "Pasar a «Cancelado»" }),
   ).toHaveCount(0);
 
   const historial = page

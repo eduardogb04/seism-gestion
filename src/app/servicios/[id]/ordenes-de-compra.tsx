@@ -105,11 +105,14 @@ export async function OrdenesDeCompra({
   servicioId,
   ruta,
   puedeEscribir,
+  puedeCargar,
   parametros,
 }: {
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
+  /** Cargarla pasa el servicio a «Adjudicado»: solo se ofrece en «Cotizado». */
+  readonly puedeCargar: boolean;
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const ordenes = await armado().ordenesDeCompra.listar(servicioId);
@@ -120,7 +123,7 @@ export async function OrdenesDeCompra({
   return (
     <section className="mt-6">
       <h2 className="mb-2 text-xl font-semibold">Órdenes de compra</h2>
-      {puedeEscribir ? (
+      {puedeEscribir && puedeCargar ? (
         <p className="mb-3">
           <Enlace
             href={`${ruta}?orden=1`}

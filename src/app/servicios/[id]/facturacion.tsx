@@ -16,6 +16,7 @@ import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
+import { TarjetaKpi } from "../../_ui/tarjeta-kpi.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { ajustarCuota, cambiarModalidadDeFacturacion } from "../acciones.ts";
 import { AvisoDeAjuste } from "./aviso-de-ajuste.tsx";
@@ -87,27 +88,25 @@ export function ResumenDeFacturacion({
         Modalidad:{" "}
         {facturacion.modalidad ?? "sin elegir (hace falta para facturar)"}
       </p>
-      {facturacion.lineas.length > 0 ? (
-        <Tabla
-          cabeceras={[
-            "Moneda",
-            `Devengado a ${facturacion.alMes}`,
-            "Por facturar",
-            "Saldo de la orden de compra",
-            "Por cobrar (con IVA)",
-          ]}
-        >
-          {facturacion.lineas.map((linea) => (
-            <tr key={linea.moneda}>
-              <td>{linea.moneda}</td>
-              <td>{linea.devengado}</td>
-              <td>{linea.porFacturar}</td>
-              <td>{linea.saldoDeOrden}</td>
-              <td>{linea.porCobrar}</td>
-            </tr>
-          ))}
-        </Tabla>
-      ) : null}
+      <div data-numeros-de-facturacion>
+        {facturacion.lineas.map((linea) => (
+          <div
+            key={linea.moneda}
+            className="mb-3 grid gap-3 sm:grid-cols-2 2xl:grid-cols-4"
+          >
+            <TarjetaKpi
+              titulo={`Devengado a ${facturacion.alMes}`}
+              valor={linea.devengado}
+            />
+            <TarjetaKpi titulo="Por facturar" valor={linea.porFacturar} />
+            <TarjetaKpi
+              titulo="Saldo de la orden de compra"
+              valor={linea.saldoDeOrden === "" ? "—" : linea.saldoDeOrden}
+            />
+            <TarjetaKpi titulo="Por cobrar (con IVA)" valor={linea.porCobrar} />
+          </div>
+        ))}
+      </div>
       {facturacion.cuotas.length > 0 ? (
         <>
           <h3 className="mt-4 mb-2 text-lg font-semibold">Cuota mensual</h3>

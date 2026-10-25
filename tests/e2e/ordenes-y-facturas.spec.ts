@@ -128,8 +128,8 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
     page.getByText("Todavía no hay órdenes de compra cargadas."),
   ).toBeVisible();
   await expect(
-    page.getByText("Todavía no hay facturas cargadas."),
-  ).toBeVisible();
+    page.getByRole("heading", { name: "Facturas", exact: true }),
+  ).toHaveCount(0);
 
   // 1. La orden de compra: sin documento, que es opcional. El servicio pasa a «Adjudicado».
   await page.getByRole("link", { name: "Nueva orden de compra" }).click();

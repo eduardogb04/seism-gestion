@@ -1117,8 +1117,9 @@ molde mirando las `relacion` de todas las definiciones registradas, sin que la e
 **...algo que cuelga de un servicio (F2-04, ADR 0033).** Un servicio no es un ABM del molde: su código lo
 genera el sistema, su estado es el último evento de `servicios_eventos` y abarca sitios. Lo que cuelga de él
 (cotizaciones, órdenes de compra, facturas) es una tabla con `servicio_id`, su puerto en `src/puertos/repositorios/`
-y su entrada en `RepositoriosEnTransaccion`, su caso de uso en `src/casos-uso/` y una sección en
-`src/app/servicios/[id]/page.tsx`. Del molde se usan las piezas sueltas (`validarEscrito`, `relacionesRotas`,
+y su entrada en `RepositoriosEnTransaccion`, su caso de uso en `src/casos-uso/` y una sección
+(`[id]/<nombre>.tsx`) que se suma a las etapas donde se ve en `VISTAS` de `src/app/servicios/[id]/etapas.tsx` (F3-06:
+la pantalla muestra solo la de la etapa actual). Del molde se usan las piezas sueltas (`validarEscrito`, `relacionesRotas`,
 `elegiblesDe`, `parametrosDe`, `crearEscrituraPrisma`, `ListadoAbm`, `FormularioAbm`, `Ventana`), no se copian.
 **El estado de un servicio solo cambia por el recorrido del dominio** (`src/dominio/servicios/estados.ts`, F3-01,
 ADR 0039, que reemplaza al 0033 en el ciclo) y `src/casos-uso/servicios/ciclo.ts`: lo que pide la persona va por

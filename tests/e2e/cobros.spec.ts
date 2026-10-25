@@ -190,9 +190,6 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await alta.getByRole("button", { name: "Guardar" }).click();
   await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
   const servicioUrl = page.url();
-  await expect(
-    page.getByText("Todavía no hay órdenes de compra ni facturas."),
-  ).toBeVisible();
 
   // La orden de compra entra en «Cotizado»: antes, la cotización (F3-01).
   await page.getByRole("link", { name: "Nueva cotización" }).click();

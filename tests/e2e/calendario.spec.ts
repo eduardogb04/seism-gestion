@@ -89,7 +89,9 @@ test("el inicio avisa lo que vence y lo vencido, y las tarjetas llevan al calend
   await expect(
     page.getByRole("heading", { name: "Vence en los próximos 30 días" }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Vencido" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Vencido", exact: true }),
+  ).toBeVisible();
   await expect(proximos).toHaveText(/^[0-9]+$/);
   await expect(vencidas).toHaveText(/^[0-9]+$/);
 

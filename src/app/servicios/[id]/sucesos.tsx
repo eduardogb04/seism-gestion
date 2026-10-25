@@ -6,6 +6,7 @@
 
 import {
   CAMPOS_DE_ANULACION,
+  type OrigenDeAnulacion,
   type SucesoListado,
 } from "../../../casos-uso/servicios/sucesos.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
@@ -43,13 +44,14 @@ export function VentanaDeCarga({
   );
 }
 
-function VentanaDeAnulacion({
-  servicioId,
+/** La anulación de un suceso, de un servicio o (con `clienteId`) suelta del cliente. */
+export function VentanaDeAnulacion({
+  origen,
   suceso,
   rutaAlCerrar,
 }: {
-  readonly servicioId: string;
-  readonly suceso: SucesoListado | undefined;
+  readonly origen: OrigenDeAnulacion;
+  readonly suceso: Pick<SucesoListado, "id" | "fecha"> | undefined;
   readonly rutaAlCerrar: string;
 }) {
   return (
@@ -59,11 +61,13 @@ function VentanaDeAnulacion({
       ) : (
         <>
           <p className="mb-4">
-            Anulás el suceso del {suceso.fecha}: deja de verse, y queda con su
-            motivo en la auditoría.
+            Anulás el suceso del {suceso.fecha}:{" "}
+            {"servicioId" in origen
+              ? "deja de verse, y queda con su motivo en la auditoría."
+              : "sigue en la traza, tachado y con su motivo."}
           </p>
           <FormularioAbm
-            accion={anularSuceso.bind(null, servicioId, suceso.id)}
+            accion={anularSuceso.bind(null, origen, suceso.id)}
             campos={CAMPOS_DE_ANULACION}
             elegibles={{}}
             inicial={{ escrito: {}, errores: {} }}
@@ -140,7 +144,7 @@ export async function Sucesos({
       ) : null}
       {puedeEscribir && typeof aAnular === "string" ? (
         <VentanaDeAnulacion
-          servicioId={servicioId}
+          origen={{ servicioId }}
           suceso={sucesos.find(({ id }) => id === aAnular)}
           rutaAlCerrar={ruta}
         />

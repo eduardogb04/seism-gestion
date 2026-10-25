@@ -74,6 +74,19 @@ const delServicio = () => ({ clienteId, servicioId });
 
 const sucesos = () => crearCasosUsoSucesos(dependencias());
 
+async function anularPorTexto(
+  origen: Parameters<ReturnType<typeof sucesos>["marcarAnulado"]>[1],
+  texto: string,
+  motivo: string,
+): Promise<void> {
+  const { id } = await cliente().servicioSuceso.findFirstOrThrow({
+    where: { texto },
+  });
+  expect(await sucesos().marcarAnulado(admin, origen, id, { motivo })).toEqual({
+    ok: true,
+  });
+}
+
 async function filas() {
   return {
     sucesos: await cliente().servicioSuceso.count(),
@@ -278,7 +291,7 @@ describe("una situación suelta del cliente", () => {
     ).rejects.toMatchObject({ codigo: catalogo.AUT_0009.codigo });
   });
 
-  test("anularla por el servicio no se puede: DOM-0009", async () => {
+  test("se anula desde el cliente, con su motivo: queda con él en la ficha y en la auditoría", async () => {
     await sucesos().crear(
       admin,
       { clienteId, servicioId: null },
@@ -286,12 +299,92 @@ describe("una situación suelta del cliente", () => {
     );
     const { id } = await cliente().servicioSuceso.findFirstOrThrow();
 
-    await expect(
-      sucesos().marcarAnulado(admin, id, { motivo: "Error" }),
-    ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
+    expect(
+      await sucesos().marcarAnulado(operador, { clienteId }, id, {
+        motivo: " Se cargó en el cliente equivocado ",
+      }),
+    ).toEqual({ ok: true });
+
+    expect(
+      await cliente().servicioSuceso.findUniqueOrThrow({ where: { id } }),
+    ).toMatchObject({
+      motivoAnulacion: "Se cargó en el cliente equivocado",
+      eliminadoPor: operador,
+    });
+    const auditoria = await cliente().auditoria.findMany({
+      where: { entidad: "ServicioSuceso", entidadId: id },
+      orderBy: { en: "asc" },
+    });
+    expect(auditoria.map(({ accion }) => accion)).toEqual([
+      "crear",
+      "eliminar",
+    ]);
+    expect(
+      (await sucesos().delCliente(clienteId)).situaciones.map(
+        ({ texto, motivoAnulacion }) => [texto, motivoAnulacion],
+      ),
+    ).toEqual([["Suelta", "Se cargó en el cliente equivocado"]]);
   });
 
-  test("la ficha del cliente trae sus datos y su traza: las suyas y las de sus servicios, por fecha y creación, sin las anuladas ni las de otro cliente", async () => {
+  test("sin motivo vuelve por campo y no se anula; quien no puede escribir, AUT-0009", async () => {
+    await sucesos().crear(
+      admin,
+      { clienteId, servicioId: null },
+      { fecha: "2031-07-09", texto: "Suelta" },
+    );
+    const { id } = await cliente().servicioSuceso.findFirstOrThrow();
+
+    expect(
+      await sucesos().marcarAnulado(admin, { clienteId }, id, { motivo: "  " }),
+    ).toEqual({
+      ok: false,
+      errores: { motivo: "Escribí el motivo de la anulación." },
+    });
+    await expect(
+      sucesos().marcarAnulado(exAdmin, { clienteId }, id, { motivo: "No" }),
+    ).rejects.toMatchObject({ codigo: catalogo.AUT_0009.codigo });
+    expect(
+      (await cliente().servicioSuceso.findUniqueOrThrow({ where: { id } }))
+        .motivoAnulacion,
+    ).toBeNull();
+  });
+
+  test("la suelta no se anula por un servicio, la de un servicio no se anula desde el cliente y la de un cliente no se anula desde otro: DOM-0009", async () => {
+    const otro = await otroCliente();
+    await sucesos().crear(
+      admin,
+      { clienteId, servicioId: null },
+      { fecha: "2031-07-09", texto: "Suelta" },
+    );
+    await sucesos().crear(admin, delServicio(), {
+      fecha: "2031-07-09",
+      texto: "Del servicio",
+    });
+    const suelta = await cliente().servicioSuceso.findFirstOrThrow({
+      where: { servicioId: null },
+    });
+    const delUnServicio = await cliente().servicioSuceso.findFirstOrThrow({
+      where: { servicioId },
+    });
+    const pedidos = [
+      { origen: { servicioId }, id: suelta.id },
+      { origen: { clienteId }, id: delUnServicio.id },
+      { origen: { clienteId: otro }, id: suelta.id },
+    ];
+
+    for (const { origen, id } of pedidos) {
+      await expect(
+        sucesos().marcarAnulado(admin, origen, id, { motivo: "Error" }),
+      ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
+    }
+    expect(
+      await cliente().servicioSuceso.count({
+        where: { motivoAnulacion: { not: null } },
+      }),
+    ).toBe(0);
+  });
+
+  test("la ficha del cliente trae sus datos y su traza: las suyas y las de sus servicios, por fecha y creación, con las sueltas anuladas (y su motivo), sin las de un servicio anuladas ni las de otro cliente", async () => {
     const otro = await otroCliente();
     await sucesos().crear(
       admin,
@@ -305,6 +398,10 @@ describe("una situación suelta del cliente", () => {
     await sucesos().crear(admin, delServicio(), {
       fecha: "2031-07-01",
       texto: "Del servicio, el uno",
+    });
+    await sucesos().crear(admin, delServicio(), {
+      fecha: "2031-07-06",
+      texto: "Del servicio, anulado",
     });
     await sucesos().crear(
       admin,
@@ -321,10 +418,8 @@ describe("una situación suelta del cliente", () => {
       where: { texto: "Suelta del cinco" },
       data: { creadoEn: new Date("2031-07-09T08:00:00.000Z") },
     });
-    await cliente().servicioSuceso.updateMany({
-      where: { texto: "Suelta anulada" },
-      data: { eliminadoEn: new Date("2031-07-09T00:00:00.000Z") },
-    });
+    await anularPorTexto({ clienteId }, "Suelta anulada", "Error de carga");
+    await anularPorTexto({ servicioId }, "Del servicio, anulado", "Repetido");
     const { codigo } = await cliente().servicio.findUniqueOrThrow({
       where: { id: servicioId },
     });
@@ -337,18 +432,20 @@ describe("una situación suelta del cliente", () => {
     });
     expect(ficha.datos).toContainEqual(["CUIT", "30-00000001-5"]);
     expect(
-      ficha.situaciones.map(({ texto, servicio, autor }) => [
+      ficha.situaciones.map(({ texto, servicio, autor, motivoAnulacion }) => [
         texto,
         servicio?.codigo ?? null,
         autor,
+        motivoAnulacion,
       ]),
     ).toEqual([
-      ["Del servicio, el mismo día", codigo, OPERADOR.email],
-      ["Suelta del cinco", null, ADMIN_UNO.email],
-      ["Del servicio, el uno", codigo, ADMIN_UNO.email],
+      ["Suelta anulada", null, ADMIN_UNO.email, "Error de carga"],
+      ["Del servicio, el mismo día", codigo, OPERADOR.email, null],
+      ["Suelta del cinco", null, ADMIN_UNO.email, null],
+      ["Del servicio, el uno", codigo, ADMIN_UNO.email, null],
     ]);
-    expect(ficha.situaciones[0]?.servicio?.id).toBe(servicioId);
-    expect(ficha.situaciones[0]?.fecha).toBe("05/07/2031");
+    expect(ficha.situaciones[1]?.servicio?.id).toBe(servicioId);
+    expect(ficha.situaciones[1]?.fecha).toBe("05/07/2031");
   });
 
   test("si el servicio cambia de cliente, sus situaciones pasan con él", async () => {
@@ -368,24 +465,27 @@ describe("una situación suelta del cliente", () => {
     ).toEqual(["Del servicio"]);
   });
 
-  test("un cliente con situaciones sueltas vigentes no se da de baja (DOM-0010); con la suelta anulada, sí", async () => {
+  test("un cliente con situaciones sueltas vigentes no se da de baja (DOM-0010); anulada la última, sí", async () => {
     const otro = await otroCliente();
     const abm = crearCasosUsoAbm(dependencias());
-    await sucesos().crear(
-      admin,
-      { clienteId: otro, servicioId: null },
-      { fecha: "2031-07-09", texto: "Suelta" },
-    );
+    for (const texto of ["Primera", "Segunda"]) {
+      await sucesos().crear(
+        admin,
+        { clienteId: otro, servicioId: null },
+        { fecha: "2031-07-09", texto },
+      );
+    }
+    const baja = () => abm.marcarEliminado(admin, CLIENTES, otro);
 
-    await expect(
-      abm.marcarEliminado(admin, CLIENTES, otro),
-    ).rejects.toMatchObject({ codigo: catalogo.DOM_0010.codigo });
-
-    await cliente().servicioSuceso.updateMany({
-      where: { clienteId: otro },
-      data: { eliminadoEn: new Date("2031-07-09T00:00:00.000Z") },
+    await expect(baja()).rejects.toMatchObject({
+      codigo: catalogo.DOM_0010.codigo,
     });
-    await abm.marcarEliminado(admin, CLIENTES, otro);
+    await anularPorTexto({ clienteId: otro }, "Primera", "Repetida");
+    await expect(baja()).rejects.toMatchObject({
+      codigo: catalogo.DOM_0010.codigo,
+    });
+    await anularPorTexto({ clienteId: otro }, "Segunda", "Repetida");
+    await baja();
   });
 
   test("la ficha de un cliente que no existe es DOM-0009", async () => {
@@ -408,7 +508,7 @@ describe("anular un suceso", () => {
     const id = await uno();
 
     expect(
-      await sucesos().marcarAnulado(operador, id, {
+      await sucesos().marcarAnulado(operador, { servicioId }, id, {
         motivo: " Era de otro servicio ",
       }),
     ).toEqual({ ok: true });
@@ -435,7 +535,11 @@ describe("anular un suceso", () => {
     const id = await uno();
     const antes = await filas();
 
-    expect(await sucesos().marcarAnulado(admin, id, { motivo: "  " })).toEqual({
+    expect(
+      await sucesos().marcarAnulado(admin, { servicioId }, id, {
+        motivo: "  ",
+      }),
+    ).toEqual({
       ok: false,
       errores: { motivo: "Escribí el motivo de la anulación." },
     });
@@ -446,13 +550,17 @@ describe("anular un suceso", () => {
   test("uno que no existe o ya anulado es DOM-0009; quien no puede escribir, AUT-0009", async () => {
     const id = await uno();
     await expect(
-      sucesos().marcarAnulado(exAdmin, id, { motivo: "No" }),
+      sucesos().marcarAnulado(exAdmin, { servicioId }, id, { motivo: "No" }),
     ).rejects.toMatchObject({ codigo: catalogo.AUT_0009.codigo });
-    await sucesos().marcarAnulado(admin, id, { motivo: "Repetido" });
+    await sucesos().marcarAnulado(admin, { servicioId }, id, {
+      motivo: "Repetido",
+    });
 
     for (const otro of [id, "no-es-un-id"]) {
       await expect(
-        sucesos().marcarAnulado(admin, otro, { motivo: "Otra vez" }),
+        sucesos().marcarAnulado(admin, { servicioId }, otro, {
+          motivo: "Otra vez",
+        }),
       ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
     }
   });

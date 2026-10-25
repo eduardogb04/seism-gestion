@@ -762,6 +762,12 @@ describe("pagos de egresos", () => {
       expect(
         filas.find(({ concepto }) => concepto === "Ya pagado")?.saldo,
       ).toBe("ARS 0,00");
+      // Solo la que debe ofrece pagar: la saldada se lista sin botón.
+      expect(
+        filas
+          .filter(({ conSaldo }) => !conSaldo)
+          .map(({ concepto }) => concepto),
+      ).toEqual(["Ya pagado"]);
     });
 
     test("un egreso dado de baja no está, y un pago anulado devuelve su saldo", async () => {

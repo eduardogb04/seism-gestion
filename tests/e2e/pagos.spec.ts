@@ -114,6 +114,15 @@ test("una operadora paga un egreso en dos partes y otro en dólares desde una cu
   await page.getByLabel("Ver también los pagados").check();
   await page.getByRole("button", { name: "Aplicar" }).click();
   await expect(fila(page, /03\/09\/2026/)).toContainText("ARS 0,00");
+  // Con la casilla, la fila saldada se ve pero no ofrece pagar; la que debe, sí.
+  await expect(
+    fila(page, /03\/09\/2026/).getByRole("link", { name: "Registrar pago" }),
+  ).toHaveCount(0);
+  await expect(
+    fila(page, /Honorarios contables/).getByRole("link", {
+      name: "Registrar pago",
+    }),
+  ).toHaveCount(1);
 
   // Egresos ofrece lo mismo a los egresos con saldo: la misma ventana, sobre su listado.
   await page.goto("/egresos");

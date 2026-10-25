@@ -35,15 +35,13 @@ test("cobrar una factura de un servicio mensual muestra lo devengado a la fecha"
   await nueva.getByRole("button", { name: "Cargar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
-  // Lo devengado que ya muestra el servicio es lo que repite la ventana.
+  // Lo devengado que ya muestra la tarjeta de Facturación es lo que repite la ventana.
   const devengado = (
     await page
-      .getByRole("table")
-      .filter({ has: page.getByRole("columnheader", { name: /^Devengado a/ }) })
-      .getByRole("row")
-      .nth(1)
-      .getByRole("cell")
-      .nth(1)
+      .locator("[data-numeros-de-facturacion] article")
+      .filter({ has: page.getByRole("heading", { name: /^Devengado a/ }) })
+      .locator("p")
+      .first()
       .innerText()
   ).trim();
   expect(devengado).toMatch(/^ARS [0-9.]+,[0-9]{2}$/);

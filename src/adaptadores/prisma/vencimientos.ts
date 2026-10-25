@@ -101,5 +101,38 @@ export function crearRepositorioVencimientosPrisma(
         fecha: aDia(fecha),
       }));
     },
+
+    async renovadosEntre({ desde, hasta }) {
+      const filas = await cliente.servicioVencimiento.findMany({
+        where: {
+          eliminadoEn: null,
+          estado: "renovado",
+          servicioRenovacionId: { not: null },
+          fecha: { gte: deDia(desde), lt: deDia(hasta) },
+        },
+        orderBy: [{ fecha: "asc" }, { creadoEn: "asc" }],
+        select: {
+          id: true,
+          servicioId: true,
+          fecha: true,
+          descripcion: true,
+          servicio: { select: { codigo: true } },
+          servicioRenovacion: { select: { id: true, codigo: true } },
+        },
+      });
+      return filas.flatMap(
+        ({ servicio, servicioRenovacion, fecha, ...resto }) =>
+          servicioRenovacion === null
+            ? []
+            : [
+                {
+                  ...resto,
+                  servicioCodigo: servicio.codigo,
+                  fecha: aDia(fecha),
+                  renovacion: servicioRenovacion,
+                },
+              ],
+      );
+    },
   };
 }

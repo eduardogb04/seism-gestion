@@ -17,8 +17,28 @@ export const BORDE_DE_TIPO: Readonly<Record<TipoDeEntrada, string>> = {
   inicio: "border-serie-4",
 };
 
-/** «Vencido» en rojo si su fecha ya pasó; si no, «Pendiente». */
-export function EstadoDeEntrada({ vencida }: { readonly vencida: boolean }) {
+/** «Renovado», atenuado, con el enlace al servicio que renovó el vencimiento. */
+function MarcaDeRenovado({
+  renovacion,
+}: {
+  readonly renovacion: NonNullable<EntradaDelCalendario["renovacion"]>;
+}) {
+  return (
+    <span className="text-texto-suave">
+      Renovado ·{" "}
+      <Enlace href={`/servicios/${renovacion.id}`}>{renovacion.codigo}</Enlace>
+    </span>
+  );
+}
+
+/** «Renovado» con su servicio; «Vencido» en rojo si su fecha ya pasó; si no, «Pendiente». */
+export function EstadoDeEntrada({
+  vencida,
+  renovacion,
+}: Pick<EntradaDelCalendario, "vencida" | "renovacion">) {
+  if (renovacion !== null) {
+    return <MarcaDeRenovado renovacion={renovacion} />;
+  }
   return vencida ? (
     <span className="font-semibold text-peligro">Vencido</span>
   ) : (
@@ -74,7 +94,7 @@ export function GrillaDelMes({
                             <a
                               href={entrada.enlace}
                               title={entrada.titulo}
-                              className={`block truncate border-l-4 ${BORDE_DE_TIPO[entrada.tipo]} bg-superficie-alta px-1 text-xs text-texto no-underline hover:underline`}
+                              className={`block truncate border-l-4 ${BORDE_DE_TIPO[entrada.tipo]} bg-superficie-alta px-1 text-xs ${entrada.renovacion === null ? "text-texto" : "text-texto-suave"} no-underline hover:underline`}
                             >
                               {entrada.vencida ? (
                                 <span className="font-semibold text-peligro">
@@ -83,6 +103,13 @@ export function GrillaDelMes({
                               ) : null}
                               {entrada.titulo}
                             </a>
+                            {entrada.renovacion === null ? null : (
+                              <span className="block text-xs">
+                                <MarcaDeRenovado
+                                  renovacion={entrada.renovacion}
+                                />
+                              </span>
+                            )}
                             {enlaceDeRenovacion !== null &&
                             entrada.vencimiento !== null ? (
                               <EnlaceDeRenovacion

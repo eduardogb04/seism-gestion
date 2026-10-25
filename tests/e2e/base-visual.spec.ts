@@ -58,6 +58,10 @@ const PANTALLAS: readonly {
   ir: (page: Page) => Promise<void>;
 }[] = [
   { nombre: "inicio", ir: (page) => irA(page, "/", "Inicio") },
+  {
+    nombre: "inicio-con-datos",
+    ir: (page) => irA(page, "/?mes=2026-10&moneda=USD", "Inicio"),
+  },
   { nombre: "servicios", ir: (page) => irA(page, "/servicios", "Servicios") },
   {
     nombre: "servicio",

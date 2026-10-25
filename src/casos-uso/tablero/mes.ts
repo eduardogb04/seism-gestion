@@ -23,6 +23,9 @@ export type MesElegido = {
   /** `octubre de 2026`. */
   readonly nombre: string;
   readonly rango: Rango;
+  /** Los doce meses que terminan en este (el gráfico del inicio): el tramo y cada `AAAA-MM`. */
+  readonly rangoDeDoceMeses: Rango;
+  readonly doceMeses: readonly string[];
   readonly anterior: string;
   readonly siguiente: string;
   /** Lo pedido no era un mes: se muestra el del reloj. */
@@ -52,6 +55,7 @@ export function elegirMes(pedido: unknown, hoy: FechaHora): MesElegido {
     });
   }
   const siguiente = sumarMeses(inicio, 1);
+  const hace11 = sumarMeses(inicio, -11);
   return {
     mes: mesDe(inicio),
     nombre: nombreDelMes(inicio),
@@ -59,6 +63,13 @@ export function elegirMes(pedido: unknown, hoy: FechaHora): MesElegido {
       desde: formatearISO(inicio).slice(0, 10),
       hasta: formatearISO(siguiente).slice(0, 10),
     },
+    rangoDeDoceMeses: {
+      desde: formatearISO(hace11).slice(0, 10),
+      hasta: formatearISO(siguiente).slice(0, 10),
+    },
+    doceMeses: Array.from({ length: 12 }, (_, i) =>
+      mesDe(sumarMeses(hace11, i)),
+    ),
     anterior: mesDe(sumarMeses(inicio, -1)),
     siguiente: mesDe(siguiente),
     pedidoInvalido: pedido !== undefined && pedidoLeido === null,

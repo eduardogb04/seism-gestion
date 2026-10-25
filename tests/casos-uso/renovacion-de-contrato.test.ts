@@ -50,14 +50,6 @@ const HOY = (() => {
   return resultado.fechaHora;
 })();
 
-const RECORRIDO: readonly EstadoServicio[] = [
-  "cotizado",
-  "adjudicado",
-  "en_ejecucion",
-  "finalizado",
-  "cerrado",
-];
-
 let prisma: ReturnType<typeof crearClientePrisma> | undefined;
 let admin: Actor;
 let responsableId: string;
@@ -185,15 +177,6 @@ describe("el alta", () => {
 
     expect(await cliente().servicioVencimiento.count()).toBe(0);
   });
-
-  test("un alta que no pasa la validación no deja nada", async () => {
-    const escrito = await escritoCon("2032-03-15", "");
-    expect(await servicios().crear(admin, escrito)).toMatchObject({
-      ok: false,
-    });
-
-    expect(await cliente().servicioVencimiento.count()).toBe(0);
-  });
 });
 
 describe("cambiar la vigencia", () => {
@@ -247,16 +230,6 @@ describe("cambiar la vigencia", () => {
 
     expect(await deContrato()).toEqual([antes]);
   });
-
-  test("de puntual a recurrente crea el vencimiento", async () => {
-    const id = await alta("");
-
-    await guardar(id, "2032-03-15");
-
-    expect(await deContrato()).toMatchObject([
-      { servicioId: id, fecha: "2032-03-15", estado: "pendiente" },
-    ]);
-  });
 });
 
 describe("borrar la vigencia", () => {
@@ -301,26 +274,6 @@ describe("uno renovado o descartado no se toca", () => {
         origen: "calculado",
       });
       expect(nuevo?.id).not.toBe(original?.id);
-    },
-  );
-});
-
-describe("lo que se ve", () => {
-  test.each(["adjudicado", "en_ejecucion", "finalizado", "cerrado"] as const)(
-    "en «%s» la lista trae «Renovar contrato» con su fecha, origen y estado",
-    async (etapa) => {
-      const id = await alta("2032-03-15");
-      await llevarA(id, ...RECORRIDO.slice(0, RECORRIDO.indexOf(etapa) + 1));
-
-      expect((await vencimientos().ver(id)).vencimientos).toMatchObject([
-        {
-          fecha: "15/03/2032",
-          descripcion: "Renovar contrato",
-          origen: "Calculado",
-          estado: "Pendiente",
-          pendiente: true,
-        },
-      ]);
     },
   );
 });

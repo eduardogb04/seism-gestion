@@ -220,8 +220,9 @@ export type CasosUsoCobros = {
     readonly servicio: readonly LineaDeAvance[];
     readonly ordenes: Readonly<Record<string, readonly LineaDeAvance[]>>;
   }>;
-  /** Lo que hace falta para cobrar una factura: su número, lo que falta cobrar y el formulario. */
+  /** Lo que hace falta para cobrar una factura: su servicio, su número, lo que falta cobrar y el formulario. */
   formulario(facturaId: string): Promise<{
+    readonly servicioId: string;
     readonly numero: string;
     readonly saldo: string;
     readonly campos: CamposAbm;
@@ -434,6 +435,7 @@ export function crearCasosUsoCobros({
           await repos.cobros.listarDe([facturaId]),
         );
         return {
+          servicioId: factura.valor.servicioId,
           numero: factura.valor.numero,
           saldo: formatearImporte(saldo.saldo),
           campos: camposDeCobro(factura.valor.importe.moneda),

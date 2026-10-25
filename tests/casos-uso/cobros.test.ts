@@ -979,6 +979,7 @@ describe("el formulario de cobro", () => {
     const formulario = await cobros().formulario(factura);
 
     expect(formulario).toMatchObject({
+      servicioId,
       numero: "0000-0001",
       saldo: "ARS 1.210,00",
       escrito: { fecha: "2031-07-09" },

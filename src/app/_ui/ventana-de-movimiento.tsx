@@ -80,14 +80,22 @@ export function VentanaDeCobro({
   readonly rutaAlCerrar: string;
 }) {
   return ventanaCon("Cobrar factura", rutaAlCerrar, async () => {
-    const { numero, saldo, campos, elegibles, escrito } =
+    const { servicioId, numero, saldo, campos, elegibles, escrito } =
       await armado().cobros.formulario(facturaId);
+    const { esMensual, alMes, lineas } =
+      await armado().facturacion.ver(servicioId);
     return (
       <>
         <p className="mb-4">
           Factura {numero}: falta cobrar <strong data-pendiente>{saldo}</strong>
           .
         </p>
+        {esMensual ? (
+          <p className="mb-4" data-devengado>
+            Servicio mensual. Devengado a {alMes}:{" "}
+            {lineas.map(({ devengado }) => devengado).join(" · ")}.
+          </p>
+        ) : null}
         <FormularioAbm
           accion={cobrarFactura.bind(null, facturaId, rutaAlCerrar)}
           campos={campos}

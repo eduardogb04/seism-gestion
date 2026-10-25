@@ -6,7 +6,6 @@ corriendo (RUNBOOK, sección 1).
 **Un solo contenedor para toda la tanda** (F0-14): lo levanta el `globalSetup`
 del proyecto `casos-uso` de Vitest (`_arnes/contenedor.ts`), que además deja
 migrada la base compartida. Los tests la reciben con `_arnes/base.ts`:
-
 - `uriBaseCompartida()` — la base ya migrada.
 - `limpiarBase()` — `TRUNCATE` de todas las tablas de la aplicación. Va en el
   `beforeEach`: **base limpia por test**, sin levantar un contenedor nuevo.
@@ -17,7 +16,6 @@ migrada la base compartida. Los tests la reciben con `_arnes/base.ts`:
 Los archivos corren de a uno (`fileParallelism: false`): comparten esa base.
 Nada sobrevive a la corrida (los datos van en `tmpfs` y el contenedor se para
 al terminar).
-
 - `_arnes/base-limpia.test.ts` (F0-14): el arnés probado con sus propias
   reglas — un test escribe, el siguiente ve la base vacía.
 - `migraciones.test.ts` (F0-09): aplica la cadena entera de

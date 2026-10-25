@@ -25,8 +25,8 @@ Desde F0-29: `memoria/correo.ts` (doble de `Correo`, con `sembrar()` y
 `procesados()`) y `memoria/notificaciones.ts` (doble de `Notificaciones`,
 con `enviados()`). Los dos pasan la suite de contrato de
 `tests/contratos/`, la misma que va a exigir a Gmail/WhatsApp/Telegram/SMTP
-en Fase 1 (`AGENTS.md`, *Cómo se agrega...un adaptador real de un puerto con
-suite de contrato*).
+en Fase 1 (`AGENTS.md`, _Cómo se agrega...un adaptador real de un puerto con
+suite de contrato_).
 
 Desde F0-30, en `prisma/`: `usuarios.ts`, `sesiones.ts` y `auditoria.ts` (los
 repositorios y el puerto `Auditoria` de F0-22, que solo agrega filas),

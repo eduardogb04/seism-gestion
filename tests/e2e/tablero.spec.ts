@@ -72,7 +72,7 @@ test("octubre de 2026 trae números de la semilla y cada uno lleva a un listado 
     .locator('[data-cifra$="-facturado-sin-iva"]')
     .filter({ hasNotText: CERO })
     .first();
-  const numeroFacturado = (await facturado.innerText()).trim();
+  const numeroFacturado = ((await facturado.textContent()) ?? "").trim();
   expect(numeroFacturado).toMatch(/^(ARS|USD) [0-9.]+,[0-9]{2}$/);
   await facturado.click();
 
@@ -87,7 +87,7 @@ test("octubre de 2026 trae números de la semilla y cada uno lleva a un listado 
     .locator('[data-cifra$="-pagado"]')
     .filter({ hasNotText: CERO })
     .first();
-  const numeroPagado = (await pagado.innerText()).trim();
+  const numeroPagado = ((await pagado.textContent()) ?? "").trim();
   await pagado.click();
 
   await expect(page).toHaveURL(/\/egresos\/pagos-hechos\?mes=2026-10&moneda=/);
@@ -106,7 +106,7 @@ test("octubre de 2026: Cobrado lleva al listado de cobros y los pendientes son l
     .locator('[data-cifra$="-cobrado"]')
     .filter({ hasNotText: CERO })
     .first();
-  const numeroCobrado = (await cobrado.innerText()).trim();
+  const numeroCobrado = ((await cobrado.textContent()) ?? "").trim();
   expect(numeroCobrado).toMatch(/^(ARS|USD) [0-9.]+,[0-9]{2}$/);
   await cobrado.click();
 
@@ -119,10 +119,14 @@ test("octubre de 2026: Cobrado lleva al listado de cobros y los pendientes son l
   for (const moneda of ["ARS", "USD"]) {
     await page.goto("/?mes=2026-10");
     const porCobrar = (
-      await page.locator(`[data-cifra="${moneda}-por-cobrar"]`).innerText()
+      (await page
+        .locator(`[data-cifra="${moneda}-por-cobrar"]`)
+        .textContent()) ?? ""
     ).trim();
     const porPagar = (
-      await page.locator(`[data-cifra="${moneda}-por-pagar"]`).innerText()
+      (await page
+        .locator(`[data-cifra="${moneda}-por-pagar"]`)
+        .textContent()) ?? ""
     ).trim();
 
     await page.goto("/servicios/por-cobrar");
@@ -232,7 +236,7 @@ test("el selector de moneda convierte cada documento con su tipo de cambio y avi
   const aviso = page.locator("[data-sin-cambio] a");
   await expect(aviso).toHaveText(/^[0-9]+ documentos? sin tipo de cambio$/);
   const cantidad = Number.parseInt(
-    (await aviso.innerText()).split(" ")[0] ?? "",
+    ((await aviso.textContent()) ?? "").split(" ")[0] ?? "",
     10,
   );
   await aviso.click();

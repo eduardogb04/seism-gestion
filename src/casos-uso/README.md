@@ -33,8 +33,8 @@ y su nombre empieza con `crear`, `guardar`, `dar`, `revocar`, `cambiar`,
 `marcar` o `registrar`; `tests/dominio/tipos/` lo rechaza si no (llamar sin
 actor no compila, y `firmas-de-escritura.test.ts` lista las firmas de esta
 carpeta). Los casos de uso ya no llaman a `auditoria.registrar` para usuarios:
-el repositorio lo hace con el actor que reciben. Ver ADR 0029 y *Cómo se
-agrega...un caso de uso que escribe* en `AGENTS.md`.
+el repositorio lo hace con el actor que reciben. Ver ADR 0029 y _Cómo se
+agrega...un caso de uso que escribe_ en `AGENTS.md`.
 
 Desde F1-03: `abm/`, el molde de ABM (ADR 0031). Un catálogo es una
 `DefinicionAbm` (`grupos.ts` es la primera) y los casos de uso de `abm.ts`

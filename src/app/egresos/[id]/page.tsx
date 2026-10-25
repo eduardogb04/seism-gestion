@@ -1,8 +1,10 @@
 /**
- * La pantalla de un egreso (F2-09): sus datos, lo pagado y el saldo, los pagos
- * y el formulario para cargar uno. Anular un pago es una ventana sobre la misma
- * pantalla (`?anular=<id>`), como la baja del molde de ABM. HTML del servidor:
- * funciona sin JavaScript.
+ * La pantalla de un egreso (F2-09, F3-07): sus datos y su trazabilidad —el
+ * comprobante, lo pagado y el saldo, los pagos y los cambios del egreso— y el
+ * botón «Registrar pago», que abre la misma ventana que el listado
+ * (`?pagar=<id>`). Anular un pago es otra ventana sobre la misma pantalla
+ * (`?anular=<id>`), como la baja del molde de ABM. HTML del servidor: funciona
+ * sin JavaScript.
  */
 
 import type { ReactNode } from "react";
@@ -14,6 +16,7 @@ import {
 } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
+import { Cambios } from "../../_ui/cambios.tsx";
 import { EnlaceDeDescarga } from "../../_ui/enlace-de-descarga.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
@@ -21,8 +24,9 @@ import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Marco } from "../../_ui/marco.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
+import { VentanaDePago } from "../../_ui/ventana-de-movimiento.tsx";
 import { sesionExigida } from "../../(auth)/sesion-actual.ts";
-import { anularPagoDeEgreso, registrarPagoDeEgreso } from "../acciones.ts";
+import { anularPagoDeEgreso } from "../acciones.ts";
 
 type Props = {
   readonly params: Promise<{ id: string }>;
@@ -132,6 +136,7 @@ export default async function PagosDeUnEgreso({ params, searchParams }: Props) {
   const puedeEscribir = EGRESOS.rolesQueEscriben.includes(rol);
   const anular =
     typeof parametros.anular === "string" ? parametros.anular : null;
+  const pagar = typeof parametros.pagar === "string" ? parametros.pagar : null;
 
   let contenido: ReactNode;
   try {
@@ -144,24 +149,26 @@ export default async function PagosDeUnEgreso({ params, searchParams }: Props) {
       <>
         <h1>{detalle.concepto}</h1>
         <Resumen detalle={detalle} />
+        {puedeEscribir && !detalle.saldado ? (
+          <p className="mb-4">
+            <Enlace
+              href={`${rutaDelEgreso}?pagar=${id}`}
+              scroll={false}
+              className={clasesDeBoton("primario")}
+            >
+              Registrar pago
+            </Enlace>
+          </p>
+        ) : null}
         <h2 className="mb-2 text-xl font-semibold">Pagos</h2>
         <Pagos
           detalle={detalle}
           rutaDelEgreso={rutaDelEgreso}
           puedeEscribir={puedeEscribir}
         />
-        {puedeEscribir && !detalle.saldado ? (
-          <section className="mt-6">
-            <h2 className="mb-2 text-xl font-semibold">Registrar un pago</h2>
-            <FormularioAbm
-              accion={registrarPagoDeEgreso.bind(null, id)}
-              campos={detalle.campos}
-              elegibles={{ cuentaId: detalle.cuentas }}
-              inicial={{ escrito: {}, errores: {} }}
-              enviar={{ texto: "Registrar pago", variante: "primario" }}
-              rutaAlCancelar={rutaDelEgreso}
-            />
-          </section>
+        <Cambios cambios={await armado().abm.historial(EGRESOS, id)} />
+        {puedeEscribir && pagar !== null ? (
+          <VentanaDePago egresoId={pagar} rutaAlCerrar={rutaDelEgreso} />
         ) : null}
         {puedeEscribir && aAnular !== undefined ? (
           <Ventana titulo="Anular un pago" rutaAlCerrar={rutaDelEgreso}>

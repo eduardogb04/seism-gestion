@@ -43,9 +43,21 @@ type FilaPorPagar = {
   readonly vencimiento: string | null;
 };
 
+/** Las columnas por las que se ordena *Por pagar*; la primera es el orden por defecto. */
+export const COLUMNAS_POR_PAGAR = [
+  "vencimiento",
+  "fecha",
+  "concepto",
+  "centroCosto",
+  "proveedor",
+] as const;
+
 type ConsultaPorPagar = {
   /** Con `false`, solo los egresos con saldo. */
   readonly incluirPagados: boolean;
+  /** Sin esto, por vencimiento (los que no tienen, al final). */
+  readonly orden?: (typeof COLUMNAS_POR_PAGAR)[number];
+  readonly direccion?: "asc" | "desc";
   readonly saltear: number;
   readonly cantidad: number;
 };

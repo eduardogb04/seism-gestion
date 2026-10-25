@@ -15,7 +15,7 @@ import {
   type DetalleDeVencimientos,
 } from "../../../casos-uso/servicios/vencimientos.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import { Boton, clasesDeBoton } from "../../_ui/boton.tsx";
+import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
@@ -23,9 +23,9 @@ import { Ventana } from "../../_ui/ventana.tsx";
 import {
   cargarVencimiento,
   corregirFechaDeVencimiento,
-  cotizarRenovacion,
   descartarVencimiento,
 } from "../acciones.ts";
+import { VentanaDeRenovacion } from "./ventana-de-renovacion.tsx";
 
 type Fila = DetalleDeVencimientos["vencimientos"][number];
 
@@ -96,33 +96,6 @@ function VentanaDeDescarte({
         enviar={{ texto: "Descartar", variante: "peligro" }}
         rutaAlCancelar={rutaAlCerrar}
       />
-    </Ventana>
-  );
-}
-
-function VentanaDeRenovacion({
-  servicioId,
-  fila,
-  rutaAlCerrar,
-}: {
-  readonly servicioId: string;
-  readonly fila: Fila;
-  readonly rutaAlCerrar: string;
-}) {
-  return (
-    <Ventana titulo="Cotizar renovación" rutaAlCerrar={rutaAlCerrar}>
-      <p className="mb-3">
-        {fila.descripcion} · {fila.fecha}
-      </p>
-      <p className="mb-3">
-        Se crea un servicio nuevo en «Creado», con el cliente, el tipo, los
-        sitios y los camiones de este.
-      </p>
-      <form action={cotizarRenovacion.bind(null, servicioId, fila.id)}>
-        <Boton variante="primario" type="submit">
-          Confirmar
-        </Boton>
-      </form>
     </Ventana>
   );
 }
@@ -239,7 +212,8 @@ export async function Vencimientos({
       {puedeRenovar && aRenovar !== undefined ? (
         <VentanaDeRenovacion
           servicioId={servicioId}
-          fila={aRenovar}
+          vencimientoId={aRenovar.id}
+          detalle={`${aRenovar.descripcion} · ${aRenovar.fecha}`}
           rutaAlCerrar={ruta}
         />
       ) : null}

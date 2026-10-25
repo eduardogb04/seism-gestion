@@ -18,13 +18,18 @@ function entrada(
     titulo: "Una entrada de ejemplo",
     importe: null,
     vencida: false,
+    vencimiento: null,
     ...parcial,
   };
 }
 
-function grillaCon(entradas: readonly EntradaDelCalendario[]): string {
+function grillaCon(
+  entradas: readonly EntradaDelCalendario[],
+  enlaceDeRenovacion: ((vencimientoId: string) => string) | null = null,
+): string {
   return renderToStaticMarkup(
     createElement(GrillaDelMes, {
+      enlaceDeRenovacion,
       semanas: [[{ dia: 12, fecha: "2031-07-12", entradas }]],
     }),
   );
@@ -63,5 +68,22 @@ describe("GrillaDelMes", () => {
     expect(html).toMatch(/href="\/e"[^>]*border-serie-3/);
     expect(html).toMatch(/Vencido ·/);
     expect(html.match(/Vencido/g)).toHaveLength(1);
+  });
+
+  test("un vencimiento pendiente ofrece «Cotizar renovación» con el enlace que se le da; otra entrada, o quien no puede renovar, no", () => {
+    const entradas = [
+      entrada({
+        enlace: "/v",
+        vencimiento: { id: "venc-1", servicioId: "serv-1" },
+      }),
+      entrada({ tipo: "factura", enlace: "/f" }),
+    ];
+
+    const conPermiso = grillaCon(entradas, (id) => `/calendario?renovar=${id}`);
+    expect(conPermiso).toMatch(
+      /<a[^>]*href="\/calendario\?renovar=venc-1"[^>]*>Cotizar renovación<\/a>/,
+    );
+    expect(conPermiso.match(/Cotizar renovación/g)).toHaveLength(1);
+    expect(grillaCon(entradas)).not.toContain("Cotizar renovación");
   });
 });

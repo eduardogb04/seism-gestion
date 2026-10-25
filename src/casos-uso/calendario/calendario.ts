@@ -53,6 +53,11 @@ export type EntradaDelCalendario = {
   /** Su fecha es anterior a hoy y sigue pendiente. */
   readonly vencida: boolean;
   readonly enlace: string;
+  /** El vencimiento a cotizar como renovación; `null` si la entrada no es un vencimiento. */
+  readonly vencimiento: {
+    readonly id: string;
+    readonly servicioId: string;
+  } | null;
 };
 
 export type Calendario = {
@@ -129,6 +134,7 @@ async function entradasEntre(
           titulo: `${v.descripcion} · ${v.servicioCodigo}`,
           importe: null,
           enlace: `/servicios/${v.servicioId}`,
+          vencimiento: { id: v.id, servicioId: v.servicioId },
         }),
       );
     }
@@ -143,6 +149,7 @@ async function entradasEntre(
             titulo: `Factura ${factura.valor.numero} · ${cliente}`,
             importe: formatearImporte(saldo.saldo),
             enlace: `/servicios/facturas/${factura.valor.id}`,
+            vencimiento: null,
           }),
         );
       }
@@ -163,6 +170,7 @@ async function entradasEntre(
             titulo: fila.concepto,
             importe: formatearImporte(fila.saldo),
             enlace: `/egresos/${fila.id}`,
+            vencimiento: null,
           }),
         );
       }
@@ -180,6 +188,7 @@ async function entradasEntre(
           titulo: `Inicio de ${s.codigo} · ${s.titulo}`,
           importe: null,
           enlace: `/servicios/${s.id}`,
+          vencimiento: null,
         }),
       );
     }

@@ -6,6 +6,7 @@
  */
 
 import type { RegistroDe, RepositorioDe } from "./abm.ts";
+import type { Rango } from "./tablero.ts";
 
 export type DatosVencimiento = {
   readonly servicioId: string;
@@ -25,10 +26,22 @@ export type DatosVencimiento = {
 
 export type Vencimiento = RegistroDe<DatosVencimiento>;
 
+/** Un vencimiento pendiente como lo muestra el calendario. */
+export type VencimientoPendiente = {
+  readonly id: string;
+  readonly servicioId: string;
+  readonly servicioCodigo: string;
+  /** Un día, `aaaa-mm-dd`. */
+  readonly fecha: string;
+  readonly descripcion: string;
+};
+
 export type RepositorioVencimientos = Pick<
   RepositorioDe<DatosVencimiento>,
   "buscarPorId" | "crear" | "actualizar"
 > & {
   /** Los no eliminados de un servicio, por fecha. */
   listarDe(servicioId: string): Promise<readonly Vencimiento[]>;
+  /** Los pendientes no eliminados con fecha en `rango`, por fecha. */
+  pendientesEntre(rango: Rango): Promise<readonly VencimientoPendiente[]>;
 };

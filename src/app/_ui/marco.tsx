@@ -9,6 +9,7 @@
 import {
   Activity,
   Building2,
+  CalendarDays,
   ChartPie,
   HandCoins,
   House,
@@ -51,6 +52,12 @@ const GRUPOS: readonly {
         texto: "Servicios",
         ruta: "/servicios",
         Icono: Wrench,
+        soloAdministrador: false,
+      },
+      {
+        texto: "Calendario",
+        ruta: "/calendario",
+        Icono: CalendarDays,
         soloAdministrador: false,
       },
     ],

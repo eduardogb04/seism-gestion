@@ -10,4 +10,6 @@ ALTER TABLE "servicios_vencimientos" ADD CONSTRAINT "servicios_vencimientos_clas
 );
 
 -- A lo sumo uno pendiente de renovación por servicio: lo sostiene la base aunque alguien escriba por otro lado.
-CREATE UNIQUE INDEX "servicios_vencimientos_contrato_unico" ON "servicios_vencimientos" ("servicio_id") WHERE ("clase" = 'contrato' AND "estado" = 'pendiente' AND "eliminado_en" IS NULL);
+-- Va sobre una expresión (como los índices de camiones): Prisma no declara índices parciales y, sobre la
+-- columna sola, el control de drift lo daría por sobrante.
+CREATE UNIQUE INDEX "servicios_vencimientos_contrato_unico" ON "servicios_vencimientos" (("servicio_id"::text)) WHERE ("clase" = 'contrato' AND "estado" = 'pendiente' AND "eliminado_en" IS NULL);

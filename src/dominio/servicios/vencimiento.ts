@@ -15,7 +15,7 @@ export interface ReglaDeVencimiento {
   readonly antiguedadCorteAnios: number | null;
 }
 
-export interface AniosDelCamion {
+interface AniosDelCamion {
   readonly anioTractor: number;
   readonly anioCisterna: number | null;
 }

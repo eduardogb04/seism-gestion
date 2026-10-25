@@ -540,6 +540,29 @@ describe("a mano", () => {
   });
 });
 
+describe("la base", () => {
+  test("no deja un sitio y un camión a la vez, ni un origen ni un estado que el dominio no conoce", async () => {
+    await conRegla();
+    await finalizar();
+    const { id: _id, ...base } =
+      await cliente().servicioVencimiento.findFirstOrThrow();
+    const sitioId = await altaDeSitio("Planta Ejemplo Norte");
+    const camionId = await altaDeCamion("ZZ001ZZ", "2018");
+
+    for (const [restriccion, cambio] of [
+      ["a_lo_sumo_uno", { sitioId, camionId }],
+      ["origen", { origen: "otro" }],
+      ["estado", { estado: "vencido" }],
+    ] as const) {
+      await expect(
+        cliente().servicioVencimiento.create({ data: { ...base, ...cambio } }),
+        restriccion,
+      ).rejects.toThrow(restriccion);
+    }
+    expect(await guardados()).toHaveLength(1);
+  });
+});
+
 describe("lo que se ve", () => {
   test("la lista trae fecha, descripción, origen y estado; se edita en «Finalizado» y en «Cerrado» solo se ve", async () => {
     await conRegla();

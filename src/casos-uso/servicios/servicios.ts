@@ -85,6 +85,7 @@ import {
   ETIQUETAS_DE_ESTADO,
   VALIDACION,
 } from "./formulario.ts";
+import { generarVencimientos } from "./generacion-de-vencimientos.ts";
 
 export const ROLES_QUE_ESCRIBEN_SERVICIOS: readonly Rol[] = [
   "administrador",
@@ -615,7 +616,7 @@ export function crearCasosUsoServicios({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        await servicioVigenteBloqueado(repos, id);
+        const servicio = await servicioVigenteBloqueado(repos, id);
         const destino = esquemaEstado.safeParse(a);
         const leida = esquemaNota.safeParse(nota);
         if (!destino.success || !leida.success) {
@@ -630,6 +631,7 @@ export function crearCasosUsoServicios({
           leida.data === "" ? null : leida.data,
         );
         if (destino.data === "finalizado") {
+          await generarVencimientos(actor, repos, reloj, generadorId, servicio);
           await cerrarSiEstaCobrado(actor, repos, reloj, id);
         }
       });

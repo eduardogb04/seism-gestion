@@ -23,6 +23,7 @@ import type { RepositorioSesiones } from "./sesiones.ts";
 import type { RepositorioSucesos } from "./sucesos.ts";
 import type { RepositorioTablero } from "./tablero.ts";
 import type { RepositorioUsuarios } from "./usuarios.ts";
+import type { RepositorioVencimientos } from "./vencimientos.ts";
 
 /** Los repositorios atados a la transacción en curso. */
 export type RepositoriosEnTransaccion = {
@@ -51,6 +52,8 @@ export type RepositoriosEnTransaccion = {
   /** Los hitos y los recursos de un servicio (F3-02). */
   readonly hitos: RepositorioHitos;
   readonly recursos: RepositorioRecursos;
+  /** Los vencimientos de un trabajo terminado (F4-02). */
+  readonly vencimientos: RepositorioVencimientos;
   /** Las sumas del tablero: solo lectura (F2-10). */
   readonly tablero: RepositorioTablero;
 };

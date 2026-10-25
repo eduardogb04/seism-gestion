@@ -32,6 +32,7 @@ const SECCIONES = [
   "Facturas",
   "Avance",
   "Egresos",
+  "Vencimientos",
 ] as const;
 
 async function entrarComo(page: Page, email: string): Promise<void> {
@@ -275,6 +276,7 @@ test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", as
     "Nueva cotización",
     "Nueva orden de compra",
     "Nuevo suceso",
+    "Nuevo vencimiento",
     "Editar",
     "Dar de baja",
     "Iniciar ejecución",
@@ -311,7 +313,13 @@ test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", as
   // Finalizado: lo que falta facturar y cobrar. Puntual devenga el total de la orden.
   await confirmar(page, "Finalizar servicio");
   await expect(estado).toHaveText("Finalizado");
-  await seVeSolo(page, ["Facturación", "Facturas", "Avance", "Egresos"]);
+  await seVeSolo(page, [
+    "Facturación",
+    "Facturas",
+    "Avance",
+    "Egresos",
+    "Vencimientos",
+  ]);
   expect(await transicionesOfrecidas(page)).toEqual([]);
   await page.getByRole("link", { name: "Nueva factura" }).click();
   const factura = ventana(page, "Nueva factura");
@@ -338,7 +346,13 @@ test("un servicio recorre todas las etapas y en cada una se ve solo lo suyo", as
     .selectOption({ label: "Caja · ARS" });
   await cobro.getByRole("button", { name: "Cobrar" }).click();
   await expect(estado).toHaveText("Cerrado");
-  await seVeSolo(page, ["Facturación", "Facturas", "Avance", "Egresos"]);
+  await seVeSolo(page, [
+    "Facturación",
+    "Facturas",
+    "Avance",
+    "Egresos",
+    "Vencimientos",
+  ]);
   await expect(page.locator("[data-solo-lectura]")).toHaveCount(0);
   for (const enlace of [
     "Nueva factura",

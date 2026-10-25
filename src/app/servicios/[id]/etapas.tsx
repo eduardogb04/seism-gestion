@@ -19,6 +19,7 @@ import { Hitos } from "./hitos.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
 import { Recursos } from "./recursos.tsx";
 import { Sitios } from "./sitios.tsx";
+import { Vencimientos } from "./vencimientos.tsx";
 
 type Parametros = Readonly<Record<string, string | string[] | undefined>>;
 
@@ -134,6 +135,9 @@ const SECCIONES = {
   egresos: ({ servicio }: Datos): ReactNode => (
     <Egresos servicioId={servicio.id} />
   ),
+  vencimientos: (datos: Datos): ReactNode => (
+    <Vencimientos {...propias(datos)} />
+  ),
 };
 
 const VISTAS: Readonly<
@@ -157,8 +161,8 @@ const VISTAS: Readonly<
     "avance",
     "egresos",
   ],
-  finalizado: ["facturacion", "facturas", "avance", "egresos"],
-  cerrado: ["facturacion", "facturas", "avance", "egresos"],
+  finalizado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],
+  cerrado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],
   // Salidas del recorrido: lo único que se carga es un suceso, en la columna lateral.
   perdido: [],
   sin_respuesta: [],

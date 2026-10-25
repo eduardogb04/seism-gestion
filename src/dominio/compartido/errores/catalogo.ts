@@ -229,6 +229,14 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Abrí el servicio de nuevo: puede que otra persona le haya cambiado el cliente recién.",
   },
+  DOM_0029: {
+    codigo: "DOM-0029",
+    tipo: "persona",
+    descripcion:
+      "El vencimiento ya no está pendiente: solo se corrige o se descarta uno pendiente. No se guardó nada.",
+    queHacer:
+      "Abrí el servicio de nuevo: puede que otra persona lo haya descartado recién.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",

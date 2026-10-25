@@ -406,3 +406,57 @@ export async function quitarRecurso(
     armado().planificacion.marcarEliminadoRecurso(actor, id),
   );
 }
+
+/** Cargar un vencimiento a mano. */
+export async function cargarVencimiento(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().vencimientos.crear(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
+/** Corregir la fecha de un vencimiento pendiente. */
+export async function corregirFechaDeVencimiento(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const corregido = await armado().vencimientos.cambiarFecha(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return corregido.ok
+      ? { ok: true, ruta: `${RUTA}/${servicioId}` }
+      : corregido;
+  });
+}
+
+/** Descartar un vencimiento pendiente, con su motivo. */
+export async function descartarVencimiento(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const descartado = await armado().vencimientos.marcarDescartado(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return descartado.ok
+      ? { ok: true, ruta: `${RUTA}/${servicioId}` }
+      : descartado;
+  });
+}

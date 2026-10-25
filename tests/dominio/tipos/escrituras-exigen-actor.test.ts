@@ -34,6 +34,7 @@ import type { CasosUsoOrdenesDeCompra } from "../../../src/casos-uso/servicios/o
 import type { CasosUsoPlanificacion } from "../../../src/casos-uso/servicios/planificacion.ts";
 import type { CasosUsoServicios } from "../../../src/casos-uso/servicios/servicios.ts";
 import type { CasosUsoSucesos } from "../../../src/casos-uso/servicios/sucesos.ts";
+import type { CasosUsoVencimientos } from "../../../src/casos-uso/servicios/vencimientos.ts";
 import type { CasosUsoUsuarios } from "../../../src/casos-uso/usuarios/usuarios.ts";
 import type { Identificador } from "../../../src/dominio/compartido/identificador.ts";
 import type { FechaHora } from "../../../src/dominio/compartido/reloj.ts";
@@ -112,6 +113,7 @@ declare const casosFacturacion: CasosUsoFacturacion;
 declare const repositorioCuotas: RepositorioCuotas;
 declare const cuota: CuotaGuardada;
 declare const casosPlanificacion: CasosUsoPlanificacion;
+declare const casosVencimientos: CasosUsoVencimientos;
 declare const ahora: FechaHora;
 declare const evento: Parameters<RepositorioServicios["agregarEvento"]>[2];
 
@@ -162,6 +164,12 @@ function casosDeUsoSinActor(): void {
   casosPlanificacion.crearRecurso("id", {});
   // @ts-expect-error `marcarEliminadoRecurso` (planificación, F3-02) exige un `Actor` primero.
   casosPlanificacion.marcarEliminadoRecurso("id");
+  // @ts-expect-error `crear` de vencimientos (F4-02) exige un `Actor` primero.
+  casosVencimientos.crear("id", {});
+  // @ts-expect-error `cambiarFecha` de vencimientos (F4-02) exige un `Actor` primero.
+  casosVencimientos.cambiarFecha("id", {});
+  // @ts-expect-error `marcarDescartado` de vencimientos (F4-02) exige un `Actor` primero.
+  casosVencimientos.marcarDescartado("id", {});
   // @ts-expect-error `marcarEliminado` de cotizaciones exige un `Actor` primero.
   casosCotizaciones.marcarEliminado("id");
   // @ts-expect-error `crear` de órdenes de compra exige un `Actor` primero.

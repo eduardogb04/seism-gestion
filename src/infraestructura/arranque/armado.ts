@@ -70,6 +70,10 @@ import {
   crearCasosUsoSucesos,
 } from "../../casos-uso/servicios/sucesos.ts";
 import {
+  type CasosUsoVencimientos,
+  crearCasosUsoVencimientos,
+} from "../../casos-uso/servicios/vencimientos.ts";
+import {
   type CasosUsoSesion,
   crearCasosUsoSesion,
 } from "../../casos-uso/sesion/sesion.ts";
@@ -120,6 +124,8 @@ export type Armado = {
   readonly facturacion: CasosUsoFacturacion;
   /** El responsable, la fecha estimada, los hitos y los recursos de un servicio (F3-02). */
   readonly planificacion: CasosUsoPlanificacion;
+  /** Los vencimientos de un servicio terminado (F4-02). */
+  readonly vencimientos: CasosUsoVencimientos;
   /** El tablero de inicio y los listados a los que lleva (F2-10). */
   readonly tablero: CasosUsoTablero;
   /** Bajar un documento adjunto, de cualquier registro (F2-05). */
@@ -204,6 +210,11 @@ function armar(): Armado {
       generadorId,
     }),
     planificacion: crearCasosUsoPlanificacion({
+      transaccional,
+      reloj,
+      generadorId,
+    }),
+    vencimientos: crearCasosUsoVencimientos({
       transaccional,
       reloj,
       generadorId,

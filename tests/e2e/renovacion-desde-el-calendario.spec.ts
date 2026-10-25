@@ -5,7 +5,8 @@
  *
  * 1. lo ve en la grilla y en la lista, cada uno con «Cotizar renovación»;
  * 2. confirma en una ventana y llega al servicio nuevo, en «Creado»;
- * 3. el vencimiento ya no aparece en el calendario: pasó a renovado.
+ * 3. el vencimiento sigue en el calendario, marcado «Renovado» con el enlace al
+ *    servicio nuevo y sin «Cotizar renovación» (F5-03).
  *
  * Usa `operador.catalogos@ejemplo.test`. Todo inventado.
  */
@@ -57,7 +58,7 @@ test.beforeEach(async ({ browser, baseURL }) => {
   await asegurarOperadora(browser, baseURL);
 });
 
-test("desde el calendario se cotiza la renovación de un vencimiento: lleva al servicio nuevo en «Creado» y el vencimiento sale del calendario", async ({
+test("desde el calendario se cotiza la renovación de un vencimiento: lleva al servicio nuevo en «Creado» y el vencimiento queda en el calendario como renovado, con su enlace", async ({
   page,
 }) => {
   await entrarComo(page, OPERADORA);
@@ -150,10 +151,21 @@ test("desde el calendario se cotiza la renovación de un vencimiento: lleva al s
   await expect(page.locator("h1")).toContainText(
     `Renovación de ${codigoOriginal?.[0]}`,
   );
+  const urlNuevo = page.url();
+  const codigoNuevo = (await page.locator("h1").innerText()).match(CODIGO);
+  expect(codigoNuevo, "el título del nuevo no trae su código").not.toBeNull();
 
-  // 3. El vencimiento ya no está pendiente: sale del calendario.
+  // 3. Sigue en el calendario, renovado, con el enlace al servicio nuevo.
   await page.goto("/calendario?mes=2040-02");
-  await expect(
-    page.getByText(codigoOriginal?.[0] ?? "", { exact: false }),
-  ).toHaveCount(0);
+  for (const entrada of [enGrilla, enLista]) {
+    await expect(entrada).toContainText("Renovado");
+    await expect(
+      entrada.getByRole("link", { name: "Cotizar renovación" }),
+    ).toHaveCount(0);
+    await entrada
+      .getByRole("link", { name: codigoNuevo?.[0] ?? "", exact: true })
+      .click();
+    await expect(page).toHaveURL(urlNuevo);
+    await page.goto("/calendario?mes=2040-02");
+  }
 });

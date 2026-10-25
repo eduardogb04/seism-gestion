@@ -40,6 +40,11 @@ export type VencimientoPendiente = {
   readonly descripcion: string;
 };
 
+/** Un vencimiento renovado como lo muestra el calendario, con el servicio que lo renovó. */
+export type VencimientoRenovado = VencimientoPendiente & {
+  readonly renovacion: { readonly id: string; readonly codigo: string };
+};
+
 export type RepositorioVencimientos = Pick<
   RepositorioDe<DatosVencimiento>,
   "buscarPorId" | "crear" | "actualizar"
@@ -52,4 +57,6 @@ export type RepositorioVencimientos = Pick<
   pendienteDeContratoDe(servicioId: string): Promise<Vencimiento | null>;
   /** Los pendientes no eliminados con fecha en `rango`, por fecha. */
   pendientesEntre(rango: Rango): Promise<readonly VencimientoPendiente[]>;
+  /** Los renovados no eliminados con fecha en `rango`, por fecha. */
+  renovadosEntre(rango: Rango): Promise<readonly VencimientoRenovado[]>;
 };

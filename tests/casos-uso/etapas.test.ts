@@ -412,14 +412,16 @@ describe("cada etapa limita lo que se carga (R6)", () => {
     await cargarSuceso();
     const [uno, otro] = await sucesos().listar(servicioId);
     exigirOk(
-      await sucesos().marcarAnulado(admin, uno?.id ?? "", {
+      await sucesos().marcarAnulado(admin, { servicioId }, uno?.id ?? "", {
         motivo: "Repetido",
       }),
     );
 
     await llevarA("cerrado");
     await fueraDeEtapa(() =>
-      sucesos().marcarAnulado(admin, otro?.id ?? "", { motivo: "Repetido" }),
+      sucesos().marcarAnulado(admin, { servicioId }, otro?.id ?? "", {
+        motivo: "Repetido",
+      }),
     );
   });
 });

@@ -71,6 +71,8 @@ export type SucesoListado = {
 /** Una situación de la traza de un cliente: la de un servicio lleva el suyo, para enlazarlo. */
 export type SituacionListada = SucesoListado & {
   readonly servicio: { readonly id: string; readonly codigo: string } | null;
+  /** Por qué se anuló; `null` mientras está vigente (solo las sueltas se ven anuladas). */
+  readonly motivoAnulacion: string | null;
 };
 
 export type FichaDelCliente = {
@@ -88,6 +90,11 @@ export type DestinoDeSuceso = {
   readonly servicioId: string | null;
 };
 
+/** Desde dónde se anula: la pantalla de un servicio o la ficha de un cliente (sus sueltas). */
+export type OrigenDeAnulacion =
+  | { readonly servicioId: string }
+  | { readonly clienteId: string };
+
 export type CasosUsoSucesos = {
   /** Los no anulados, el más nuevo primero. */
   listar(servicioId: string): Promise<readonly SucesoListado[]>;
@@ -101,9 +108,14 @@ export type CasosUsoSucesos = {
     destino: DestinoDeSuceso,
     escrito: Escrito,
   ): Promise<ResultadoDeSuceso>;
-  /** La anulación (baja lógica), con el motivo en `escrito.motivo`. */
+  /**
+   * La anulación (baja lógica), con el motivo en `escrito.motivo`. `DOM-0009`
+   * si el suceso no existe o no es de ese origen: una suelta no se anula por un
+   * servicio ni la de un servicio por la ficha del cliente.
+   */
   marcarAnulado(
     actor: Actor,
+    origen: OrigenDeAnulacion,
     id: string,
     escrito: Escrito,
   ): Promise<ResultadoDeSuceso>;
@@ -167,6 +179,7 @@ export function crearCasosUsoSucesos({
             ({ suceso, servicio }) => ({
               ...listadoDe(suceso, quien),
               servicio,
+              motivoAnulacion: suceso.valor.motivoAnulacion,
             }),
           ),
         };
@@ -219,7 +232,7 @@ export function crearCasosUsoSucesos({
       });
     },
 
-    marcarAnulado(actor, id, escrito) {
+    marcarAnulado(actor, origen, id, escrito) {
       return transaccional.ejecutar(async (repos) => {
         await exigirRol(
           repos.usuarios,
@@ -230,12 +243,19 @@ export function crearCasosUsoSucesos({
         const actual = esquemaId.safeParse(id).success
           ? await repos.sucesos.buscarPorId(id)
           : null;
-        const servicioId = actual?.valor.servicioId ?? null;
-        if (actual === null || servicioId === null) {
+        const esDelOrigen =
+          actual !== null &&
+          ("servicioId" in origen
+            ? actual.valor.servicioId === origen.servicioId
+            : actual.valor.servicioId === null &&
+              actual.valor.clienteId === origen.clienteId);
+        if (actual === null || !esDelOrigen) {
           throw nuevoError(catalogo.DOM_0009, { entidad: "Suceso", id });
         }
-        await servicioVigenteBloqueado(repos, servicioId);
-        await exigirEtapa(repos, servicioId, "suceso");
+        if (actual.valor.servicioId !== null) {
+          await servicioVigenteBloqueado(repos, actual.valor.servicioId);
+          await exigirEtapa(repos, actual.valor.servicioId, "suceso");
+        }
         const validado = validarEscrito(
           CAMPOS_DE_ANULACION,
           VALIDACION_DE_ANULACION,

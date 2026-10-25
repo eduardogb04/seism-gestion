@@ -76,6 +76,9 @@ type EntidadesAbm = {
     readonly descripcion: string | null;
     readonly modalidad: string;
     readonly activo: boolean;
+    readonly vencimientoMeses: number | null;
+    readonly vencimientoMesesAntiguos: number | null;
+    readonly antiguedadCorteAnios: number | null;
   };
   readonly Cuenta: {
     readonly nombre: string;

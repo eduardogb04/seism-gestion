@@ -672,6 +672,9 @@ describe("cotizar la renovación", () => {
       clienteId: original.clienteId,
       tipoServicioId: original.tipoServicioId,
       titulo: `Renovación de ${original.codigo}`,
+      modalidad: "puntual",
+      vigenciaDesde: null,
+      vigenciaHasta: null,
       responsableId: quien.id,
     });
     expect(nuevo.codigo).not.toBe(original.codigo);
@@ -710,6 +713,27 @@ describe("cotizar la renovación", () => {
       codigo: original.codigo,
     });
     expect((await servicios().ver(servicioId)).renueva).toBeNull();
+  });
+
+  test("copia la modalidad del original: uno recurrente da uno recurrente, con la vigencia del original", async () => {
+    const { id } = await conUnVencimientoDeCamion();
+    await cliente().servicio.update({
+      where: { id: servicioId },
+      data: {
+        modalidad: "recurrente",
+        vigenciaDesde: new Date("2031-01-01"),
+        vigenciaHasta: new Date("2031-12-31"),
+      },
+    });
+
+    const { servicioId: nuevoId } = await vencimientos().renovar(admin, id);
+
+    const nuevo = await cliente().servicio.findUniqueOrThrow({
+      where: { id: nuevoId },
+    });
+    expect(nuevo.modalidad).toBe("recurrente");
+    expect(nuevo.vigenciaDesde?.toISOString().slice(0, 10)).toBe("2031-01-01");
+    expect(nuevo.vigenciaHasta?.toISOString().slice(0, 10)).toBe("2031-12-31");
   });
 
   test("también se renueva con el servicio ya «Cerrado»", async () => {

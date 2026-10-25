@@ -196,6 +196,28 @@ export function crearRepositorioServiciosPrisma(
       };
     },
 
+    async inicioEstimadoEntre({ desde, hasta }) {
+      const filas = await cliente.servicio.findMany({
+        where: {
+          eliminadoEn: null,
+          id: { in: await idsEnEstado(cliente, "adjudicado") },
+          fechaInicioEstimada: { gte: deDia(desde), lt: deDia(hasta) },
+        },
+        orderBy: [{ fechaInicioEstimada: "asc" }, { codigo: "asc" }],
+        select: {
+          id: true,
+          codigo: true,
+          titulo: true,
+          fechaInicioEstimada: true,
+        },
+      });
+      return filas.flatMap(({ fechaInicioEstimada, ...resto }) =>
+        fechaInicioEstimada === null
+          ? []
+          : [{ ...resto, fecha: aDia(fechaInicioEstimada) }],
+      );
+    },
+
     async eventosDe(id) {
       const filas = await cliente.servicioEvento.findMany({
         where: { servicioId: id },

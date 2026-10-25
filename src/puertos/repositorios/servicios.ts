@@ -18,6 +18,7 @@ import type {
   ModalidadDeFacturacion,
 } from "../../dominio/servicios/estados.ts";
 import type { EntidadAbm, RegistroDe, RepositorioDe } from "./abm.ts";
+import type { Rango } from "./tablero.ts";
 
 export type DatosServicio = {
   /** `SRV-2026-014`: lo genera el sistema al crear y no cambia. */
@@ -66,6 +67,15 @@ export type ConsultaDeServicios = {
   readonly cantidad: number;
 };
 
+/** Un servicio adjudicado con su inicio estimado, como lo muestra el calendario. */
+export type InicioEstimado = {
+  readonly id: string;
+  readonly codigo: string;
+  readonly titulo: string;
+  /** Un día, `aaaa-mm-dd`. */
+  readonly fecha: string;
+};
+
 export type RepositorioServicios = Pick<
   RepositorioDe<DatosServicio>,
   "buscarPorId" | "crear" | "actualizar"
@@ -75,6 +85,8 @@ export type RepositorioServicios = Pick<
     readonly filas: readonly FilaDeServicio[];
     readonly total: number;
   }>;
+  /** Los no eliminados que hoy están «Adjudicado», con inicio estimado en `rango`, por fecha. */
+  inicioEstimadoEntre(rango: Rango): Promise<readonly InicioEstimado[]>;
   /** Los cambios de estado, del primero (el alta) al último (el estado actual). */
   eventosDe(id: string): Promise<readonly EventoServicio[]>;
   /**

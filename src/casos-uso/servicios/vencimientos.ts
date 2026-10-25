@@ -315,12 +315,13 @@ export function crearCasosUsoVencimientos({
           clienteId: original.valor.clienteId,
           tipoServicioId: original.valor.tipoServicioId,
           titulo: `Renovación de ${original.valor.codigo}`,
-          modalidad: "puntual",
+          modalidad: original.valor.modalidad,
           // `exigirRol` solo deja pasar a una persona.
           responsableId: actor.tipo === "persona" ? actor.usuarioId : "",
           fechaPedido: formatearISO(reloj.ahora()).slice(0, 10),
-          vigenciaDesde: "",
-          vigenciaHasta: "",
+          // El alta exige vigencia a un recurrente: se copia la del original y se ajusta en «Creado».
+          vigenciaDesde: original.valor.vigenciaDesde ?? "",
+          vigenciaHasta: original.valor.vigenciaHasta ?? "",
           observaciones: "",
         });
         if (!alta.ok) {

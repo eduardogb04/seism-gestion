@@ -476,7 +476,8 @@ model Servicio {
   cuotas        ServicioCuota[]
   hitos         ServicioHito[]
   recursos      ServicioRecurso[]
-  vencimientos  ServicioVencimiento[]
+  vencimientos  ServicioVencimiento[] @relation("VencimientosDelServicio")
+  renueva       ServicioVencimiento[] @relation("RenovacionDeVencimiento")
 
   @@map("servicios")
 }
@@ -582,7 +583,10 @@ model ServicioRecurso {
 model ServicioVencimiento {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   servicioId     String    @map("servicio_id") @db.Uuid
-  servicio       Servicio  @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  servicio       Servicio  @relation("VencimientosDelServicio", fields: [servicioId], references: [id], onDelete: Restrict)
+  // El servicio que cotiza la renovación (F4-07); solo si el vencimiento está renovado.
+  servicioRenovacionId String? @map("servicio_renovacion_id") @db.Uuid
+  servicioRenovacion Servicio? @relation("RenovacionDeVencimiento", fields: [servicioRenovacionId], references: [id], onDelete: Restrict)
   sitioId        String?   @map("sitio_id") @db.Uuid
   sitio          Sitio?    @relation(fields: [sitioId], references: [id], onDelete: Restrict)
   camionId       String?   @map("camion_id") @db.Uuid

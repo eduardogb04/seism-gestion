@@ -183,6 +183,8 @@ export type DetalleDeServicio = {
     readonly marcado: boolean;
   }[];
   readonly admiteBaja: boolean;
+  /** El servicio que este renueva (F4-07), si nació de cotizar la renovación de un vencimiento. */
+  readonly renueva: { readonly id: string; readonly codigo: string } | null;
 };
 
 export type CasosUsoServicios = {
@@ -289,6 +291,64 @@ async function leer(
 
 function etiquetaDe(opciones: readonly OpcionAbm[], valor: string): string {
   return opciones.find((opcion) => opcion.valor === valor)?.etiqueta ?? valor;
+}
+
+/**
+ * El alta de un servicio dentro de la transacción de quien llama: la del
+ * formulario y la de la renovación de un vencimiento (F4-07) son esta misma.
+ */
+export async function altaDeServicio(
+  actor: Actor,
+  repos: RepositoriosEnTransaccion,
+  reloj: Reloj,
+  generadorId: GeneradorId,
+  escrito: Escrito,
+): Promise<ResultadoDeServicio> {
+  await exigirRol(
+    repos.usuarios,
+    actor,
+    ROLES_QUE_ESCRIBEN_SERVICIOS,
+    catalogo.AUT_0009,
+  );
+  const leido = await leer(repos, escrito, null);
+  if (!leido.ok) {
+    return leido;
+  }
+  // Una sola lectura del reloj: el año de la secuencia es el del código, y el alta y su evento son el mismo instante.
+  const ahora = reloj.ahora();
+  const enEsteInstante = RelojFijo(ahora);
+  const codigo = generarCodigoLegible(enEsteInstante, {
+    prefijo: PREFIJO_DE_CODIGO,
+    secuencia: await repos.secuencias.siguiente(PREFIJO_DE_CODIGO, ahora.anio),
+  });
+  if (!codigo.ok) {
+    throw nuevoError(catalogo.DOM_0006, { motivo: codigo.mensaje });
+  }
+  const id = identificadorDesde<string>(generadorId.generar());
+  await repos.servicios.crear(
+    actor,
+    crearAuditable(
+      {
+        ...leido.datos,
+        // Se elige en «Adjudicado» (F3-03).
+        modalidadFacturacion: null,
+        codigo: codigo.codigo,
+        id,
+      },
+      actor,
+      enEsteInstante,
+    ),
+  );
+  const [alta] = cicloServicio.crear(ESTADO_INICIAL, {
+    en: ahora,
+    actor,
+    origen: null,
+  }).eventos;
+  await repos.servicios.agregarEvento(actor, id, {
+    ...alta,
+    posicion: 0,
+  });
+  return { ok: true, id };
 }
 
 export function crearCasosUsoServicios({
@@ -412,6 +472,11 @@ export function crearCasosUsoServicios({
           cantidad: TODAS,
         });
         const marcados = new Set(await repos.servicios.sitiosDe(id));
+        const vencimiento = await repos.vencimientos.queRenovoCon(id);
+        const original =
+          vencimiento === null
+            ? null
+            : await repos.servicios.buscarPorId(vencimiento.valor.servicioId);
         return {
           id: valor.id,
           clienteId: valor.clienteId,
@@ -473,61 +538,18 @@ export function crearCasosUsoServicios({
             marcado: marcados.has(sitio.id),
           })),
           admiteBaja: admiteBaja(estado),
+          renueva:
+            original === null
+              ? null
+              : { id: original.valor.id, codigo: original.valor.codigo },
         };
       });
     },
 
     crear(actor, escrito) {
-      return transaccional.ejecutar(async (repos) => {
-        await exigirRol(
-          repos.usuarios,
-          actor,
-          ROLES_QUE_ESCRIBEN_SERVICIOS,
-          catalogo.AUT_0009,
-        );
-        const leido = await leer(repos, escrito, null);
-        if (!leido.ok) {
-          return leido;
-        }
-        // Una sola lectura del reloj: el año de la secuencia es el del código, y el alta y su evento son el mismo instante.
-        const ahora = reloj.ahora();
-        const enEsteInstante = RelojFijo(ahora);
-        const codigo = generarCodigoLegible(enEsteInstante, {
-          prefijo: PREFIJO_DE_CODIGO,
-          secuencia: await repos.secuencias.siguiente(
-            PREFIJO_DE_CODIGO,
-            ahora.anio,
-          ),
-        });
-        if (!codigo.ok) {
-          throw nuevoError(catalogo.DOM_0006, { motivo: codigo.mensaje });
-        }
-        const id = identificadorDesde<string>(generadorId.generar());
-        await repos.servicios.crear(
-          actor,
-          crearAuditable(
-            {
-              ...leido.datos,
-              // Se elige en «Adjudicado» (F3-03).
-              modalidadFacturacion: null,
-              codigo: codigo.codigo,
-              id,
-            },
-            actor,
-            enEsteInstante,
-          ),
-        );
-        const [alta] = cicloServicio.crear(ESTADO_INICIAL, {
-          en: ahora,
-          actor,
-          origen: null,
-        }).eventos;
-        await repos.servicios.agregarEvento(actor, id, {
-          ...alta,
-          posicion: 0,
-        });
-        return { ok: true, id };
-      });
+      return transaccional.ejecutar((repos) =>
+        altaDeServicio(actor, repos, reloj, generadorId, escrito),
+      );
     },
 
     guardar(actor, id, escrito) {

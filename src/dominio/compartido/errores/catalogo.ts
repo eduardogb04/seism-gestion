@@ -237,6 +237,22 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Abrí el servicio de nuevo: puede que otra persona lo haya descartado recién.",
   },
+  DOM_0036: {
+    codigo: "DOM-0036",
+    tipo: "persona",
+    descripcion:
+      "El vencimiento ya no está pendiente: solo se cotiza la renovación de uno pendiente. No se creó ningún servicio.",
+    queHacer:
+      "Abrí el servicio de nuevo: puede que otra persona ya haya cotizado la renovación o lo haya descartado.",
+  },
+  DOM_0037: {
+    codigo: "DOM-0037",
+    tipo: "persona",
+    descripcion:
+      "No se pudo crear el servicio de la renovación: el cliente, el tipo de servicio o el responsable ya no sirven para dar de alta un servicio. No se guardó nada.",
+    queHacer:
+      "Dalo de alta a mano desde Servicios, eligiendo un cliente, un tipo y un responsable vigentes.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",

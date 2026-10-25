@@ -76,6 +76,7 @@ export async function generarVencimientos(
             origen: "calculado",
             estado: "pendiente",
             motivoDescarte: null,
+            servicioRenovacionId: null,
           },
           actor,
           reloj,

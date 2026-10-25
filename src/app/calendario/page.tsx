@@ -145,8 +145,15 @@ export default async function Calendario({ searchParams }: Props) {
                   </a>
                 </td>
                 <td>{entrada.importe ?? ""}</td>
-                <td>
-                  <EstadoDeEntrada vencida={entrada.vencida} />
+                <td
+                  className={
+                    entrada.renovacion === null ? undefined : CLASES_DE_ACCIONES
+                  }
+                >
+                  <EstadoDeEntrada
+                    vencida={entrada.vencida}
+                    renovacion={entrada.renovacion}
+                  />
                 </td>
                 {enlaceDeRenovacion === null ? null : (
                   <td className={CLASES_DE_ACCIONES}>

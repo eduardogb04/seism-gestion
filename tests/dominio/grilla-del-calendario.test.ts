@@ -19,6 +19,7 @@ function entrada(
     importe: null,
     vencida: false,
     vencimiento: null,
+    renovacion: null,
     ...parcial,
   };
 }
@@ -85,5 +86,22 @@ describe("GrillaDelMes", () => {
     );
     expect(conPermiso.match(/Cotizar renovación/g)).toHaveLength(1);
     expect(grillaCon(entradas)).not.toContain("Cotizar renovación");
+  });
+
+  test("un vencimiento renovado dice «Renovado» con el enlace al servicio nuevo y no ofrece «Cotizar renovación»", () => {
+    const html = grillaCon(
+      [
+        entrada({
+          enlace: "/v",
+          renovacion: { id: "serv-nuevo", codigo: "SRV-2031-009" },
+        }),
+      ],
+      (id) => `/calendario?renovar=${id}`,
+    );
+
+    expect(html).toMatch(
+      /Renovado ·[^<]*(<!-- -->)? ?<a[^>]*href="\/servicios\/serv-nuevo"[^>]*>SRV-2031-009<\/a>/,
+    );
+    expect(html).not.toContain("Cotizar renovación");
   });
 });

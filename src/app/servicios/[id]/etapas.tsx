@@ -96,6 +96,7 @@ type Datos = {
   readonly detalle: DetalleDePlanificacion;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
+  readonly puedeRenovar: boolean;
   readonly parametros: Parametros;
   readonly etapa: EstadoServicio;
 };
@@ -139,6 +140,7 @@ const SECCIONES = {
   vencimientos: (datos: Datos): ReactNode => (
     <Vencimientos
       {...propias(datos)}
+      puedeRenovar={datos.puedeRenovar}
       sinFilasNoSeDibuja={
         datos.etapa === "adjudicado" || datos.etapa === "en_ejecucion"
       }
@@ -178,7 +180,12 @@ const VISTAS: Readonly<
 };
 
 export function VistaDeEtapa(datos: Datos) {
-  return VISTAS[datos.etapa].map((nombre) => (
+  // En «Creado» no se cargan recursos, pero los camiones de una renovación llegan copiados: se ven.
+  const secciones =
+    datos.etapa === "creado" && datos.detalle.recursos.length > 0
+      ? [...VISTAS.creado, "recursos" as const]
+      : VISTAS[datos.etapa];
+  return secciones.map((nombre) => (
     <Fragment key={nombre}>{SECCIONES[nombre](datos)}</Fragment>
   ));
 }

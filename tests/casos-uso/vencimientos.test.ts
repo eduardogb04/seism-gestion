@@ -27,6 +27,7 @@ import { crearCasosUsoServicios } from "../../src/casos-uso/servicios/servicios.
 import { crearCasosUsoVencimientos } from "../../src/casos-uso/servicios/vencimientos.ts";
 import type { Actor } from "../../src/dominio/compartido/actor.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
+import { identificadorDesde } from "../../src/dominio/compartido/identificador.ts";
 import {
   crearFechaHora,
   RelojFijo,
@@ -598,6 +599,7 @@ describe("lo que se ve", () => {
         estado: "Pendiente",
         motivoDeDescarte: null,
         pendiente: true,
+        renovacion: null,
       },
     ]);
 
@@ -617,5 +619,221 @@ describe("lo que se ve", () => {
     });
 
     expect((await vencimientos().ver(servicioId)).vencimientos).toEqual([]);
+  });
+});
+
+describe("cotizar la renovación", () => {
+  async function conUnVencimientoDeCamion(): Promise<{
+    readonly id: string;
+    readonly camionId: string;
+    readonly sitioId: string;
+  }> {
+    await conRegla();
+    const camionId = await altaDeCamion("ZZ001ZZ", "2028");
+    await asignarCamion(camionId);
+    const sitioId = await altaDeSitio("Planta Ejemplo Norte");
+    await servicios().guardarSitios(admin, servicioId, [sitioId]);
+    await finalizar();
+    return { id: await unVencimiento(), camionId, sitioId };
+  }
+
+  /** Quien pide la renovación: la operadora sembrada, que no es la responsable del original. */
+  async function operadora() {
+    const { id } = await cliente().usuario.findFirstOrThrow({
+      where: { email: OPERADOR.email },
+    });
+    const actor: Actor = {
+      tipo: "persona",
+      usuarioId: identificadorDesde<"Usuario">(id),
+    };
+    return { id, actor };
+  }
+
+  async function cantidadDeServicios(): Promise<number> {
+    return cliente().servicio.count();
+  }
+
+  test("crea el servicio nuevo en «Creado» con el cliente, el tipo, los sitios y los camiones del original, y enlaza los dos", async () => {
+    const { id, camionId, sitioId } = await conUnVencimientoDeCamion();
+    const original = await cliente().servicio.findUniqueOrThrow({
+      where: { id: servicioId },
+    });
+    const quien = await operadora();
+
+    const { servicioId: nuevoId } = await vencimientos().renovar(
+      quien.actor,
+      id,
+    );
+
+    const nuevo = await cliente().servicio.findUniqueOrThrow({
+      where: { id: nuevoId },
+    });
+    expect(nuevo).toMatchObject({
+      clienteId: original.clienteId,
+      tipoServicioId: original.tipoServicioId,
+      titulo: `Renovación de ${original.codigo}`,
+      modalidad: "puntual",
+      vigenciaDesde: null,
+      vigenciaHasta: null,
+      responsableId: quien.id,
+    });
+    expect(nuevo.codigo).not.toBe(original.codigo);
+    expect(
+      (
+        await cliente().servicioEvento.findMany({
+          where: { servicioId: nuevoId },
+        })
+      ).map(({ a }) => a),
+    ).toEqual(["creado"]);
+    expect(
+      (
+        await cliente().servicioSitio.findMany({
+          where: { servicioId: nuevoId },
+        })
+      ).map(({ sitioId: copiado }) => copiado),
+    ).toEqual([sitioId]);
+    expect(
+      (
+        await cliente().servicioRecurso.findMany({
+          where: { servicioId: nuevoId },
+        })
+      ).map(({ tipo, camionId: copiado }) => ({ tipo, camionId: copiado })),
+    ).toEqual([{ tipo: "camion", camionId }]);
+    expect(
+      await cliente().servicioVencimiento.findUniqueOrThrow({ where: { id } }),
+    ).toMatchObject({ estado: "renovado", servicioRenovacionId: nuevoId });
+    const [fila] = (await vencimientos().ver(servicioId)).vencimientos;
+    expect(fila).toMatchObject({
+      estado: "Renovado",
+      pendiente: false,
+      renovacion: { id: nuevoId, codigo: nuevo.codigo },
+    });
+    expect((await servicios().ver(nuevoId)).renueva).toEqual({
+      id: servicioId,
+      codigo: original.codigo,
+    });
+    expect((await servicios().ver(servicioId)).renueva).toBeNull();
+  });
+
+  test("copia la modalidad del original: uno recurrente da uno recurrente, con la vigencia del original", async () => {
+    const { id } = await conUnVencimientoDeCamion();
+    await cliente().servicio.update({
+      where: { id: servicioId },
+      data: {
+        modalidad: "recurrente",
+        vigenciaDesde: new Date("2031-01-01"),
+        vigenciaHasta: new Date("2031-12-31"),
+      },
+    });
+
+    const { servicioId: nuevoId } = await vencimientos().renovar(admin, id);
+
+    const nuevo = await cliente().servicio.findUniqueOrThrow({
+      where: { id: nuevoId },
+    });
+    expect(nuevo.modalidad).toBe("recurrente");
+    expect(nuevo.vigenciaDesde?.toISOString().slice(0, 10)).toBe("2031-01-01");
+    expect(nuevo.vigenciaHasta?.toISOString().slice(0, 10)).toBe("2031-12-31");
+  });
+
+  test("el servicio nuevo recurrente tiene su propio «Renovar contrato» al día de su vigencia (F4-03)", async () => {
+    const { id } = await conUnVencimientoDeCamion();
+    await cliente().servicio.update({
+      where: { id: servicioId },
+      data: {
+        modalidad: "recurrente",
+        vigenciaDesde: new Date("2031-01-01"),
+        vigenciaHasta: new Date("2031-12-31"),
+      },
+    });
+
+    const { servicioId: nuevoId } = await vencimientos().renovar(admin, id);
+
+    const deContrato = await cliente().servicioVencimiento.findMany({
+      where: { servicioId: nuevoId, clase: "contrato", eliminadoEn: null },
+    });
+    expect(
+      deContrato.map(({ fecha, estado, descripcion }) => ({
+        fecha: fecha.toISOString().slice(0, 10),
+        estado,
+        descripcion,
+      })),
+    ).toEqual([
+      {
+        fecha: "2031-12-31",
+        estado: "pendiente",
+        descripcion: "Renovar contrato",
+      },
+    ]);
+  });
+
+  test("también se renueva con el servicio ya «Cerrado»", async () => {
+    const { id } = await conUnVencimientoDeCamion();
+    await llevarA("cerrado");
+
+    const { servicioId: nuevoId } = await vencimientos().renovar(
+      (await operadora()).actor,
+      id,
+    );
+
+    expect(await cantidadDeServicios()).toBe(2);
+    expect((await servicios().ver(nuevoId)).renueva?.id).toBe(servicioId);
+  });
+
+  test("uno renovado no se vuelve a renovar: DOM-0036, y no crea ningún servicio más", async () => {
+    const { id } = await conUnVencimientoDeCamion();
+    await vencimientos().renovar(admin, id);
+    const antes = await cantidadDeServicios();
+
+    await expect(vencimientos().renovar(admin, id)).rejects.toMatchObject({
+      codigo: catalogo.DOM_0036.codigo,
+    });
+
+    expect(await cantidadDeServicios()).toBe(antes);
+  });
+
+  test("uno descartado tampoco se renueva: DOM-0036", async () => {
+    const { id } = await conUnVencimientoDeCamion();
+    exigirOk(
+      await vencimientos().marcarDescartado(admin, id, { motivo: "Se vendió" }),
+    );
+
+    await expect(vencimientos().renovar(admin, id)).rejects.toMatchObject({
+      codigo: catalogo.DOM_0036.codigo,
+    });
+
+    expect(await cantidadDeServicios()).toBe(1);
+  });
+
+  test("si el servicio nuevo no se puede dar de alta (el tipo ya no está activo): DOM-0037 y no queda nada", async () => {
+    const { id } = await conUnVencimientoDeCamion();
+    await cliente().tipoServicio.updateMany({ data: { activo: false } });
+
+    await expect(vencimientos().renovar(admin, id)).rejects.toMatchObject({
+      codigo: catalogo.DOM_0037.codigo,
+    });
+
+    expect(await cantidadDeServicios()).toBe(1);
+    expect(
+      await cliente().servicioVencimiento.findUniqueOrThrow({ where: { id } }),
+    ).toMatchObject({ estado: "pendiente", servicioRenovacionId: null });
+  });
+
+  test("un vencimiento que no existe: DOM-0009; quien no puede escribir: AUT-0009", async () => {
+    const { id } = await conUnVencimientoDeCamion();
+    const { actor: revocada } = await operadora();
+    await cliente().usuario.updateMany({
+      where: { email: OPERADOR.email },
+      data: { estado: "revocado" },
+    });
+
+    await expect(
+      vencimientos().renovar(admin, "00000000-0000-4000-8000-000000000999"),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
+    await expect(vencimientos().renovar(revocada, id)).rejects.toMatchObject({
+      codigo: catalogo.AUT_0009.codigo,
+    });
+
+    expect(await cantidadDeServicios()).toBe(1);
   });
 });

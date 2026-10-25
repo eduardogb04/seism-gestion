@@ -24,6 +24,8 @@ export type DatosVencimiento = {
   readonly estado: string;
   /** Solo si está descartado. */
   readonly motivoDescarte: string | null;
+  /** El servicio que cotiza la renovación (F4-07); solo si está renovado. */
+  readonly servicioRenovacionId: string | null;
 };
 
 export type Vencimiento = RegistroDe<DatosVencimiento>;
@@ -44,6 +46,8 @@ export type RepositorioVencimientos = Pick<
 > & {
   /** Los no eliminados de un servicio, por fecha. */
   listarDe(servicioId: string): Promise<readonly Vencimiento[]>;
+  /** El vencimiento que dio origen a ese servicio de renovación, si lo hay. */
+  queRenovoCon(servicioRenovacionId: string): Promise<Vencimiento | null>;
   /** El vencimiento de contrato pendiente del servicio, si lo tiene (a lo sumo uno). */
   pendienteDeContratoDe(servicioId: string): Promise<Vencimiento | null>;
   /** Los pendientes no eliminados con fecha en `rango`, por fecha. */

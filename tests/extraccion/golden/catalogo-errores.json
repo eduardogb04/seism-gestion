@@ -209,6 +209,18 @@
     "queHacer": "Abrí el servicio de nuevo: puede que otra persona lo haya descartado recién.",
     "tipo": "persona"
   },
+  "DOM_0036": {
+    "codigo": "DOM-0036",
+    "descripcion": "El vencimiento ya no está pendiente: solo se cotiza la renovación de uno pendiente. No se creó ningún servicio.",
+    "queHacer": "Abrí el servicio de nuevo: puede que otra persona ya haya cotizado la renovación o lo haya descartado.",
+    "tipo": "persona"
+  },
+  "DOM_0037": {
+    "codigo": "DOM-0037",
+    "descripcion": "No se pudo crear el servicio de la renovación: el cliente, el tipo de servicio o el responsable ya no sirven para dar de alta un servicio. No se guardó nada.",
+    "queHacer": "Dalo de alta a mano desde Servicios, eligiendo un cliente, un tipo y un responsable vigentes.",
+    "tipo": "persona"
+  },
   "IA_0001": {
     "codigo": "IA-0001",
     "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",

@@ -123,6 +123,8 @@ export default async function Servicio({ params, searchParams }: Props) {
     detalle: await armado().planificacion.ver(servicio.id),
     ruta,
     puedeEscribir: puedeCambiar,
+    // Cotizar la renovación no escribe en este servicio: vale también en «Cerrado».
+    puedeRenovar: puedeEscribir && pasada === null,
     parametros: pasada === null ? parametros : {},
     etapa,
   };
@@ -135,6 +137,14 @@ export default async function Servicio({ params, searchParams }: Props) {
         <h1>
           {servicio.codigo} · {servicio.titulo}
         </h1>
+        {servicio.renueva === null ? null : (
+          <p data-renueva>
+            Renueva{" "}
+            <Enlace href={`${LISTADO}/${servicio.renueva.id}`}>
+              {servicio.renueva.codigo}
+            </Enlace>
+          </p>
+        )}
         {typeof parametros.error === "string" ? (
           <ErrorEnPantalla error={pantallaDeCodigo(parametros.error)} />
         ) : null}

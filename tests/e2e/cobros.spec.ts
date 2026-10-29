@@ -188,11 +188,12 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await alta.getByLabel("Responsable").selectOption({ label: ADMIN });
   await alta.getByLabel("Fecha de pedido").fill("2026-08-20");
   await alta.getByRole("button", { name: "Guardar" }).click();
-  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
-  const servicioUrl = page.url();
+  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
+  // La ruta del servicio, sin la etapa: lleva al panel de la etapa en la que esté.
+  const servicioUrl = page.url().replace(/\/[a-z-]+$/, "");
 
   // La orden de compra entra en «Cotizado»: antes, la cotización (F3-01).
-  await page.getByRole("link", { name: "Nueva cotización" }).click();
+  await page.getByRole("link", { name: "Cargar cotización" }).click();
   const cotizacion = ventana(page, "Nueva cotización");
   await cotizacion.getByLabel("Fecha").fill("2026-08-22");
   await cotizacion.getByLabel("Importe", { exact: true }).fill("1.000,00");
@@ -204,7 +205,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await cotizacion.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nueva cotización")).toHaveCount(0);
 
-  await page.getByRole("link", { name: "Nueva orden de compra" }).click();
+  await page.getByRole("link", { name: "Cargar orden de compra" }).click();
   const orden = ventana(page, "Nueva orden de compra");
   await orden.getByLabel("Número").fill(ORDEN);
   await orden.getByLabel("Fecha").fill("2026-08-25");
@@ -276,7 +277,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     page.getByRole("link", { name: "Registrar cobro" }),
   ).toBeVisible();
   await page.getByRole("link", { name: /^SRV-/ }).click();
-  await expect(page).toHaveURL(servicioUrl);
+  await expect(page).toHaveURL((url) => url.href.startsWith(`${servicioUrl}/`));
 
   // 2. El primer cobro, desde *Por cobrar*: la ventana dice lo que falta y,
   //    al guardar, vuelve al listado con el saldo nuevo. 500,00 de 1.210,00, a 34 días de la factura.

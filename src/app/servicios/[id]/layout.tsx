@@ -51,10 +51,12 @@ function Encabezado({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-sm tracking-wide text-texto-suave">
-            <span data-codigo-del-servicio>{servicio.codigo}</span> ·{" "}
             {dato("Tipo de servicio")}
           </p>
-          <h1 className="mt-1 mb-2">{servicio.titulo}</h1>
+          <h1 className="mt-1 mb-2">
+            <span className="text-texto-suave">{servicio.codigo}</span> ·{" "}
+            {servicio.titulo}
+          </h1>
           <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-texto-suave">
             <li className="inline-flex items-center gap-1.5">
               <Building2 aria-hidden="true" className="size-4" />

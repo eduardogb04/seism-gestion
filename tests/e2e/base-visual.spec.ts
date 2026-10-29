@@ -68,7 +68,7 @@ const PANTALLAS: readonly {
     ir: async (page) => {
       await irA(page, "/servicios", "Servicios");
       await page.getByRole("link", { name: "Ver" }).first().click();
-      await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
+      await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
     },
   },
   { nombre: "egresos", ir: (page) => irA(page, "/egresos", "Egresos") },

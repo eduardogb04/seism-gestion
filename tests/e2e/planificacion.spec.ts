@@ -6,7 +6,7 @@
  *
  * 1. carga un hito y un recurso camión del ABM; en «Adjudicado» el hito no se
  *    puede tildar;
- * 2. inicia la ejecución sin haber cargado nada más: se puede;
+ * 2. elige la modalidad e inicia la ejecución sin haber cargado nada más: se puede;
  * 3. tilda el hito y ve la fecha y quién lo tildó.
  *
  * Usa `operador.catalogos@ejemplo.test`, como los otros catálogos. Todo inventado.
@@ -118,7 +118,14 @@ test("una operadora carga un hito y un camión en «Adjudicado», inicia la ejec
     page.getByRole("row", { name: /Camión\s+ZZ001ZZ/ }),
   ).toBeVisible();
 
-  // 2. Iniciar la ejecución no exige nada más de esto.
+  // 2. Iniciar la ejecución solo exige la modalidad de facturación, no hitos ni recursos.
+  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  const modalidad = ventana(page, "Modalidad de facturación");
+  await modalidad
+    .getByLabel("Modalidad de facturación")
+    .selectOption({ label: "Puntual" });
+  await modalidad.getByRole("button", { name: "Guardar" }).click();
+  await expect(ventana(page, "Modalidad de facturación")).toHaveCount(0);
   await page.getByRole("link", { name: "Iniciar ejecución" }).click();
   await ventana(page, "Iniciar ejecución")
     .getByRole("button", { name: "Confirmar" })

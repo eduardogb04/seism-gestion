@@ -12,6 +12,7 @@ import type {
   Importe,
   Moneda,
 } from "../../dominio/compartido/importe.ts";
+import type { TipoDeComprobante } from "../../dominio/servicios/comprobante.ts";
 import type { AlicuotaIva } from "../../dominio/servicios/factura.ts";
 import type { RegistroDe, RepositorioDe } from "./abm.ts";
 
@@ -31,6 +32,14 @@ export type DatosFactura = {
   /** El mes que factura, como su día 1 (`aaaa-mm-01`): solo en modalidad mensual (F3-03). */
   readonly periodo: string | null;
   readonly documentoId: string | null;
+  /** Factura, nota de débito o nota de crédito (F6-03, ADR 0050): el importe es positivo en todas. */
+  readonly tipo: TipoDeComprobante;
+  /** Una factura por un servicio extra: no consume la orden de compra. */
+  readonly adicional: boolean;
+  /** El comprobante al que corresponde la nota: obligatorio en la de crédito. */
+  readonly comprobanteAsociadoId: string | null;
+  /** Con el que se anuló una nota o una adicional. */
+  readonly motivoAnulacion: string | null;
 };
 
 export type Factura = RegistroDe<DatosFactura>;
@@ -51,6 +60,6 @@ export type RepositorioFacturas = Pick<
   listarDe(servicioId: string): Promise<readonly Factura[]>;
   /** Las no anuladas de todos los servicios, por vencimiento y número. */
   vigentesConServicio(): Promise<readonly FacturaConServicio[]>;
-  /** Si hay una factura vigente con ese número (sin distinguir mayúsculas), de cualquier servicio. */
-  existeNumero(numero: string): Promise<boolean>;
+  /** Si hay un comprobante vigente de ese tipo con ese número (sin distinguir mayúsculas), de cualquier servicio. */
+  existeNumero(numero: string, tipo: TipoDeComprobante): Promise<boolean>;
 };

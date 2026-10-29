@@ -2,7 +2,8 @@
  * Ingresos: las facturas del mes en una moneda (F2-10), el listado al que lleva
  * *Facturado* del tablero, con el IVA de cada una y el total al pie. La fila
  * entera lleva a la factura y cada una con saldo ofrece «Registrar cobro» en
- * una ventana sobre este mismo listado (`?cobrar=<id>`, F3-07).
+ * una ventana sobre este mismo listado (`?cobrar=<id>`, F3-07). Cada fila
+ * dice su tipo y se filtra por él (`?tipo=`, F6-03); la nota de crédito resta.
  */
 
 import { ROLES_QUE_ESCRIBEN_SERVICIOS } from "../../../casos-uso/servicios/servicios.ts";
@@ -10,6 +11,7 @@ import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { Marco } from "../../_ui/marco.tsx";
+import { Selector } from "../../_ui/selector.tsx";
 import {
   CLASES_DE_ACCIONES,
   CLASES_DE_ENLACE_DE_FILA,
@@ -28,6 +30,7 @@ const RUTA = "/servicios/facturas";
 
 /** Cada cabecera y la columna por la que ordena (`null`: esa no ordena). */
 const COLUMNAS = [
+  ["Tipo", null],
   ["Factura", "numero"],
   ["Servicio", "servicio"],
   ["Fecha", "fecha"],
@@ -41,7 +44,7 @@ export default async function Ingresos({ searchParams }: Props) {
   const parametros = await searchParams;
   const listado = await armado().tablero.listados.facturas(parametros);
   const { email, rol } = sesion.usuario;
-  const { mes, moneda, filas, orden, direccion } = listado;
+  const { mes, moneda, filas, orden, direccion, tipo } = listado;
   const puedeEscribir = ROLES_QUE_ESCRIBEN_SERVICIOS.includes(rol);
   const aCobrar =
     typeof parametros.cobrar === "string" ? parametros.cobrar : null;
@@ -57,6 +60,9 @@ export default async function Ingresos({ searchParams }: Props) {
       orden: ordenNuevo,
       direccion: direccionNueva,
     });
+    if (tipo !== "") {
+      consulta.set("tipo", tipo);
+    }
     if (cobrar !== undefined) {
       consulta.set("cobrar", cobrar);
     }
@@ -76,11 +82,37 @@ export default async function Ingresos({ searchParams }: Props) {
         <p>
           <a href={`/?mes=${mes.mes}`}>Volver al inicio</a>
         </p>
+        <form
+          method="get"
+          action={RUTA}
+          className="my-4 flex flex-wrap items-end gap-4"
+        >
+          <input type="hidden" name="mes" value={mes.mes} />
+          <input type="hidden" name="moneda" value={moneda} />
+          <input type="hidden" name="orden" value={orden} />
+          <input type="hidden" name="direccion" value={direccion} />
+          <Selector
+            etiqueta="Tipo"
+            name="tipo"
+            defaultValue={tipo}
+            opciones={[
+              { valor: "", texto: "Todos" },
+              ...listado.tipos.map(({ valor, etiqueta }) => ({
+                valor,
+                texto: etiqueta,
+              })),
+            ]}
+          />
+          <button type="submit" className={clasesDeBoton("secundario")}>
+            Filtrar
+          </button>
+        </form>
         <Tabla
           cabeceras={puedeEscribir ? [...cabeceras, "Acciones"] : cabeceras}
         >
           {filas.map((fila) => (
             <tr key={fila.facturaId} className={CLASES_DE_FILA_ENLAZADA}>
+              <td>{fila.tipo}</td>
               <td>
                 <Enlace
                   href={`/servicios/facturas/${fila.facturaId}`}

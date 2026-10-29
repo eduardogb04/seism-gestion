@@ -11,6 +11,7 @@ import type {
   Moneda,
   ValorTipoDeCambio,
 } from "../../dominio/compartido/importe.ts";
+import type { TipoDeComprobante } from "../../dominio/servicios/comprobante.ts";
 import type { AlicuotaIva } from "../../dominio/servicios/factura.ts";
 import type { MontoParaConvertir } from "../../dominio/tablero/conversion.ts";
 
@@ -25,7 +26,7 @@ export type ClaseDeCentro =
   | "gestion_administrativa"
   | "fuera_de_rentabilidad";
 
-/** Las facturas vigentes de una misma moneda, alícuota e importe sin IVA. */
+/** Las facturas vigentes de una misma moneda, alícuota e importe sin IVA (con signo: la nota de crédito resta, F6-03). */
 export type FacturasIguales = {
   /** El importe sin IVA de cada una. */
   readonly importe: Importe<Moneda>;
@@ -49,9 +50,11 @@ export type FacturaDeLaLista = {
   readonly numero: string;
   /** `aaaa-mm-dd`. */
   readonly fecha: string;
-  /** Sin IVA. */
+  /** Sin IVA, con signo: la nota de crédito es negativa (F6-03). */
   readonly importe: Importe<Moneda>;
   readonly alicuota: AlicuotaIva;
+  readonly tipo: TipoDeComprobante;
+  readonly adicional: boolean;
 };
 
 export type CobroDeLaLista = {
@@ -129,7 +132,7 @@ export type RepositorioTablero = {
     rango: Rango,
     moneda: Moneda,
   ): Promise<readonly PagoDeLaLista[]>;
-  /** Las facturas vigentes con fecha en el rango, por mes, importe sin IVA y tipo de cambio. */
+  /** Las facturas vigentes con fecha en el rango, por mes, importe sin IVA (con signo) y tipo de cambio. */
   facturadoPorMes(rango: Rango): Promise<readonly MontoDeUnMes[]>;
   /** Los egresos vigentes con fecha en el rango, por mes, clase de centro, importe y tipo de cambio. */
   egresosPorMes(rango: Rango): Promise<readonly EgresoDeUnMes[]>;
@@ -137,7 +140,7 @@ export type RepositorioTablero = {
   cobradoConCambio(rango: Rango): Promise<readonly MontoParaConvertir[]>;
   /** Los pagos que suma `pagadoEnElRango`, con el tipo de cambio del egreso que cancelan. */
   pagadoConCambio(rango: Rango): Promise<readonly MontoParaConvertir[]>;
-  /** Facturas y egresos de proyecto de siempre, documento por documento. */
+  /** Facturas (con signo) y egresos de proyecto de siempre, documento por documento. */
   rentabilidadConCambio(): Promise<{
     readonly facturado: readonly MontoDeUnServicio[];
     readonly egresos: readonly MontoDeUnServicio[];

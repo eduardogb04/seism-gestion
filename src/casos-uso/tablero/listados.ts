@@ -2,9 +2,11 @@
  * Los tres listados de solo lectura a los que llevan facturado, cobrado y
  * pagado del tablero (F2-10, ADR 0038): el mes y la moneda vienen de la URL.
  * Los trae la misma condición que la suma del tablero, y el total del pie se
- * suma acá, sobre las filas que se ven.
+ * suma acá, sobre las filas que se ven. Las facturas llevan su tipo y se
+ * filtran por él; la nota de crédito, en negativo (F6-03).
  */
 
+import { z } from "zod";
 import {
   formatearImporte,
   formatearMonto,
@@ -14,11 +16,13 @@ import {
 import type { Reloj } from "../../dominio/compartido/reloj.ts";
 import { sumaEn } from "../../dominio/servicios/avance.ts";
 import { ivaDe, totalConIva } from "../../dominio/servicios/factura.ts";
+import type { FacturaDeLaLista } from "../../puertos/repositorios/tablero.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
 import { parametrosDe } from "../abm/abm.ts";
 import { diaConBarras } from "../abm/definicion.ts";
 import { ordenarPor } from "../compartido/orden.ts";
 import { facturasPorCobrar } from "../servicios/cobros.ts";
+import { tipoVisible } from "../servicios/facturas.ts";
 import { elegirMes, type MesElegido } from "./mes.ts";
 import { elegirMoneda } from "./moneda.ts";
 
@@ -32,7 +36,22 @@ type Parametros = {
   readonly moneda?: unknown;
   readonly orden?: unknown;
   readonly direccion?: unknown;
+  /** Solo el listado de facturas: uno de `TIPOS_DEL_FILTRO`. */
+  readonly tipo?: unknown;
 };
+
+/** Por qué se filtra el listado de facturas: la adicional es una factura, pero se elige aparte. */
+const TIPOS_DEL_FILTRO = [
+  "factura",
+  "adicional",
+  "nota_debito",
+  "nota_credito",
+] as const;
+
+type TipoDelFiltro = (typeof TIPOS_DEL_FILTRO)[number];
+
+const tipoDelFiltro = ({ tipo, adicional }: FacturaDeLaLista): TipoDelFiltro =>
+  adicional ? "adicional" : tipo;
 
 /** Las columnas por las que se ordena el listado de facturas; la primera es el orden por defecto. */
 const COLUMNAS_DE_FACTURAS = ["fecha", "numero", "servicio"] as const;
@@ -40,8 +59,17 @@ const COLUMNAS_DE_FACTURAS = ["fecha", "numero", "servicio"] as const;
 export type ListadoDeFacturas = Encabezado & {
   readonly orden: (typeof COLUMNAS_DE_FACTURAS)[number];
   readonly direccion: "asc" | "desc";
+  /** El tipo elegido en el filtro, o vacío: todos. */
+  readonly tipo: TipoDelFiltro | "";
+  /** Lo que ofrece el filtro por tipo. */
+  readonly tipos: readonly {
+    readonly valor: TipoDelFiltro;
+    readonly etiqueta: string;
+  }[];
   readonly filas: readonly {
     readonly facturaId: string;
+    /** `Factura`, `Factura adicional`, `Nota de débito` o `Nota de crédito`. */
+    readonly tipo: string;
     /** Todavía no se cobró entera: se le ofrece cobrar. */
     readonly conSaldo: boolean;
     readonly servicioId: string;
@@ -117,6 +145,10 @@ export function armarListadosDelTablero({
         { orden: COLUMNAS_DE_FACTURAS },
         parametros,
       );
+      const tipo = z
+        .enum([...TIPOS_DEL_FILTRO, ""])
+        .catch("")
+        .parse(parametros.tipo);
       return transaccional.ejecutar(async (repos) => {
         const conSaldo = new Set<string>(
           (await facturasPorCobrar(repos)).map(
@@ -124,7 +156,9 @@ export function armarListadosDelTablero({
           ),
         );
         const filas = ordenarPor(
-          await repos.tablero.facturasDeLaLista(mes.rango, moneda),
+          (await repos.tablero.facturasDeLaLista(mes.rango, moneda)).filter(
+            (factura) => tipo === "" || tipoDelFiltro(factura) === tipo,
+          ),
           (factura) => factura[orden],
           direccion,
         ).map((factura) => ({
@@ -137,8 +171,17 @@ export function armarListadosDelTablero({
           moneda,
           orden,
           direccion,
+          tipo,
+          tipos: TIPOS_DEL_FILTRO.map((valor) => ({
+            valor,
+            etiqueta: tipoVisible({
+              tipo: valor === "adicional" ? "factura" : valor,
+              adicional: valor === "adicional",
+            }),
+          })),
           filas: filas.map(({ factura, iva, total }) => ({
             facturaId: factura.id,
+            tipo: tipoVisible(factura),
             conSaldo: conSaldo.has(factura.id),
             servicioId: factura.servicioId,
             servicio: factura.servicio,

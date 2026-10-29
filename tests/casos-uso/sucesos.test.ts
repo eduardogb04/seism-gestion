@@ -127,7 +127,10 @@ beforeEach(async () => {
 
 describe("cargar un suceso", () => {
   test("guarda fecha, texto y autor, con su auditoría; el listado trae el más nuevo primero", async () => {
-    expect(sucesos().formulario().escrito).toEqual({ fecha: "2031-07-09" });
+    expect(sucesos().formulario().escrito).toEqual({
+      fecha: "2031-07-09",
+      tipo: "observacion",
+    });
 
     await sucesos().crear(operador, delServicio(), {
       fecha: "2031-07-02",
@@ -159,14 +162,74 @@ describe("cargar un suceso", () => {
         fecha: "05/07/2031",
         texto: "Se reprogramó la visita",
         autor: ADMIN_UNO.email,
+        tipo: "Observación",
       },
       {
         id: fila.id,
         fecha: "02/07/2031",
         texto: "Llamó el cliente para cambiar el día",
         autor: OPERADOR.email,
+        tipo: "Observación",
       },
     ]);
+  });
+
+  test("el tipo es opcional: se guarda el elegido y, sin tipo, queda nulo y se muestra como «Observación»", async () => {
+    expect(sucesos().formulario().escrito).toMatchObject({
+      tipo: "observacion",
+    });
+    await sucesos().crear(admin, delServicio(), {
+      fecha: "2031-07-01",
+      texto: "Sin tipo",
+    });
+    await sucesos().crear(admin, delServicio(), {
+      fecha: "2031-07-02",
+      texto: "Una observación",
+      tipo: "observacion",
+    });
+    await sucesos().crear(admin, delServicio(), {
+      fecha: "2031-07-03",
+      texto: "Un hallazgo",
+      tipo: "hallazgo",
+    });
+    await sucesos().crear(admin, delServicio(), {
+      fecha: "2031-07-04",
+      texto: "Una aclaración",
+      tipo: "aclaracion",
+    });
+
+    const guardados = await cliente().servicioSuceso.findMany({
+      orderBy: { fecha: "asc" },
+    });
+    expect(guardados.map(({ tipo }) => tipo)).toEqual([
+      null,
+      "observacion",
+      "hallazgo",
+      "aclaracion",
+    ]);
+    expect(
+      (await sucesos().listar(servicioId)).map(({ texto, tipo }) => [
+        texto,
+        tipo,
+      ]),
+    ).toEqual([
+      ["Una aclaración", "Aclaración del cliente"],
+      ["Un hallazgo", "Hallazgo"],
+      ["Una observación", "Observación"],
+      ["Sin tipo", "Observación"],
+    ]);
+  });
+
+  test("un tipo que no es de la lista vuelve en el campo y no escribe", async () => {
+    const antes = await filas();
+    expect(
+      await sucesos().crear(admin, delServicio(), {
+        fecha: "2031-07-09",
+        texto: "Con un tipo inventado",
+        tipo: "queja",
+      }),
+    ).toEqual({ ok: false, errores: { tipo: expect.any(String) } });
+    expect(await filas()).toEqual(antes);
   });
 
   test("sin texto o con una fecha que no existe vuelve por campo y no escribe nada", async () => {

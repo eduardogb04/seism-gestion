@@ -253,6 +253,22 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Dalo de alta a mano desde Servicios, eligiendo un cliente, un tipo y un responsable vigentes.",
   },
+  DOM_0038: {
+    codigo: "DOM-0038",
+    tipo: "persona",
+    descripcion:
+      "El servicio no tiene modalidad de facturación: no se puede iniciar la ejecución. No se guardó nada.",
+    queHacer:
+      "Elegí la modalidad de facturación en «Adjudicado» y volvé a iniciar la ejecución.",
+  },
+  DOM_0039: {
+    codigo: "DOM-0039",
+    tipo: "persona",
+    descripcion:
+      "El hito ya está realizado: un hito realizado no se quita ni se reordena. No se guardó nada.",
+    queHacer:
+      "Si se tildó por error, destildalo primero. Si no, dejalo donde está.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",

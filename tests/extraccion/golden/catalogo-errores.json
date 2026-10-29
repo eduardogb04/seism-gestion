@@ -221,6 +221,18 @@
     "queHacer": "Dalo de alta a mano desde Servicios, eligiendo un cliente, un tipo y un responsable vigentes.",
     "tipo": "persona"
   },
+  "DOM_0038": {
+    "codigo": "DOM-0038",
+    "descripcion": "El servicio no tiene modalidad de facturación: no se puede iniciar la ejecución. No se guardó nada.",
+    "queHacer": "Elegí la modalidad de facturación en «Adjudicado» y volvé a iniciar la ejecución.",
+    "tipo": "persona"
+  },
+  "DOM_0039": {
+    "codigo": "DOM-0039",
+    "descripcion": "El hito ya está realizado: un hito realizado no se quita ni se reordena. No se guardó nada.",
+    "queHacer": "Si se tildó por error, destildalo primero. Si no, dejalo donde está.",
+    "tipo": "persona"
+  },
   "IA_0001": {
     "codigo": "IA-0001",
     "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",

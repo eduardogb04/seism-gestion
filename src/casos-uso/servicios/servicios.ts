@@ -673,6 +673,13 @@ export function crearCasosUsoServicios({
           destino.data,
           leida.data === "" ? null : leida.data,
         );
+        // Sin escribir nada: el error deshace el evento que recién agregó el cambio.
+        if (
+          destino.data === "en_ejecucion" &&
+          servicio.valor.modalidadFacturacion === null
+        ) {
+          throw nuevoError(catalogo.DOM_0038, { id });
+        }
         if (destino.data === "finalizado") {
           await generarVencimientos(actor, repos, reloj, generadorId, servicio);
           await cerrarSiEstaCobrado(actor, repos, reloj, id);

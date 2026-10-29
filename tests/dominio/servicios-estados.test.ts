@@ -79,7 +79,8 @@ const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   suceso: ["creado", "cotizado", "adjudicado", "en_ejecucion", "finalizado"],
   planificacion: ["adjudicado", "en_ejecucion"],
   tildarHito: ["en_ejecucion"],
-  modalidad: ["adjudicado", "en_ejecucion"],
+  modalidad: ["adjudicado"],
+  cuota: ["adjudicado", "en_ejecucion"],
   vencimiento: ["finalizado"],
 };
 
@@ -94,6 +95,7 @@ const CARGAS: readonly Carga[] = [
   "planificacion",
   "tildarHito",
   "modalidad",
+  "cuota",
   "vencimiento",
 ];
 

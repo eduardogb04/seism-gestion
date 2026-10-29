@@ -10,15 +10,24 @@ import type { DetalleDePlanificacion } from "../../../casos-uso/servicios/planif
 import type { DetalleDeServicio } from "../../../casos-uso/servicios/servicios.ts";
 import type { EstadoServicio } from "../../../dominio/servicios/estados.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
+import { PlantillaDeHitos } from "../_piezas/plantilla-de-hitos.tsx";
+import { RecursosAgrupados } from "../_piezas/recursos-agrupados.tsx";
+import {
+  aplicarPlantillaDeHitos,
+  cambiarOrdenDeHito,
+  cambiarRealizadoDeHito,
+  cargarHito,
+  cargarRecurso,
+  quitarHito,
+  quitarRecurso,
+} from "../acciones.ts";
 import { Avance } from "./avance.tsx";
 import { Cotizaciones } from "./cotizaciones.tsx";
 import { DocumentosDeAlcance } from "./documentos-de-alcance.tsx";
 import { Egresos } from "./egresos.tsx";
 import { Facturacion } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
-import { Hitos } from "./hitos.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
-import { Recursos } from "./recursos.tsx";
 import { Sitios } from "./sitios.tsx";
 import { Vencimientos } from "./vencimientos.tsx";
 
@@ -109,6 +118,16 @@ const propias = ({ servicio, ruta, puedeEscribir, parametros }: Datos) => ({
   parametros,
 });
 
+const ACCIONES_DE_HITOS = {
+  cargar: cargarHito,
+  quitar: quitarHito,
+  cambiarRealizado: cambiarRealizadoDeHito,
+  cambiarOrden: cambiarOrdenDeHito,
+  aplicarPlantilla: aplicarPlantillaDeHitos,
+};
+
+const ACCIONES_DE_RECURSOS = { cargar: cargarRecurso, quitar: quitarRecurso };
+
 const SECCIONES = {
   sitios: ({ servicio, puedeEscribir }: Datos): ReactNode => (
     <Sitios servicio={servicio} puedeEscribir={puedeEscribir} />
@@ -128,10 +147,18 @@ const SECCIONES = {
   ),
   facturacion: (datos: Datos): ReactNode => <Facturacion {...propias(datos)} />,
   hitos: (datos: Datos): ReactNode => (
-    <Hitos {...propias(datos)} detalle={datos.detalle} />
+    <PlantillaDeHitos
+      {...propias(datos)}
+      detalle={datos.detalle}
+      acciones={ACCIONES_DE_HITOS}
+    />
   ),
   recursos: (datos: Datos): ReactNode => (
-    <Recursos {...propias(datos)} detalle={datos.detalle} />
+    <RecursosAgrupados
+      {...propias(datos)}
+      detalle={datos.detalle}
+      acciones={ACCIONES_DE_RECURSOS}
+    />
   ),
   facturas: (datos: Datos): ReactNode => <Facturas {...propias(datos)} />,
   avance: ({ servicio }: Datos): ReactNode => (

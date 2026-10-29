@@ -124,13 +124,30 @@ export type CampoAbm =
       readonly tipo: "tipoDeCambio";
       readonly etiqueta: string;
       readonly importe: string;
+    }
+  /**
+   * Una lista ordenada de textos de una línea (F6-02): el dato es un
+   * `readonly string[]`. En el formulario se agrega, se quita y se sube o baja
+   * cada `elemento` ("hito"); lo escrito va como un solo texto, uno por línea,
+   * y los vacíos se descartan.
+   */
+  | {
+      readonly tipo: "lista";
+      readonly etiqueta: string;
+      readonly elemento: string;
     };
 
 /** Los datos de un registro como los lee un recorrido por campos. */
 export type ValoresAbm = Readonly<
   Record<
     string,
-    string | boolean | number | null | Importe<Moneda> | CambioDeDocumento
+    | string
+    | boolean
+    | number
+    | null
+    | Importe<Moneda>
+    | CambioDeDocumento
+    | readonly string[]
   >
 >;
 
@@ -382,7 +399,23 @@ export function valorDeCampo(
     }
     case "siNo":
       return escrito !== "";
+    case "lista":
+      return textosDeLista(escrito);
   }
+}
+
+/** Los textos de una lista escrita uno por línea, sin los vacíos. */
+export function textosDeLista(escrito: string): readonly string[] {
+  return escrito
+    .split(/\r?\n/)
+    .map((texto) => texto.trim())
+    .filter((texto) => texto !== "");
+}
+
+function esLista(
+  valor: ValoresAbm[string] | undefined,
+): valor is readonly string[] {
+  return Array.isArray(valor);
 }
 
 function formatoDe<E extends EntidadAbm>(
@@ -427,6 +460,9 @@ export function escritoDe<E extends EntidadAbm>(
       }
       if (typeof valor === "number") {
         return [[nombre, String(valor).replace(".", ",")]];
+      }
+      if (esLista(valor)) {
+        return [[nombre, valor.join("\n")]];
       }
       if (esImporte(valor)) {
         return [

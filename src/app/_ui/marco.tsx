@@ -15,6 +15,7 @@ import {
   House,
   Landmark,
   Layers,
+  ListChecks,
   type LucideIcon,
   MapPin,
   Receipt,
@@ -122,6 +123,12 @@ const GRUPOS: readonly {
         texto: "Tipos de servicio",
         ruta: "/catalogo/tipos-de-servicio",
         Icono: Tags,
+        soloAdministrador: false,
+      },
+      {
+        texto: "Plantillas de hitos",
+        ruta: "/catalogo/plantillas-de-hitos",
+        Icono: ListChecks,
         soloAdministrador: false,
       },
       {

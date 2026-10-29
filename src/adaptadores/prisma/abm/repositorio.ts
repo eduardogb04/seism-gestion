@@ -111,7 +111,7 @@ type ColumnasDeAuditoria = {
 
 type FilaEscrita<F> = Datos<F> & ColumnasDeAuditoria & { id: string };
 
-type TablaAbm<F extends FilaAuditable> = {
+export type TablaAbm<F extends FilaAuditable> = {
   findMany(args: {
     where: Donde<F>;
     orderBy?: Orden<F>[];

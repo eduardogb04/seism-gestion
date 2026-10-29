@@ -31,12 +31,14 @@ export type RepositorioHitos = Pick<
 
 export type DatosRecurso = {
   readonly servicioId: string;
-  /** `persona`, `camion` o `equipo`. */
+  /** `persona`, `camion`, `equipo` o `material`. */
   readonly tipo: string;
   /** Solo si el tipo es camión. */
   readonly camionId: string | null;
   /** Solo si el tipo no es camión. */
   readonly descripcion: string | null;
+  /** Solo si el tipo es material: texto libre. */
+  readonly cantidad: string | null;
   /** Un día, `aaaa-mm-dd`. */
   readonly desde: string | null;
   readonly hasta: string | null;

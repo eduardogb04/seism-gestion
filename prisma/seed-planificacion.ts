@@ -89,6 +89,7 @@ export async function sembrarPlanificacion(
           tipo: "camion",
           camionId: camion.id,
           descripcion: null,
+          cantidad: null,
           desde: null,
           hasta: null,
         },

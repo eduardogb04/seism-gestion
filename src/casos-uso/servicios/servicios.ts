@@ -130,7 +130,10 @@ export type ListadoDeServicios = {
     readonly columna: string;
     readonly etiqueta: string;
   }[];
-  readonly registros: readonly { readonly valor: { readonly id: string } }[];
+  /** Con su estado: el listado enlaza al panel de esa etapa (F6-01). */
+  readonly registros: readonly {
+    readonly valor: { readonly id: string; readonly etapa: EstadoServicio };
+  }[];
   readonly celdas: Readonly<Record<string, readonly string[]>>;
   readonly total: number;
   readonly pagina: number;
@@ -391,7 +394,9 @@ export function crearCasosUsoServicios({
             columna,
             etiqueta: ETIQUETAS_DE_ORDEN[columna],
           })),
-          registros: filas.map(({ id }) => ({ valor: { id } })),
+          registros: filas.map(({ id, estado }) => ({
+            valor: { id, etapa: estado },
+          })),
           celdas: Object.fromEntries(
             filas.map((fila) => [
               fila.id,

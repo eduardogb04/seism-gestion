@@ -24,7 +24,12 @@ import {
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
-import { formatearImporte, MONEDAS } from "../../dominio/compartido/importe.ts";
+import {
+  formatearImporte,
+  type Importe,
+  MONEDAS,
+  type Moneda,
+} from "../../dominio/compartido/importe.ts";
 import { formatearISO } from "../../dominio/compartido/reloj.ts";
 import type { DatosCotizacion } from "../../puertos/repositorios/cotizaciones.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
@@ -76,6 +81,8 @@ export type CotizacionListada = {
   readonly fecha: string;
   /** `ARS 12.500,00`. */
   readonly importe: string;
+  /** El mismo importe sin formatear: para comparar versiones (F6-01). */
+  readonly monto: Importe<Moneda>;
   /** Vacío en la primera. */
   readonly motivo: string;
   /** Vacío si no tiene. */
@@ -178,6 +185,7 @@ export function crearCasosUsoCotizaciones({
             version: valor.version,
             fecha: diaConBarras(valor.fecha),
             importe: formatearImporte(valor.importe),
+            monto: valor.importe,
             motivo: valor.motivo ?? "",
             observaciones: valor.observaciones ?? "",
             documento: {

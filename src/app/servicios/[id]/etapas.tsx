@@ -1,9 +1,10 @@
 /**
- * El servicio por etapa (F3-06): la línea de etapas y, debajo, solo las
- * secciones de la etapa que se mira. Las secciones son las de siempre; acá se
- * decide cuáles van en cada etapa.
+ * El servicio por etapa (F3-06; F6-01, ADR 0048): la línea de etapas del
+ * encabezado, el color de cada estado y, para los paneles de «Adjudicado» en
+ * adelante y las salidas, las secciones que se dibujan en cada uno.
  */
 
+import { Check } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 import { ETIQUETAS_DE_ESTADO } from "../../../casos-uso/servicios/formulario.ts";
 import type { DetalleDePlanificacion } from "../../../casos-uso/servicios/planificacion.ts";
@@ -12,14 +13,13 @@ import type { EstadoServicio } from "../../../dominio/servicios/estados.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { Avance } from "./avance.tsx";
 import { Cotizaciones } from "./cotizaciones.tsx";
-import { DocumentosDeAlcance } from "./documentos-de-alcance.tsx";
 import { Egresos } from "./egresos.tsx";
 import { Facturacion } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
 import { Hitos } from "./hitos.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
 import { Recursos } from "./recursos.tsx";
-import { Sitios } from "./sitios.tsx";
+import { rutaDeEtapa } from "./rutas.ts";
 import { Vencimientos } from "./vencimientos.tsx";
 
 type Parametros = Readonly<Record<string, string | string[] | undefined>>;
@@ -33,29 +33,45 @@ const ETAPAS: readonly EstadoServicio[] = [
   "cerrado",
 ];
 
-/** La etapa que pide `?etapa=` si es una que el servicio ya recorrió y no es la actual; si no, `null`. */
-export function etapaPasada(
-  { etapa, recorridas }: DetalleDeServicio,
-  pedida: string | string[] | undefined,
-): EstadoServicio | null {
+/** El color del estado: neutro al empezar, aviso mientras espera algo, acento en obra, éxito al cerrar, peligro en las salidas. */
+const COLORES: Record<EstadoServicio, string> = {
+  creado: "border-borde-control bg-superficie-alta text-texto",
+  cotizado: "border-aviso bg-aviso-suave text-aviso",
+  adjudicado: "border-acento bg-superficie-alta text-acento",
+  en_ejecucion: "border-acento bg-superficie-alta text-acento",
+  finalizado: "border-aviso bg-aviso-suave text-aviso",
+  cerrado: "border-exito bg-exito-suave text-exito",
+  perdido: "border-peligro bg-peligro-suave text-peligro",
+  sin_respuesta: "border-peligro bg-peligro-suave text-peligro",
+  cancelado: "border-peligro bg-peligro-suave text-peligro",
+};
+
+export function ChipDeEstado({
+  servicio: { etapa, estado },
+}: {
+  readonly servicio: DetalleDeServicio;
+}) {
   return (
-    recorridas.find(
-      (recorrida) => recorrida === pedida && recorrida !== etapa,
-    ) ?? null
+    <span
+      data-estado-del-servicio
+      data-color={etapa}
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold whitespace-nowrap ${COLORES[etapa]}`}
+    >
+      {estado}
+    </span>
   );
 }
 
+/** Las recorridas con tilde y enlace a su panel (en solo lectura), la actual resaltada, las futuras apagadas. */
 export function LineaDeEtapas({
-  servicio: { etapa, recorridas },
-  ruta,
+  servicio: { id, etapa, recorridas },
 }: {
   readonly servicio: DetalleDeServicio;
-  readonly ruta: string;
 }) {
   const lista = ETAPAS.includes(etapa) ? ETAPAS : [...ETAPAS, etapa];
   return (
-    <nav aria-label="Etapas" className="mt-4">
-      <ol className="flex flex-wrap gap-x-4 gap-y-1">
+    <nav aria-label="Etapas" className="mt-5">
+      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(6rem,1fr))]">
         {lista.map((valor) => {
           const situacion =
             valor === etapa
@@ -63,26 +79,33 @@ export function LineaDeEtapas({
               : recorridas.includes(valor)
                 ? "recorrida"
                 : "futura";
+          const etiqueta = ETIQUETAS_DE_ESTADO[valor];
           return (
             <li
               key={valor}
               data-etapa={valor}
               data-situacion={situacion}
               aria-current={situacion === "actual" ? "step" : undefined}
-              className={
+              className={`border-t-4 pt-2 text-sm ${
                 situacion === "actual"
-                  ? "font-semibold"
-                  : situacion === "futura"
-                    ? "text-texto-suave"
-                    : undefined
-              }
+                  ? "border-acento font-semibold text-acento"
+                  : situacion === "recorrida"
+                    ? "border-exito"
+                    : "border-borde text-texto-suave"
+              }`}
             >
-              {situacion === "recorrida" ? (
-                <Enlace href={`${ruta}?etapa=${valor}`}>
-                  {ETIQUETAS_DE_ESTADO[valor]}
-                </Enlace>
+              {situacion === "futura" ? (
+                etiqueta
               ) : (
-                ETIQUETAS_DE_ESTADO[valor]
+                <Enlace
+                  href={rutaDeEtapa(id, valor)}
+                  className="inline-flex items-center gap-1 no-underline hover:underline pointer-coarse:min-h-11"
+                >
+                  {situacion === "recorrida" ? (
+                    <Check aria-hidden="true" className="size-4 text-exito" />
+                  ) : null}
+                  {etiqueta}
+                </Enlace>
               )}
             </li>
           );
@@ -99,8 +122,11 @@ type Datos = {
   readonly puedeEscribir: boolean;
   readonly puedeRenovar: boolean;
   readonly parametros: Parametros;
-  readonly etapa: EstadoServicio;
+  readonly etapa: EtapaConSecciones;
 };
+
+/** «Creado» y «Cotizado» tienen su panel propio (F6-01); el resto, hasta F6-04, las secciones de siempre. */
+export type EtapaConSecciones = Exclude<EstadoServicio, "creado" | "cotizado">;
 
 const propias = ({ servicio, ruta, puedeEscribir, parametros }: Datos) => ({
   servicioId: servicio.id,
@@ -110,22 +136,11 @@ const propias = ({ servicio, ruta, puedeEscribir, parametros }: Datos) => ({
 });
 
 const SECCIONES = {
-  sitios: ({ servicio, puedeEscribir }: Datos): ReactNode => (
-    <Sitios servicio={servicio} puedeEscribir={puedeEscribir} />
+  cotizaciones: ({ servicio, ruta }: Datos): ReactNode => (
+    <Cotizaciones servicioId={servicio.id} ruta={ruta} />
   ),
-  alcance: (datos: Datos): ReactNode => (
-    <DocumentosDeAlcance {...propias(datos)} />
-  ),
-  cotizaciones: (datos: Datos): ReactNode => (
-    <Cotizaciones {...propias(datos)} />
-  ),
-  // Se carga en «Cotizado»; en «Adjudicado» queda para mirarla y anularla.
-  ordenes: (datos: Datos): ReactNode => (
-    <OrdenesDeCompra
-      {...propias(datos)}
-      puedeCargar={datos.etapa === "cotizado"}
-    />
-  ),
+  // Se carga en el panel de «Cotizado»; en «Adjudicado» queda para mirarla y anularla.
+  ordenes: (datos: Datos): ReactNode => <OrdenesDeCompra {...propias(datos)} />,
   facturacion: (datos: Datos): ReactNode => <Facturacion {...propias(datos)} />,
   hitos: (datos: Datos): ReactNode => (
     <Hitos {...propias(datos)} detalle={datos.detalle} />
@@ -153,10 +168,8 @@ const SECCIONES = {
 };
 
 const VISTAS: Readonly<
-  Record<EstadoServicio, readonly (keyof typeof SECCIONES)[]>
+  Record<EtapaConSecciones, readonly (keyof typeof SECCIONES)[]>
 > = {
-  creado: ["sitios", "alcance", "cotizaciones"],
-  cotizado: ["alcance", "cotizaciones", "ordenes"],
   adjudicado: [
     "ordenes",
     "facturacion",
@@ -194,12 +207,7 @@ export function esSoloLectura(etapa: EstadoServicio): boolean {
 }
 
 export function VistaDeEtapa(datos: Datos) {
-  // En «Creado» no se cargan recursos, pero los camiones de una renovación llegan copiados: se ven.
-  const secciones =
-    datos.etapa === "creado" && datos.detalle.recursos.length > 0
-      ? [...VISTAS.creado, "recursos" as const]
-      : VISTAS[datos.etapa];
-  return secciones.map((nombre) => (
+  return VISTAS[datos.etapa].map((nombre) => (
     <Fragment key={nombre}>{SECCIONES[nombre](datos)}</Fragment>
   ));
 }

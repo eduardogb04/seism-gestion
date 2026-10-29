@@ -14,7 +14,7 @@ export function Sitios({
 }) {
   return (
     <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Sitios que abarca</h2>
+      <h3 className="mb-2 text-lg font-semibold">Sitios que abarca</h3>
       {sitios.length === 0 ? (
         <p>Su cliente no tiene sitios cargados.</p>
       ) : (
@@ -34,7 +34,7 @@ export function Sitios({
           ))}
           {puedeEscribir ? (
             <div>
-              <Boton variante="primario" type="submit">
+              <Boton variante="secundario" type="submit">
                 Guardar sitios
               </Boton>
             </div>

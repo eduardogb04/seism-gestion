@@ -20,6 +20,7 @@ import { armado } from "../../infraestructura/arranque/armado.ts";
 import type { EstadoFormulario } from "../_ui/formulario-abm.tsx";
 import { conActorDeSesion } from "../(auth)/sesion-actual.ts";
 import { archivoSubidoEn, escritoEn } from "../catalogo/_abm/escrito.ts";
+import { panelDeLaEtapaActual } from "./[id]/rutas.ts";
 
 const RUTA = "/servicios";
 
@@ -39,7 +40,7 @@ async function escribir(
   if (!resultado.valor.ok) {
     return { escrito, errores: resultado.valor.errores };
   }
-  redirect(resultado.valor.ruta);
+  redirect(await panelDeLaEtapaActual(resultado.valor.ruta));
 }
 
 /** El alta lleva a la pantalla del servicio nuevo: ahí se marcan sus sitios. */
@@ -345,7 +346,11 @@ async function enElServicio(
 ): Promise<never> {
   const resultado = await conActorDeSesion(trabajo);
   const ruta = `${RUTA}/${encodeURIComponent(id)}`;
-  redirect(resultado.ok ? ruta : `${ruta}?error=${resultado.codigo}`);
+  redirect(
+    await panelDeLaEtapaActual(
+      resultado.ok ? ruta : `${ruta}?error=${resultado.codigo}`,
+    ),
+  );
 }
 
 /** El estado al que pasa es el `value` del botón que se apretó. */
@@ -443,9 +448,11 @@ export async function cotizarRenovacion(
     armado().vencimientos.renovar(actor, id),
   );
   redirect(
-    resultado.ok
-      ? `${RUTA}/${encodeURIComponent(resultado.valor.servicioId)}`
-      : `${RUTA}/${encodeURIComponent(servicioId)}?error=${resultado.codigo}`,
+    await panelDeLaEtapaActual(
+      resultado.ok
+        ? `${RUTA}/${encodeURIComponent(resultado.valor.servicioId)}`
+        : `${RUTA}/${encodeURIComponent(servicioId)}?error=${resultado.codigo}`,
+    ),
   );
 }
 

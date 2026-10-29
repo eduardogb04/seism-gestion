@@ -49,6 +49,27 @@ export function etapaDeLaRuta(
     : { etapa: recorrida, soloLectura: true };
 }
 
+/** `/servicios/<id>` o el panel de una de sus etapas, con o sin parámetros. */
+const RUTA_DE_SERVICIO = /^\/servicios\/([0-9a-f-]{36})(?:\/[a-z-]+)?(\?.*)?$/;
+
+/**
+ * A dónde vuelve una acción que escribió en un servicio: al panel de la etapa
+ * en la que quedó, con los mismos parámetros. Pasar por la redirección de
+ * `/servicios/<id>` (o volver a un panel que ya no es el actual) deja el
+ * layout sin volver a dibujar: el estado, la línea de etapas y los sucesos
+ * quedarían como antes de escribir. Otra ruta vuelve tal cual.
+ */
+export async function panelDeLaEtapaActual(ruta: string): Promise<string> {
+  const [, id, consulta = ""] = RUTA_DE_SERVICIO.exec(ruta) ?? [];
+  if (id === undefined) {
+    return ruta;
+  }
+  const leido = await servicioDe(id);
+  return leido.ok
+    ? `${rutaDeEtapa(id, leido.servicio.etapa)}${consulta}`
+    : ruta;
+}
+
 /**
  * El servicio, una sola vez por pedida aunque lo lean el layout y la página.
  * Un error del catálogo (no existe, dado de baja) vuelve como código: lo

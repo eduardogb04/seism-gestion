@@ -164,9 +164,8 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Documentación de alcance",
   ]);
   await expect(
-    page
-      .getByRole("article")
-      .filter({ has: page.getByRole("heading", { name: "Razón social" }) }),
+    // La tarjeta de la razón social: el padre de su título.
+    page.getByRole("heading", { name: "Razón social" }).locator(".."),
   ).toContainText("Empresa Ejemplo Uno S.A.");
   const control = page.getByRole("list", { name: "Para cotizar" });
   await expect(control.getByRole("listitem")).toHaveText([

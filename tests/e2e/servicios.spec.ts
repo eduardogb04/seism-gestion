@@ -136,9 +136,8 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   await expect(estado).toHaveText("Creado");
   // El panel de «Creado» trae los datos del cliente (F6-01).
   await expect(
-    page
-      .getByRole("article")
-      .filter({ has: page.getByRole("heading", { name: "Razón social" }) }),
+    // La tarjeta de la razón social: el padre de su título.
+    page.getByRole("heading", { name: "Razón social" }).locator(".."),
   ).toContainText("Empresa Ejemplo Uno S.A.");
 
   // 3. Los sitios de su cliente, y solo esos: se marca uno.

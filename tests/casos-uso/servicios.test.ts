@@ -47,7 +47,7 @@ import {
   type UsuarioSembrado,
 } from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
-import { llevarServicioA } from "./_arnes/servicio.ts";
+import { conModalidad, llevarServicioA } from "./_arnes/servicio.ts";
 
 function fechaDelAnio(anio: number) {
   const resultado = crearFechaHora({
@@ -437,6 +437,7 @@ describe("cambio de estado", () => {
       ["cotizado", "adjudicado"],
       HOY,
     );
+    await conModalidad(cliente(), id);
 
     await casos().cambiarEstado(operador, id, "en_ejecucion", "  Arrancó  ");
     await casos(RelojFijo(fechaDelDia(14))).cambiarEstado(

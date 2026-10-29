@@ -19,6 +19,8 @@ import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transacci
 import { crearCasosUsoAbm } from "../../src/casos-uso/abm/abm.ts";
 import { CAMIONES } from "../../src/casos-uso/abm/camiones.ts";
 import type { Escrito } from "../../src/casos-uso/abm/definicion.ts";
+import { PLANTILLAS_DE_HITOS } from "../../src/casos-uso/abm/plantillas-de-hitos.ts";
+import { TIPOS_DE_SERVICIO } from "../../src/casos-uso/abm/tipos-de-servicio.ts";
 import { crearCasosUsoPlanificacion } from "../../src/casos-uso/servicios/planificacion.ts";
 import { crearCasosUsoServicios } from "../../src/casos-uso/servicios/servicios.ts";
 import type { Actor } from "../../src/dominio/compartido/actor.ts";
@@ -38,7 +40,11 @@ import {
   sembrarUsuarios,
 } from "./_arnes/administradores.ts";
 import { limpiarBase, uriBaseCompartida } from "./_arnes/base.ts";
-import { llevarServicioA, sembrarServicio } from "./_arnes/servicio.ts";
+import {
+  conModalidad,
+  llevarServicioA,
+  sembrarServicio,
+} from "./_arnes/servicio.ts";
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -571,8 +577,25 @@ describe("recursos", () => {
   });
 });
 
-describe("«Iniciar ejecución» no exige nada de esto", () => {
-  test("de «Adjudicado» a «En ejecución» sin responsable cambiado, sin fecha, sin hitos y sin recursos", async () => {
+describe("«Iniciar ejecución» solo exige la modalidad de facturación", () => {
+  test("sin modalidad, DOM-0038 y no se escribe nada: el servicio sigue «Adjudicado»", async () => {
+    const antes = await foto();
+
+    await expect(
+      crearCasosUsoServicios(dependencias()).cambiarEstado(
+        admin,
+        servicioId,
+        "en_ejecucion",
+        "",
+      ),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0038.codigo });
+
+    expect(await estado()).toBe("adjudicado");
+    expect(await foto()).toEqual(antes);
+  });
+
+  test("con modalidad, de «Adjudicado» a «En ejecución» sin responsable cambiado, sin fecha, sin hitos y sin recursos", async () => {
+    await conModalidad(cliente(), servicioId);
     expect(await planificacion().ver(servicioId)).toMatchObject({
       hitos: [],
       recursos: [],
@@ -587,5 +610,314 @@ describe("«Iniciar ejecución» no exige nada de esto", () => {
     );
 
     expect(await estado()).toBe("en_ejecucion");
+  });
+});
+
+describe("reordenar y quitar hitos (F6-02)", () => {
+  async function textosEnOrden(): Promise<readonly string[]> {
+    return (await planificacion().ver(servicioId)).hitos.map(
+      ({ texto }) => texto,
+    );
+  }
+
+  async function tresHitos(): Promise<readonly string[]> {
+    return [
+      await cargarHito("Primero"),
+      await cargarHito("Segundo"),
+      await cargarHito("Tercero"),
+    ];
+  }
+
+  test("subir y bajar intercambia el lugar con el vecino, en «Adjudicado» y en «En ejecución»", async () => {
+    const [primero, segundo, tercero] = await tresHitos();
+
+    await planificacion().cambiarOrdenDeHito(admin, tercero ?? "", "subir");
+    expect(await textosEnOrden()).toEqual(["Primero", "Tercero", "Segundo"]);
+
+    await llevarA("en_ejecucion");
+    await planificacion().cambiarOrdenDeHito(admin, primero ?? "", "bajar");
+    expect(await textosEnOrden()).toEqual(["Tercero", "Primero", "Segundo"]);
+
+    await planificacion().cambiarOrdenDeHito(admin, segundo ?? "", "subir");
+    expect(await textosEnOrden()).toEqual(["Tercero", "Segundo", "Primero"]);
+  });
+
+  test("subir el primero o bajar el último no cambia nada ni escribe", async () => {
+    const [primero, , tercero] = await tresHitos();
+    const antes = await foto();
+
+    await planificacion().cambiarOrdenDeHito(admin, primero ?? "", "subir");
+    await planificacion().cambiarOrdenDeHito(admin, tercero ?? "", "bajar");
+
+    expect(await foto()).toEqual(antes);
+  });
+
+  test("un hito realizado no se reordena ni se quita (DOM-0039) y no se escribe nada", async () => {
+    const [primero, segundo] = await tresHitos();
+    await llevarA("en_ejecucion");
+    await planificacion().cambiarRealizadoDeHito(admin, primero ?? "", true);
+    const antes = await foto();
+
+    for (const trabajo of [
+      () => planificacion().cambiarOrdenDeHito(admin, primero ?? "", "bajar"),
+      () => planificacion().marcarEliminadoHito(admin, primero ?? ""),
+    ]) {
+      await expect(trabajo()).rejects.toMatchObject({
+        codigo: catalogo.DOM_0039.codigo,
+      });
+      expect(await foto()).toEqual(antes);
+    }
+
+    // Destildado, vuelve a poder quitarse; el que no se hizo, siempre.
+    await planificacion().cambiarRealizadoDeHito(admin, primero ?? "", false);
+    await planificacion().marcarEliminadoHito(admin, primero ?? "");
+    await planificacion().marcarEliminadoHito(admin, segundo ?? "");
+    expect(await textosEnOrden()).toEqual(["Tercero"]);
+  });
+
+  test("un hito quitado deja un lugar vacío y el siguiente que se arma va al final", async () => {
+    const [, segundo] = await tresHitos();
+    await planificacion().marcarEliminadoHito(admin, segundo ?? "");
+    await cargarHito("Cuarto");
+
+    expect(await textosEnOrden()).toEqual(["Primero", "Tercero", "Cuarto"]);
+  });
+
+  test("fuera de «Adjudicado» y «En ejecución», reordenar es DOM-0018 y no escribe nada", async () => {
+    const [primero] = await tresHitos();
+
+    for (const afuera of fueraDe(ADJUDICADO_O_EN_EJECUCION)) {
+      await llevarA(afuera);
+      await fueraDeEtapa(() =>
+        planificacion().cambiarOrdenDeHito(admin, primero ?? "", "bajar"),
+      );
+    }
+  });
+});
+
+describe("recursos humanos y materiales (F6-02)", () => {
+  test("un material lleva descripción obligatoria y cantidad opcional, y el detalle los separa en humanos y materiales", async () => {
+    await cargarRecurso();
+    await cargarRecurso({ tipo: "camion", camionId, descripcion: "" });
+    await cargarRecurso({
+      tipo: "material",
+      descripcion: "Manguera de 2 pulgadas",
+      cantidad: "  500 m  ",
+    });
+    await cargarRecurso({ tipo: "material", descripcion: "Bomba de repuesto" });
+
+    expect(
+      (await planificacion().ver(servicioId)).recursos.map(
+        ({ tipo, grupo, detalle, cantidad }) => [
+          tipo,
+          grupo,
+          detalle,
+          cantidad,
+        ],
+      ),
+    ).toEqual([
+      ["Persona", "humanos", "Operador de turno mañana", ""],
+      ["Camión", "materiales", "ZZ001ZZ", ""],
+      ["Material", "materiales", "Manguera de 2 pulgadas", "500 m"],
+      ["Material", "materiales", "Bomba de repuesto", ""],
+    ]);
+  });
+
+  test("un material sin descripción, y una cantidad en lo que no es material o de más de 100 caracteres, se rechazan al lado del campo", async () => {
+    const antes = await foto();
+
+    expect(
+      await planificacion().crearRecurso(
+        admin,
+        servicioId,
+        escritoDeRecurso({ tipo: "material", descripcion: "" }),
+      ),
+    ).toMatchObject({
+      ok: false,
+      errores: { descripcion: "Escribí la descripción." },
+    });
+    expect(
+      await planificacion().crearRecurso(
+        admin,
+        servicioId,
+        escritoDeRecurso({ cantidad: "2" }),
+      ),
+    ).toMatchObject({
+      ok: false,
+      errores: { cantidad: "Solo un material lleva cantidad: dejala vacía." },
+    });
+    expect(
+      await planificacion().crearRecurso(
+        admin,
+        servicioId,
+        escritoDeRecurso({ tipo: "material", cantidad: "x".repeat(101) }),
+      ),
+    ).toMatchObject({
+      ok: false,
+      errores: { cantidad: "No puede pasar de 100 caracteres." },
+    });
+    expect(await foto()).toEqual(antes);
+  });
+
+  test("los materiales se cargan y se quitan en «Adjudicado» y «En ejecución», y afuera es DOM-0018", async () => {
+    const id = await cargarRecurso({
+      tipo: "material",
+      descripcion: "Andamio",
+      cantidad: "30 m",
+    });
+
+    for (const afuera of fueraDe(ADJUDICADO_O_EN_EJECUCION)) {
+      await llevarA(afuera);
+      await fueraDeEtapa(() =>
+        planificacion().crearRecurso(
+          admin,
+          servicioId,
+          escritoDeRecurso({ tipo: "material", descripcion: "Otro" }),
+        ),
+      );
+      await fueraDeEtapa(() =>
+        planificacion().marcarEliminadoRecurso(admin, id),
+      );
+    }
+    await llevarA("en_ejecucion");
+    await planificacion().marcarEliminadoRecurso(admin, id);
+    expect((await planificacion().ver(servicioId)).recursos).toEqual([]);
+  });
+});
+
+describe("plantillas de hitos (F6-02)", () => {
+  async function plantilla(
+    nombre: string,
+    hitos: readonly string[],
+    tipoServicioId = "",
+  ): Promise<string> {
+    const alta = await crearCasosUsoAbm(dependencias()).crear(
+      admin,
+      PLANTILLAS_DE_HITOS,
+      { nombre, tipoServicioId, hitos: hitos.join("\n") },
+    );
+    if (!alta.ok) {
+      throw new Error(
+        `la plantilla no se dio de alta: ${JSON.stringify(alta)}`,
+      );
+    }
+    return alta.registro.valor.id;
+  }
+
+  async function textosEnOrden(): Promise<readonly string[]> {
+    return (await planificacion().ver(servicioId)).hitos.map(
+      ({ texto }) => texto,
+    );
+  }
+
+  test("aplicar copia los hitos al final de los del servicio, en el orden de la plantilla, y se pueden aplicar más de una", async () => {
+    await cargarHito("Hito propio");
+    const una = await plantilla("Una", ["Uno", "Dos", "Tres"]);
+    const otra = await plantilla("Otra", ["Cuatro"]);
+
+    await planificacion().crearHitosDePlantilla(operador, servicioId, una);
+    await llevarA("en_ejecucion");
+    await planificacion().crearHitosDePlantilla(operador, servicioId, otra);
+    await planificacion().crearHitosDePlantilla(operador, servicioId, una);
+
+    expect(await textosEnOrden()).toEqual([
+      "Hito propio",
+      "Uno",
+      "Dos",
+      "Tres",
+      "Cuatro",
+      "Uno",
+      "Dos",
+      "Tres",
+    ]);
+    expect(
+      (
+        await cliente().servicioHito.findMany({ orderBy: { orden: "asc" } })
+      ).map(({ orden }) => orden),
+    ).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  });
+
+  test("los hitos copiados son del servicio: cambiar o dar de baja la plantilla después no los toca", async () => {
+    const id = await plantilla("Mutable", ["Uno", "Dos"]);
+    await planificacion().crearHitosDePlantilla(admin, servicioId, id);
+
+    exigirOk(
+      await crearCasosUsoAbm(dependencias()).guardar(
+        admin,
+        PLANTILLAS_DE_HITOS,
+        id,
+        { nombre: "Mutable", tipoServicioId: "", hitos: "Cambiado\nOtro\nMás" },
+      ),
+    );
+    await crearCasosUsoAbm(dependencias()).marcarEliminado(
+      admin,
+      PLANTILLAS_DE_HITOS,
+      id,
+    );
+
+    expect(await textosEnOrden()).toEqual(["Uno", "Dos"]);
+    // Y se reordenan como cualquier hito propio.
+    const [uno] = (await planificacion().ver(servicioId)).hitos;
+    await planificacion().cambiarOrdenDeHito(admin, uno?.id ?? "", "bajar");
+    expect(await textosEnOrden()).toEqual(["Dos", "Uno"]);
+  });
+
+  test("fuera de «Adjudicado» y «En ejecución», aplicar es DOM-0018 y no escribe nada", async () => {
+    const id = await plantilla("Cualquiera", ["Uno"]);
+
+    for (const afuera of fueraDe(ADJUDICADO_O_EN_EJECUCION)) {
+      await llevarA(afuera);
+      await fueraDeEtapa(() =>
+        planificacion().crearHitosDePlantilla(admin, servicioId, id),
+      );
+    }
+  });
+
+  test("una plantilla dada de baja o que no existe es DOM-0009 y no escribe nada", async () => {
+    const id = await plantilla("Pasajera", ["Uno"]);
+    await crearCasosUsoAbm(dependencias()).marcarEliminado(
+      admin,
+      PLANTILLAS_DE_HITOS,
+      id,
+    );
+    const antes = await foto();
+
+    for (const buscada of [id, "no-es-un-id", crypto.randomUUID()]) {
+      await expect(
+        planificacion().crearHitosDePlantilla(admin, servicioId, buscada),
+      ).rejects.toMatchObject({ codigo: catalogo.DOM_0009.codigo });
+    }
+    expect(await foto()).toEqual(antes);
+  });
+
+  test("el selector ofrece primero las plantillas del tipo del servicio y después las genéricas; las de otro tipo no", async () => {
+    const delTipo = await cliente().tipoServicio.findFirstOrThrow();
+    const otroTipo = await crearCasosUsoAbm(dependencias()).crear(
+      admin,
+      TIPOS_DE_SERVICIO,
+      {
+        nombre: "Otro tipo de ejemplo",
+        descripcion: "",
+        modalidad: "puntual",
+        activo: "si",
+      },
+    );
+    if (!otroTipo.ok) {
+      throw new Error("no se pudo dar de alta el otro tipo");
+    }
+    await plantilla("Genérica A", ["Uno"]);
+    await plantilla("Ajena", ["Uno"], otroTipo.registro.valor.id);
+    await plantilla("Zeta del tipo", ["Uno"], delTipo.id);
+    await plantilla("Alfa del tipo", ["Uno"], delTipo.id);
+    await plantilla("Genérica B", ["Uno"]);
+
+    expect(
+      (await planificacion().ver(servicioId)).plantillas.map(
+        ({ nombre }) => nombre,
+      ),
+    ).toEqual(["Alfa del tipo", "Zeta del tipo", "Genérica A", "Genérica B"]);
+
+    await llevarA("finalizado");
+    expect((await planificacion().ver(servicioId)).plantillas).toEqual([]);
   });
 });

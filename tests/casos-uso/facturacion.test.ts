@@ -272,15 +272,14 @@ beforeEach(async () => {
 });
 
 describe("elegir la modalidad", () => {
-  test("se elige en «Adjudicado» y se cambia en «En ejecución»; en cualquier otra etapa, DOM-0018 sin escribir nada", async () => {
-    for (const afuera of fueraDe(["adjudicado", "en_ejecucion"])) {
+  test("se elige y se cambia en «Adjudicado»; en cualquier otra etapa, incluida «En ejecución», DOM-0018 sin escribir nada", async () => {
+    for (const afuera of fueraDe(["adjudicado"])) {
       await llevarA(afuera);
       await rechaza(catalogo.DOM_0018.codigo, () => elegir("puntual"));
     }
     await llevarA("adjudicado");
     exigirOk(await elegir("puntual"));
     expect((await foto()).servicio.facturacion).toBe("puntual");
-    await llevarA("en_ejecucion");
     exigirOk(await elegir("por_hitos"));
     expect((await foto()).servicio.facturacion).toBe("por_hitos");
     expect(
@@ -469,8 +468,9 @@ describe("ajustar la cuota mensual", () => {
     await llevarA("finalizado");
     await rechaza(catalogo.DOM_0018.codigo, () => ajustar("2031-09-01"));
 
-    await llevarA("en_ejecucion");
+    await llevarA("adjudicado");
     exigirOk(await elegir("por_hitos"));
+    await llevarA("en_ejecucion");
     await rechaza(catalogo.DOM_0022.codigo, () => ajustar("2031-09-01"));
   });
 

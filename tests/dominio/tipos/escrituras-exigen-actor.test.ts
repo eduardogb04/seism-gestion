@@ -170,6 +170,10 @@ function casosDeUsoSinActor(): void {
   casosPlanificacion.marcarEliminadoHito("id");
   // @ts-expect-error `cambiarRealizadoDeHito` (planificación, F3-02) exige un `Actor` primero.
   casosPlanificacion.cambiarRealizadoDeHito("id", true);
+  // @ts-expect-error `cambiarOrdenDeHito` (planificación, F6-02) exige un `Actor` primero.
+  casosPlanificacion.cambiarOrdenDeHito("id", "subir");
+  // @ts-expect-error `crearHitosDePlantilla` (planificación, F6-02) exige un `Actor` primero.
+  casosPlanificacion.crearHitosDePlantilla("id", "id");
   // @ts-expect-error `crearRecurso` (planificación, F3-02) exige un `Actor` primero.
   casosPlanificacion.crearRecurso("id", {});
   // @ts-expect-error `marcarEliminadoRecurso` (planificación, F3-02) exige un `Actor` primero.

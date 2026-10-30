@@ -443,6 +443,8 @@ describe("recursos", () => {
         detalle: "Operador de turno mañana",
         desde: "01/08/2031",
         hasta: "31/08/2031",
+        grupo: "humanos",
+        cantidad: "",
       },
       {
         id: expect.any(String),
@@ -450,6 +452,8 @@ describe("recursos", () => {
         detalle: "Bomba de trasvase",
         desde: "",
         hasta: "",
+        grupo: "materiales",
+        cantidad: "",
       },
       {
         id: expect.any(String),
@@ -457,6 +461,8 @@ describe("recursos", () => {
         detalle: "ZZ001ZZ",
         desde: "",
         hasta: "",
+        grupo: "materiales",
+        cantidad: "",
       },
     ]);
   });

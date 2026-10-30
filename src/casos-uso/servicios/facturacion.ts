@@ -1,9 +1,10 @@
 /**
  * La modalidad de facturación de un servicio, su cuota mensual y lo devengado
  * (F3-03, ADR 0041). La modalidad se elige y se cambia solo en «Adjudicado»
- * y la cuota se ajusta en «Adjudicado» y «En ejecución» (`DOM-0018`, F6-02);
- * la modalidad no cambia si hay facturas vigentes (`DOM-0019`). Un ajuste rige desde su mes en adelante y ese
- * mes no puede haber pasado según el reloj inyectado (`DOM-0020`): así nunca
+ * (un servicio que llegó a «En ejecución» sin ella todavía puede elegirla) y
+ * la cuota se ajusta en «Adjudicado» y «En ejecución» (`DOM-0018`, F6-02);
+ * la modalidad no cambia si hay facturas vigentes (`DOM-0019`). Un ajuste rige
+ * desde su mes en adelante y ese mes no puede haber pasado según el reloj inyectado (`DOM-0020`): así nunca
  * cambia lo ya devengado.
  *
  * Lo que se muestra por moneda sale del dominio: el devengado y el por facturar
@@ -280,7 +281,15 @@ async function exigirParaEscribir(
     catalogo.AUT_0009,
   );
   const servicio = await servicioVigenteBloqueado(repos, servicioId);
-  await exigirEtapa(repos, servicioId, carga);
+  // Los servicios que ya estaban en ejecución antes de que la modalidad se fijara en «Adjudicado» no podrían facturar.
+  const eligeLaQueFalta =
+    carga === "modalidad" &&
+    servicio.valor.modalidadFacturacion === null &&
+    cicloServicio.estadoActual(await historialDe(repos, servicioId)) ===
+      "en_ejecucion";
+  if (!eligeLaQueFalta) {
+    await exigirEtapa(repos, servicioId, carga);
+  }
   return servicio;
 }
 

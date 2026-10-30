@@ -273,7 +273,8 @@ beforeEach(async () => {
 
 describe("elegir la modalidad", () => {
   test("se elige y se cambia en «Adjudicado»; en cualquier otra etapa, incluida «En ejecución», DOM-0018 sin escribir nada", async () => {
-    for (const afuera of fueraDe(["adjudicado"])) {
+    // «En ejecución» sin modalidad deja elegirla: va al final, con una ya elegida.
+    for (const afuera of fueraDe(["adjudicado", "en_ejecucion"])) {
       await llevarA(afuera);
       await rechaza(catalogo.DOM_0018.codigo, () => elegir("puntual"));
     }
@@ -287,6 +288,15 @@ describe("elegir la modalidad", () => {
         where: { entidad: "Servicio", accion: "actualizar" },
       }),
     ).toBe(2);
+    await llevarA("en_ejecucion");
+    await rechaza(catalogo.DOM_0018.codigo, () => elegir("puntual"));
+  });
+
+  test("un servicio que ya estaba en «En ejecución» sin modalidad puede elegirla, pero después no cambiarla", async () => {
+    await llevarA("cotizado", "adjudicado", "en_ejecucion");
+    exigirOk(await elegir("puntual"));
+    expect((await foto()).servicio.facturacion).toBe("puntual");
+    await rechaza(catalogo.DOM_0018.codigo, () => elegir("por_hitos"));
   });
 
   test("elegir la misma otra vez no escribe nada", async () => {
@@ -646,9 +656,14 @@ describe("la factura del mes", () => {
     });
     expect(await cliente().factura.count()).toBe(0);
   });
+});
 
-  test("en otra modalidad no hay período: no se pide ni se guarda", async () => {
+describe("la factura de otra modalidad", () => {
+  test("no hay período: no se pide ni se guarda", async () => {
+    await llevarA("cotizado");
+    await cargarOrden();
     exigirOk(await elegir("por_hitos"));
+    await llevarA("en_ejecucion");
     const { campos, escrito } = await facturas().formulario(servicioId);
     expect(campos.map(([nombre]) => nombre)).not.toContain("periodo");
     expect(escrito.periodo).toBeUndefined();

@@ -15,6 +15,7 @@ import {
   GrillaDeMetricas,
 } from "../../_ui/panel.tsx";
 import { AjustesDelServicio } from "../_piezas/ajustes.tsx";
+import { Avance } from "./avance.tsx";
 import { type DatosDePanel, dias, diasEnEtapa } from "./datos-de-panel.ts";
 import { Egresos } from "./egresos.tsx";
 import { Facturas } from "./facturas.tsx";
@@ -74,7 +75,7 @@ export async function PanelCerrado({
       <GrillaDeMetricas
         metricas={[
           { titulo: "Facturado (sin IVA)", valor: resultado.facturado },
-          { titulo: "Egresos", valor: resultado.egresos },
+          { titulo: "Egresos del servicio", valor: resultado.egresos },
           { titulo: "Resultado", valor: resultado.resultado },
           { titulo: "Margen", valor: resultado.margen },
           {
@@ -91,6 +92,7 @@ export async function PanelCerrado({
         parametros={parametros}
       />
       <AjustesDelServicio {...lectura} />
+      <Avance servicioId={servicio.id} />
       <Egresos servicioId={servicio.id} />
       {puedeActuar && proximo !== undefined ? (
         <>

@@ -10,9 +10,14 @@
  * - el panel de «Creado» (cliente, lista de control) y el de «Cotizado»
  *   (métricas y línea de versiones, sin nada de la orden de compra ni de la
  *   facturación);
- * - las secciones de las etapas siguientes, y que no está ninguna de las otras;
+ * - los paneles de «Adjudicado» a «Cerrado» (F6-04): en cada uno, su título, su
+ *   acción principal y que no está nada de las otras etapas;
  * - los botones de transición, que piden confirmación;
- * - en «Adjudicado», elegir la modalidad mensual y ajustar la cuota con su aviso;
+ * - en «Adjudicado», el responsable y el inicio estimado cargados en el panel,
+ *   la modalidad en tres tarjetas, ajustar la cuota con su aviso, aplicar una
+ *   plantilla de hitos y cargar un recurso;
+ * - en «En ejecución», tildar hitos y emitir la factura; en «Finalizado», una
+ *   nota de crédito y el cobro con orden de pago; en «Cerrado», el resultado;
  * - una etapa recorrida, en solo lectura, y una futura, que redirige a la actual.
  *
  * Las observaciones y sucesos se ven en una columna lateral en todas las
@@ -27,6 +32,8 @@ const TITULO = "Recorrido por etapas de prueba — ejemplo";
 /** El número de una orden y el de una factura no se repiten entre las vigentes: cada corrida usa los suyos. */
 const ORDEN = `OC-E2E-ETAPAS-${Date.now()}`;
 const FACTURA = `0000-E2E-ETAPAS-${Date.now()}`;
+const NOTA = `NC-E2E-ETAPAS-${Date.now()}`;
+const PLANTILLA = "Plantilla genérica de etapas — ejemplo";
 
 const SECCIONES = [
   "Preparar la cotización",
@@ -35,14 +42,20 @@ const SECCIONES = [
   "Versiones de la cotización",
   "Documentación de alcance",
   "Cotizaciones",
+  "Planificar el arranque",
+  "Modalidad de facturación",
+  "Responsable e inicio estimado",
   "Órdenes de compra",
-  "Facturación",
   "Hitos",
   "Recursos",
   "Facturas",
+  "En obra · día 0",
   "Avance",
   "Egresos",
+  "Falta cobrar para cerrar",
+  "Ajustes",
   "Vencimientos",
+  "Cerrado · todo cobrado",
 ] as const;
 
 async function entrarComo(page: Page, email: string): Promise<void> {
@@ -68,6 +81,36 @@ async function asegurarOperadora(
     await admin.getByLabel("Rol", { exact: true }).selectOption("operador");
     await admin.getByRole("button", { name: "Dar de alta" }).click();
     await expect(admin.locator(`[data-usuario="${OPERADORA}"]`)).toBeVisible();
+  }
+  await contexto.close();
+}
+
+/** Una plantilla de hitos genérica con dos hitos, que el administrador da de alta una sola vez. */
+async function asegurarPlantilla(
+  browser: Browser,
+  baseURL: string | undefined,
+): Promise<void> {
+  const contexto = await browser.newContext(
+    baseURL === undefined ? {} : { baseURL },
+  );
+  const admin = await contexto.newPage();
+  await entrarComo(admin, ADMIN);
+  await admin.goto("/catalogo/plantillas-de-hitos");
+  if (
+    (await admin.getByRole("row", { name: new RegExp(PLANTILLA) }).count()) ===
+    0
+  ) {
+    await admin
+      .getByRole("link", { name: "Alta de plantilla de hitos" })
+      .click();
+    const alta = ventana(admin, "Alta de plantilla de hitos");
+    await alta.getByLabel("Nombre", { exact: true }).fill(PLANTILLA);
+    for (const [lugar, texto] of ["Movilización", "Informe"].entries()) {
+      await alta.getByRole("button", { name: "Agregar hito" }).click();
+      await alta.getByLabel(`Hito ${lugar + 1}`, { exact: true }).fill(texto);
+    }
+    await alta.getByRole("button", { name: "Guardar" }).click();
+    await expect(ventana(admin, "Alta de plantilla de hitos")).toHaveCount(0);
   }
   await contexto.close();
 }
@@ -145,6 +188,7 @@ async function altaDeServicio(page: Page, titulo: string): Promise<void> {
 
 test.beforeEach(async ({ browser, baseURL }) => {
   await asegurarOperadora(browser, baseURL);
+  await asegurarPlantilla(browser, baseURL);
 });
 
 test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
@@ -379,31 +423,67 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await expect(estado).toHaveText("Adjudicado");
   await expect(page).toHaveURL(`${servicioUrl}/adjudicado`);
   await seVeSolo(page, [
-    "Órdenes de compra",
-    "Facturación",
+    "Planificar el arranque",
+    "Modalidad de facturación",
+    "Responsable e inicio estimado",
     "Hitos",
     "Recursos",
     "Facturas",
     "Avance",
+    "Órdenes de compra",
   ]);
+  // La orden de compra, en la métrica; la acción principal es iniciar la ejecución.
+  const metricaDeOrden = page
+    .getByRole("heading", { name: "Orden de compra", exact: true })
+    .locator("..");
+  await expect(metricaDeOrden).toContainText("ARS 1.000,00");
+  await expect(metricaDeOrden).toContainText(ORDEN);
   await expect(
     page.getByRole("link", { name: "Cargar orden de compra" }),
   ).toHaveCount(0);
-  expect(await transicionesOfrecidas(page)).toEqual([
-    "Iniciar ejecución",
-    "Pasar a «Cancelado»",
+  await expect(
+    page.getByRole("link", { name: "Iniciar ejecución" }),
+  ).toHaveClass(/bg-acento/);
+  expect(await transicionesOfrecidas(page)).toEqual(["Pasar a «Cancelado»"]);
+
+  // Sin modalidad, iniciar muestra el error del dominio y el servicio sigue «Adjudicado».
+  await confirmar(page, "Iniciar ejecución");
+  await expect(page.getByText(/DOM-0038/)).toBeVisible();
+  await expect(estado).toHaveText("Adjudicado");
+
+  // El responsable y el inicio estimado se cargan en el panel mismo.
+  const planificacion = page.locator("section[data-carga='planificacion']");
+  await planificacion
+    .getByLabel("Responsable")
+    .selectOption({ label: OPERADORA });
+  await planificacion.getByLabel("Fecha estimada de inicio").fill("2026-11-02");
+  await planificacion.getByRole("button", { name: "Guardar" }).click();
+  const paraArrancar = page.getByRole("list", { name: "Para arrancar" });
+  await expect(paraArrancar.getByRole("listitem")).toHaveText([
+    /^Pendiente:Modalidad\s*sin elegir$/,
+    new RegExp(`^Hecho:Responsable\\s*${OPERADORA}$`),
+    /^Hecho:Inicio estimado\s*02\/11\/2026$/,
+    /^Pendiente:Recursos\s*ninguno$/,
+    /^Pendiente:Hitos\s*ninguno$/,
   ]);
 
-  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  // La modalidad, en tres tarjetas: la elegida queda resaltada.
+  const tarjetas = page.getByRole("list", { name: "Modalidad de facturación" });
+  await expect(tarjetas.getByRole("listitem")).toHaveCount(3);
+  await expect(tarjetas.locator("[data-modalidad-elegida]")).toHaveCount(0);
+  await tarjetas.getByRole("link", { name: /^Mensual/ }).click();
   const modalidad = ventana(page, "Modalidad de facturación");
-  await modalidad
-    .getByLabel("Modalidad de facturación")
-    .selectOption({ label: "Mensual" });
+  await expect(modalidad.getByLabel("Modalidad de facturación")).toHaveValue(
+    "mensual",
+  );
   await modalidad.getByLabel(/^Cuota mensual sin IVA/).fill("100,00");
   await modalidad.getByLabel(/^Mes de inicio/).fill("2026-01-15");
   await modalidad.getByRole("button", { name: "Guardar" }).click();
   await expect(page.locator("[data-modalidad]")).toHaveText(
     "Modalidad: Mensual",
+  );
+  await expect(tarjetas.locator("[data-modalidad-elegida]")).toHaveText(
+    /^Mensual/,
   );
   // Los cuatro números de la etapa, con la orden de 1.000,00 todavía sin facturar.
   const numeros = page.locator("[data-numeros-de-facturacion]");
@@ -434,17 +514,44 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
       .getByRole("row"),
   ).toHaveCount(3);
 
-  // Para facturar de una vez al final: sin facturas todavía, se cambia a puntual.
-  await page.getByRole("link", { name: "Cambiar la modalidad" }).click();
-  await ventana(page, "Modalidad de facturación")
-    .getByLabel("Modalidad de facturación")
-    .selectOption({ label: "Puntual" });
+  // Para facturar libremente: sin facturas todavía, se cambia a «Por hitos (libre)».
+  await tarjetas.getByRole("link", { name: /^Por hitos/ }).click();
   await ventana(page, "Modalidad de facturación")
     .getByRole("button", { name: "Guardar" })
     .click();
   await expect(page.locator("[data-modalidad]")).toHaveText(
-    "Modalidad: Puntual",
+    "Modalidad: Por hitos (libre)",
   );
+  await expect(
+    page.getByRole("link", { name: "Ajustar la cuota" }),
+  ).toHaveCount(0);
+
+  // Los hitos salen de una plantilla genérica; se suma uno propio.
+  await page
+    .getByLabel("Plantilla", { exact: true })
+    .selectOption({ label: PLANTILLA });
+  await page.getByRole("button", { name: "Aplicar plantilla" }).click();
+  await expect(page.locator("[data-hito]")).toHaveText([
+    /Movilización/,
+    /Informe/,
+  ]);
+  await page.getByRole("link", { name: "Nuevo hito" }).click();
+  await ventana(page, "Nuevo hito")
+    .getByLabel("Hito")
+    .fill("Cierre de obra de ejemplo");
+  await ventana(page, "Nuevo hito")
+    .getByRole("button", { name: "Guardar" })
+    .click();
+  await expect(page.locator("[data-hito]")).toHaveCount(3);
+
+  // Los recursos, agrupados en humanos y materiales.
+  await page.getByRole("link", { name: "Nuevo recurso" }).click();
+  const recurso = ventana(page, "Nuevo recurso");
+  await recurso.getByLabel("Tipo", { exact: true }).selectOption("camion");
+  await recurso.getByLabel("Camión").selectOption({ label: "ZZ001ZZ" });
+  await recurso.getByRole("button", { name: "Guardar" }).click();
+  await expect(ventana(page, "Nuevo recurso")).toHaveCount(0);
+  await expect(page.locator("[data-grupo-de-recursos]")).toHaveCount(1);
 
   // «Cotizado», ya recorrido, en solo lectura: sus versiones sin nada que cargar ni cambiar.
   await etapa(page, "cotizado").getByRole("link").click();
@@ -478,36 +585,48 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await expect(page).toHaveURL(`${servicioUrl}/adjudicado`);
   await expect(page.locator("[data-solo-lectura]")).toHaveCount(0);
 
-  // En ejecución: la operación.
+  // En ejecución: la operación. La acción principal es emitir la factura de la modalidad.
   await confirmar(page, "Iniciar ejecución");
   await expect(estado).toHaveText("En ejecución");
   await expect(page).toHaveURL(`${servicioUrl}/en-ejecucion`);
   await seVeSolo(page, [
-    "Facturación",
+    "En obra · día 0",
     "Hitos",
     "Recursos",
     "Facturas",
     "Avance",
     "Egresos",
   ]);
+  await expect(
+    page.getByRole("heading", { name: "Avance de hitos" }).locator(".."),
+  ).toContainText("0 de 3");
+  // La modalidad ya está fija: no hay cómo cambiarla.
+  await expect(
+    page.getByRole("list", { name: "Modalidad de facturación" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Cambiar la modalidad" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Emitir factura" })).toHaveClass(
+    /bg-acento/,
+  );
   expect(await transicionesOfrecidas(page)).toEqual([
     "Finalizar servicio",
     "Pasar a «Cancelado»",
   ]);
-
-  // Finalizado: lo que falta facturar y cobrar. Puntual devenga el total de la orden.
-  await confirmar(page, "Finalizar servicio");
-  await expect(estado).toHaveText("Finalizado");
-  await expect(page).toHaveURL(`${servicioUrl}/finalizado`);
-  await seVeSolo(page, [
-    "Facturación",
-    "Facturas",
-    "Avance",
-    "Egresos",
-    "Vencimientos",
-  ]);
-  expect(await transicionesOfrecidas(page)).toEqual([]);
-  await page.getByRole("link", { name: "Nueva factura" }).click();
+  for (const hito of ["Movilización", "Informe"]) {
+    await page
+      .locator(`[data-hito="${hito}"]`)
+      .getByRole("button", { name: "Tildar" })
+      .click();
+    await expect(
+      page.locator(`[data-hito="${hito}"]`).locator("[data-hito-realizado]"),
+    ).toContainText(OPERADORA);
+  }
+  await expect(
+    page.getByRole("heading", { name: "Avance de hitos" }).locator(".."),
+  ).toContainText("2 de 3");
+  await page.getByRole("link", { name: "Emitir factura" }).click();
   const factura = ventana(page, "Nueva factura");
   await factura.getByLabel("Número").fill(FACTURA);
   await factura.getByLabel("Fecha", { exact: true }).fill("2026-10-20");
@@ -518,36 +637,97 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     .selectOption({ label: `${ORDEN} · ARS 1.000,00` });
   await factura.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nueva factura")).toHaveCount(0);
-  await expect(
-    page.locator("[data-numeros-de-facturacion] article").first(),
-  ).toContainText("ARS 1.000,00");
+  await expect(page.locator("tr", { hasText: FACTURA })).toHaveCount(1);
 
-  // Cobrar todo lo facturado cierra el servicio, que queda en solo lectura.
-  await page.getByRole("link", { name: "Cobrar", exact: true }).click();
-  const cobro = ventana(page, "Cobrar factura");
-  await cobro.getByLabel("Fecha").fill("2026-10-22");
-  await cobro.getByLabel(/^Importe \(/).fill("1.210,00");
-  await cobro
-    .getByLabel("Cuenta", { exact: true })
-    .selectOption({ label: "Caja · ARS" });
-  await cobro.getByRole("button", { name: "Cobrar" }).click();
-  await expect(estado).toHaveText("Cerrado");
-  await expect(page).toHaveURL(`${servicioUrl}/cerrado`);
+  // Finalizado: lo que falta cobrar. Un ajuste, y cobrar con la orden de pago del cliente.
+  await confirmar(page, "Finalizar servicio");
+  await expect(estado).toHaveText("Finalizado");
+  await expect(page).toHaveURL(`${servicioUrl}/finalizado`);
   await seVeSolo(page, [
-    "Facturación",
+    "Falta cobrar para cerrar",
     "Facturas",
+    "Ajustes",
     "Avance",
     "Egresos",
     "Vencimientos",
   ]);
+  expect(await transicionesOfrecidas(page)).toEqual([]);
+  for (const enlace of ["Nuevo hito", "Nuevo recurso"]) {
+    await expect(page.getByRole("link", { name: enlace })).toHaveCount(0);
+  }
+  await expect(page.getByRole("link", { name: "Emitir factura" })).toHaveCount(
+    1,
+  );
+  await page.getByRole("link", { name: "Nota de crédito" }).click();
+  const nota = ventana(page, "Nota de crédito");
+  const asociada = await nota
+    .getByLabel("Comprobante asociado")
+    .locator("option", { hasText: FACTURA })
+    .getAttribute("value");
+  await nota.getByLabel("Comprobante asociado").selectOption(asociada ?? "");
+  await nota.getByLabel("Número").fill(NOTA);
+  await nota.getByLabel("Fecha", { exact: true }).fill("2026-10-21");
+  await nota.getByLabel("Importe sin IVA", { exact: true }).fill("100,00");
+  await nota.getByRole("button", { name: "Cargar" }).click();
+  await expect(ventana(page, "Nota de crédito")).toHaveCount(0);
+  await expect(page.locator("tr", { hasText: NOTA }).first()).toContainText(
+    "Nota de crédito",
+  );
+
+  // Cobrar todo lo facturado (con la nota descontada) cierra el servicio.
+  await page
+    .locator("tr", { hasText: FACTURA })
+    .getByRole("link", { name: "Registrar cobro" })
+    .click();
+  const cobro = ventana(page, "Cobrar factura");
+  await cobro.getByLabel("Fecha").fill("2026-10-22");
+  await cobro.getByLabel(/^Importe \(/).fill("1.089,00");
+  await cobro
+    .getByLabel("Cuenta", { exact: true })
+    .selectOption({ label: "Caja · ARS" });
+  await cobro
+    .getByLabel("Número de la orden de pago del cliente (opcional)")
+    .fill("OP-E2E-ETAPAS");
+  await cobro.getByRole("button", { name: "Cobrar" }).click();
+  await expect(estado).toHaveText("Cerrado");
+  await expect(page).toHaveURL(`${servicioUrl}/cerrado`);
+
+  // Cerrado: el resultado y nada que cargar.
+  await seVeSolo(page, [
+    "Cerrado · todo cobrado",
+    "Facturas",
+    "Ajustes",
+    "Avance",
+    "Egresos",
+  ]);
   await expect(page.locator("[data-solo-lectura]")).toHaveCount(0);
+  await expect(
+    page.getByRole("heading", { name: "Facturado (sin IVA)" }).locator(".."),
+  ).toContainText("ARS 900,00");
+  await expect(
+    page.getByRole("heading", { name: "Resultado", exact: true }).locator(".."),
+  ).toContainText("ARS 900,00");
+  await expect(
+    page.getByRole("heading", { name: "Margen", exact: true }).locator(".."),
+  ).toContainText(/100\s?%/);
+  await expect(
+    page
+      .getByRole("heading", { name: "De la orden de compra al último cobro" })
+      .locator(".."),
+  ).toContainText(/\d+ días?/);
+  await expect(
+    page.getByRole("table").filter({
+      has: page.getByRole("columnheader", { name: "Orden de pago" }),
+    }),
+  ).toContainText("OP-E2E-ETAPAS");
   for (const enlace of [
-    "Nueva factura",
-    "Cobrar",
+    "Emitir factura",
+    "Registrar cobro",
     "Nuevo suceso",
     "Editar",
-    "Elegir la modalidad",
-    "Cambiar la modalidad",
+    "Nota de crédito",
+    "Nuevo hito",
+    "Nuevo recurso",
   ]) {
     await expect(
       page.getByRole("link", { name: enlace, exact: true }),
@@ -597,6 +777,15 @@ for (const { estado, cotizado, motivo } of CIERRES) {
     await expect(page.locator("[data-estado-del-servicio]")).toHaveText(estado);
     await expect(page).toHaveURL(/\/salida$/);
     await seVeSolo(page, ["Cotizaciones"]);
+    await expect(
+      page.getByRole("heading", { name: estado, exact: true }),
+    ).toBeVisible();
+    const cierreVisible = page.locator("[data-cierre]");
+    await expect(cierreVisible).toContainText(motivo);
+    await expect(cierreVisible).toContainText(OPERADORA);
+    await expect(
+      page.getByRole("link", { name: "El cliente volvió" }),
+    ).toHaveCount(estado === "Sin respuesta" ? 1 : 0);
     // Las cotizaciones que tuvo.
     if (cotizado) {
       await expect(

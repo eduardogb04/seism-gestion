@@ -119,7 +119,7 @@ test("una operadora carga un hito y un camión en «Adjudicado», inicia la ejec
   ).toBeVisible();
 
   // 2. Iniciar la ejecución solo exige la modalidad de facturación, no hitos ni recursos.
-  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  await page.getByRole("link", { name: /^Puntual/ }).click();
   const modalidad = ventana(page, "Modalidad de facturación");
   await modalidad
     .getByLabel("Modalidad de facturación")

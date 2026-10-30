@@ -110,7 +110,7 @@ test("al finalizar un servicio con dos camiones aparecen dos vencimientos; se co
     await expect(ventana(page, "Nuevo recurso")).toHaveCount(0);
   }
   // «Iniciar ejecución» exige la modalidad de facturación (F6-02).
-  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  await page.getByRole("link", { name: /^Puntual/ }).click();
   const modalidad = ventana(page, "Modalidad de facturación");
   await modalidad
     .getByLabel("Modalidad de facturación")
@@ -229,7 +229,7 @@ test("un servicio recurrente muestra «Renovar contrato» desde «Adjudicado» y
     renovar.getByRole("link", { name: "Corregir fecha" }),
   ).toHaveCount(0);
   // «Iniciar ejecución» exige la modalidad de facturación (F6-02).
-  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  await page.getByRole("link", { name: /^Puntual/ }).click();
   const modalidad = ventana(page, "Modalidad de facturación");
   await modalidad
     .getByLabel("Modalidad de facturación")

@@ -22,6 +22,7 @@ import {
   ACCIONES_DE_HITOS,
   ACCIONES_DE_RECURSOS,
 } from "./acciones-de-planificacion.ts";
+import { Avance } from "./avance.tsx";
 import { CambioDelComprobante } from "./cambio-del-comprobante.tsx";
 import {
   type DatosDePanel,
@@ -32,6 +33,7 @@ import {
 import { AjusteDeCuota, ResumenDeFacturacion } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
+import { Vencimientos } from "./vencimientos.tsx";
 
 function cantidad(numero: number, singular: string, plural: string): string {
   return numero === 0
@@ -43,6 +45,7 @@ export async function PanelAdjudicado({
   servicio,
   ruta,
   puedeEscribir,
+  puedeActuar,
   soloLectura,
   parametros,
 }: DatosDePanel) {
@@ -85,8 +88,13 @@ export async function PanelAdjudicado({
               : {
                   detalle: (
                     <>
-                      {orden.numero} ·{" "}
-                      <CambioDelComprobante cambio={orden.cambio} />
+                      {orden.numero}
+                      {orden.cambio === null ? null : (
+                        <>
+                          {" · "}
+                          <CambioDelComprobante cambio={orden.cambio} />
+                        </>
+                      )}
                     </>
                   ),
                 }),
@@ -152,7 +160,14 @@ export async function PanelAdjudicado({
         puedeCobrar={puedeEscribir}
         parametros={parametros}
       />
+      <Avance servicioId={servicio.id} />
       <OrdenesDeCompra {...propias} />
+      {/* Renovar un contrato se cotiza desde acá: sin vencimientos, la sección no se dibuja. */}
+      <Vencimientos
+        {...propias}
+        puedeRenovar={puedeActuar}
+        sinFilasNoSeDibuja
+      />
       {puedeEscribir ? (
         <>
           <BarraDeAcciones

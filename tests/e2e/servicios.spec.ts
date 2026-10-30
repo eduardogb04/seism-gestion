@@ -169,7 +169,7 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
 
   // 5. Cancelar pide confirmación y motivo: sin él, el código en pantalla y el estado igual.
   await expect(
-    page.getByRole("link", { name: "Pasar a «Cotizado»" }),
+    page.getByRole("link", { name: "El cliente volvió" }),
   ).toHaveCount(0);
   await page.getByRole("link", { name: "Pasar a «Cancelado»" }).click();
   await ventana(page, "Pasar a «Cancelado»")

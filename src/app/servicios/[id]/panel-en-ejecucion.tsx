@@ -30,11 +30,13 @@ import {
 import { Egresos } from "./egresos.tsx";
 import { AjusteDeCuota, ResumenDeFacturacion } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
+import { Vencimientos } from "./vencimientos.tsx";
 
 export async function PanelEnEjecucion({
   servicio,
   ruta,
   puedeEscribir,
+  puedeActuar,
   soloLectura,
   parametros,
 }: DatosDePanel) {
@@ -115,6 +117,12 @@ export async function PanelEnEjecucion({
       />
       <Avance servicioId={servicio.id} />
       <Egresos servicioId={servicio.id} />
+      {/* Renovar un contrato se cotiza desde acá: sin vencimientos, la sección no se dibuja. */}
+      <Vencimientos
+        {...propias}
+        puedeRenovar={puedeActuar}
+        sinFilasNoSeDibuja
+      />
       {puedeEscribir ? (
         <>
           <BarraDeAcciones

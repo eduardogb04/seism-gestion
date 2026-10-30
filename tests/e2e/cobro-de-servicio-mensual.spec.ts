@@ -28,7 +28,7 @@ test("cobrar una factura de un servicio mensual muestra lo devengado a la fecha"
     .getByRole("link")
     .first()
     .click();
-  await page.getByRole("link", { name: "Nueva factura" }).click();
+  await page.getByRole("link", { name: "Emitir factura" }).click();
   const nueva = page.getByRole("dialog", { name: "Nueva factura" });
   await nueva.getByLabel("Número").fill(`0000-MEN-${Date.now()}`);
   await nueva.getByLabel("Vencimiento").fill("2026-11-30");
@@ -46,7 +46,9 @@ test("cobrar una factura de un servicio mensual muestra lo devengado a la fecha"
   ).trim();
   expect(devengado).toMatch(/^ARS [0-9.]+,[0-9]{2}$/);
 
-  await page.getByRole("link", { name: "Cobrar", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Registrar cobro", exact: true })
+    .click();
   const cobro = page.getByRole("dialog", { name: "Cobrar factura" });
   await expect(cobro.locator("[data-devengado]")).toContainText("Devengado a");
   await expect(cobro.locator("[data-devengado]")).toContainText(devengado);

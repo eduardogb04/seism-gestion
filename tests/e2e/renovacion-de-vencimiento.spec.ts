@@ -105,7 +105,7 @@ test("desde el vencimiento de un camión se cotiza la renovación: servicio nuev
   await recurso.getByRole("button", { name: "Guardar" }).click();
   await expect(ventana(page, "Nuevo recurso")).toHaveCount(0);
   // «Iniciar ejecución» exige la modalidad de facturación (F6-02).
-  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  await page.getByRole("link", { name: /^Puntual/ }).click();
   const modalidad = ventana(page, "Modalidad de facturación");
   await modalidad
     .getByLabel("Modalidad de facturación")

@@ -55,6 +55,23 @@ test("un administrador da de alta una plantilla con tres hitos, los reordena y l
   await expect(alta.getByLabel("Hito 2", { exact: true })).toHaveValue(
     "Informe",
   );
+  // Bajar y volver a subir el primero; un hito de más se baja de lugar y se quita.
+  await alta.getByRole("button", { name: "Bajar hito 1" }).click();
+  await expect(alta.getByLabel("Hito 1", { exact: true })).toHaveValue(
+    "Informe",
+  );
+  await expect(alta.getByLabel("Hito 2", { exact: true })).toHaveValue(
+    "Movilización",
+  );
+  await alta.getByRole("button", { name: "Subir hito 2" }).click();
+  await alta.getByRole("button", { name: "Agregar hito" }).click();
+  await alta.getByLabel("Hito 4", { exact: true }).fill("Borrador");
+  await alta.getByRole("button", { name: "Subir hito 4" }).click();
+  await alta.getByRole("button", { name: "Quitar hito 3" }).click();
+  await expect(alta.getByLabel("Hito 3", { exact: true })).toHaveValue(
+    "Inspección",
+  );
+  await expect(alta.getByLabel("Hito 4", { exact: true })).toHaveCount(0);
   await alta.getByRole("button", { name: "Guardar" }).click();
   await expect(ventana(page, "Alta de plantilla de hitos")).toHaveCount(0);
   await expect(

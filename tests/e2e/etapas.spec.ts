@@ -254,7 +254,7 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await expect(metricas.nth(0)).toContainText("versión 2 · 13/10/2026");
   await expect(metricas.nth(1)).toContainText(/\d+/);
   await expect(metricas.nth(2)).toContainText("2");
-  await expect(metricas.nth(2)).toContainText(/[-−]10\s%\ssobre la v1/);
+  await expect(metricas.nth(2)).toContainText(/[-−]10\s?%\ssobre la v1/);
   const versiones = page
     .getByRole("list", { name: "Versiones de la cotización" })
     .getByRole("listitem");

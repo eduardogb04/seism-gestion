@@ -221,6 +221,36 @@
     "queHacer": "Dalo de alta a mano desde Servicios, eligiendo un cliente, un tipo y un responsable vigentes.",
     "tipo": "persona"
   },
+  "DOM_0042": {
+    "codigo": "DOM-0042",
+    "descripcion": "El comprobante asociado no sirve: tiene que ser una factura, una factura adicional o una nota de débito vigente de este servicio, en la misma moneda.",
+    "queHacer": "Elegí otro comprobante de la lista, o cargá la nota en la moneda del comprobante al que corresponde.",
+    "tipo": "persona"
+  },
+  "DOM_0043": {
+    "codigo": "DOM-0043",
+    "descripcion": "La nota de crédito supera el saldo pendiente del comprobante asociado.",
+    "queHacer": "Cargá un importe que no pase el saldo pendiente. Si ya se cobró, primero anulá el cobro: una nota de crédito sobre lo ya cobrado no se carga.",
+    "tipo": "persona"
+  },
+  "DOM_0044": {
+    "codigo": "DOM-0044",
+    "descripcion": "El comprobante no se puede anular: tiene notas de crédito vigentes asociadas.",
+    "queHacer": "Primero anulá las notas de crédito de ese comprobante y volvé a intentarlo.",
+    "tipo": "persona"
+  },
+  "DOM_0045": {
+    "codigo": "DOM-0045",
+    "descripcion": "Las notas de crédito y de débito y las facturas adicionales se anulan desde los ajustes del servicio, con un motivo.",
+    "queHacer": "Abrí los ajustes del servicio en la etapa «Finalizado» y anulalo desde ahí, escribiendo el motivo.",
+    "tipo": "persona"
+  },
+  "DOM_0046": {
+    "codigo": "DOM-0046",
+    "descripcion": "Una nota de crédito no se cobra: no tiene saldo propio, baja el del comprobante al que está asociada.",
+    "queHacer": "Registrá el cobro en el comprobante asociado.",
+    "tipo": "persona"
+  },
   "IA_0001": {
     "codigo": "IA-0001",
     "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",

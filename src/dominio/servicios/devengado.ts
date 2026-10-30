@@ -36,7 +36,7 @@ export interface DatosDevengado {
   readonly estado: EstadoServicio;
   /** El total de la orden de compra vigente, sin IVA. */
   readonly orden: Importe<Moneda> | null;
-  /** Las facturas vigentes, sin IVA. */
+  /** Lo facturado que consume la orden, sin IVA y con signo: las facturas no adicionales y sus notas (F6-03). */
   readonly facturas: readonly Importe<Moneda>[];
   /** En el orden en que se cargaron: la primera es la inicial y su mes, el de inicio. */
   readonly cuotas: readonly Cuota[];

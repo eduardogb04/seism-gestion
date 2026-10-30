@@ -26,6 +26,7 @@ import type { CasosUsoAbm } from "../../../src/casos-uso/abm/abm.ts";
 import type { CasosUsoClientesDeGrupo } from "../../../src/casos-uso/abm/clientes-de-grupo.ts";
 import type { DefinicionAbm } from "../../../src/casos-uso/abm/definicion.ts";
 import type { CasosUsoPagos } from "../../../src/casos-uso/egresos/pagos.ts";
+import type { CasosUsoAjustes } from "../../../src/casos-uso/servicios/ajustes.ts";
 import type { CasosUsoCobros } from "../../../src/casos-uso/servicios/cobros.ts";
 import type { CasosUsoCotizaciones } from "../../../src/casos-uso/servicios/cotizaciones.ts";
 import type { CasosUsoDocumentosDeAlcance } from "../../../src/casos-uso/servicios/documentos-de-alcance.ts";
@@ -118,6 +119,7 @@ declare const casosSucesos: CasosUsoSucesos;
 declare const repositorioSucesos: RepositorioSucesos;
 declare const suceso: Suceso;
 declare const casosFacturacion: CasosUsoFacturacion;
+declare const casosAjustes: CasosUsoAjustes;
 declare const repositorioCuotas: RepositorioCuotas;
 declare const cuota: CuotaGuardada;
 declare const casosPlanificacion: CasosUsoPlanificacion;
@@ -190,6 +192,10 @@ function casosDeUsoSinActor(): void {
   casosFacturas.crear("id", {}, null);
   // @ts-expect-error `marcarEliminado` de facturas exige un `Actor` primero.
   casosFacturas.marcarEliminado("id");
+  // @ts-expect-error `crear` de ajustes (F6-03) exige un `Actor` primero.
+  casosAjustes.crear("id", "nota_credito", {}, null);
+  // @ts-expect-error `marcarAnulado` de ajustes (F6-03) exige un `Actor` primero.
+  casosAjustes.marcarAnulado("id", {});
   // @ts-expect-error `registrar` de cobros exige un `Actor` primero.
   casosCobros.registrar("id", {});
   // @ts-expect-error `marcarAnulado` de cobros exige un `Actor` primero.

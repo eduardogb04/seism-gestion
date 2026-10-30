@@ -11,6 +11,7 @@ import type { DetalleDePlanificacion } from "../../../casos-uso/servicios/planif
 import type { DetalleDeServicio } from "../../../casos-uso/servicios/servicios.ts";
 import type { EstadoServicio } from "../../../dominio/servicios/estados.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
+import { AjustesDelServicio } from "../_piezas/ajustes.tsx";
 import { Avance } from "./avance.tsx";
 import { Cotizaciones } from "./cotizaciones.tsx";
 import { Egresos } from "./egresos.tsx";
@@ -149,6 +150,9 @@ const SECCIONES = {
     <Recursos {...propias(datos)} detalle={datos.detalle} />
   ),
   facturas: (datos: Datos): ReactNode => <Facturas {...propias(datos)} />,
+  ajustes: (datos: Datos): ReactNode => (
+    <AjustesDelServicio {...propias(datos)} />
+  ),
   avance: ({ servicio }: Datos): ReactNode => (
     <Avance servicioId={servicio.id} />
   ),
@@ -188,7 +192,14 @@ const VISTAS: Readonly<
     "egresos",
     "vencimientos",
   ],
-  finalizado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],
+  finalizado: [
+    "facturacion",
+    "facturas",
+    "ajustes",
+    "avance",
+    "egresos",
+    "vencimientos",
+  ],
   cerrado: ["facturacion", "facturas", "avance", "egresos", "vencimientos"],
   // Salidas del recorrido: se miran, como «Cerrado».
   perdido: ["cotizaciones"],

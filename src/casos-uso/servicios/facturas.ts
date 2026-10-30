@@ -14,6 +14,11 @@
  * - El número no se repite entre las vigentes. Facturar más que el saldo de la
  *   orden de compra no se impide: la orden lo avisa (`ordenes-de-compra.ts`).
  * - Lo que la persona corrige (un campo o el archivo) vuelve por campo, no se lanza.
+ * - Las notas de crédito y de débito y la factura adicional (F6-03, ADR 0050)
+ *   se cargan y se anulan en `ajustes.ts`: la lista de acá trae las adicionales
+ *   y las notas de débito, que se cobran como una factura, con su tipo; las
+ *   notas de crédito no (no se cobran). Un comprobante con notas de crédito
+ *   vigentes no se anula (`DOM-0044`).
  */
 
 import { z } from "zod";
@@ -33,6 +38,10 @@ import {
   MONEDAS,
 } from "../../dominio/compartido/importe.ts";
 import { esDiaValido, formatearISO } from "../../dominio/compartido/reloj.ts";
+import {
+  admiteAnulacion,
+  tieneSaldo,
+} from "../../dominio/servicios/comprobante.ts";
 import {
   ALICUOTA_POR_DEFECTO,
   ALICUOTAS_IVA,
@@ -68,7 +77,12 @@ import type {
   DependenciasDeAdjuntos,
 } from "../documentos/documentos.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
-import { exigirEtapa, exigirEtapaDeFactura } from "./ciclo.ts";
+import {
+  cerrarSiEstaCobrado,
+  exigirEtapa,
+  exigirEtapaDeFactura,
+} from "./ciclo.ts";
+import { comprobanteDe } from "./cobranza.ts";
 import {
   bajaDeAdjuntoOpcional,
   CAMPO_DE_CAMBIO,
@@ -105,6 +119,8 @@ type ResultadoDeFactura =
 /** Una factura como se ve en la tabla del servicio. */
 export type FacturaListada = {
   readonly id: string;
+  /** `Factura`, `Factura adicional`, `Nota de débito` o `Nota de crédito`. */
+  readonly tipo: string;
   readonly numero: string;
   /** dd/mm/aaaa. */
   readonly fecha: string;
@@ -174,8 +190,57 @@ export type CasosUsoFacturas = {
 /** Lo que se escribe en el formulario: la cabecera sin lo que pone el sistema. */
 type DatosEscritos = Omit<
   DatosFactura,
-  "servicioId" | "documentoId" | "periodo"
+  | "servicioId"
+  | "documentoId"
+  | "periodo"
+  | "tipo"
+  | "adicional"
+  | "comprobanteAsociadoId"
+  | "motivoAnulacion"
 >;
+
+/** Cómo se nombra cada comprobante en las listas. */
+export function tipoVisible({
+  tipo,
+  adicional,
+}: Pick<DatosFactura, "tipo" | "adicional">): string {
+  switch (tipo) {
+    case "factura":
+      return adicional ? "Factura adicional" : "Factura";
+    case "nota_debito":
+      return "Nota de débito";
+    case "nota_credito":
+      return "Nota de crédito";
+  }
+}
+
+/** La alícuota elegida en el selector, en milésimas. */
+export const alicuotaElegida = z.string().transform((valor, contexto) => {
+  const alicuota = ALICUOTAS_IVA.find((a) => String(a) === valor);
+  if (alicuota === undefined) {
+    contexto.addIssue({ code: "custom", message: "Elegí una alícuota." });
+    return z.NEVER;
+  }
+  return alicuota;
+});
+
+/** El vencimiento no puede ser anterior a la fecha; dos días `aaaa-mm-dd` se comparan como texto. */
+export function vencimientoNoAnterior(
+  datos: { readonly fecha: string; readonly vencimiento: string },
+  contexto: z.RefinementCtx,
+): void {
+  if (
+    esDiaValido(datos.fecha) &&
+    esDiaValido(datos.vencimiento) &&
+    datos.vencimiento < datos.fecha
+  ) {
+    contexto.addIssue({
+      code: "custom",
+      path: ["vencimiento"],
+      message: "No puede ser anterior a la fecha de la factura.",
+    });
+  }
+}
 
 function camposDeFactura(
   ordenes: readonly OpcionAbm[],
@@ -221,30 +286,10 @@ const VALIDACION: z.ZodType<DatosEscritos> = z
     vencimiento: z.string(),
     importe: importeMayorQueCero,
     cambio: cambioDeDocumento,
-    alicuota: z.string().transform((valor, contexto) => {
-      const alicuota = ALICUOTAS_IVA.find((a) => String(a) === valor);
-      if (alicuota === undefined) {
-        contexto.addIssue({ code: "custom", message: "Elegí una alícuota." });
-        return z.NEVER;
-      }
-      return alicuota;
-    }),
+    alicuota: alicuotaElegida,
     ordenCompraId: z.string().nullable(),
   })
-  .superRefine((datos, contexto) => {
-    // Dos días `aaaa-mm-dd` se comparan como texto.
-    if (
-      esDiaValido(datos.fecha) &&
-      esDiaValido(datos.vencimiento) &&
-      datos.vencimiento < datos.fecha
-    ) {
-      contexto.addIssue({
-        code: "custom",
-        path: ["vencimiento"],
-        message: "No puede ser anterior a la fecha de la factura.",
-      });
-    }
-  });
+  .superRefine(vencimientoNoAnterior);
 
 /** Las órdenes de compra vigentes del servicio, para elegir a cuál corresponde la factura. */
 async function ordenesParaElegir(
@@ -256,6 +301,20 @@ async function ordenesParaElegir(
     etiqueta: `${valor.numero} · ${formatearImporte(valor.importe)}`,
     moneda: valor.importe.moneda,
   }));
+}
+
+/** `DOM-0016` si tiene cobros vigentes y `DOM-0044` si tiene notas de crédito vigentes: se anulan primero ellos. */
+export async function exigirSinCobrosNiCreditos(
+  repos: RepositoriosEnTransaccion,
+  { valor }: Factura,
+): Promise<void> {
+  if ((await repos.cobros.listarDe([valor.id])).length > 0) {
+    throw nuevoError(catalogo.DOM_0016, { id: valor.id });
+  }
+  const vigentes = await repos.facturas.listarDe(valor.servicioId);
+  if (!admiteAnulacion(vigentes.map(comprobanteDe), valor.id).ok) {
+    throw nuevoError(catalogo.DOM_0044, { id: valor.id });
+  }
 }
 
 async function facturaVigente(
@@ -279,6 +338,7 @@ function filaDeFactura(
 ): FacturaListada {
   return {
     id: valor.id,
+    tipo: tipoVisible(valor),
     numero: valor.numero,
     fecha: diaConBarras(valor.fecha),
     vencimiento: diaConBarras(valor.vencimiento),
@@ -353,7 +413,9 @@ export function crearCasosUsoFacturas({
     listar(servicioId) {
       return transaccional.ejecutar(async (repos) => {
         await servicioVigente(repos, servicioId);
-        const facturas = await repos.facturas.listarDe(servicioId);
+        const facturas = (await repos.facturas.listarDe(servicioId)).filter(
+          (factura) => tieneSaldo(comprobanteDe(factura)),
+        );
         const ordenes = await repos.ordenesCompra.listarDe(servicioId);
         const documento = await documentosListados(
           repos,
@@ -457,7 +519,7 @@ export function crearCasosUsoFacturas({
         const adjunto = validarAdjuntoOpcional(archivo);
         const repetido =
           validado.ok &&
-          (await repos.facturas.existeNumero(validado.datos.numero));
+          (await repos.facturas.existeNumero(validado.datos.numero, "factura"));
         if (!validado.ok || !adjunto.ok || repetido) {
           return {
             ok: false,
@@ -486,6 +548,10 @@ export function crearCasosUsoFacturas({
                 : null,
               servicioId,
               documentoId,
+              tipo: "factura",
+              adicional: false,
+              comprobanteAsociadoId: null,
+              motivoAnulacion: null,
               id,
             },
             actor,
@@ -541,12 +607,14 @@ export function crearCasosUsoFacturas({
         if (actual === null || eliminada === null || !eliminada.ok) {
           throw nuevoError(catalogo.DOM_0009, { entidad: "Factura", id });
         }
-        // Con la fila del servicio tomada, un cobro de esta factura no se carga a la vez.
-        await servicioVigenteBloqueado(repos, actual.valor.servicioId);
-        await exigirEtapa(repos, actual.valor.servicioId, "factura");
-        if ((await repos.cobros.listarDe([id])).length > 0) {
-          throw nuevoError(catalogo.DOM_0016, { id });
+        const { servicioId } = actual.valor;
+        if (actual.valor.tipo !== "factura" || actual.valor.adicional) {
+          throw nuevoError(catalogo.DOM_0045, { id });
         }
+        // Con la fila del servicio tomada, un cobro o una nota de crédito de esta factura no se carga a la vez.
+        await servicioVigenteBloqueado(repos, servicioId);
+        await exigirEtapa(repos, servicioId, "factura");
+        await exigirSinCobrosNiCreditos(repos, actual);
         await repos.facturas.actualizar(actor, eliminada.valor, "eliminar");
         await bajaDeAdjuntoOpcional(
           actor,
@@ -554,6 +622,8 @@ export function crearCasosUsoFacturas({
           reloj,
           actual.valor.documentoId,
         );
+        // Si la que se anula era la única con saldo, lo que queda está cobrado (F6-03).
+        await cerrarSiEstaCobrado(actor, repos, reloj, servicioId);
       });
     },
   };

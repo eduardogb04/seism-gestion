@@ -14,6 +14,7 @@ import { refresh } from "next/cache.js";
 import { redirect } from "next/navigation.js";
 import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
 import { CLIENTES } from "../../casos-uso/abm/clientes.ts";
+import type { Ajuste } from "../../casos-uso/servicios/ajustes.ts";
 import type { OrigenDeAnulacion } from "../../casos-uso/servicios/sucesos.ts";
 import { pantallaDeCodigo } from "../../casos-uso/sesion/errores.ts";
 import type { Actor } from "../../dominio/compartido/actor.ts";
@@ -235,6 +236,43 @@ export async function anularFactura(
   return escribir(formulario, async (actor) => {
     await armado().facturas.marcarEliminado(actor, id);
     return { ok: true, ruta: `${RUTA}/${servicioId}` };
+  });
+}
+
+/** Cargar una nota de crédito, una de débito o una factura adicional (F6-03). */
+export async function cargarAjuste(
+  servicioId: string,
+  ajuste: Ajuste,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().ajustes.crear(
+      actor,
+      servicioId,
+      ajuste,
+      escritoEn(formulario),
+      archivo,
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
+/** Anular un ajuste, con el motivo. */
+export async function anularAjuste(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const anulado = await armado().ajustes.marcarAnulado(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return anulado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : anulado;
   });
 }
 

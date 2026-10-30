@@ -8,7 +8,10 @@
  *
  * Lo que se muestra por moneda sale del dominio: el devengado y el por facturar
  * de `devengadoPorMoneda`, el saldo de la orden de `saldoDeOrden` (F2-06) y el
- * por cobrar del saldo de cada factura (`conCobrosDe`, F2-07).
+ * por cobrar del saldo de cada factura (`conCobrosDe`, F2-07). A la orden y a lo
+ * devengado los mueven las facturas no adicionales y las notas que cuelgan de
+ * ellas, con su signo (`cuentaParaLaOrden`, F6-03): la factura adicional suma a
+ * lo facturado y a lo por cobrar, no a lo que falta facturar.
  */
 
 import { z } from "zod";
@@ -29,6 +32,10 @@ import {
 } from "../../dominio/compartido/importe.ts";
 import type { FechaHora, Reloj } from "../../dominio/compartido/reloj.ts";
 import { sumaEn } from "../../dominio/servicios/avance.ts";
+import {
+  cuentaParaLaOrden,
+  importeConSigno,
+} from "../../dominio/servicios/comprobante.ts";
 import {
   type Cuota,
   cuotaDelMes,
@@ -64,7 +71,7 @@ import { nombreDelMes } from "../compartido/meses.ts";
 import { mesDe, primerDia } from "../tablero/mes.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import { exigirEtapa, historialDe } from "./ciclo.ts";
-import { conCobrosDe } from "./cobranza.ts";
+import { comprobanteDe, conCobrosDe } from "./cobranza.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
   servicioVigente,
@@ -319,11 +326,14 @@ export function crearCasosUsoFacturacion({
           await historialDe(repos, servicioId),
         );
         const [orden] = await repos.ordenesCompra.listarDe(servicioId);
-        const facturas = await conCobrosDe(
-          repos,
-          await repos.facturas.listarDe(servicioId),
-        );
-        const sinIva = facturas.map(({ factura }) => factura.valor.importe);
+        const vigentes = await repos.facturas.listarDe(servicioId);
+        const facturas = await conCobrosDe(repos, vigentes);
+        const comprobantes = vigentes.map(comprobanteDe);
+        const sinIva = vigentes
+          .filter((factura) =>
+            cuentaParaLaOrden(comprobanteDe(factura), comprobantes),
+          )
+          .map(({ valor }) => importeConSigno(valor.tipo, valor.importe));
         const cuotas = await repos.cuotas.listarDe(servicioId);
         const quien = await nombresDeActores(repos);
         const hoy = reloj.ahora();

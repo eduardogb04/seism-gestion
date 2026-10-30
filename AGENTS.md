@@ -271,8 +271,8 @@ Decisiones y porqués en el ADR 0007. En corto:
   la lista permitida, ninguna capa que mencione un `.env`, el contenedor **sale 1 sin
   `APP_ENTORNO` ni `DATABASE_URL`** (nombrando las dos), el worker **sale ≠ 0 sin `DATABASE_URL`**
   (nombrándola) y **arranca** con el entorno completo (anuncia `worker arrancado` y sigue
-  corriendo), y el tamaño por debajo de **250 MB** (hoy
-  224 MB con el worker; 201 MB antes de F0-25, medido en CI). Falla nombrando **todas** las verificaciones que no pasaron. El contenedor de la prueba
+  corriendo), y el tamaño por debajo de **300 MB** (hoy
+  ~250 MB al subir el tope en M-24; 224 MB con F0-25, medido en CI). Falla nombrando **todas** las verificaciones que no pasaron. El contenedor de la prueba
   se levanta con `APP_ENTORNO=ci` y una `DATABASE_URL` ficticia (la app todavía no se conecta).
 - **Prisma en la imagen (F0-08).** La etapa `dependencias` copia `prisma.config.ts` y
   `prisma/schema.prisma` antes de `npm ci`, porque `postinstall` genera el cliente; el cliente

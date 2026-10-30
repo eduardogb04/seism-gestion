@@ -82,6 +82,10 @@ menos de 250 MB. `npm run imagen:prueba` lo verifica en cada corrida: si alguna 
 de 250 MB, el check queda en rojo y se decide ahí, no se descubre en el servidor. De esos 206 MB, la
 imagen base de Node aporta la mayor parte; la app y su `node_modules` trazado son unas decenas.
 
+**Revisión (M-24):** el tope sube a **300 MB**. El crecimiento de la tanda 6 llevó la imagen a 251–252 MB
+con código propio, sin dependencias nuevas. El disco del servidor elegido no hace de 50 MB un problema;
+el tope sigue para avisar de un salto brusco (una dependencia pesada), no de un crecimiento gradual.
+
 ## Alternativas descartadas
 
 | Alternativa | Por qué no |

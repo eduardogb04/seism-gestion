@@ -32,6 +32,10 @@ export function botonDeCambio(destino: EstadoServicio): string {
   if (destino === "finalizado") {
     return "Finalizar servicio";
   }
+  // La única vuelta a «Cotizado» que pide la persona es desde «Sin respuesta».
+  if (destino === "cotizado") {
+    return "El cliente volvió";
+  }
   return `Pasar a «${ETIQUETAS_DE_ESTADO[destino]}»`;
 }
 

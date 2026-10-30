@@ -105,7 +105,7 @@ test("desde el calendario se cotiza la renovación de un vencimiento: lleva al s
   await recurso.getByRole("button", { name: "Guardar" }).click();
   await expect(ventana(page, "Nuevo recurso")).toHaveCount(0);
   // «Iniciar ejecución» exige la modalidad de facturación (F6-02).
-  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  await page.getByRole("link", { name: /^Puntual/ }).click();
   const modalidad = ventana(page, "Modalidad de facturación");
   await modalidad
     .getByLabel("Modalidad de facturación")

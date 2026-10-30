@@ -1,7 +1,9 @@
 /** Lo que comparten las páginas de etapa y sus paneles (F6-01). */
 
+import type { CotizacionListada } from "../../../casos-uso/servicios/cotizaciones.ts";
 import { ETIQUETAS_DE_ESTADO } from "../../../casos-uso/servicios/formulario.ts";
 import type { DetalleDeServicio } from "../../../casos-uso/servicios/servicios.ts";
+import type { Accion } from "../../_ui/panel.tsx";
 
 export type Parametros = Readonly<
   Record<string, string | string[] | undefined>
@@ -14,6 +16,8 @@ export type DatosDePanel = {
   readonly ruta: string;
   /** Si se carga o se cambia algo: no en una etapa recorrida, ni en «Cerrado» o una salida. */
   readonly puedeEscribir: boolean;
+  /** Si una persona con rol que escribe mira la etapa actual: puede hacer lo que esa etapa deja, aunque sea solo cobrar o volver a cotizar. */
+  readonly puedeActuar: boolean;
   /** Una etapa recorrida que se mira, no la actual. */
   readonly soloLectura: boolean;
   readonly parametros: Parametros;
@@ -31,4 +35,35 @@ export function diasEnEtapa(
 
 export function dias(cantidad: number): string {
   return cantidad === 1 ? "1 día" : `${cantidad} días`;
+}
+
+/** La vigente es la cotización de versión mayor. */
+export function cotizacionVigente(
+  cotizaciones: readonly CotizacionListada[],
+): CotizacionListada | null {
+  return cotizaciones.reduce<CotizacionListada | null>(
+    (mayor, cotizacion) =>
+      mayor === null || cotizacion.version > mayor.version ? cotizacion : mayor,
+    null,
+  );
+}
+
+/**
+ * Los cambios de etapa que ofrece el servicio, para la barra de acciones: el
+ * `principal` (si lo hay) sale aparte y el resto va a las salidas.
+ */
+export function transicionesDelPanel(
+  { transiciones }: DetalleDeServicio,
+  ruta: string,
+  principal?: string,
+): { readonly principal: Accion | null; readonly salidas: readonly Accion[] } {
+  const accion = ({ valor, etiqueta }: (typeof transiciones)[number]) => ({
+    texto: etiqueta,
+    href: `${ruta}?pasar=${valor}`,
+  });
+  const elegida = transiciones.find(({ valor }) => valor === principal);
+  return {
+    principal: elegida === undefined ? null : accion(elegida),
+    salidas: transiciones.filter((otra) => otra !== elegida).map(accion),
+  };
 }

@@ -82,6 +82,7 @@ export function RecursosAgrupados({
             href={`${ruta}?recurso=1`}
             scroll={false}
             className={clasesDeBoton("primario")}
+            data-carga="planificacion"
           >
             Nuevo recurso
           </Enlace>
@@ -116,7 +117,11 @@ export function RecursosAgrupados({
                             recurso.id,
                           )}
                         >
-                          <Boton variante="peligro" type="submit">
+                          <Boton
+                            variante="peligro"
+                            type="submit"
+                            data-carga="planificacion"
+                          >
                             Quitar
                           </Boton>
                         </form>

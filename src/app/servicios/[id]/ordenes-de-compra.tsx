@@ -175,6 +175,7 @@ export async function OrdenesDeCompra({
                     <Enlace
                       href={`${ruta}?anularOrden=${orden.id}`}
                       scroll={false}
+                      data-carga="anulacionDeOrdenDeCompra"
                     >
                       Anular
                     </Enlace>

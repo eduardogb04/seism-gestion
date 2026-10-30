@@ -44,6 +44,7 @@ import {
   periodoAFacturar,
 } from "../../dominio/servicios/devengado.ts";
 import {
+  admiteFactura,
   cicloServicio,
   MODALIDADES_DE_FACTURACION,
   type ModalidadDeFacturacion,
@@ -89,12 +90,15 @@ type ResultadoDeFacturacion =
   | { readonly ok: true }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
-const ETIQUETAS_DE_MODALIDAD: Readonly<Record<ModalidadDeFacturacion, string>> =
-  {
-    puntual: "Puntual",
-    por_hitos: "Por hitos (libre)",
-    mensual: "Mensual",
-  };
+export { MODALIDADES_DE_FACTURACION };
+
+export const ETIQUETAS_DE_MODALIDAD: Readonly<
+  Record<ModalidadDeFacturacion, string>
+> = {
+  puntual: "Puntual",
+  por_hitos: "Por hitos (libre)",
+  mensual: "Mensual",
+};
 
 /** Una cuota o un ajuste, como se ve en el historial. */
 export type CuotaListada = {
@@ -115,6 +119,11 @@ export type LineaDeFacturacion = {
   readonly porFacturar: string;
   /** El saldo de la orden de compra si es de esta moneda; si no, vacío. */
   readonly saldoDeOrden: string;
+  /** Lo facturado de la orden de compra (sin IVA) y qué parte de ella es, en porcentaje entero; `null` si no hay orden en esta moneda. */
+  readonly facturadoDeLaOrden: {
+    readonly importe: string;
+    readonly porcentaje: number;
+  } | null;
   /** El saldo de las facturas vigentes, con IVA. */
   readonly porCobrar: string;
 };
@@ -123,6 +132,8 @@ export type Facturacion = {
   /** La etiqueta, o `null` si todavía no se eligió. */
   readonly modalidad: string | null;
   readonly esMensual: boolean;
+  /** ¿La etapa actual admite cargar una factura con la modalidad elegida? */
+  readonly admiteFactura: boolean;
   /** La cuota inicial primero y después los ajustes, en el orden en que se cargaron. */
   readonly cuotas: readonly CuotaListada[];
   /** `octubre de 2026`: el mes del reloj, al que se calcula lo devengado. */
@@ -347,19 +358,23 @@ export function crearCasosUsoFacturacion({
         const cuotas = await repos.cuotas.listarDe(servicioId);
         const quien = await nombresDeActores(repos);
         const hoy = reloj.ahora();
-        const saldo =
+        const cuenta =
           orden === undefined
             ? null
             : saldoDeOrden(
                 orden.valor.importe,
                 sinIva.map((importe) => ({ importe })),
-              ).saldo;
+              );
+        const saldo = cuenta?.saldo ?? null;
         return {
           modalidad:
             modalidadFacturacion === null
               ? null
               : ETIQUETAS_DE_MODALIDAD[modalidadFacturacion],
           esMensual: modalidadFacturacion === "mensual",
+          admiteFactura:
+            modalidadFacturacion !== null &&
+            admiteFactura(estado, modalidadFacturacion),
           cuotas: cuotas.map(({ valor, creadoEn, creadoPor }) => ({
             id: valor.id,
             desde: nombreDelMes(primerDiaDe(valor.desdeMes)),
@@ -381,6 +396,16 @@ export function crearCasosUsoFacturacion({
             porFacturar: formatearImporte(porFacturar),
             saldoDeOrden:
               saldo?.moneda === moneda ? formatearImporte(saldo) : "",
+            facturadoDeLaOrden:
+              cuenta?.total.moneda === moneda && cuenta.total.centavos !== 0n
+                ? {
+                    importe: formatearImporte(cuenta.facturado),
+                    porcentaje: Number(
+                      (cuenta.facturado.centavos * 100n) /
+                        cuenta.total.centavos,
+                    ),
+                  }
+                : null,
             porCobrar: formatearImporte(
               sumaEn(
                 moneda,

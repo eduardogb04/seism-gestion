@@ -71,7 +71,7 @@ async function cargarFactura(
   },
   alicuota: "210" | "105",
 ): Promise<void> {
-  await page.getByRole("link", { name: "Nueva factura" }).click();
+  await page.getByRole("link", { name: "Emitir factura" }).click();
   const nueva = ventana(page, "Nueva factura");
   await nueva.getByLabel("Número").fill(datos.numero);
   await nueva.getByLabel("Fecha", { exact: true }).fill(datos.fecha);
@@ -151,7 +151,7 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   await expect(filaDeOrden.getByRole("cell").nth(3)).toHaveText("ARS 0,00");
   await expect(filaDeOrden.getByRole("cell").nth(4)).toHaveText("ARS 1.000,00");
   // Facturar exige la modalidad de facturación (F3-03).
-  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  await page.getByRole("link", { name: /^Puntual/ }).click();
   const modalidad = ventana(page, "Modalidad de facturación");
   await modalidad
     .getByLabel("Modalidad de facturación")
@@ -163,7 +163,7 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   );
 
   // 2. La primera factura: el IVA y el total se ven antes de guardar y siguen lo que se escribe.
-  await page.getByRole("link", { name: "Nueva factura" }).click();
+  await page.getByRole("link", { name: "Emitir factura" }).click();
   const primera = ventana(page, "Nueva factura");
   await expect(primera.getByLabel("IVA", { exact: true })).toHaveValue("210");
   await expect(primera.locator("[data-iva]")).toHaveText("—");

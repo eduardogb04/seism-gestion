@@ -13,6 +13,7 @@
  */
 
 import {
+  crearImporte,
   formatearImporte,
   MONEDAS,
   type Moneda,
@@ -31,6 +32,7 @@ import {
   armarSinTipoDeCambio,
   type Cifra,
   type Convertido,
+  resultadosPorServicio,
   type SinTipoDeCambio,
 } from "./convertido.ts";
 import {
@@ -86,7 +88,24 @@ export type CasosUsoTablero = {
     readonly direccion?: unknown;
   }): Promise<SinTipoDeCambio>;
   readonly listados: ListadosDelTablero;
+  /** Lo que ya calcula la rentabilidad del tablero, para un solo servicio y en pesos. */
+  resultadoDelServicio(servicioId: string): Promise<ResultadoDelServicio>;
 };
+
+export type ResultadoDelServicio = {
+  /** Sin IVA. */
+  readonly facturado: string;
+  /** Los de proyecto. */
+  readonly egresos: string;
+  readonly resultado: string;
+  /** Resultado sobre facturado: `—` si no se facturó nada. */
+  readonly margen: string;
+};
+
+const MARGEN = new Intl.NumberFormat("es-AR", {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
 
 type Dependencias = {
   readonly transaccional: Transaccional;
@@ -103,6 +122,34 @@ export function crearCasosUsoTablero({
 }: Dependencias): CasosUsoTablero {
   return {
     listados: armarListadosDelTablero({ transaccional, reloj }),
+
+    resultadoDelServicio(servicioId) {
+      const moneda = elegirMoneda(undefined);
+      const hoy = reloj.ahora();
+      return transaccional.ejecutar(async ({ tablero }) => {
+        const cero = crearImporte(0n, moneda);
+        const { facturado, egresos, resultado } = resultadosPorServicio(
+          moneda,
+          hoy,
+          await tablero.rentabilidadConCambio(),
+        ).find((propio) => propio.servicioId === servicioId) ?? {
+          facturado: cero,
+          egresos: cero,
+          resultado: cero,
+        };
+        return {
+          facturado: formatearImporte(facturado),
+          egresos: formatearImporte(egresos),
+          resultado: formatearImporte(resultado),
+          margen:
+            facturado.centavos === 0n
+              ? "—"
+              : MARGEN.format(
+                  Number(resultado.centavos) / Number(facturado.centavos),
+                ),
+        };
+      });
+    },
 
     sinTipoDeCambio(parametros) {
       const moneda = elegirMoneda(parametros.moneda);

@@ -92,6 +92,57 @@ const enUnidades = (importe: Importe<Moneda>): number =>
 const etiquetaDe = (codigo: string): string =>
   codigo.replace(/^SRV-[0-9]{2}([0-9]{2})-(.+)$/, "$2/$1");
 
+/** Lo facturado y lo gastado de cada servicio, en `moneda`; el resultado es lo primero menos lo segundo. */
+export function resultadosPorServicio(
+  moneda: Moneda,
+  hoy: FechaHora,
+  rentabilidad: Awaited<
+    ReturnType<RepositoriosEnTransaccion["tablero"]["rentabilidadConCambio"]>
+  >,
+): {
+  readonly servicioId: string;
+  readonly codigo: string;
+  readonly facturado: Importe<Moneda>;
+  readonly egresos: Importe<Moneda>;
+  readonly resultado: Importe<Moneda>;
+}[] {
+  const porServicio = new Map<
+    string,
+    {
+      codigo: string;
+      facturado: MontoParaConvertir[];
+      egresos: MontoParaConvertir[];
+    }
+  >();
+  for (const [campo, montos] of [
+    ["facturado", rentabilidad.facturado],
+    ["egresos", rentabilidad.egresos],
+  ] as const) {
+    for (const monto of montos) {
+      const servicio = porServicio.get(monto.servicioId) ?? {
+        codigo: monto.codigo,
+        facturado: [],
+        egresos: [],
+      };
+      servicio[campo].push(monto);
+      porServicio.set(monto.servicioId, servicio);
+    }
+  }
+  return [...porServicio].map(
+    ([servicioId, { codigo, facturado: facturas, egresos: gastos }]) => {
+      const facturado = sumarConvertidos(moneda, facturas, hoy);
+      const egresos = sumarConvertidos(moneda, gastos, hoy);
+      return {
+        servicioId,
+        codigo,
+        facturado,
+        egresos,
+        resultado: restarEnMoneda(facturado, egresos),
+      };
+    },
+  );
+}
+
 export async function armarConvertido(
   { tablero }: RepositoriosEnTransaccion,
   { mes, moneda, hoy, porCobrar, porPagar }: Contexto,
@@ -138,42 +189,11 @@ export async function armarConvertido(
         })),
     );
 
-  const porServicio = new Map<
-    string,
-    {
-      codigo: string;
-      facturado: MontoParaConvertir[];
-      egresos: MontoParaConvertir[];
-    }
-  >();
-  for (const [campo, montos] of [
-    ["facturado", rentabilidad.facturado],
-    ["egresos", rentabilidad.egresos],
-  ] as const) {
-    for (const monto of montos) {
-      const servicio = porServicio.get(monto.servicioId) ?? {
-        codigo: monto.codigo,
-        facturado: [],
-        egresos: [],
-      };
-      servicio[campo].push(monto);
-      porServicio.set(monto.servicioId, servicio);
-    }
-  }
-  const servicios = [...porServicio.values()]
-    .map(({ codigo, facturado: facturas, egresos }) => {
-      const facturadoDelServicio = suma(facturas);
-      return {
-        codigo,
-        facturado: facturadoDelServicio,
-        resultado: restarEnMoneda(facturadoDelServicio, suma(egresos)),
-      };
-    })
-    .sort(
-      (a, b) =>
-        Number(b.facturado.centavos - a.facturado.centavos) ||
-        a.codigo.localeCompare(b.codigo),
-    );
+  const servicios = resultadosPorServicio(moneda, hoy, rentabilidad).sort(
+    (a, b) =>
+      Number(b.facturado.centavos - a.facturado.centavos) ||
+      a.codigo.localeCompare(b.codigo),
+  );
   const resto = servicios.slice(SERVICIOS_EN_EL_GRAFICO);
 
   return {

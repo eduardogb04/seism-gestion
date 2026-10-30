@@ -1120,8 +1120,8 @@ genera el sistema, su estado es el último evento de `servicios_eventos` y abarc
 y su entrada en `RepositoriosEnTransaccion`, su caso de uso en `src/casos-uso/` y una sección
 (`[id]/<nombre>.tsx`) que se suma al panel de cada etapa donde se ve (F6-01, ADR 0048: una ruta por etapa,
 `/servicios/<id>/<segmento>`, con lo común en `[id]/layout.tsx`; el estado ↔ segmento sale solo de `[id]/rutas.ts`;
-«Creado» y «Cotizado» tienen su `panel-<etapa>.tsx` con las piezas de `src/app/_ui/panel.tsx`, y las demás etapas, hasta
-F6-04, la lista de `VISTAS` de `[id]/etapas.tsx`). Las ventanas del panel (`?<parametro>=`) las dibuja su página: el
+cada etapa tiene su `panel-<etapa>.tsx` (las tres salidas comparten `panel-salida.tsx`) con las piezas de
+`src/app/_ui/panel.tsx`; F6-04). Las ventanas del panel (`?<parametro>=`) las dibuja su página: el
 layout no recibe los parámetros de la dirección. `/servicios/<id>` redirige al panel de la etapa actual conservando los
 parámetros, así que una acción puede seguir volviendo ahí. Del molde se usan las piezas sueltas (`validarEscrito`, `relacionesRotas`,
 `elegiblesDe`, `parametrosDe`, `crearEscrituraPrisma`, `ListadoAbm`, `FormularioAbm`, `Ventana`), no se copian.
@@ -1132,7 +1132,10 @@ cancelar sin motivo, `DOM-0017`), y lo automático por `cambiarPorCausa(..., cau
 (`cotizacion`, `ordenDeCompra`, `anulacionDeOrdenDeCompra`; `cerrarSiEstaCobrado` para `cobrado`, al cobrar y al finalizar). Nadie escribe en
 `servicios_eventos` por otro lado. **Cada carga mira su etapa**: con la fila del servicio tomada, `exigirEtapa(repos, id,
 carga)` antes de escribir (`DOM-0018`, sin escribir nada); qué carga va en qué estado lo dice una sola tabla,
-`admiteCarga`. Algo nuevo que se cargue en un servicio suma su `Carga` ahí y su caso a `tests/casos-uso/etapas.test.ts`.
+`admiteCarga`. Algo nuevo que se cargue en un servicio suma su `Carga` ahí y su caso a `tests/casos-uso/etapas.test.ts`. **Cada carga funciona
+desde su panel** (F6-04): su botón lleva `data-carga="<carga>"` (o `carga: "<carga>"` en la barra de acciones) y
+`tests/casos-uso/cargas-en-los-paneles.test.ts` recorre `ETAPAS_DE_CARGA` contra los paneles de «Adjudicado» en adelante: cada
+carga que una etapa admite tiene su botón en el panel o en una pieza que importa, y el panel no marca ninguna que no admite.
 Un test que necesita un servicio en una etapa lo lleva con `llevarServicioA` (`tests/casos-uso/_arnes/servicio.ts`). Una entidad nueva que apunte a un cliente, un tipo o un sitio y no
 sea un ABM se suma a `enUso` (`src/casos-uso/abm/definiciones.ts`) como `RepositorioServicios.usa`. Cotizaciones (F2-05,
 ADR 0035) es el primer caso: `src/casos-uso/servicios/cotizaciones.ts`, y para cambiar el estado desde otro caso de uso

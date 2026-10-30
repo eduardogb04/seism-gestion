@@ -85,7 +85,7 @@ async function cargarFactura(
     orden: string | null;
   },
 ): Promise<void> {
-  await page.getByRole("link", { name: "Nueva factura" }).click();
+  await page.getByRole("link", { name: "Emitir factura" }).click();
   const nueva = ventana(page, "Nueva factura");
   await nueva.getByLabel("Número").fill(datos.numero);
   await nueva.getByLabel("Fecha", { exact: true }).fill(datos.fecha);
@@ -133,7 +133,7 @@ async function abrirCobro(
 ) {
   if (desde === "servicio") {
     await filaDeFactura(page, numero)
-      .getByRole("link", { name: "Cobrar", exact: true })
+      .getByRole("link", { name: "Registrar cobro", exact: true })
       .click();
   } else {
     await page
@@ -213,7 +213,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await orden.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nueva orden de compra")).toHaveCount(0);
   // Facturar exige la modalidad de facturación (F3-03).
-  await page.getByRole("link", { name: "Elegir la modalidad" }).click();
+  await page.getByRole("link", { name: /^Puntual/ }).click();
   const modalidad = ventana(page, "Modalidad de facturación");
   await modalidad
     .getByLabel("Modalidad de facturación")
@@ -342,7 +342,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await expect(factura.getByRole("cell").nth(10)).toHaveText("ARS 0,00");
   await expect(factura.getByRole("cell").nth(11)).toHaveText("Cobrada");
   await expect(
-    factura.getByRole("link", { name: "Cobrar", exact: true }),
+    factura.getByRole("link", { name: "Registrar cobro", exact: true }),
   ).toHaveCount(0);
   await expect(cobros.getByRole("row")).toHaveCount(3);
 

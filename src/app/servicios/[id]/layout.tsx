@@ -20,7 +20,11 @@ import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { Marco } from "../../_ui/marco.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { sesionExigida } from "../../(auth)/sesion-actual.ts";
-import { ChipDeEstado, esSoloLectura, LineaDeEtapas } from "./etapas.tsx";
+import {
+  ChipDeEstado,
+  esSoloLectura,
+  LineaDeEtapas,
+} from "./estado-del-servicio.tsx";
 import { rutaDeEtapa, servicioDe } from "./rutas.ts";
 import { ColumnaDeSucesos } from "./sucesos.tsx";
 

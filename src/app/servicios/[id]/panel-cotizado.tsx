@@ -29,7 +29,12 @@ import {
   VentanaDeAnulacion as VentanaDeAnulacionDeCotizacion,
   VentanaDeCarga as VentanaDeCotizacion,
 } from "./cotizaciones.tsx";
-import { type DatosDePanel, dias, diasEnEtapa } from "./datos-de-panel.ts";
+import {
+  cotizacionVigente,
+  type DatosDePanel,
+  dias,
+  diasEnEtapa,
+} from "./datos-de-panel.ts";
 import { DocumentosDeAlcance } from "./documentos-de-alcance.tsx";
 import { VentanaDeCarga as VentanaDeOrden } from "./ordenes-de-compra.tsx";
 
@@ -54,12 +59,7 @@ export async function PanelCotizado({
   parametros,
 }: DatosDePanel) {
   const cotizaciones = await armado().cotizaciones.listar(servicio.id);
-  // De la más nueva a la más vieja: la vigente es la de versión mayor.
-  const vigente = cotizaciones.reduce<(typeof cotizaciones)[number] | null>(
-    (mayor, cotizacion) =>
-      mayor === null || cotizacion.version > mayor.version ? cotizacion : mayor,
-    null,
-  );
+  const vigente = cotizacionVigente(cotizaciones);
   const primera = cotizaciones.at(-1);
   const variacion =
     vigente === null ||
@@ -133,17 +133,20 @@ export async function PanelCotizado({
               texto: "Cargar orden de compra",
               href: `${ruta}?orden=1`,
               Icono: FileCheck,
+              carga: "ordenDeCompra",
             }}
             secundarias={[
               {
                 texto: "Nueva versión",
                 href: `${ruta}?cotizacion=1`,
                 Icono: Files,
+                carga: "cotizacion",
               },
               {
                 texto: "Subir documento de alcance",
                 href: `${ruta}?alcance=1`,
                 Icono: Upload,
+                carga: "alcance",
               },
             ]}
             rotuloDeSalidas="¿No salió?"

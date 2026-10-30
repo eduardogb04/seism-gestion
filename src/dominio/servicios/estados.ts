@@ -103,7 +103,9 @@ export type Carga = (typeof CARGAS)[number];
 
 const MENOS_CERRADO = ESTADOS_SERVICIO.filter((estado) => estado !== "cerrado");
 
-const ETAPAS_DE_CARGA: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
+export const ETAPAS_DE_CARGA: Readonly<
+  Record<Carga, readonly EstadoServicio[]>
+> = {
   // Los documentos de alcance (F5-01): antes de que haya una orden de compra.
   alcance: ["creado", "cotizado"],
   cotizacion: ["creado", "cotizado"],

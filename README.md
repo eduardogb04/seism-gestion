@@ -12,7 +12,7 @@ Repositorio **público**. No contiene datos reales ni documentos de negocio: tod
 
 En construcción. Cerradas: Fase 0 (cimientos), F1 (catálogos con un molde de ABM y el front base)
 F2 (finanzas), F3 (el servicio de punta a punta, del recorrido por etapas al inicio con KPI) y
-F4 (vencimientos, calendario y situaciones con el cliente) y F5 (los huecos de las dos anteriores). Corre solo en local: todavía no hay
+F4 (vencimientos, calendario y situaciones con el cliente) F5 (los huecos de las dos anteriores) y F6 (el servicio, un panel por etapa). Corre solo en local: todavía no hay
 servidor.
 
 Este README y la descripción del repo se actualizan **al cerrar cada tanda** (F1, F2, F3...), no
@@ -26,12 +26,14 @@ con cada tarea: entre un cierre y otro, `main` puede traer más de lo que dice a
   sitios, camiones, tipos de servicio, centros de costo y cuentas. Todos salen del mismo molde de
   ABM, con baja lógica (ADR 0031). Cada cliente tiene su ficha con la traza de situaciones: las propias
   y las de sus servicios, que se pueden anular con motivo (ADR 0044).
-- **Servicios** (`/servicios`): una pantalla por etapa (creado → cotizado → adjudicado → en
-  ejecución → finalizado → cerrado) que muestra solo lo que se carga en esa etapa, con la línea de
-  etapas y el registro de sucesos al costado. Responsable, hitos y recursos; documentos adjuntos;
+- **Servicios** (`/servicios`): un panel propio por etapa (creado → cotizado → adjudicado → en
+  ejecución → finalizado → cerrado), armado alrededor de la acción principal de ese momento, con la
+  línea de etapas y el registro de sucesos al costado (ADR 0048). Responsable, hitos con plantillas,
+  recursos humanos y materiales (ADR 0049); documentos adjuntos;
   órdenes de compra y facturas con su tipo de cambio; cobros con la orden de pago del cliente.
   Tres modalidades de facturación (puntual, por hitos y mensual con cuota ajustable) que definen lo
-  devengado, lo que falta facturar y lo que falta cobrar (ADR 0033 a 0037, 0039 y 0041).
+  devengado, lo que falta facturar y lo que falta cobrar (ADR 0033 a 0037, 0039 y 0041), más
+  notas de crédito y de débito y la factura adicional (ADR 0050).
   Desde *Creado* lleva su documentación de alcance (ADR 0047); los servicios perdidos, sin
   respuesta o cancelados quedan en solo lectura.
 - **Listados con pago o cobro rápido:** facturas, por cobrar, egresos y por pagar, con el botón al

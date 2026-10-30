@@ -79,7 +79,7 @@ describe("migración de las notas y la factura adicional", () => {
     await correr(sqlDe("migration.sql"));
     expect(
       await correr("select tipo || '|' || adicional from facturas;"),
-    ).toEqual(["factura|f"]);
+    ).toEqual(["factura|false"]);
 
     for (const [numero, extra] of [
       ["X-1", { tipo: "'remito'" }],

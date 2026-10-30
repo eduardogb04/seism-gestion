@@ -494,8 +494,8 @@ describe("anular", () => {
   });
 
   test("anular una nota de débito con saldo que era lo único pendiente cierra el servicio", async () => {
-    await cobrar(facturaId, "1.210,00");
     const debito = await cargado("nota_debito");
+    await cobrar(facturaId, "1.210,00");
     expect(await estado()).toBe("finalizado");
 
     exigirOk(

@@ -89,13 +89,15 @@ const CARGAS = [
   "planificacion",
   "tildarHito",
   "modalidad",
+  "cuota",
   "vencimiento",
   "ajuste",
 ] as const;
 
 /**
  * Lo que se carga en un servicio. Anular sigue la regla de su alta, salvo la orden de compra (ADR 0039).
- * `planificacion` es el responsable, la fecha estimada, los hitos y los recursos (F3-02).
+ * `planificacion` es el responsable, la fecha estimada, los hitos y los recursos (F3-02);
+ * `modalidad` elige la de facturación y `cuota` ajusta la cuota mensual (F6-02).
  */
 export type Carga = (typeof CARGAS)[number];
 
@@ -114,8 +116,10 @@ const ETAPAS_DE_CARGA: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   suceso: ["creado", "cotizado", "adjudicado", "en_ejecucion", "finalizado"],
   planificacion: ["adjudicado", "en_ejecucion"],
   tildarHito: ["en_ejecucion"],
-  // Elegir la modalidad de facturación o ajustar la cuota mensual (F3-03).
-  modalidad: ["adjudicado", "en_ejecucion"],
+  // La modalidad de facturación se elige y se cambia solo en «Adjudicado» (F6-02): en «En ejecución» ya está fija.
+  modalidad: ["adjudicado"],
+  // Ajustar la cuota mensual (F3-03).
+  cuota: ["adjudicado", "en_ejecucion"],
   // Corregir la fecha de un vencimiento, cargar uno o descartarlo (F4-02): en «Cerrado» solo se ven.
   vencimiento: ["finalizado"],
   // Las notas de crédito y de débito y la factura adicional (F6-03): alta y anulación.

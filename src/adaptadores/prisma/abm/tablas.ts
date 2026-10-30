@@ -12,6 +12,10 @@ import type {
 import type { Prisma } from "../generado/client.ts";
 import { CONVERSION_EGRESO } from "./egresos.ts";
 import {
+  CONVERSION_PLANTILLA,
+  tablaDePlantillas,
+} from "./plantillas-de-hitos.ts";
+import {
   crearRepositorioAbmPrisma,
   crearRepositorioConConversion,
 } from "./repositorio.ts";
@@ -41,6 +45,13 @@ const REPOSITORIOS: {
       "Egreso",
       cliente.egreso,
       CONVERSION_EGRESO,
+    ),
+  PlantillaHitos: (cliente) =>
+    crearRepositorioConConversion(
+      cliente,
+      "PlantillaHitos",
+      tablaDePlantillas(cliente.plantillaHitos),
+      CONVERSION_PLANTILLA,
     ),
 };
 

@@ -135,6 +135,7 @@ export async function sembrar(
     await sembrarSitiosDeDemostracion(prisma, opciones.reloj);
     await sembrarCamionesDeDemostracion(prisma, opciones.reloj);
     await sembrarTiposDeServicio(prisma, opciones.reloj);
+    await sembrarPlantillasDeHitos(prisma, opciones.reloj);
     await sembrarCentrosDeCosto(prisma, opciones.reloj);
     await sembrarCuentas(prisma, opciones.reloj);
     await sembrarServicios(prisma, opciones);
@@ -386,6 +387,63 @@ async function sembrarTiposDeServicio(
             ...datos,
             activo: true,
             id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+          },
+          actor,
+          reloj,
+        ),
+      );
+    }
+  });
+}
+
+/** Genéricas (sin tipo de servicio), inventadas. */
+const PLANTILLAS_DE_HITOS_DE_DEMOSTRACION: readonly {
+  readonly nombre: string;
+  readonly hitos: readonly string[];
+}[] = [
+  {
+    nombre: "Inspección estándar",
+    hitos: [
+      "Reunión de arranque con el cliente",
+      "Relevamiento del sitio",
+      "Informe de resultados",
+    ],
+  },
+  {
+    nombre: "Obra con movilización",
+    hitos: [
+      "Movilización de equipos",
+      "Ejecución de los trabajos",
+      "Desmovilización",
+      "Acta de cierre",
+    ],
+  },
+];
+
+/** Da de alta cada plantilla de hitos si **nunca hubo** una con ese nombre (como los grupos). */
+async function sembrarPlantillasDeHitos(
+  prisma: PrismaClient,
+  reloj: Reloj,
+): Promise<void> {
+  const actor = actorSemilla();
+  await prisma.$transaction(async (tx) => {
+    const plantillas = repositorioAbmPrisma(tx, "PlantillaHitos");
+    for (const { nombre, hitos } of PLANTILLAS_DE_HITOS_DE_DEMOSTRACION) {
+      if (
+        (await tx.plantillaHitos.findFirst({
+          where: { nombre: igual(nombre) },
+        })) !== null
+      ) {
+        continue;
+      }
+      await plantillas.crear(
+        actor,
+        crearAuditable(
+          {
+            id: identificadorDesde<string>(crearGeneradorIdCrypto().generar()),
+            nombre,
+            tipoServicioId: null,
+            hitos,
           },
           actor,
           reloj,

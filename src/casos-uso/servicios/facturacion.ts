@@ -1,9 +1,10 @@
 /**
  * La modalidad de facturación de un servicio, su cuota mensual y lo devengado
- * (F3-03, ADR 0041). La modalidad y la cuota se eligen y se ajustan en
- * «Adjudicado» y «En ejecución» (`DOM-0018`); la modalidad no cambia si hay
- * facturas vigentes (`DOM-0019`). Un ajuste rige desde su mes en adelante y ese
- * mes no puede haber pasado según el reloj inyectado (`DOM-0020`): así nunca
+ * (F3-03, ADR 0041). La modalidad se elige y se cambia solo en «Adjudicado»
+ * (un servicio que llegó a «En ejecución» sin ella todavía puede elegirla) y
+ * la cuota se ajusta en «Adjudicado» y «En ejecución» (`DOM-0018`, F6-02);
+ * la modalidad no cambia si hay facturas vigentes (`DOM-0019`). Un ajuste rige
+ * desde su mes en adelante y ese mes no puede haber pasado según el reloj inyectado (`DOM-0020`): así nunca
  * cambia lo ya devengado.
  *
  * Lo que se muestra por moneda sale del dominio: el devengado y el por facturar
@@ -278,6 +279,7 @@ async function exigirParaEscribir(
   actor: Actor,
   repos: RepositoriosEnTransaccion,
   servicioId: string,
+  carga: "modalidad" | "cuota",
 ) {
   await exigirRol(
     repos.usuarios,
@@ -286,7 +288,15 @@ async function exigirParaEscribir(
     catalogo.AUT_0009,
   );
   const servicio = await servicioVigenteBloqueado(repos, servicioId);
-  await exigirEtapa(repos, servicioId, "modalidad");
+  // Los servicios que ya estaban en ejecución antes de que la modalidad se fijara en «Adjudicado» no podrían facturar.
+  const eligeLaQueFalta =
+    carga === "modalidad" &&
+    servicio.valor.modalidadFacturacion === null &&
+    cicloServicio.estadoActual(await historialDe(repos, servicioId)) ===
+      "en_ejecucion";
+  if (!eligeLaQueFalta) {
+    await exigirEtapa(repos, servicioId, carga);
+  }
   return servicio;
 }
 
@@ -415,7 +425,12 @@ export function crearCasosUsoFacturacion({
 
     cambiarModalidad(actor, servicioId, escrito) {
       return transaccional.ejecutar(async (repos) => {
-        const servicio = await exigirParaEscribir(actor, repos, servicioId);
+        const servicio = await exigirParaEscribir(
+          actor,
+          repos,
+          servicioId,
+          "modalidad",
+        );
         if ((await repos.facturas.listarDe(servicioId)).length > 0) {
           throw nuevoError(catalogo.DOM_0019, { id: servicioId });
         }
@@ -473,7 +488,12 @@ export function crearCasosUsoFacturacion({
 
     registrarAjuste(actor, servicioId, escrito) {
       return transaccional.ejecutar(async (repos) => {
-        const servicio = await exigirParaEscribir(actor, repos, servicioId);
+        const servicio = await exigirParaEscribir(
+          actor,
+          repos,
+          servicioId,
+          "cuota",
+        );
         if (servicio.valor.modalidadFacturacion !== "mensual") {
           throw nuevoError(catalogo.DOM_0022, { id: servicioId });
         }

@@ -94,6 +94,7 @@ describe("Marco", () => {
         "Sitios",
         "Camiones",
         "Tipos de servicio",
+        "Plantillas de hitos",
         "Cuentas",
         "Centros de costo",
         "Usuarios",
@@ -105,7 +106,7 @@ describe("Marco", () => {
   test("cada entrada del menú lleva su ícono, oculto para el lector de pantalla", () => {
     const enlaces = enlacesDe(marcoDe("administrador"));
 
-    expect(enlaces).toHaveLength(16);
+    expect(enlaces).toHaveLength(17);
     for (const { interior } of enlaces) {
       expect(interior).toMatch(/^<svg [^>]*aria-hidden="true"/);
     }

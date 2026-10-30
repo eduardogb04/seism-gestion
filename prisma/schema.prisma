@@ -338,9 +338,44 @@ model TipoServicio {
   eliminadoEn              DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor             Json?     @map("eliminado_por") @db.JsonB
 
-  servicios Servicio[]
+  servicios  Servicio[]
+  plantillas PlantillaHitos[]
 
   @@map("tipos_servicio")
+}
+
+// Una plantilla de hitos (F6-02, ADR 0049), un ABM del molde: sin tipo de servicio es genérica.
+// El nombre (sin distinguir mayúsculas) es único entre las no eliminadas:
+// `plantillas_hitos_nombre_unico`, solo en la migración. Sus hitos son la tabla hija
+// `plantillas_hitos_items`, que se reemplaza entera al guardar.
+model PlantillaHitos {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre         String
+  tipoServicioId String?       @map("tipo_servicio_id") @db.Uuid
+  tipoServicio   TipoServicio? @relation(fields: [tipoServicioId], references: [id], onDelete: Restrict)
+  creadoEn       DateTime      @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json          @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime      @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json          @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime?     @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?         @map("eliminado_por") @db.JsonB
+
+  items PlantillaHitosItem[]
+
+  @@index([tipoServicioId])
+  @@map("plantillas_hitos")
+}
+
+// Un hito de una plantilla: su lugar (`orden`, desde 1) y su texto.
+model PlantillaHitosItem {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  plantillaId String         @map("plantilla_id") @db.Uuid
+  plantilla   PlantillaHitos @relation(fields: [plantillaId], references: [id], onDelete: Restrict)
+  orden       Int
+  texto       String
+
+  @@index([plantillaId])
+  @@map("plantillas_hitos_items")
 }
 
 model Cuenta {
@@ -566,6 +601,8 @@ model ServicioRecurso {
   camionId       String?   @map("camion_id") @db.Uuid
   camion         Camion?   @relation(fields: [camionId], references: [id], onDelete: Restrict)
   descripcion    String?
+  // Solo en un material (F6-02): texto libre, "2 bombas" o "500 m de manguera".
+  cantidad       String?
   desde          DateTime? @db.Date
   hasta          DateTime? @db.Date
   creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)

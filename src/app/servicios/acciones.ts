@@ -460,6 +460,28 @@ export async function cambiarRealizadoDeHito(
   );
 }
 
+/** Subir o bajar un hito un lugar en la lista. */
+export async function cambiarOrdenDeHito(
+  servicioId: string,
+  id: string,
+  sentido: "subir" | "bajar",
+): Promise<void> {
+  return enElServicio(servicioId, (actor) =>
+    armado().planificacion.cambiarOrdenDeHito(actor, id, sentido),
+  );
+}
+
+/** Copiar al final de los hitos los de la plantilla elegida (`plantilla` en el formulario). */
+export async function aplicarPlantillaDeHitos(
+  servicioId: string,
+  formulario: FormData,
+): Promise<void> {
+  const { plantilla = "" } = escritoEn(formulario);
+  return enElServicio(servicioId, (actor) =>
+    armado().planificacion.crearHitosDePlantilla(actor, servicioId, plantilla),
+  );
+}
+
 /** Cargar un recurso del servicio. */
 export async function cargarRecurso(
   servicioId: string,

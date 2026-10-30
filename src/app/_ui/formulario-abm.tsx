@@ -34,6 +34,7 @@ import {
 } from "../../casos-uso/abm/definicion.ts";
 import type { ErrorDeLogin } from "../../casos-uso/sesion/errores.ts";
 import { Boton, clasesDeBoton, type VarianteDeBoton } from "./boton.tsx";
+import { CampoLista, controlDe } from "./campo-lista.tsx";
 import {
   CampoArchivo,
   CampoCambio,
@@ -54,18 +55,6 @@ const EscritoEnVivo = createContext<Escrito>({});
  */
 export function useEscritoEnVivo(): Escrito {
   return useContext(EscritoEnVivo);
-}
-
-/** El nombre y el valor del control que cambió. El DOM no está en los tipos de este proyecto: se mira lo que trae. */
-function controlDe(destino: unknown): readonly [string, string] | null {
-  return typeof destino === "object" &&
-    destino !== null &&
-    "name" in destino &&
-    typeof destino.name === "string" &&
-    "value" in destino &&
-    typeof destino.value === "string"
-    ? [destino.name, destino.value]
-    : null;
 }
 
 export type EstadoFormulario = {
@@ -176,6 +165,16 @@ function Control({
           error={comunes.error}
         />
       );
+    case "lista":
+      return (
+        <CampoLista
+          etiqueta={comunes.etiqueta}
+          elemento={campo.elemento}
+          name={nombre}
+          defaultValue={comunes.defaultValue}
+          error={comunes.error}
+        />
+      );
     case "archivo":
       return null;
   }
@@ -253,7 +252,11 @@ export function FormularioAbm({
           .map(([nombre, campo], posicion) => (
             <div
               key={nombre}
-              className={campo.tipo === "textoLargo" ? "md:col-span-2" : ""}
+              className={
+                campo.tipo === "textoLargo" || campo.tipo === "lista"
+                  ? "md:col-span-2"
+                  : ""
+              }
             >
               <Control
                 nombre={nombre}

@@ -365,7 +365,8 @@ async function erroresDeBase<E extends EntidadAbm>(
 /**
  * Un importe es el mismo si tiene los mismos centavos en la misma moneda, y un
  * tipo de cambio si es la misma fracción con la misma fuente: no por ser el
- * mismo objeto.
+ * mismo objeto. Una lista (los hitos de una plantilla) es la misma si tiene los
+ * mismos textos en el mismo orden.
  */
 function mismoValor(
   a: ValoresAbm[string] | undefined,
@@ -376,6 +377,9 @@ function mismoValor(
   }
   if (esCambio(a) && esCambio(b)) {
     return mismoCambio(a, b);
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((texto, i) => texto === b[i]);
   }
   return a === b;
 }

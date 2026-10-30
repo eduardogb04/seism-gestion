@@ -110,6 +110,13 @@ type EntidadesAbm = {
     readonly comprobanteId: string | null;
     readonly observaciones: string | null;
   };
+  readonly PlantillaHitos: {
+    readonly nombre: string;
+    /** `null`: genérica, sirve para cualquier tipo de servicio. */
+    readonly tipoServicioId: string | null;
+    /** Los hitos, en orden. */
+    readonly hitos: readonly string[];
+  };
 };
 
 export type EntidadAbm = keyof EntidadesAbm;

@@ -350,6 +350,7 @@ export function crearCasosUsoVencimientos({
                   tipo: "camion",
                   camionId: valor.camionId,
                   descripcion: null,
+                  cantidad: null,
                   desde: null,
                   hasta: null,
                 },

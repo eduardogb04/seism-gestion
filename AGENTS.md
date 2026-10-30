@@ -70,7 +70,7 @@ Solo los que existen hoy. La tabla crece en cada tarea que suma una herramienta 
 | `node .next/standalone/server.js` | El servidor de producción, después de `npm run build` (no es un script de `package.json`). Toma las variables del entorno del proceso (`APP_ENTORNO=local node .next/standalone/server.js`) o del `.env` que el build copió si existía al compilar; `PORT` cambia el puerto |
 | `npm run lint` | `biome check .` — Biome en modo verificación (lint + formato) sobre `src/`, `tests/` (menos `tests/fixtures/`), `scripts/` y los archivos de config de la raíz — y después `scripts/sin-error-crudo.ts`, que rechaza `throw new Error` y `new ErrorSistema(` en `src/dominio/` y `src/casos-uso/` (F0-23, ADR 0020), y `scripts/sin-marcas-conflicto.ts` (M-03), que recorre los archivos versionados (`git ls-files`) y rechaza, nombrando `archivo:línea`, una línea que empiece con `<<<<<<< ` o `>>>>>>> ` o que sea exactamente `=======` (saltea binarios; única excepción: `tests/fixtures/lint/conflicto/`). `-- --write` aplica los arreglos de Biome |
 | `npm test` | Vitest sobre los niveles `dominio` y `casos-uso` (ver *Testing: en qué nivel va cada cosa*): el ciclo de siempre. **Necesita Docker corriendo** (el nivel casos de uso levanta un Postgres y, para el almacén S3, MinIO: en Testcontainers y con los servicios de `docker-compose.yml` en un proyecto y un puerto al azar); no necesita `.env` ni tener compose levantado |
-| `npm run test:dominio` | Solo el nivel `dominio`, con su reloj: `scripts/test-dominio.ts` mide la corrida entera y **sale 1 si tarda más de 10 s** (criterio de F0-14). No necesita nada: el nivel dominio no abre red ni base |
+| `npm run test:dominio` | Solo el nivel `dominio`, con su reloj: `scripts/test-dominio.ts` mide la corrida entera y **sale 1 si tarda más de 15 s** (F0-14, M-25). No necesita nada: el nivel dominio no abre red ni base |
 | `npm run test:extraccion` | Solo el nivel `extraccion` (golden files): el arnés `compararConGolden` (F0-16) y su caso de ejemplo |
 | `npm run test:golden:update` | Regenera **a propósito** los goldens de `tests/extraccion/golden/` (`ACTUALIZAR_GOLDEN=si`) y lo avisa en pantalla. CI nunca lo corre; revisá el diff a mano antes de commitear (F0-16) |
 | `npm run test:e2e` | Playwright (Chromium) sobre `tests/e2e/`: levanta la app con compose —la imagen que se publica— y recorre el camino de humo, con un proyecto de compose y un puerto propios de cada copia del repo (dos e2e a la vez, en dos worktrees, no se pisan; ver *Testing*). Necesita Docker corriendo y el navegador instalado una vez (`npx playwright install chromium`, RUNBOOK sección 16). `-- --ui` abre la interfaz de Playwright; `-- --headed`, el navegador a la vista |
@@ -108,7 +108,7 @@ de `main` exige en verde (F0-06). Decisiones y porqués en el ADR 0006.
   `ci / ci (pull_request)`; en `gh pr checks`, dos filas `ci`); tienen que estar verdes las dos.
 - **Qué corre.** `npm ci` (nunca `npm install`) y después, en orden: `typecheck`,
   `typecheck:fixtures`, `lint`, `lint:fixtures`, `limites`, `limites:fixtures`, **`test:dominio`**
-  (F0-14: el nivel dominio solo, con el tope de 10 s), `test` (dominio y casos de uso;
+  (F0-14: el nivel dominio solo, con el tope de 15 s), `test` (dominio y casos de uso;
   Testcontainers usa el Docker que trae el runner, sin pasos extra), **`test:extraccion`**,
   **`Migrar (para el paso de drift)`** y **`drift`** (F0-11: aplica las migraciones contra el
   `services: postgres` del job y compara el resultado con `schema.prisma` — ver *Base de datos*),
@@ -438,7 +438,7 @@ Playwright Vitest no lo puede ejecutar (ADR 0014).
 
 | Nivel | Carpeta | Qué va acá | Qué necesita | Con qué se corre |
 |---|---|---|---|---|
-| **dominio** | `tests/dominio/` | Reglas de negocio y funciones puras. **Sin red, sin base, sin reloj del sistema**. La tanda entera tarda menos de 10 s | nada | `npm run test:dominio` · `npm test` |
+| **dominio** | `tests/dominio/` | Reglas de negocio y funciones puras. **Sin red, sin base, sin reloj del sistema**. La tanda entera tarda menos de 15 s | nada | `npm run test:dominio` · `npm test` |
 | **casos de uso** | `tests/casos-uso/` | Un caso de uso contra Postgres de verdad, o cualquier cosa que necesite la base | Docker | `npm test` |
 | **extracción** | `tests/extraccion/` | Golden files: una entrada fija produce una salida fija (arnés `compararConGolden`, F0-16) | nada | `npm run test:extraccion` |
 | **e2e** | `tests/e2e/` | Un camino completo en un navegador, contra la app levantada con compose | Docker y Chromium | `npm run test:e2e` |

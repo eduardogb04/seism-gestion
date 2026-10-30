@@ -92,6 +92,10 @@ Lo demás que fija esta decisión:
 - Quién lo hace cumplir: el arnés de red (un test), el tope de 10 s (un script en CI), los cuatro
   niveles (pasos de `ci.yml`: `test:dominio`, `test`, `test:e2e`).
 
+**Revisión (M-25):** el tope sube a **15 s**. La tanda llegó a 1262 tests y en CI midió entre 5,9 y 10,5 s
+sin que ningún test espere: lo que varía es el arranque de Vitest y la transformación en el runner, no los
+tests (unos 6 s). El tope sigue para avisar de una espera real, no del crecimiento gradual de la tanda.
+
 ## Cómo se revierte
 
 Los niveles viven en dos archivos de configuración y dos carpetas de arnés. Sacar el e2e es borrar

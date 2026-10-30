@@ -6,6 +6,8 @@
  * Datos inventados. Necesita Docker corriendo.
  */
 
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   afterAll,
   beforeAll,
@@ -13,10 +15,12 @@ import {
   describe,
   expect,
   test,
+  vi,
 } from "vitest";
 import { crearGeneradorIdCrypto } from "../../src/adaptadores/memoria/generador-id.ts";
 import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
+import { Ajustes } from "../../src/app/servicios/_piezas/ajustes.tsx";
 import { crearCasosUsoAbm } from "../../src/casos-uso/abm/abm.ts";
 import { CUENTAS } from "../../src/casos-uso/abm/cuentas.ts";
 import type { Escrito } from "../../src/casos-uso/abm/definicion.ts";
@@ -49,6 +53,10 @@ import {
   llevarServicioA,
   sembrarServicio,
 } from "./_arnes/servicio.ts";
+
+vi.mock("next/navigation.js", () => ({
+  useRouter: () => ({ push: () => undefined }),
+}));
 
 const HOY = (() => {
   const resultado = crearFechaHora({
@@ -539,5 +547,75 @@ describe("inicio y listados", () => {
       "Nota de crédito",
     ]);
     expect(soloNotas.filas[0]?.conSaldo).toBe(false);
+  });
+});
+
+describe("la pieza de pantalla", () => {
+  const sinAccion = () => async () => ({ escrito: {}, errores: {} });
+  const texto = (html: string) =>
+    html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  const base = {
+    ruta: "/servicios/s-1",
+    puedeEscribir: true,
+    ajustes: [
+      {
+        id: "a-1",
+        tipo: "Nota de crédito",
+        numero: "0001-00000009",
+        fecha: "15/07/2031",
+        asociado: "0001-00000001",
+        total: "-363,00",
+      },
+    ],
+    abierto: null,
+    aAnular: null,
+    cargar: sinAccion,
+    anular: sinAccion,
+  };
+
+  test("ofrece los tres botones y la lista con su acción de anular, solo a quien escribe", () => {
+    const html = renderToStaticMarkup(createElement(Ajustes, base));
+    for (const ajuste of ["nota_credito", "nota_debito", "adicional"]) {
+      expect(html).toContain(`href="/servicios/s-1?ajuste=${ajuste}"`);
+    }
+    expect(texto(html)).toContain(
+      "Nota de crédito Nota de débito Factura adicional",
+    );
+    expect(texto(html)).toContain(
+      "Nota de crédito 0001-00000009 15/07/2031 0001-00000001 -363,00 Anular",
+    );
+    expect(html).toContain(`href="/servicios/s-1?anularAjuste=a-1"`);
+
+    const soloLectura = renderToStaticMarkup(
+      createElement(Ajustes, { ...base, puedeEscribir: false }),
+    );
+    expect(soloLectura).not.toContain("?ajuste=");
+    expect(texto(soloLectura)).not.toContain("Anular");
+  });
+
+  test("sin ajustes dice que no hay, y la anulación de uno que no existe es DOM-0009", () => {
+    const vacio = texto(
+      renderToStaticMarkup(createElement(Ajustes, { ...base, ajustes: [] })),
+    );
+    expect(vacio).toContain("No hay notas ni facturas adicionales.");
+    const inexistente = texto(
+      renderToStaticMarkup(
+        createElement(Ajustes, { ...base, aAnular: undefined }),
+      ),
+    );
+    expect(inexistente).toContain("Anular ajuste");
+    expect(inexistente).toContain("DOM-0009");
+  });
+
+  test("la ventana de anulación pide confirmar con motivo", () => {
+    const html = texto(
+      renderToStaticMarkup(
+        createElement(Ajustes, { ...base, aAnular: base.ajustes[0] }),
+      ),
+    );
+    expect(html).toContain(
+      "Confirmá que anulás la nota de crédito 0001-00000009.",
+    );
+    expect(html).toContain("Confirmar anulación");
   });
 });

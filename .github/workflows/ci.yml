@@ -98,7 +98,7 @@ jobs:
         run: npm run limites:fixtures
 
       # F0-14: la tanda de dominio sola, con su reloj. `scripts/test-dominio.ts`
-      # sale 1 si tarda más de 10 s (criterio de F0-14): el nivel dominio no
+      # sale 1 si tarda más de 15 s (F0-14, M-25): el nivel dominio no
       # habla con nada, y si empieza a esperar es que se llevó algo que va en
       # `tests/casos-uso/`. Corre antes que `test` porque es el más barato.
       - name: test:dominio

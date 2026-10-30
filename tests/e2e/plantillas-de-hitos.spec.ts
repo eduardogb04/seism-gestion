@@ -92,8 +92,8 @@ test("un administrador da de alta una plantilla con tres hitos, los reordena y l
   await servicio.getByLabel("Responsable").selectOption({ label: ADMIN });
   await servicio.getByLabel("Fecha de pedido").fill("2026-10-10");
   await servicio.getByRole("button", { name: "Guardar" }).click();
-  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
-  await page.getByRole("link", { name: "Nueva cotización" }).click();
+  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
+  await page.getByRole("link", { name: "Cargar cotización" }).click();
   const cotizacion = ventana(page, "Nueva cotización");
   await cotizacion.getByLabel("Fecha").fill("2026-10-11");
   await cotizacion.getByLabel("Importe", { exact: true }).fill("1.000,00");
@@ -104,7 +104,7 @@ test("un administrador da de alta una plantilla con tres hitos, los reordena y l
   });
   await cotizacion.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nueva cotización")).toHaveCount(0);
-  await page.getByRole("link", { name: "Nueva orden de compra" }).click();
+  await page.getByRole("link", { name: "Cargar orden de compra" }).click();
   const orden = ventana(page, "Nueva orden de compra");
   await orden.getByLabel("Número").fill(`OC-E2E-PLANTILLA-${Date.now()}`);
   await orden.getByLabel("Fecha").fill("2026-10-12");

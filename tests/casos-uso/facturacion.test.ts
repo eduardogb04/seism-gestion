@@ -522,6 +522,12 @@ describe("lo devengado, a la fecha del reloj", () => {
     expect(await lineas()).toEqual([
       "ARS 300,00 | ARS -100,00 | ARS 600,00 | ARS 484,00",
     ]);
+    // Lo facturado de la orden de 1.000,00 (sin IVA) y qué parte es: 400,00, el 40 %.
+    expect(
+      (await facturacion().ver(servicioId)).lineas.map(
+        ({ facturadoDeLaOrden }) => facturadoDeLaOrden,
+      ),
+    ).toEqual([{ importe: "ARS 400,00", porcentaje: 40 }]);
   });
 
   test("lo que se ve en la sección: la modalidad y las cifras de cada moneda", async () => {

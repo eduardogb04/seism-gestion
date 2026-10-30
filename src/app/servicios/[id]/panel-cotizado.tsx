@@ -133,17 +133,20 @@ export async function PanelCotizado({
               texto: "Cargar orden de compra",
               href: `${ruta}?orden=1`,
               Icono: FileCheck,
+              carga: "ordenDeCompra",
             }}
             secundarias={[
               {
                 texto: "Nueva versión",
                 href: `${ruta}?cotizacion=1`,
                 Icono: Files,
+                carga: "cotizacion",
               },
               {
                 texto: "Subir documento de alcance",
                 href: `${ruta}?alcance=1`,
                 Icono: Upload,
+                carga: "alcance",
               },
             ]}
             rotuloDeSalidas="¿No salió?"

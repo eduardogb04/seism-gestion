@@ -119,6 +119,11 @@ export type LineaDeFacturacion = {
   readonly porFacturar: string;
   /** El saldo de la orden de compra si es de esta moneda; si no, vacío. */
   readonly saldoDeOrden: string;
+  /** Lo facturado de la orden de compra (sin IVA) y qué parte de ella es, en porcentaje entero; `null` si no hay orden en esta moneda. */
+  readonly facturadoDeLaOrden: {
+    readonly importe: string;
+    readonly porcentaje: number;
+  } | null;
   /** El saldo de las facturas vigentes, con IVA. */
   readonly porCobrar: string;
 };
@@ -353,13 +358,14 @@ export function crearCasosUsoFacturacion({
         const cuotas = await repos.cuotas.listarDe(servicioId);
         const quien = await nombresDeActores(repos);
         const hoy = reloj.ahora();
-        const saldo =
+        const cuenta =
           orden === undefined
             ? null
             : saldoDeOrden(
                 orden.valor.importe,
                 sinIva.map((importe) => ({ importe })),
-              ).saldo;
+              );
+        const saldo = cuenta?.saldo ?? null;
         return {
           modalidad:
             modalidadFacturacion === null
@@ -390,6 +396,16 @@ export function crearCasosUsoFacturacion({
             porFacturar: formatearImporte(porFacturar),
             saldoDeOrden:
               saldo?.moneda === moneda ? formatearImporte(saldo) : "",
+            facturadoDeLaOrden:
+              cuenta?.total.moneda === moneda && cuenta.total.centavos !== 0n
+                ? {
+                    importe: formatearImporte(cuenta.facturado),
+                    porcentaje: Number(
+                      (cuenta.facturado.centavos * 100n) /
+                        cuenta.total.centavos,
+                    ),
+                  }
+                : null,
             porCobrar: formatearImporte(
               sumaEn(
                 moneda,

@@ -5,7 +5,7 @@
  * derecha.
  */
 
-import { HardHat, Receipt, SlidersHorizontal } from "lucide-react";
+import { HandCoins, HardHat, Receipt, SlidersHorizontal } from "lucide-react";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import {
   BarraDeAcciones,
@@ -42,7 +42,9 @@ export async function PanelEnEjecucion({
 }: DatosDePanel) {
   const detalle = await armado().planificacion.ver(servicio.id);
   const facturacion = await armado().facturacion.ver(servicio.id);
-  const enObra = diasEnEtapa(servicio, "en_ejecucion");
+  const desdeQueInicio = diasEnEtapa(servicio, "en_ejecucion");
+  // El día del arranque es el primero.
+  const enObra = desdeQueInicio + 1;
   const hechos = detalle.hitos.filter(({ realizado }) => realizado !== null);
   const propias = {
     servicioId: servicio.id,
@@ -58,8 +60,8 @@ export async function PanelEnEjecucion({
         titulo={`En obra · día ${enObra}`}
         contexto={
           soloLectura
-            ? `Estuvo ${dias(enObra)} en «En ejecución».`
-            : `Inició hace ${dias(enObra)}. Tildá los hitos a medida que se cumplen.`
+            ? `Estuvo ${dias(desdeQueInicio)} en «En ejecución».`
+            : `Inició hace ${dias(desdeQueInicio)}. Tildá los hitos a medida que se cumplen.`
         }
       />
       <GrillaDeMetricas
@@ -79,6 +81,17 @@ export async function PanelEnEjecucion({
               />
             ),
           },
+          ...facturacion.lineas.flatMap(({ facturadoDeLaOrden }) =>
+            facturadoDeLaOrden === null
+              ? []
+              : [
+                  {
+                    titulo: "Facturado",
+                    valor: facturadoDeLaOrden.importe,
+                    detalle: `${facturadoDeLaOrden.porcentaje} % de la OC`,
+                  },
+                ],
+          ),
         ]}
       />
       {facturacion.modalidad === null ? (
@@ -136,8 +149,13 @@ export async function PanelEnEjecucion({
                   }
                 : null
             }
-            secundarias={
-              facturacion.esMensual
+            secundarias={[
+              {
+                texto: "Registrar egreso",
+                href: `/egresos?nuevo=1&servicio=${servicio.id}`,
+                Icono: HandCoins,
+              },
+              ...(facturacion.esMensual
                 ? [
                     {
                       texto: "Ajustar la cuota",
@@ -146,8 +164,8 @@ export async function PanelEnEjecucion({
                       carga: "cuota",
                     },
                   ]
-                : []
-            }
+                : []),
+            ]}
             salidas={salidas}
           />
           {facturacion.esMensual && parametros.ajusteDeCuota === "1" ? (

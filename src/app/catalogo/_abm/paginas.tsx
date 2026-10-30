@@ -14,6 +14,7 @@ import {
   cabecerasDe,
   camposDe,
   type DefinicionAbm,
+  type Escrito,
   escritoDe,
   textosDe,
   valoresDeAlta,
@@ -103,11 +104,14 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
   pedida,
   vuelta,
   rutaAlCerrar,
+  preseleccion,
 }: {
   readonly definicion: DefinicionAbm<E>;
   readonly pedida: VentanaPedida;
   readonly vuelta: string;
   readonly rutaAlCerrar: string;
+  /** Lo que el alta trae elegido desde otra pantalla (el servicio, desde su panel). */
+  readonly preseleccion: Escrito;
 }) {
   const { entidad, singular } = definicion;
   const elegibles = await armado().abm.opciones(
@@ -128,7 +132,10 @@ async function ContenidoDeVentana<E extends EntidadAbm>({
           campos={camposDe(definicion)}
           elegibles={elegibles}
           archivo={archivoDe(definicion)}
-          inicial={{ escrito: valoresDeAlta(definicion), errores: {} }}
+          inicial={{
+            escrito: { ...valoresDeAlta(definicion), ...preseleccion },
+            errores: {},
+          }}
           enviar={{ texto: "Guardar", variante: "primario" }}
           rutaAlCancelar={rutaAlCerrar}
         />
@@ -264,6 +271,12 @@ export async function PaginaListado<E extends EntidadAbm>({
           pedida={pedida}
           vuelta={consultaDe(vista)}
           rutaAlCerrar={enlace(definicion.ruta, vista)}
+          preseleccion={
+            typeof parametros.servicio === "string" &&
+            "servicioId" in definicion.campos
+              ? { servicioId: parametros.servicio }
+              : {}
+          }
         />
       )}
     </Marco>

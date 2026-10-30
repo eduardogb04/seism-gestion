@@ -33,6 +33,8 @@ const TITULO = "Recorrido por etapas de prueba — ejemplo";
 const ORDEN = `OC-E2E-ETAPAS-${Date.now()}`;
 const FACTURA = `0000-E2E-ETAPAS-${Date.now()}`;
 const NOTA = `NC-E2E-ETAPAS-${Date.now()}`;
+const ORDEN_SIN_VENCIMIENTO = `OC-E2E-SIN-VENC-${Date.now()}`;
+const FACTURA_SIN_VENCIMIENTO = `0000-E2E-SIN-VENC-${Date.now()}`;
 const PLANTILLA = "Plantilla genérica de etapas — ejemplo";
 
 const SECCIONES = [
@@ -49,7 +51,7 @@ const SECCIONES = [
   "Hitos",
   "Recursos",
   "Facturas",
-  "En obra · día 0",
+  "En obra · día 1",
   "Avance",
   "Egresos",
   "Falta cobrar para cerrar",
@@ -590,7 +592,7 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await expect(estado).toHaveText("En ejecución");
   await expect(page).toHaveURL(`${servicioUrl}/en-ejecucion`);
   await seVeSolo(page, [
-    "En obra · día 0",
+    "En obra · día 1",
     "Hitos",
     "Recursos",
     "Facturas",
@@ -600,6 +602,9 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await expect(
     page.getByRole("heading", { name: "Avance de hitos" }).locator(".."),
   ).toContainText("0 de 3");
+  await expect(
+    page.getByRole("heading", { name: "Facturado", exact: true }).locator(".."),
+  ).toContainText("0 % de la OC");
   // La modalidad ya está fija: no hay cómo cambiarla.
   await expect(
     page.getByRole("list", { name: "Modalidad de facturación" }),
@@ -614,6 +619,13 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Finalizar servicio",
     "Pasar a «Cancelado»",
   ]);
+  // «Registrar egreso» abre el alta de egresos con este servicio ya elegido.
+  await page.getByRole("link", { name: "Registrar egreso" }).click();
+  await expect(page).toHaveURL(/\/egresos\?nuevo=1&servicio=/);
+  await expect(
+    ventana(page, "Alta de egreso").getByLabel("Servicio"),
+  ).toHaveValue(servicioUrl.split("/").at(-1) ?? "");
+  await page.goto(`${servicioUrl}/en-ejecucion`);
   for (const hito of ["Movilización", "Informe"]) {
     await page
       .locator(`[data-hito="${hito}"]`)
@@ -638,6 +650,9 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await factura.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nueva factura")).toHaveCount(0);
   await expect(page.locator("tr", { hasText: FACTURA })).toHaveCount(1);
+  await expect(
+    page.getByRole("heading", { name: "Facturado", exact: true }).locator(".."),
+  ).toContainText("100 % de la OC");
 
   // Finalizado: lo que falta cobrar. Un ajuste, y cobrar con la orden de pago del cliente.
   await confirmar(page, "Finalizar servicio");
@@ -652,12 +667,19 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Vencimientos",
   ]);
   expect(await transicionesOfrecidas(page)).toEqual([]);
-  for (const enlace of ["Nuevo hito", "Nuevo recurso"]) {
+  for (const enlace of ["Nuevo hito", "Nuevo recurso", "Registrar egreso"]) {
     await expect(page.getByRole("link", { name: enlace })).toHaveCount(0);
   }
   await expect(page.getByRole("link", { name: "Emitir factura" })).toHaveCount(
     1,
   );
+  // Un vencimiento a mano: queda pendiente y en «Cerrado» se ofrece renovarlo.
+  await page.getByRole("link", { name: "Nuevo vencimiento" }).click();
+  const vencimiento = ventana(page, "Nuevo vencimiento");
+  await vencimiento.getByLabel("Vence el").fill("2040-03-01");
+  await vencimiento.getByLabel("Descripción").fill("Seguro de ejemplo");
+  await vencimiento.getByRole("button", { name: "Guardar" }).click();
+  await expect(ventana(page, "Nuevo vencimiento")).toHaveCount(0);
   await page.getByRole("link", { name: "Nota de crédito" }).click();
   const nota = ventana(page, "Nota de crédito");
   const asociada = await nota
@@ -697,9 +719,14 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Cerrado · todo cobrado",
     "Facturas",
     "Ajustes",
+    "Documentación de alcance",
     "Avance",
     "Egresos",
   ]);
+  // El vencimiento cargado en «Finalizado» sigue pendiente: renovar es la acción principal.
+  await expect(
+    page.getByRole("link", { name: "Cotizar renovación" }),
+  ).toHaveClass(/bg-acento/);
   await expect(page.locator("[data-solo-lectura]")).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Facturado (sin IVA)" }).locator(".."),
@@ -728,15 +755,92 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Nota de crédito",
     "Nuevo hito",
     "Nuevo recurso",
+    "Registrar egreso",
   ]) {
     await expect(
       page.getByRole("link", { name: enlace, exact: true }),
     ).toHaveCount(0);
   }
   expect(await transicionesOfrecidas(page)).toEqual([]);
+  // «Ver documentos» lleva a los comprobantes y documentos, en lectura.
+  await page.getByRole("link", { name: "Ver documentos" }).click();
+  await expect(page).toHaveURL(`${servicioUrl}/cerrado#documentos`);
+  await expect(
+    page.locator("#documentos").getByRole("heading", { name: "Facturas" }),
+  ).toBeVisible();
   await expect(
     page.locator("[data-etapa]:not([data-situacion='actual']) a"),
   ).toHaveCount(5);
+});
+
+test("un servicio cerrado sin vencimientos pendientes no ofrece cotizar la renovación", async ({
+  page,
+}) => {
+  await entrarComo(page, OPERADORA);
+  await altaDeServicio(page, `${TITULO} · sin vencimientos`);
+  const estado = page.locator("[data-estado-del-servicio]");
+  await page.getByRole("link", { name: "Cargar cotización" }).click();
+  const cotizacion = ventana(page, "Nueva cotización");
+  await cotizacion.getByLabel("Fecha").fill("2026-10-11");
+  await cotizacion.getByLabel("Importe", { exact: true }).fill("1.000,00");
+  await cotizacion.getByLabel("Documento").setInputFiles({
+    name: "cotizacion-sin-vencimientos.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\nCotización de ejemplo\n"),
+  });
+  await cotizacion.getByRole("button", { name: "Cargar" }).click();
+  await page.getByRole("link", { name: "Cargar orden de compra" }).click();
+  const orden = ventana(page, "Nueva orden de compra");
+  await orden.getByLabel("Número").fill(ORDEN_SIN_VENCIMIENTO);
+  await orden.getByLabel("Fecha").fill("2026-10-12");
+  await orden.getByLabel("Importe sin IVA", { exact: true }).fill("1.000,00");
+  await orden.getByRole("button", { name: "Cargar" }).click();
+  await expect(estado).toHaveText("Adjudicado");
+  await page.getByRole("link", { name: /^Puntual/ }).click();
+  const modalidad = ventana(page, "Modalidad de facturación");
+  await modalidad
+    .getByLabel("Modalidad de facturación")
+    .selectOption({ label: "Puntual" });
+  await modalidad.getByRole("button", { name: "Guardar" }).click();
+  await expect(ventana(page, "Modalidad de facturación")).toHaveCount(0);
+  await confirmar(page, "Iniciar ejecución");
+  await expect(estado).toHaveText("En ejecución");
+  await confirmar(page, "Finalizar servicio");
+  await expect(estado).toHaveText("Finalizado");
+  await page.getByRole("link", { name: "Emitir factura" }).click();
+  const factura = ventana(page, "Nueva factura");
+  await factura.getByLabel("Número").fill(FACTURA_SIN_VENCIMIENTO);
+  await factura.getByLabel("Fecha", { exact: true }).fill("2026-10-20");
+  await factura.getByLabel("Vencimiento").fill("2026-11-20");
+  await factura.getByLabel("Importe sin IVA", { exact: true }).fill("1.000,00");
+  await factura
+    .getByLabel("Orden de compra")
+    .selectOption({ label: `${ORDEN_SIN_VENCIMIENTO} · ARS 1.000,00` });
+  await factura.getByRole("button", { name: "Cargar" }).click();
+  await expect(ventana(page, "Nueva factura")).toHaveCount(0);
+  await page
+    .locator("tr", { hasText: FACTURA_SIN_VENCIMIENTO })
+    .getByRole("link", { name: "Registrar cobro" })
+    .click();
+  const cobro = ventana(page, "Cobrar factura");
+  await cobro.getByLabel("Fecha").fill("2026-10-22");
+  await cobro.getByLabel(/^Importe \(/).fill("1.210,00");
+  await cobro
+    .getByLabel("Cuenta", { exact: true })
+    .selectOption({ label: "Caja · ARS" });
+  await cobro.getByRole("button", { name: "Cobrar" }).click();
+  await expect(estado).toHaveText("Cerrado");
+
+  await expect(
+    page.getByRole("heading", { name: "Cerrado · todo cobrado" }),
+  ).toBeVisible();
+  await expect(page.locator("[data-vencimiento]")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Cotizar renovación" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Ver documentos" })).toHaveCount(
+    1,
+  );
 });
 
 const CIERRES = [

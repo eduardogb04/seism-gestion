@@ -5,7 +5,7 @@
  * la renovación del próximo vencimiento.
  */
 
-import { CircleCheckBig, RotateCcw } from "lucide-react";
+import { CircleCheckBig, FolderOpen, RotateCcw } from "lucide-react";
 import { ETIQUETAS_DE_ESTADO } from "../../../casos-uso/servicios/formulario.ts";
 import type { DetalleDeServicio } from "../../../casos-uso/servicios/servicios.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
@@ -17,6 +17,7 @@ import {
 import { AjustesDelServicio } from "../_piezas/ajustes.tsx";
 import { Avance } from "./avance.tsx";
 import { type DatosDePanel, dias, diasEnEtapa } from "./datos-de-panel.ts";
+import { DocumentosDeAlcance } from "./documentos-de-alcance.tsx";
 import { Egresos } from "./egresos.tsx";
 import { Facturas } from "./facturas.tsx";
 import { VentanaDeRenovacion } from "./ventana-de-renovacion.tsx";
@@ -84,36 +85,41 @@ export async function PanelCerrado({
           },
         ]}
       />
-      <Facturas
-        servicioId={servicio.id}
-        ruta={ruta}
-        puedeFacturar={false}
-        puedeCobrar={false}
-        parametros={parametros}
-      />
-      <AjustesDelServicio {...lectura} />
+      <div id="documentos">
+        <Facturas
+          servicioId={servicio.id}
+          ruta={ruta}
+          puedeFacturar={false}
+          puedeCobrar={false}
+          parametros={parametros}
+        />
+        <AjustesDelServicio {...lectura} />
+        <DocumentosDeAlcance {...lectura} />
+      </div>
       <Avance servicioId={servicio.id} />
       <Egresos servicioId={servicio.id} />
-      {puedeActuar && proximo !== undefined ? (
-        <>
-          <BarraDeAcciones
-            principal={{
-              texto: "Cotizar renovación",
-              href: `${ruta}?renovar=${proximo.id}`,
-              Icono: RotateCcw,
-            }}
-            secundarias={[]}
-            salidas={[]}
-          />
-          {aRenovar === undefined ? null : (
-            <VentanaDeRenovacion
-              servicioId={servicio.id}
-              vencimientoId={aRenovar.id}
-              detalle={`${aRenovar.descripcion} · ${aRenovar.fecha}`}
-              rutaAlCerrar={ruta}
-            />
-          )}
-        </>
+      <BarraDeAcciones
+        principal={
+          puedeActuar && proximo !== undefined
+            ? {
+                texto: "Cotizar renovación",
+                href: `${ruta}?renovar=${proximo.id}`,
+                Icono: RotateCcw,
+              }
+            : null
+        }
+        secundarias={[
+          { texto: "Ver documentos", href: "#documentos", Icono: FolderOpen },
+        ]}
+        salidas={[]}
+      />
+      {puedeActuar && aRenovar !== undefined ? (
+        <VentanaDeRenovacion
+          servicioId={servicio.id}
+          vencimientoId={aRenovar.id}
+          detalle={`${aRenovar.descripcion} · ${aRenovar.fecha}`}
+          rutaAlCerrar={ruta}
+        />
       ) : null}
     </article>
   );

@@ -12,8 +12,6 @@
  * Los botones de las piezas compartidas ya se esconden solos según la etapa (la
  * pantalla lo comprueba en `tests/e2e/etapas.spec.ts`). `suceso` es de la
  * columna lateral del layout, igual en todas las etapas: se revisa aparte.
- * «Creado» y «Cotizado» (F6-01) quedan afuera: `cobro` se admite ahí aunque
- * todavía no hay facturas que cobrar.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -32,7 +30,9 @@ const RAIZ = path.resolve(import.meta.dirname, "../../src/app");
 const SERVICIOS = path.join(RAIZ, "servicios");
 const PANELES = path.join(SERVICIOS, "[id]");
 
-const PANEL_DE: Readonly<Partial<Record<EstadoServicio, string>>> = {
+const PANEL_DE: Readonly<Record<EstadoServicio, string>> = {
+  creado: "panel-creado.tsx",
+  cotizado: "panel-cotizado.tsx",
   adjudicado: "panel-adjudicado.tsx",
   en_ejecucion: "panel-en-ejecucion.tsx",
   finalizado: "panel-finalizado.tsx",
@@ -41,6 +41,12 @@ const PANEL_DE: Readonly<Partial<Record<EstadoServicio, string>>> = {
   sin_respuesta: "panel-salida.tsx",
   cancelado: "panel-salida.tsx",
 };
+
+/** Se admite, pero todavía no hay facturas que cobrar: el botón no tiene dónde ir. */
+const SIN_BOTON: ReadonlyArray<readonly [EstadoServicio, Carga]> = [
+  ["creado", "cobro"],
+  ["cotizado", "cobro"],
+];
 
 const CARGAS = Object.keys(ETAPAS_DE_CARGA) as Carga[];
 const MARCA = /(?:data-carga="|carga:\s*")(\w+)"/g;
@@ -76,35 +82,34 @@ function conSusPiezas(archivo: string, vistos = new Set<string>()): string[] {
   return [...vistos];
 }
 
-const ETAPAS_CON_PANEL = ESTADOS_SERVICIO.filter(
-  (estado) => PANEL_DE[estado] !== undefined,
-);
-
 describe("cada carga que una etapa admite tiene su botón en el panel, y ninguna otra", () => {
-  test("los paneles de «Adjudicado» en adelante y las salidas están en la lista", () => {
-    expect(ETAPAS_CON_PANEL).toEqual(
-      ESTADOS_SERVICIO.filter(
-        (estado) => estado !== "creado" && estado !== "cotizado",
-      ),
-    );
+  test("hay un panel por cada etapa de la tabla de cargas", () => {
+    expect(Object.keys(PANEL_DE)).toEqual([...ESTADOS_SERVICIO]);
   });
 
-  test.each(ETAPAS_CON_PANEL.map((estado) => [estado]))("%s", (estado) => {
-    const archivo = path.join(PANELES, PANEL_DE[estado] ?? "");
+  test.each(ESTADOS_SERVICIO.map((estado) => [estado]))("%s", (estado) => {
+    const archivo = path.join(PANELES, PANEL_DE[estado]);
     const admitidas = CARGAS.filter(
       (carga) => carga !== "suceso" && admiteCarga(estado, carga),
+    );
+    const sinBoton = SIN_BOTON.filter(([etapa]) => etapa === estado).map(
+      ([, carga]) => carga,
     );
     const delPanel = new Set(marcasDe(archivo));
     const conPiezas = new Set(conSusPiezas(archivo).flatMap(marcasDe));
 
-    expect(admitidas.filter((carga) => !conPiezas.has(carga))).toEqual([]);
+    expect(
+      admitidas.filter(
+        (carga) => !conPiezas.has(carga) && !sinBoton.includes(carga),
+      ),
+    ).toEqual([]);
     expect([...delPanel].filter((carga) => !admitidas.includes(carga))).toEqual(
       [],
     );
   });
 
   test("las etapas que no admiten ninguna carga (Cerrado) no marcan ningún botón en su panel", () => {
-    const archivo = path.join(PANELES, PANEL_DE.cerrado ?? "");
+    const archivo = path.join(PANELES, PANEL_DE.cerrado);
     expect(CARGAS.filter((carga) => admiteCarga("cerrado", carga))).toEqual([]);
     expect(marcasDe(archivo)).toEqual([]);
   });

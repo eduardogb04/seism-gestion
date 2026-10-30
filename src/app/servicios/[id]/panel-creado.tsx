@@ -130,12 +130,14 @@ export async function PanelCreado({
               texto: "Cargar cotización",
               href: `${ruta}?cotizacion=1`,
               Icono: FileText,
+              carga: "cotizacion",
             }}
             secundarias={[
               {
                 texto: "Subir documento de alcance",
                 href: `${ruta}?alcance=1`,
                 Icono: Upload,
+                carga: "alcance",
               },
             ]}
             salidas={servicio.transiciones.map(({ valor, etiqueta }) => ({

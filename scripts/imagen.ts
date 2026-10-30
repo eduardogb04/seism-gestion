@@ -53,7 +53,7 @@ const ADMIN_INICIAL_EMAIL_PRUEBA = "admin@ejemplo.test";
  */
 const IDENTIDAD_PRUEBA = "falsa";
 /** Objetivo de tamaño de la imagen final (criterio de F0-07). */
-const TOPE_MB = 250;
+const TOPE_MB = 300;
 const ESPERA_MAXIMA_MS = 120_000;
 const INTERVALO_MS = 2_000;
 

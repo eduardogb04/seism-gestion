@@ -101,9 +101,9 @@ test("una operadora carga un suceso en un servicio y uno suelto, y los ve juntos
 
   // 4. El servicio sigue como estaba: solo su suceso en la columna lateral.
   await filas.nth(2).getByRole("link", { name: codigo }).click();
-  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
   const lateral = page.getByRole("complementary", {
-    name: "Registro de sucesos",
+    name: "Observaciones y sucesos",
   });
   await expect(lateral.getByText(DEL_SERVICIO)).toBeVisible();
   await expect(lateral.getByText(SUELTO)).toHaveCount(0);

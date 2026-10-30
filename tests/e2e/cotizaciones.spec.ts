@@ -59,10 +59,11 @@ function ventana(page: Page, titulo: string) {
 }
 
 /** La tabla de cotizaciones: la que tiene la columna «Motivo de la revisión». */
-function tablaDeCotizaciones(page: Page) {
-  return page.getByRole("table").filter({
-    has: page.getByRole("columnheader", { name: "Motivo de la revisión" }),
-  });
+/** La línea de versiones del panel de «Cotizado» (F6-01): la más nueva arriba. */
+function versiones(page: Page) {
+  return page
+    .getByRole("list", { name: "Versiones de la cotización" })
+    .getByRole("listitem");
 }
 
 test.beforeEach(async ({ browser, baseURL }) => {
@@ -90,13 +91,15 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
   await alta.getByLabel("Responsable").selectOption({ label: ADMIN });
   await alta.getByLabel("Fecha de pedido").fill("2026-10-10");
   await alta.getByRole("button", { name: "Guardar" }).click();
-  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
   const estado = page.locator("[data-estado-del-servicio]");
   await expect(estado).toHaveText("Creado");
-  await expect(page.getByText("Todavía no hay cotizaciones")).toBeVisible();
+  await expect(
+    page.locator("[data-control]").filter({ hasText: "Cotización" }),
+  ).toContainText("falta cargar");
 
   // 1. La primera: sin motivo, con un archivo de ~2 MB.
-  await page.getByRole("link", { name: "Nueva cotización" }).click();
+  await page.getByRole("link", { name: "Cargar cotización" }).click();
   const nueva = ventana(page, "Nueva cotización");
   await expect(nueva.getByLabel("Fecha")).toHaveAttribute("type", "date");
   await expect(nueva.getByLabel("Fecha")).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
@@ -116,18 +119,13 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
   await nueva.getByRole("button", { name: "Cargar" }).click();
 
   await expect(estado).toHaveText("Cotizado");
-  const tabla = tablaDeCotizaciones(page);
-  const primera = tabla.getByRole("row").nth(1);
-  await expect(primera.getByRole("cell").nth(0)).toHaveText("v1");
-  await expect(primera.getByRole("cell").nth(1)).toHaveText("12/10/2026");
-  await expect(primera.getByRole("cell").nth(2)).toHaveText("ARS 12.500,00");
-  await expect(primera.getByRole("cell").nth(4)).toHaveText(
-    "Sin flete de ejemplo",
-  );
-  await expect(primera.getByRole("cell").nth(5)).toHaveText(
-    "cotizacion-v1.pdf (2,0 MB)",
-  );
-  await expect(primera.getByRole("cell").nth(6)).toHaveText(OPERADORA);
+  const primera = versiones(page).first();
+  await expect(primera).toContainText("v1 · ARS 12.500,00");
+  await expect(primera).toContainText("12/10/2026");
+  await expect(primera).toContainText(`Primera cotización · ${OPERADORA}`);
+  await expect(primera).toContainText("Sin flete de ejemplo");
+  await expect(primera).toContainText("cotizacion-v1.pdf (2,0 MB)");
+  await page.getByText("Historial de estados").click();
   const historial = page
     .getByRole("table")
     .filter({ has: page.getByRole("columnheader", { name: "Quién" }) });
@@ -138,7 +136,7 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
   );
 
   // 2. La segunda pide el motivo: sin él vuelve al lado del campo y conserva el importe.
-  await page.getByRole("link", { name: "Nueva cotización" }).click();
+  await page.getByRole("link", { name: "Nueva versión" }).click();
   const segunda = ventana(page, "Nueva cotización");
   await segunda.getByLabel("Importe", { exact: true }).fill("11.800,50");
   await segunda.getByLabel("Moneda de Importe").selectOption("USD");
@@ -184,18 +182,19 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
   });
   await segunda.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nueva cotización")).toHaveCount(0);
-  await expect(tabla.getByRole("row")).toHaveCount(3);
-  const arriba = tabla.getByRole("row").nth(1);
-  await expect(arriba.getByRole("cell").nth(0)).toHaveText("v2");
-  await expect(arriba.getByRole("cell").nth(2)).toHaveText("USD 11.800,50");
-  await expect(arriba.getByRole("cell").nth(3)).toHaveText(
-    "Ajuste de alcance de ejemplo",
-  );
+  await expect(versiones(page)).toHaveCount(2);
+  const arriba = versiones(page).first();
+  await expect(arriba).toContainText("v2 · USD 11.800,50");
+  await expect(arriba).toContainText("Ajuste de alcance de ejemplo");
+  await expect(arriba.locator("[data-vigente]")).toHaveText("vigente");
+  await expect(versiones(page).nth(1).locator("[data-vigente]")).toHaveCount(0);
   await expect(estado).toHaveText("Cotizado");
   await expect(historial.getByRole("row")).toHaveCount(3);
 
   // 4. La descarga trae los mismos bytes; sin sesión no se baja.
-  const enlace = tabla.getByRole("link", { name: /cotizacion-v1\.pdf/ });
+  const enlace = versiones(page)
+    .nth(1)
+    .getByRole("link", { name: /cotizacion-v1\.pdf/ });
   const ruta = await enlace.getAttribute("href");
   expect(ruta).toMatch(/^\/documentos\/[0-9a-f-]{36}$/);
   const [descarga] = await Promise.all([

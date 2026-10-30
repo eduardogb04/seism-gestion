@@ -1,7 +1,7 @@
 import { type LucideIcon, Minus, TrendingDown, TrendingUp } from "lucide-react";
 import type { ReactNode } from "react";
 
-const PORCENTAJE = new Intl.NumberFormat("es-AR", {
+export const PORCENTAJE = new Intl.NumberFormat("es-AR", {
   style: "percent",
   signDisplay: "exceptZero",
   maximumFractionDigits: 1,

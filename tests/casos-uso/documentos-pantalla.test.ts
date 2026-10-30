@@ -30,6 +30,7 @@ import {
 import { crearCasosUsoCotizaciones } from "../../src/casos-uso/servicios/cotizaciones.ts";
 import { crearCasosUsoFacturas } from "../../src/casos-uso/servicios/facturas.ts";
 import { crearCasosUsoOrdenesDeCompra } from "../../src/casos-uso/servicios/ordenes-de-compra.ts";
+import { crearCasosUsoServicios } from "../../src/casos-uso/servicios/servicios.ts";
 import { crearCasosUsoSesion } from "../../src/casos-uso/sesion/sesion.ts";
 import { catalogo } from "../../src/dominio/compartido/errores/catalogo.ts";
 import {
@@ -67,6 +68,9 @@ vi.mock("next/headers.js", () => ({
         : undefined,
   }),
 }));
+
+// `refresh` solo existe dentro de una Server Action; acá no hay ninguna.
+vi.mock("next/cache.js", () => ({ refresh: () => undefined }));
 
 vi.mock("../../src/infraestructura/arranque/armado.ts", () => ({
   armado: () => punto.armado,
@@ -197,6 +201,7 @@ beforeEach(async () => {
   });
   punto.armado = {
     sesion,
+    servicios: crearCasosUsoServicios(dependencias),
     cotizaciones: crearCasosUsoCotizaciones({
       ...dependencias,
       almacen,
@@ -247,7 +252,7 @@ describe("cargar una cotización desde el formulario", () => {
       ),
     );
 
-    expect(va).toBe(`/servicios/${servicioId}`);
+    expect(va).toBe(`/servicios/${servicioId}/cotizado`);
     const cotizacion = await cliente().cotizacion.findFirstOrThrow();
     expect(cotizacion.creadoPor).toEqual({
       tipo: "persona",
@@ -337,7 +342,7 @@ describe("cargar una cotización desde el formulario", () => {
 
     expect(
       await destino(anularCotizacion(servicioId, id, VACIO, formulario({}))),
-    ).toBe(`/servicios/${servicioId}`);
+    ).toBe(`/servicios/${servicioId}/cotizado`);
     expect(
       (await cliente().cotizacion.findFirstOrThrow()).eliminadoEn,
     ).not.toBeNull();
@@ -388,9 +393,9 @@ describe("órdenes de compra y facturas desde el formulario: el documento es opc
 
     expect(
       await destino(cargarOrdenDeCompra(servicioId, VACIO, conOrden)),
-    ).toBe(`/servicios/${servicioId}`);
+    ).toBe(`/servicios/${servicioId}/adjudicado`);
     expect(await destino(cargarFactura(servicioId, VACIO, conFactura))).toBe(
-      `/servicios/${servicioId}`,
+      `/servicios/${servicioId}/adjudicado`,
     );
 
     expect(await cliente().ordenCompra.findFirstOrThrow()).toMatchObject({

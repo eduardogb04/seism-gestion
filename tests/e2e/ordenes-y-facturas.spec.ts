@@ -110,8 +110,8 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   await alta.getByLabel("Responsable").selectOption({ label: ADMIN });
   await alta.getByLabel("Fecha de pedido").fill("2026-10-10");
   await alta.getByRole("button", { name: "Guardar" }).click();
-  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
-  await page.getByRole("link", { name: "Nueva cotización" }).click();
+  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
+  await page.getByRole("link", { name: "Cargar cotización" }).click();
   const cotizacion = ventana(page, "Nueva cotización");
   await cotizacion.getByLabel("Fecha").fill("2026-10-11");
   await cotizacion.getByLabel("Importe", { exact: true }).fill("1.000,00");
@@ -124,15 +124,16 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   await expect(ventana(page, "Nueva cotización")).toHaveCount(0);
   const estado = page.locator("[data-estado-del-servicio]");
   await expect(estado).toHaveText("Cotizado");
+  // En «Cotizado» la orden se carga desde la barra del panel (F6-01): su sección es de «Adjudicado».
   await expect(
-    page.getByText("Todavía no hay órdenes de compra cargadas."),
-  ).toBeVisible();
+    page.getByRole("heading", { name: "Órdenes de compra", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Facturas", exact: true }),
   ).toHaveCount(0);
 
   // 1. La orden de compra: sin documento, que es opcional. El servicio pasa a «Adjudicado».
-  await page.getByRole("link", { name: "Nueva orden de compra" }).click();
+  await page.getByRole("link", { name: "Cargar orden de compra" }).click();
   const orden = ventana(page, "Nueva orden de compra");
   await expect(orden.getByLabel("Fecha")).toHaveAttribute("type", "date");
   await orden.getByLabel("Número").fill("OC-E2E-1");

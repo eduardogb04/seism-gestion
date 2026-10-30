@@ -77,8 +77,8 @@ test("desde el calendario se cotiza la renovación de un vencimiento: lleva al s
   await alta.getByLabel("Responsable").selectOption({ label: ADMIN });
   await alta.getByLabel("Fecha de pedido").fill("2026-10-10");
   await alta.getByRole("button", { name: "Guardar" }).click();
-  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
-  await page.getByRole("link", { name: "Nueva cotización" }).click();
+  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
+  await page.getByRole("link", { name: "Cargar cotización" }).click();
   const cotizacion = ventana(page, "Nueva cotización");
   await cotizacion.getByLabel("Fecha").fill("2026-10-11");
   await cotizacion.getByLabel("Importe", { exact: true }).fill("1.000,00");
@@ -89,7 +89,7 @@ test("desde el calendario se cotiza la renovación de un vencimiento: lleva al s
   });
   await cotizacion.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nueva cotización")).toHaveCount(0);
-  await page.getByRole("link", { name: "Nueva orden de compra" }).click();
+  await page.getByRole("link", { name: "Cargar orden de compra" }).click();
   const orden = ventana(page, "Nueva orden de compra");
   await orden.getByLabel("Número").fill("OC-E2E-CAL");
   await orden.getByLabel("Fecha").fill("2026-10-12");
@@ -146,7 +146,7 @@ test("desde el calendario se cotiza la renovación de un vencimiento: lleva al s
   const renovacion = ventana(page, "Cotizar renovación");
   await expect(renovacion).toContainText("Camión ZZ001ZZ");
   await renovacion.getByRole("button", { name: "Confirmar" }).click();
-  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
   await expect(estado).toHaveText("Creado");
   await expect(page.locator("h1")).toContainText(
     `Renovación de ${codigoOriginal?.[0]}`,

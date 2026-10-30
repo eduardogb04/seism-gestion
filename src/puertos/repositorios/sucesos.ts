@@ -17,6 +17,8 @@ export type DatosSuceso = {
   /** Un día, `aaaa-mm-dd`. */
   readonly fecha: string;
   readonly texto: string;
+  /** `observacion`, `hallazgo` o `aclaracion` (F6-01); `null` se muestra como «Observación». */
+  readonly tipo: string | null;
   /** Por qué se anuló; `null` mientras está vigente. */
   readonly motivoAnulacion: string | null;
 };

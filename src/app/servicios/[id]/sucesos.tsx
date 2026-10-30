@@ -1,9 +1,12 @@
 /**
- * La sección *Sucesos* de la pantalla de un servicio (F3-01, ADR 0039): la
- * tabla, con el más nuevo arriba, y la carga (`?suceso=1`) y la anulación con
- * su motivo (`?anularSuceso=<id>`) como ventanas sobre esta misma pantalla.
+ * La columna *Observaciones y sucesos* del servicio (F3-01, ADR 0039; F6-01):
+ * el más nuevo arriba, cada uno con la etiqueta de su tipo, y la carga
+ * (`?suceso=1`) y la anulación con su motivo (`?anularSuceso=<id>`) como
+ * ventanas sobre el panel de la etapa actual, que es quien las dibuja: el
+ * layout no recibe los parámetros de la dirección.
  */
 
+import { MessagesSquare } from "lucide-react";
 import {
   CAMPOS_DE_ANULACION,
   type OrigenDeAnulacion,
@@ -15,7 +18,6 @@ import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
-import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { anularSuceso, registrarSuceso } from "../acciones.ts";
 
@@ -80,75 +82,76 @@ export function VentanaDeAnulacion({
   );
 }
 
-export async function Sucesos({
-  clienteId,
+/** `ruta`: la del panel de la etapa actual, donde se abren las ventanas. */
+export async function ColumnaDeSucesos({
   servicioId,
   ruta,
   puedeEscribir,
-  parametros,
 }: {
-  readonly clienteId: string;
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
-  readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const sucesos = await armado().sucesos.listar(servicioId);
-  const aAnular = parametros.anularSuceso;
-  const cabeceras = ["Fecha", "Qué pasó", "Cargado por"];
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Sucesos</h2>
+    <section className="rounded border border-borde bg-superficie p-4 shadow-sm dark:shadow-none">
+      <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <MessagesSquare
+          aria-hidden="true"
+          className="size-5 text-texto-suave"
+        />
+        Observaciones y sucesos
+      </h2>
       {puedeEscribir ? (
-        <p className="mb-3">
+        <p className="mt-3">
           <Enlace
             href={`${ruta}?suceso=1`}
             scroll={false}
-            className={clasesDeBoton("primario")}
+            className={clasesDeBoton("secundario")}
           >
             Nuevo suceso
           </Enlace>
         </p>
       ) : null}
       {sucesos.length === 0 ? (
-        <p>Todavía no hay sucesos cargados.</p>
+        <p className="mt-3 text-texto-suave">
+          Todavía no hay sucesos cargados.
+        </p>
       ) : (
-        <Tabla
-          cabeceras={puedeEscribir ? [...cabeceras, "Acciones"] : cabeceras}
-        >
+        <ol className="mt-3">
           {sucesos.map((suceso) => (
-            <tr key={suceso.id}>
-              <td>{suceso.fecha}</td>
-              <td className="whitespace-pre-line">{suceso.texto}</td>
-              <td>{suceso.autor}</td>
+            <li
+              key={suceso.id}
+              data-suceso
+              className="border-t border-borde py-3 first:border-t-0"
+            >
+              <p className="flex flex-wrap items-center gap-x-2 text-sm text-texto-suave">
+                <span>
+                  {suceso.autor} · {suceso.fecha}
+                </span>
+                <span
+                  data-tipo-de-suceso
+                  className="ml-auto rounded-full bg-superficie-alta px-2 text-xs font-semibold text-texto"
+                >
+                  {suceso.tipo}
+                </span>
+              </p>
+              <p className="mt-1 whitespace-pre-line break-words">
+                {suceso.texto}
+              </p>
               {puedeEscribir ? (
-                <td>
-                  <Enlace
-                    href={`${ruta}?anularSuceso=${suceso.id}`}
-                    scroll={false}
-                  >
-                    Anular
-                  </Enlace>
-                </td>
+                <Enlace
+                  href={`${ruta}?anularSuceso=${suceso.id}`}
+                  scroll={false}
+                  className="text-sm"
+                >
+                  Anular
+                </Enlace>
               ) : null}
-            </tr>
+            </li>
           ))}
-        </Tabla>
+        </ol>
       )}
-      {puedeEscribir && typeof parametros.suceso === "string" ? (
-        <VentanaDeCarga
-          clienteId={clienteId}
-          servicioId={servicioId}
-          rutaAlCerrar={ruta}
-        />
-      ) : null}
-      {puedeEscribir && typeof aAnular === "string" ? (
-        <VentanaDeAnulacion
-          origen={{ servicioId }}
-          suceso={sucesos.find(({ id }) => id === aAnular)}
-          rutaAlCerrar={ruta}
-        />
-      ) : null}
     </section>
   );
 }

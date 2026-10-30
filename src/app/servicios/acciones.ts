@@ -10,6 +10,7 @@
  * con el código del error en la URL.
  */
 
+import { refresh } from "next/cache.js";
 import { redirect } from "next/navigation.js";
 import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
 import { CLIENTES } from "../../casos-uso/abm/clientes.ts";
@@ -20,8 +21,21 @@ import { armado } from "../../infraestructura/arranque/armado.ts";
 import type { EstadoFormulario } from "../_ui/formulario-abm.tsx";
 import { conActorDeSesion } from "../(auth)/sesion-actual.ts";
 import { archivoSubidoEn, escritoEn } from "../catalogo/_abm/escrito.ts";
+import { panelDeLaEtapaActual } from "./[id]/rutas.ts";
 
 const RUTA = "/servicios";
+
+/**
+ * Vuelve a la pantalla de `ruta` después de escribir: si es un servicio, al
+ * panel de la etapa en la que quedó (F6-01). `refresh` hace que se vuelva a
+ * dibujar también el layout del servicio (estado, línea de etapas, sucesos,
+ * historial): sin él, Next reusa el que ya tenía al navegar dentro del mismo
+ * servicio.
+ */
+async function volverA(ruta: string): Promise<never> {
+  refresh();
+  redirect(await panelDeLaEtapaActual(ruta));
+}
 
 type Escritura =
   | { readonly ok: true; readonly ruta: string }
@@ -39,7 +53,7 @@ async function escribir(
   if (!resultado.valor.ok) {
     return { escrito, errores: resultado.valor.errores };
   }
-  redirect(resultado.valor.ruta);
+  return volverA(resultado.valor.ruta);
 }
 
 /** El alta lleva a la pantalla del servicio nuevo: ahí se marcan sus sitios. */
@@ -345,7 +359,7 @@ async function enElServicio(
 ): Promise<never> {
   const resultado = await conActorDeSesion(trabajo);
   const ruta = `${RUTA}/${encodeURIComponent(id)}`;
-  redirect(resultado.ok ? ruta : `${ruta}?error=${resultado.codigo}`);
+  return volverA(resultado.ok ? ruta : `${ruta}?error=${resultado.codigo}`);
 }
 
 /** El estado al que pasa es el `value` del botón que se apretó. */
@@ -442,7 +456,7 @@ export async function cotizarRenovacion(
   const resultado = await conActorDeSesion((actor) =>
     armado().vencimientos.renovar(actor, id),
   );
-  redirect(
+  return volverA(
     resultado.ok
       ? `${RUTA}/${encodeURIComponent(resultado.valor.servicioId)}`
       : `${RUTA}/${encodeURIComponent(servicioId)}?error=${resultado.codigo}`,

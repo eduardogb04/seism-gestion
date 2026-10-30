@@ -1,15 +1,14 @@
 /**
  * La sección *Órdenes de compra* de la pantalla de un servicio (F2-06, ADR
  * 0036): la tabla, con la más nueva arriba y su saldo por facturar (sin IVA), y
- * la carga (`?orden=1`) y la anulación (`?anularOrden=<id>`) como ventanas
- * sobre esta misma pantalla.
+ * la anulación (`?anularOrden=<id>`) como ventana sobre esta misma pantalla.
+ * La carga (`?orden=1`) la ofrece el panel de «Cotizado» (F6-01).
  */
 
 import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
 import type { OrdenListada } from "../../../casos-uso/servicios/ordenes-de-compra.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { EnlaceDeDescarga } from "../../_ui/enlace-de-descarga.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
@@ -40,7 +39,7 @@ const CABECERAS = [
   "Tipo de cambio",
 ];
 
-async function VentanaDeCarga({
+export async function VentanaDeCarga({
   servicioId,
   rutaAlCerrar,
 }: {
@@ -105,14 +104,11 @@ export async function OrdenesDeCompra({
   servicioId,
   ruta,
   puedeEscribir,
-  puedeCargar,
   parametros,
 }: {
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
-  /** Cargarla pasa el servicio a «Adjudicado»: solo se ofrece en «Cotizado». */
-  readonly puedeCargar: boolean;
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const ordenes = await armado().ordenesDeCompra.listar(servicioId);
@@ -123,17 +119,6 @@ export async function OrdenesDeCompra({
   return (
     <section className="mt-6">
       <h2 className="mb-2 text-xl font-semibold">Órdenes de compra</h2>
-      {puedeEscribir && puedeCargar ? (
-        <p className="mb-3">
-          <Enlace
-            href={`${ruta}?orden=1`}
-            scroll={false}
-            className={clasesDeBoton("primario")}
-          >
-            Nueva orden de compra
-          </Enlace>
-        </p>
-      ) : null}
       {ordenes.length === 0 ? (
         <p>Todavía no hay órdenes de compra cargadas.</p>
       ) : (
@@ -200,9 +185,6 @@ export async function OrdenesDeCompra({
           ))}
         </Tabla>
       )}
-      {puedeEscribir && typeof parametros.orden === "string" ? (
-        <VentanaDeCarga servicioId={servicioId} rutaAlCerrar={ruta} />
-      ) : null}
       {puedeEscribir && typeof aCambiar === "string" ? (
         <VentanaDelCambio
           que={`la orden de compra ${ordenACambiar?.numero ?? ""}`}

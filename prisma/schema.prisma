@@ -519,6 +519,8 @@ model ServicioSuceso {
   fecha           DateTime  @db.Date
   texto           String
   motivoAnulacion String?   @map("motivo_anulacion")
+  // observacion, hallazgo o aclaracion (F6-01); nulo se muestra como «Observación».
+  tipo            String?
   creadoEn        DateTime  @map("creado_en") @db.Timestamptz(3)
   creadoPor       Json      @map("creado_por") @db.JsonB
   actualizadoEn   DateTime  @map("actualizado_en") @db.Timestamptz(3)

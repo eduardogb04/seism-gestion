@@ -231,6 +231,7 @@
     "codigo": "DOM-0039",
     "descripcion": "El hito ya está realizado: un hito realizado no se quita ni se reordena. No se guardó nada.",
     "queHacer": "Si se tildó por error, destildalo primero. Si no, dejalo donde está.",
+    "tipo": "persona"
   },
   "DOM_0042": {
     "codigo": "DOM-0042",

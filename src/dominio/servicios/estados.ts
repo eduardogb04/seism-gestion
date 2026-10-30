@@ -91,6 +91,7 @@ const CARGAS = [
   "modalidad",
   "cuota",
   "vencimiento",
+  "ajuste",
 ] as const;
 
 /**
@@ -121,6 +122,8 @@ const ETAPAS_DE_CARGA: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   cuota: ["adjudicado", "en_ejecucion"],
   // Corregir la fecha de un vencimiento, cargar uno o descartarlo (F4-02): en «Cerrado» solo se ven.
   vencimiento: ["finalizado"],
+  // Las notas de crédito y de débito y la factura adicional (F6-03): alta y anulación.
+  ajuste: ["finalizado"],
 };
 
 /** Cómo se le factura a un servicio (F3-03, ADR 0041); no es la modalidad del contrato (`Servicio.modalidad`). */

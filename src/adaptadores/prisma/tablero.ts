@@ -2,12 +2,19 @@
  * Las consultas del tablero con Prisma (F2-10, ADR 0038). Todo `$queryRaw`
  * tipado con Zod en el borde: las sumas las hace PostgreSQL, y cada consulta
  * de una lista usa **las mismas condiciones** que la suma a la que lleva.
+ *
+ * Lo facturado va con signo (F6-03, ADR 0050): la base resta los tipos que el
+ * dominio dice que restan (`TIPOS_QUE_RESTAN`), sin repetir cuáles son.
  */
 
 import { z } from "zod";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type { ValorTipoDeCambio } from "../../dominio/compartido/importe.ts";
+import {
+  TIPOS_DE_COMPROBANTE,
+  TIPOS_QUE_RESTAN,
+} from "../../dominio/servicios/comprobante.ts";
 import { ALICUOTAS_IVA } from "../../dominio/servicios/factura.ts";
 import type { MontoParaConvertir } from "../../dominio/tablero/conversion.ts";
 import type { RepositorioTablero } from "../../puertos/repositorios/tablero.ts";
@@ -15,6 +22,9 @@ import { aDia, importeDeColumnas } from "./abm/egresos.ts";
 import { Prisma } from "./generado/client.ts";
 
 const alicuota = z.literal(ALICUOTAS_IVA);
+
+/** El importe sin IVA de la factura `f`, con el signo de su tipo. */
+const IMPORTE_CON_SIGNO = Prisma.sql`CASE WHEN f.tipo = ANY(${[...TIPOS_QUE_RESTAN]}::text[]) THEN -f.importe_centavos ELSE f.importe_centavos END`;
 const clase = z.enum([
   "proyecto",
   "gestion_administrativa",
@@ -51,6 +61,8 @@ const esquemaFacturaDeLaLista = z.object({
   moneda: z.string(),
   importe_centavos: z.bigint(),
   alicuota,
+  tipo: z.enum(TIPOS_DE_COMPROBANTE),
+  adicional: z.boolean(),
 });
 
 const esquemaCobroDeLaLista = z.object({
@@ -200,12 +212,12 @@ export function crearRepositorioTableroPrisma(
       const filas = leer(
         esquemaFacturasIguales,
         await cliente.$queryRaw`
-          SELECT importe_moneda AS moneda, alicuota_iva AS alicuota, importe_centavos,
-                 COUNT(*)::int AS cantidad, SUM(importe_centavos)::bigint AS suma_centavos
-            FROM facturas
-           WHERE eliminado_en IS NULL AND fecha >= ${desde}::date AND fecha < ${hasta}::date
-           GROUP BY importe_moneda, alicuota_iva, importe_centavos
-           ORDER BY importe_moneda, alicuota_iva, importe_centavos`,
+          SELECT f.importe_moneda AS moneda, f.alicuota_iva AS alicuota, ${IMPORTE_CON_SIGNO} AS importe_centavos,
+                 COUNT(*)::int AS cantidad, SUM(${IMPORTE_CON_SIGNO})::bigint AS suma_centavos
+            FROM facturas f
+           WHERE f.eliminado_en IS NULL AND f.fecha >= ${desde}::date AND f.fecha < ${hasta}::date
+           GROUP BY 1, 2, 3
+           ORDER BY 1, 2, 3`,
       );
       return filas.map((fila) => ({
         importe: importeDeColumnas(fila.importe_centavos, fila.moneda),
@@ -271,7 +283,8 @@ export function crearRepositorioTableroPrisma(
         esquemaFacturaDeLaLista,
         await cliente.$queryRaw`
           SELECT f.id, s.id AS servicio_id, s.codigo AS servicio, f.numero, f.fecha,
-                 f.importe_moneda AS moneda, f.importe_centavos, f.alicuota_iva AS alicuota
+                 f.importe_moneda AS moneda, ${IMPORTE_CON_SIGNO} AS importe_centavos, f.alicuota_iva AS alicuota,
+                 f.tipo, f.adicional
             FROM facturas f
             JOIN servicios s ON s.id = f.servicio_id
            WHERE f.eliminado_en IS NULL AND f.fecha >= ${desde}::date AND f.fecha < ${hasta}::date
@@ -286,6 +299,8 @@ export function crearRepositorioTableroPrisma(
         fecha: aDia(fila.fecha),
         importe: importeDeColumnas(fila.importe_centavos, fila.moneda),
         alicuota: fila.alicuota,
+        tipo: fila.tipo,
+        adicional: fila.adicional,
       }));
     },
 
@@ -318,7 +333,7 @@ export function crearRepositorioTableroPrisma(
         esquemaMontoDeUnMes,
         await cliente.$queryRaw`
           ${CAMBIO_DE_CADA_DOCUMENTO}
-          SELECT to_char(f.fecha, 'YYYY-MM') AS mes, f.importe_moneda AS moneda, f.importe_centavos,
+          SELECT to_char(f.fecha, 'YYYY-MM') AS mes, f.importe_moneda AS moneda, ${IMPORTE_CON_SIGNO} AS importe_centavos,
                  d.numerador, d.denominador, COUNT(*)::int AS cantidad
             FROM facturas f
             JOIN cambio_de_documento d ON d.id = f.id
@@ -388,7 +403,7 @@ export function crearRepositorioTableroPrisma(
         esquemaMontoDeUnServicio,
         await cliente.$queryRaw`
           ${CAMBIO_DE_CADA_DOCUMENTO}
-          SELECT s.id AS servicio_id, s.codigo, f.importe_moneda AS moneda, f.importe_centavos,
+          SELECT s.id AS servicio_id, s.codigo, f.importe_moneda AS moneda, ${IMPORTE_CON_SIGNO} AS importe_centavos,
                  d.numerador, d.denominador, COUNT(*)::int AS cantidad
             FROM facturas f
             JOIN servicios s ON s.id = f.servicio_id

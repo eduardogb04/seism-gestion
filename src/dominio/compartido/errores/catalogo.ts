@@ -269,6 +269,45 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Si se tildó por error, destildalo primero. Si no, dejalo donde está.",
   },
+  DOM_0042: {
+    codigo: "DOM-0042",
+    tipo: "persona",
+    descripcion:
+      "El comprobante asociado no sirve: tiene que ser una factura, una factura adicional o una nota de débito vigente de este servicio, en la misma moneda.",
+    queHacer:
+      "Elegí otro comprobante de la lista, o cargá la nota en la moneda del comprobante al que corresponde.",
+  },
+  DOM_0043: {
+    codigo: "DOM-0043",
+    tipo: "persona",
+    descripcion:
+      "La nota de crédito supera el saldo pendiente del comprobante asociado.",
+    queHacer:
+      "Cargá un importe que no pase el saldo pendiente. Si ya se cobró, primero anulá el cobro: una nota de crédito sobre lo ya cobrado no se carga.",
+  },
+  DOM_0044: {
+    codigo: "DOM-0044",
+    tipo: "persona",
+    descripcion:
+      "El comprobante no se puede anular: tiene notas de crédito vigentes asociadas.",
+    queHacer:
+      "Primero anulá las notas de crédito de ese comprobante y volvé a intentarlo.",
+  },
+  DOM_0045: {
+    codigo: "DOM-0045",
+    tipo: "persona",
+    descripcion:
+      "Las notas de crédito y de débito y las facturas adicionales se anulan desde los ajustes del servicio, con un motivo.",
+    queHacer:
+      "Abrí los ajustes del servicio en la etapa «Finalizado» y anulalo desde ahí, escribiendo el motivo.",
+  },
+  DOM_0046: {
+    codigo: "DOM-0046",
+    tipo: "persona",
+    descripcion:
+      "Una nota de crédito no se cobra: no tiene saldo propio, baja el del comprobante al que está asociada.",
+    queHacer: "Registrá el cobro en el comprobante asociado.",
+  },
   AUT_0001: {
     codigo: "AUT-0001",
     tipo: "persona",

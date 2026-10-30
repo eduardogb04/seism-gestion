@@ -27,6 +27,7 @@ import {
   formatearImporte,
 } from "../../dominio/compartido/importe.ts";
 import { formatearISO } from "../../dominio/compartido/reloj.ts";
+import { importeConSigno } from "../../dominio/servicios/comprobante.ts";
 import { saldoDeOrden } from "../../dominio/servicios/orden-compra.ts";
 import type { DatosOrdenCompra } from "../../puertos/repositorios/ordenes-de-compra.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
@@ -180,7 +181,10 @@ export function crearCasosUsoOrdenesDeCompra({
               .filter(
                 ({ valor: factura }) => factura.ordenCompraId === valor.id,
               )
-              .map(({ valor: { numero, importe } }) => ({ numero, importe })),
+              .map(({ valor: { numero, tipo, importe } }) => ({
+                numero,
+                importe: importeConSigno(tipo, importe),
+              })),
           );
           return {
             id: valor.id,

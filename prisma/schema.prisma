@@ -798,31 +798,41 @@ model OrdenCompra {
 // alícuota va en milésimas (210, 105 o 0). El número es único entre las
 // vigentes (índice parcial, a mano en la migración).
 model Factura {
-  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  servicioId        String       @map("servicio_id") @db.Uuid
-  servicio          Servicio     @relation(fields: [servicioId], references: [id], onDelete: Restrict)
-  ordenCompraId     String?      @map("orden_compra_id") @db.Uuid
-  ordenCompra       OrdenCompra? @relation(fields: [ordenCompraId], references: [id], onDelete: Restrict)
-  numero            String
-  fecha             DateTime     @db.Date
-  vencimiento       DateTime     @db.Date
-  importeCentavos   BigInt       @map("importe_centavos")
-  importeMoneda     String       @map("importe_moneda")
-  cambioNumerador   BigInt?      @map("cambio_numerador")
-  cambioDenominador BigInt?      @map("cambio_denominador")
-  cambioFuente      String?      @map("cambio_fuente")
-  alicuotaIva       Int          @map("alicuota_iva")
+  id                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId            String       @map("servicio_id") @db.Uuid
+  servicio              Servicio     @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  ordenCompraId         String?      @map("orden_compra_id") @db.Uuid
+  ordenCompra           OrdenCompra? @relation(fields: [ordenCompraId], references: [id], onDelete: Restrict)
+  numero                String
+  fecha                 DateTime     @db.Date
+  vencimiento           DateTime     @db.Date
+  importeCentavos       BigInt       @map("importe_centavos")
+  importeMoneda         String       @map("importe_moneda")
+  cambioNumerador       BigInt?      @map("cambio_numerador")
+  cambioDenominador     BigInt?      @map("cambio_denominador")
+  cambioFuente          String?      @map("cambio_fuente")
+  alicuotaIva           Int          @map("alicuota_iva")
   // El mes que factura (el día 1), en modalidad mensual; en las otras, nulo (F3-03).
-  periodo           DateTime?    @db.Date
-  documentoId       String?      @map("documento_id") @db.Uuid
-  documento         Documento?   @relation(fields: [documentoId], references: [id], onDelete: Restrict)
-  creadoEn          DateTime     @map("creado_en") @db.Timestamptz(3)
-  creadoPor         Json         @map("creado_por") @db.JsonB
-  actualizadoEn     DateTime     @map("actualizado_en") @db.Timestamptz(3)
-  actualizadoPor    Json         @map("actualizado_por") @db.JsonB
-  eliminadoEn       DateTime?    @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor      Json?        @map("eliminado_por") @db.JsonB
-  cobros            Cobro[]
+  periodo               DateTime?    @db.Date
+  documentoId           String?      @map("documento_id") @db.Uuid
+  documento             Documento?   @relation(fields: [documentoId], references: [id], onDelete: Restrict)
+  // F6-03 (ADR 0050): factura, nota_debito o nota_credito; el importe se guarda positivo y el
+  // signo lo pone el dominio. La adicional es una factura que no consume la orden de compra. La
+  // nota de crédito apunta siempre a su comprobante; la de débito, si corresponde a uno.
+  tipo                  String       @default("factura")
+  adicional             Boolean      @default(false)
+  comprobanteAsociadoId String?      @map("comprobante_asociado_id") @db.Uuid
+  comprobanteAsociado   Factura?     @relation("ComprobanteAsociado", fields: [comprobanteAsociadoId], references: [id], onDelete: Restrict)
+  asociados             Factura[]    @relation("ComprobanteAsociado")
+  // Las notas y la adicional se anulan con un motivo.
+  motivoAnulacion       String?      @map("motivo_anulacion")
+  creadoEn              DateTime     @map("creado_en") @db.Timestamptz(3)
+  creadoPor             Json         @map("creado_por") @db.JsonB
+  actualizadoEn         DateTime     @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor        Json         @map("actualizado_por") @db.JsonB
+  eliminadoEn           DateTime?    @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor          Json?        @map("eliminado_por") @db.JsonB
+  cobros                Cobro[]
 
   @@map("facturas")
 }

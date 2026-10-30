@@ -23,6 +23,7 @@ import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transacci
 import { crearCasosUsoAbm } from "../../src/casos-uso/abm/abm.ts";
 import { CUENTAS } from "../../src/casos-uso/abm/cuentas.ts";
 import type { Escrito } from "../../src/casos-uso/abm/definicion.ts";
+import { crearCasosUsoAjustes } from "../../src/casos-uso/servicios/ajustes.ts";
 import { crearCasosUsoCobros } from "../../src/casos-uso/servicios/cobros.ts";
 import { crearCasosUsoCotizaciones } from "../../src/casos-uso/servicios/cotizaciones.ts";
 import { crearCasosUsoDocumentosDeAlcance } from "../../src/casos-uso/servicios/documentos-de-alcance.ts";
@@ -107,6 +108,7 @@ const cotizaciones = () => crearCasosUsoCotizaciones(conAlmacen());
 const alcance = () => crearCasosUsoDocumentosDeAlcance(conAlmacen());
 const ordenes = () => crearCasosUsoOrdenesDeCompra(conAlmacen());
 const facturas = () => crearCasosUsoFacturas(conAlmacen());
+const ajustes = () => crearCasosUsoAjustes(conAlmacen());
 const cobros = (transaccional?: Transaccional) =>
   crearCasosUsoCobros(conAlmacen(transaccional));
 const sucesos = () => crearCasosUsoSucesos(dependencias());
@@ -408,6 +410,54 @@ describe("cada etapa limita lo que se carga (R6)", () => {
 
     await llevarA("cancelado");
     await fueraDeEtapa(() => facturas().marcarEliminado(admin, id));
+  });
+
+  test("ajustes (F6-03): la nota de crédito, la de débito y la adicional entran y se anulan solo en «Finalizado»; en cualquier otra, DOM-0018 sin escribir nada", async () => {
+    await llevarA("adjudicado");
+    const { id } = await cargarFactura();
+    let numero = 0;
+    const cargarAjustes = async () => {
+      for (const ajuste of [
+        "nota_credito",
+        "nota_debito",
+        "adicional",
+      ] as const) {
+        numero += 1;
+        exigirOk(
+          await ajustes().crear(
+            admin,
+            servicioId,
+            ajuste,
+            {
+              numero: `A-${numero}`,
+              fecha: "2031-07-09",
+              vencimiento: "2031-08-09",
+              importe: "1,00",
+              importeMoneda: "ARS",
+              alicuota: "210",
+              comprobanteAsociadoId: id,
+            },
+            null,
+          ),
+        );
+      }
+    };
+
+    await llevarA("finalizado");
+    await cargarAjustes();
+    const [anulado, otro] = await ajustes().listar(servicioId);
+    exigirOk(
+      await ajustes().marcarAnulado(admin, anulado?.id ?? "", {
+        motivo: "Repetido",
+      }),
+    );
+    for (const afuera of fueraDe(["finalizado"])) {
+      await llevarA(afuera);
+      await fueraDeEtapa(cargarAjustes);
+      await fueraDeEtapa(() =>
+        ajustes().marcarAnulado(admin, otro?.id ?? "", { motivo: "Repetido" }),
+      );
+    }
   });
 
   test("cobros: en cualquier etapa menos «Cerrado», mientras la factura tenga saldo", async () => {

@@ -143,7 +143,7 @@ export async function exigirEtapaDeFactura(
   }
 }
 
-/** Un servicio finalizado con al menos una factura y todas en saldo cero pasa a «Cerrado». */
+/** Un servicio finalizado con al menos un comprobante con saldo y todos en cero, con las notas de crédito restadas, pasa a «Cerrado». */
 export async function cerrarSiEstaCobrado(
   actor: Actor,
   repos: RepositoriosEnTransaccion,

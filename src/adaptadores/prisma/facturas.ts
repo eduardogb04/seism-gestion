@@ -6,6 +6,7 @@
 
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
+import { TIPOS_DE_COMPROBANTE } from "../../dominio/servicios/comprobante.ts";
 import { ALICUOTAS_IVA } from "../../dominio/servicios/factura.ts";
 import type {
   DatosFactura,
@@ -43,12 +44,15 @@ const paso = {
     cambioFuente,
     alicuotaIva,
     periodo,
+    tipo: tipoGuardado,
     ...resto
   }: DatosDeFila): DatosFactura {
     const alicuota = ALICUOTAS_IVA.find((valor) => valor === alicuotaIva);
-    if (alicuota === undefined) {
+    const tipo = TIPOS_DE_COMPROBANTE.find((valor) => valor === tipoGuardado);
+    if (alicuota === undefined || tipo === undefined) {
       throw nuevoError(catalogo.INF_0001, {
-        motivo: "la base devolvió una factura con una alícuota desconocida",
+        motivo:
+          "la base devolvió una factura con una alícuota o un tipo desconocido",
       });
     }
     return {
@@ -63,6 +67,7 @@ const paso = {
       ),
       alicuota,
       periodo: periodo === null ? null : aDia(periodo),
+      tipo,
     };
   },
 
@@ -128,10 +133,11 @@ export function crearRepositorioFacturasPrisma(
       }));
     },
 
-    async existeNumero(numero) {
+    async existeNumero(numero, tipo) {
       const filas = await cliente.factura.findMany({
         where: {
           eliminadoEn: null,
+          tipo,
           numero: { equals: numero, mode: "insensitive" },
         },
         select: { id: true },

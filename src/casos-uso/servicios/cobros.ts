@@ -18,6 +18,9 @@
  *   (importes, fechas): `app` no importa el dominio salvo por tipos.
  * - Lo que la persona corrige vuelve por campo, no se lanza. `DOM-0009` si la
  *   factura o el cobro no existen o están dados de baja.
+ * - La factura adicional y la nota de débito se cobran igual que una factura;
+ *   la nota de crédito no se cobra (`DOM-0046`): baja el saldo de su asociado
+ *   (F6-03, ADR 0050).
  */
 
 import { z } from "zod";
@@ -40,13 +43,14 @@ import {
   diferenciaEnDias,
   formatearISO,
 } from "../../dominio/compartido/reloj.ts";
-import { sumarEnMoneda } from "../../dominio/compartido/saldo.ts";
+import { pagar, sumarEnMoneda } from "../../dominio/compartido/saldo.ts";
 import {
   type AvanceEnMoneda,
   avancePorMoneda,
   sumaPorMoneda,
 } from "../../dominio/servicios/avance.ts";
-import { estaCobrada, saldoDeFactura } from "../../dominio/servicios/cobro.ts";
+import { estaCobrada, facturadoNeto } from "../../dominio/servicios/cobro.ts";
+import { tieneSaldo } from "../../dominio/servicios/comprobante.ts";
 import type { Factura } from "../../puertos/repositorios/facturas.ts";
 import type {
   RepositoriosEnTransaccion,
@@ -85,11 +89,10 @@ import type {
 import { exigirRol } from "../usuarios/reglas.ts";
 import { cerrarSiEstaCobrado, exigirEtapa } from "./ciclo.ts";
 import {
-  cobroDeFactura,
+  comprobanteDe,
   conCobrosDe,
   conSusCobros,
   type FacturaConCobros,
-  totalDe,
 } from "./cobranza.ts";
 import {
   bajaDeAdjuntoOpcional,
@@ -287,7 +290,30 @@ async function facturaVigente(
   if (factura === null || factura.eliminadoEn !== undefined) {
     throw nuevoError(catalogo.DOM_0009, { entidad: "Factura", id });
   }
+  if (!tieneSaldo(comprobanteDe(factura))) {
+    throw nuevoError(catalogo.DOM_0046, { id });
+  }
   return factura;
+}
+
+/** El comprobante con sus cobros y su saldo, con las notas de crédito de su servicio restadas. */
+async function conSuSaldo(
+  repos: RepositoriosEnTransaccion,
+  factura: Factura,
+): Promise<FacturaConCobros> {
+  const conSaldo = (
+    await conCobrosDe(
+      repos,
+      await repos.facturas.listarDe(factura.valor.servicioId),
+    )
+  ).find((uno) => uno.factura.valor.id === factura.valor.id);
+  if (conSaldo === undefined) {
+    throw nuevoError(catalogo.DOM_0009, {
+      entidad: "Factura",
+      id: factura.valor.id,
+    });
+  }
+  return conSaldo;
 }
 
 /** La factura vigente, con la fila de su servicio tomada hasta el fin de la transacción. */
@@ -306,12 +332,18 @@ export async function facturasPorCobrar(repos: RepositoriosEnTransaccion) {
   const cobros = await repos.cobros.listarDe(
     vigentes.map(({ factura }) => factura.valor.id),
   );
-  return vigentes
-    .map((vigente) => ({
-      ...vigente,
-      ...conSusCobros(vigente.factura, cobros),
-    }))
-    .filter(({ saldo }) => !estaCobrada(saldo));
+  const conSaldo = conSusCobros(
+    vigentes.map(({ factura }) => factura),
+    cobros,
+  );
+  return vigentes.flatMap((vigente) =>
+    conSaldo
+      .filter(
+        ({ factura, saldo }) =>
+          factura.valor.id === vigente.factura.valor.id && !estaCobrada(saldo),
+      )
+      .map((propio) => ({ ...vigente, ...propio })),
+  );
 }
 
 function lineaDeAvance(avance: AvanceEnMoneda): LineaDeAvance {
@@ -324,10 +356,10 @@ function lineaDeAvance(avance: AvanceEnMoneda): LineaDeAvance {
   };
 }
 
-/** Lo que una factura aporta al avance: su total con IVA y lo cobrado con sus retenciones. */
+/** Lo que un comprobante aporta al avance: su total con IVA menos sus notas de crédito, y lo cobrado con sus retenciones. */
 function paraAvance({ saldo }: FacturaConCobros) {
   return {
-    total: saldo.total,
+    total: facturadoNeto(saldo),
     cobrado: sumarEnMoneda(saldo.cobrado, saldo.retenido),
   };
 }
@@ -430,10 +462,7 @@ export function crearCasosUsoCobros({
     formulario(facturaId) {
       return transaccional.ejecutar(async (repos) => {
         const factura = await facturaVigente(repos, facturaId);
-        const { saldo } = conSusCobros(
-          factura,
-          await repos.cobros.listarDe([facturaId]),
-        );
+        const { saldo } = await conSuSaldo(repos, factura);
         return {
           servicioId: factura.valor.servicioId,
           numero: factura.valor.numero,
@@ -546,14 +575,15 @@ export function crearCasosUsoCobros({
 
         let aceptado: Importe<Moneda> | null = null;
         if (importe !== null && errores.retencion === undefined) {
-          const actual = conSusCobros(
-            factura,
-            await repos.cobros.listarDe([facturaId]),
+          const actual = await conSuSaldo(repos, factura);
+          const nuevo = pagar(
+            {
+              total: actual.saldo.total,
+              pagado: actual.saldo.cobrado,
+              saldo: actual.saldo.saldo,
+            },
+            retencion === null ? importe : sumarEnMoneda(importe, retencion),
           );
-          const nuevo = saldoDeFactura(totalDe(factura), [
-            ...actual.cobros.map(cobroDeFactura),
-            { importe, retencion },
-          ]);
           if (nuevo.ok) {
             aceptado = importe;
           } else {

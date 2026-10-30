@@ -82,6 +82,7 @@ const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   modalidad: ["adjudicado"],
   cuota: ["adjudicado", "en_ejecucion"],
   vencimiento: ["finalizado"],
+  ajuste: ["finalizado"],
 };
 
 const CARGAS: readonly Carga[] = [
@@ -97,6 +98,7 @@ const CARGAS: readonly Carga[] = [
   "modalidad",
   "cuota",
   "vencimiento",
+  "ajuste",
 ];
 
 function declarada(de: EstadoServicio, a: EstadoServicio): boolean {

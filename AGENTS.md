@@ -1134,7 +1134,7 @@ cancelar sin motivo, `DOM-0017`), y lo automático por `cambiarPorCausa(..., cau
 carga)` antes de escribir (`DOM-0018`, sin escribir nada); qué carga va en qué estado lo dice una sola tabla,
 `admiteCarga`. Algo nuevo que se cargue en un servicio suma su `Carga` ahí y su caso a `tests/casos-uso/etapas.test.ts`. **Cada carga funciona
 desde su panel** (F6-04): su botón lleva `data-carga="<carga>"` (o `carga: "<carga>"` en la barra de acciones) y
-`tests/dominio/cargas-en-los-paneles.test.ts` recorre `ETAPAS_DE_CARGA` contra los paneles de «Adjudicado» en adelante: cada
+`tests/casos-uso/cargas-en-los-paneles.test.ts` recorre `ETAPAS_DE_CARGA` contra los paneles de «Adjudicado» en adelante: cada
 carga que una etapa admite tiene su botón en el panel o en una pieza que importa, y el panel no marca ninguna que no admite.
 Un test que necesita un servicio en una etapa lo lleva con `llevarServicioA` (`tests/casos-uso/_arnes/servicio.ts`). Una entidad nueva que apunte a un cliente, un tipo o un sitio y no
 sea un ABM se suma a `enUso` (`src/casos-uso/abm/definiciones.ts`) como `RepositorioServicios.usa`. Cotizaciones (F2-05,

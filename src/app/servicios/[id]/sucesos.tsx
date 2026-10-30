@@ -108,6 +108,7 @@ export async function ColumnaDeSucesos({
             href={`${ruta}?suceso=1`}
             scroll={false}
             className={clasesDeBoton("secundario")}
+            data-carga="suceso"
           >
             Nuevo suceso
           </Enlace>
@@ -144,6 +145,7 @@ export async function ColumnaDeSucesos({
                   href={`${ruta}?anularSuceso=${suceso.id}`}
                   scroll={false}
                   className="text-sm"
+                  data-carga="suceso"
                 >
                   Anular
                 </Enlace>

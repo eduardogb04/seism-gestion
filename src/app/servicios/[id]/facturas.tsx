@@ -4,7 +4,8 @@
  * (`?anularFactura=<id>`) como ventanas sobre esta misma pantalla. Se carga el
  * importe sin IVA; el IVA y el total salen calculados, en el listado y al lado
  * de los campos mientras se escribe. Cada fila trae lo cobrado, lo retenido y el
- * saldo (F2-07, ADR 0037), y desde ahí se cobra.
+ * saldo (F2-07, ADR 0037), y desde ahí se cobra. Cargar la factura es una
+ * acción del panel; acá solo se abre su ventana (`?factura=1`).
  */
 
 import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
@@ -116,12 +117,16 @@ function VentanaDeAnulacion({
 export async function Facturas({
   servicioId,
   ruta,
-  puedeEscribir,
+  puedeFacturar,
+  puedeCobrar,
   parametros,
 }: {
   readonly servicioId: string;
   readonly ruta: string;
-  readonly puedeEscribir: boolean;
+  /** Anular o cambiar una factura y abrir la ventana de la nueva: la etapa admite la carga `factura`. */
+  readonly puedeFacturar: boolean;
+  /** Cobrar y anular un cobro: la etapa admite la carga `cobro`. */
+  readonly puedeCobrar: boolean;
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const facturas = await armado().facturas.listar(servicioId);
@@ -132,22 +137,15 @@ export async function Facturas({
   return (
     <section className="mt-6">
       <h2 className="mb-2 text-xl font-semibold">Facturas</h2>
-      {puedeEscribir ? (
-        <p className="mb-3">
-          <Enlace
-            href={`${ruta}?factura=1`}
-            scroll={false}
-            className={clasesDeBoton("primario")}
-          >
-            Nueva factura
-          </Enlace>
-        </p>
-      ) : null}
       {facturas.length === 0 ? (
         <p>Todavía no hay facturas cargadas.</p>
       ) : (
         <Tabla
-          cabeceras={puedeEscribir ? [...CABECERAS, "Acciones"] : CABECERAS}
+          cabeceras={
+            puedeFacturar || puedeCobrar
+              ? [...CABECERAS, "Acciones"]
+              : CABECERAS
+          }
         >
           {facturas.map((factura) => {
             const cobro = cobranza.find(
@@ -182,32 +180,38 @@ export async function Facturas({
                 </td>
                 <td>{factura.periodo}</td>
                 <td>{factura.tipo}</td>
-                {puedeEscribir ? (
+                {puedeFacturar || puedeCobrar ? (
                   <td>
-                    <div className="flex gap-3">
-                      {cobro?.cobrada ? null : (
+                    <div className="flex flex-wrap items-center gap-3">
+                      {puedeCobrar && !cobro?.cobrada ? (
                         <Enlace
                           href={`${ruta}?cobrar=${factura.id}`}
                           scroll={false}
+                          className={clasesDeBoton("primario")}
+                          data-carga="cobro"
                         >
-                          Cobrar
+                          Registrar cobro
                         </Enlace>
-                      )}
-                      {textoDelEnlaceDeCambio(factura.cambio) ===
-                      null ? null : (
+                      ) : null}
+                      {puedeFacturar &&
+                      textoDelEnlaceDeCambio(factura.cambio) !== null ? (
                         <Enlace
                           href={`${ruta}?cambioFactura=${factura.id}`}
                           scroll={false}
+                          data-carga="factura"
                         >
                           {textoDelEnlaceDeCambio(factura.cambio)}
                         </Enlace>
-                      )}
-                      <Enlace
-                        href={`${ruta}?anularFactura=${factura.id}`}
-                        scroll={false}
-                      >
-                        Anular
-                      </Enlace>
+                      ) : null}
+                      {puedeFacturar ? (
+                        <Enlace
+                          href={`${ruta}?anularFactura=${factura.id}`}
+                          scroll={false}
+                          data-carga="factura"
+                        >
+                          Anular
+                        </Enlace>
+                      ) : null}
                     </div>
                   </td>
                 ) : null}
@@ -219,15 +223,15 @@ export async function Facturas({
       <Cobros
         servicioId={servicioId}
         ruta={ruta}
-        puedeEscribir={puedeEscribir}
+        puedeEscribir={puedeCobrar}
         parametros={parametros}
         facturas={facturas}
         cobranza={cobranza}
       />
-      {puedeEscribir && typeof parametros.factura === "string" ? (
+      {puedeFacturar && typeof parametros.factura === "string" ? (
         <VentanaDeCarga servicioId={servicioId} rutaAlCerrar={ruta} />
       ) : null}
-      {puedeEscribir && typeof aCambiar === "string" ? (
+      {puedeFacturar && typeof aCambiar === "string" ? (
         <VentanaDelCambio
           que={`la factura ${facturaACambiar?.numero ?? ""}`}
           formulario={
@@ -239,7 +243,7 @@ export async function Facturas({
           rutaAlCerrar={ruta}
         />
       ) : null}
-      {puedeEscribir && typeof aAnular === "string" ? (
+      {puedeFacturar && typeof aAnular === "string" ? (
         <VentanaDeAnulacion
           servicioId={servicioId}
           factura={facturas.find(({ id }) => id === aAnular)}

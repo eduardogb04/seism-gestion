@@ -15,10 +15,11 @@ import {
   ListaDeControl,
   TituloDeParte,
 } from "../../_ui/panel.tsx";
+import { RecursosAgrupados } from "../_piezas/recursos-agrupados.tsx";
+import { ACCIONES_DE_RECURSOS } from "./acciones-de-planificacion.ts";
 import { VentanaDeCarga as VentanaDeCotizacion } from "./cotizaciones.tsx";
 import { type DatosDePanel, dias, diasEnEtapa } from "./datos-de-panel.ts";
 import { DocumentosDeAlcance } from "./documentos-de-alcance.tsx";
-import { Recursos } from "./recursos.tsx";
 import { Sitios } from "./sitios.tsx";
 
 function cantidad(numero: number, singular: string, plural: string): string {
@@ -113,12 +114,13 @@ export async function PanelCreado({
       />
       {/* En «Creado» no se cargan recursos, pero los camiones de una renovación llegan copiados: se ven. */}
       {detalle.recursos.length === 0 ? null : (
-        <Recursos
+        <RecursosAgrupados
           servicioId={servicio.id}
           ruta={ruta}
           puedeEscribir={puedeEscribir}
           parametros={parametros}
           detalle={detalle}
+          acciones={ACCIONES_DE_RECURSOS}
         />
       )}
       {puedeEscribir ? (

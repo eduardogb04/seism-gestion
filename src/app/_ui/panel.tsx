@@ -102,21 +102,28 @@ export function ListaDeControl({
   );
 }
 
-type Accion = {
+export type Accion = {
   readonly texto: string;
   readonly href: string;
   readonly Icono?: LucideIcon;
+  /** La carga del servicio que escribe este botón (`estados.ts`): la marca `data-carga`. */
+  readonly carga?: string;
 };
 
 function EnlaceDeAccion({
-  accion: { texto, href, Icono },
+  accion: { texto, href, Icono, carga },
   variante,
 }: {
   readonly accion: Accion;
   readonly variante: "primario" | "secundario" | "discreto";
 }) {
   return (
-    <Enlace href={href} scroll={false} className={clasesDeBoton(variante)}>
+    <Enlace
+      href={href}
+      scroll={false}
+      className={clasesDeBoton(variante)}
+      data-carga={carga}
+    >
       {Icono === undefined ? null : (
         <Icono aria-hidden="true" className="size-4" />
       )}
@@ -126,8 +133,9 @@ function EnlaceDeAccion({
 }
 
 /**
- * Una acción principal, las demás secundarias y, aparte y a la derecha, las
- * salidas negativas del recorrido (cada una abre su confirmación).
+ * Una acción principal (si la etapa tiene una en este momento), las demás
+ * secundarias y, aparte y a la derecha, las salidas del recorrido (cada una
+ * abre su confirmación).
  */
 export function BarraDeAcciones({
   principal,
@@ -135,14 +143,16 @@ export function BarraDeAcciones({
   salidas,
   rotuloDeSalidas,
 }: {
-  readonly principal: Accion;
+  readonly principal: Accion | null;
   readonly secundarias: readonly Accion[];
   readonly salidas: readonly Accion[];
   readonly rotuloDeSalidas?: string;
 }) {
   return (
     <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-borde pt-4">
-      <EnlaceDeAccion accion={principal} variante="primario" />
+      {principal === null ? null : (
+        <EnlaceDeAccion accion={principal} variante="primario" />
+      )}
       {secundarias.map((accion) => (
         <EnlaceDeAccion
           key={accion.texto}

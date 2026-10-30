@@ -76,6 +76,7 @@ export function Ajustes({
               href={`${ruta}?ajuste=${ajuste}`}
               scroll={false}
               className={clasesDeBoton("secundario")}
+              data-carga="ajuste"
             >
               {NOMBRES[ajuste]}
             </Enlace>
@@ -100,6 +101,7 @@ export function Ajustes({
                   <Enlace
                     href={`${ruta}?anularAjuste=${ajuste.id}`}
                     scroll={false}
+                    data-carga="ajuste"
                   >
                     Anular
                   </Enlace>

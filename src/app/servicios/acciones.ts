@@ -83,6 +83,22 @@ export async function guardarServicio(
   });
 }
 
+/** El responsable y la fecha estimada de inicio, desde el panel de «Adjudicado»: el resto del servicio queda como estaba. */
+export async function guardarPlanificacionDeServicio(
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const { escrito } = await armado().servicios.formulario(id);
+    const guardado = await armado().servicios.guardar(actor, id, {
+      ...escrito,
+      ...escritoEn(formulario),
+    });
+    return guardado.ok ? { ok: true, ruta: `${RUTA}/${id}` } : guardado;
+  });
+}
+
 /** La baja, ya confirmada. */
 export async function darDeBajaServicio(
   id: string,

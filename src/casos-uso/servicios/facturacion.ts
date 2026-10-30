@@ -44,6 +44,7 @@ import {
   periodoAFacturar,
 } from "../../dominio/servicios/devengado.ts";
 import {
+  admiteFactura,
   cicloServicio,
   MODALIDADES_DE_FACTURACION,
   type ModalidadDeFacturacion,
@@ -89,12 +90,15 @@ type ResultadoDeFacturacion =
   | { readonly ok: true }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
-const ETIQUETAS_DE_MODALIDAD: Readonly<Record<ModalidadDeFacturacion, string>> =
-  {
-    puntual: "Puntual",
-    por_hitos: "Por hitos (libre)",
-    mensual: "Mensual",
-  };
+export { MODALIDADES_DE_FACTURACION };
+
+export const ETIQUETAS_DE_MODALIDAD: Readonly<
+  Record<ModalidadDeFacturacion, string>
+> = {
+  puntual: "Puntual",
+  por_hitos: "Por hitos (libre)",
+  mensual: "Mensual",
+};
 
 /** Una cuota o un ajuste, como se ve en el historial. */
 export type CuotaListada = {
@@ -123,6 +127,8 @@ export type Facturacion = {
   /** La etiqueta, o `null` si todavía no se eligió. */
   readonly modalidad: string | null;
   readonly esMensual: boolean;
+  /** ¿La etapa actual admite cargar una factura con la modalidad elegida? */
+  readonly admiteFactura: boolean;
   /** La cuota inicial primero y después los ajustes, en el orden en que se cargaron. */
   readonly cuotas: readonly CuotaListada[];
   /** `octubre de 2026`: el mes del reloj, al que se calcula lo devengado. */
@@ -360,6 +366,9 @@ export function crearCasosUsoFacturacion({
               ? null
               : ETIQUETAS_DE_MODALIDAD[modalidadFacturacion],
           esMensual: modalidadFacturacion === "mensual",
+          admiteFactura:
+            modalidadFacturacion !== null &&
+            admiteFactura(estado, modalidadFacturacion),
           cuotas: cuotas.map(({ valor, creadoEn, creadoPor }) => ({
             id: valor.id,
             desde: nombreDelMes(primerDiaDe(valor.desdeMes)),

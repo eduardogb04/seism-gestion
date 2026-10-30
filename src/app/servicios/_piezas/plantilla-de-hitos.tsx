@@ -71,6 +71,7 @@ export function PlantillaDeHitos({
             href={`${ruta}?hito=1`}
             scroll={false}
             className={clasesDeBoton("primario")}
+            data-carga="planificacion"
           >
             Nuevo hito
           </Enlace>
@@ -87,7 +88,11 @@ export function PlantillaDeHitos({
                   texto: nombre,
                 }))}
               />
-              <Boton variante="secundario" type="submit">
+              <Boton
+                variante="secundario"
+                type="submit"
+                data-carga="planificacion"
+              >
                 Aplicar plantilla
               </Boton>
             </form>
@@ -121,7 +126,11 @@ export function PlantillaDeHitos({
                         hito.realizado === null,
                       )}
                     >
-                      <Boton variante="secundario" type="submit">
+                      <Boton
+                        variante="secundario"
+                        type="submit"
+                        data-carga="tildarHito"
+                      >
                         {hito.realizado === null ? "Tildar" : "Destildar"}
                       </Boton>
                     </form>
@@ -137,7 +146,11 @@ export function PlantillaDeHitos({
                             "subir",
                           )}
                         >
-                          <Boton variante="secundario" type="submit">
+                          <Boton
+                            variante="secundario"
+                            type="submit"
+                            data-carga="planificacion"
+                          >
                             Subir
                           </Boton>
                         </form>
@@ -151,7 +164,11 @@ export function PlantillaDeHitos({
                             "bajar",
                           )}
                         >
-                          <Boton variante="secundario" type="submit">
+                          <Boton
+                            variante="secundario"
+                            type="submit"
+                            data-carga="planificacion"
+                          >
                             Bajar
                           </Boton>
                         </form>
@@ -159,7 +176,11 @@ export function PlantillaDeHitos({
                       <form
                         action={acciones.quitar.bind(null, servicioId, hito.id)}
                       >
-                        <Boton variante="peligro" type="submit">
+                        <Boton
+                          variante="peligro"
+                          type="submit"
+                          data-carga="planificacion"
+                        >
                           Quitar
                         </Boton>
                       </form>

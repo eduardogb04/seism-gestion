@@ -140,6 +140,7 @@ export async function Vencimientos({
             href={`${ruta}?vencimiento=1`}
             scroll={false}
             className={clasesDeBoton("primario")}
+            data-carga="vencimiento"
           >
             Nuevo vencimiento
           </Enlace>
@@ -189,6 +190,7 @@ export async function Vencimientos({
                             href={`${ruta}?corregir=${fila.id}`}
                             scroll={false}
                             className={clasesDeBoton("secundario")}
+                            data-carga="vencimiento"
                           >
                             Corregir fecha
                           </Enlace>
@@ -196,6 +198,7 @@ export async function Vencimientos({
                             href={`${ruta}?descartar=${fila.id}`}
                             scroll={false}
                             className={clasesDeBoton("peligro")}
+                            data-carga="vencimiento"
                           >
                             Descartar
                           </Enlace>

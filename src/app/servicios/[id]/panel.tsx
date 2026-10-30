@@ -21,9 +21,14 @@ import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { darDeBajaServicio, guardarServicio } from "../acciones.ts";
 import type { DatosDePanel, Parametros } from "./datos-de-panel.ts";
-import { esSoloLectura, VistaDeEtapa } from "./etapas.tsx";
+import { esSoloLectura } from "./estado-del-servicio.tsx";
+import { PanelAdjudicado } from "./panel-adjudicado.tsx";
+import { PanelCerrado } from "./panel-cerrado.tsx";
 import { PanelCotizado } from "./panel-cotizado.tsx";
 import { PanelCreado } from "./panel-creado.tsx";
+import { PanelEnEjecucion } from "./panel-en-ejecucion.tsx";
+import { PanelFinalizado } from "./panel-finalizado.tsx";
+import { PanelSalida } from "./panel-salida.tsx";
 import {
   etapaDeLaRuta,
   rutaDeEtapa,
@@ -31,7 +36,7 @@ import {
   servicioDe,
 } from "./rutas.ts";
 import { VentanaDeAnulacion, VentanaDeCarga } from "./sucesos.tsx";
-import { Transiciones, VentanaDeTransicion } from "./transiciones.tsx";
+import { VentanaDeTransicion } from "./transiciones.tsx";
 
 export type PropsDeEtapa = {
   readonly params: Promise<{ readonly id: string }>;
@@ -95,18 +100,21 @@ async function VentanasDelServicio({
   servicio,
   ruta,
   parametros,
+  puedeEscribir,
 }: {
   readonly servicio: DetalleDeServicio;
   readonly ruta: string;
   readonly parametros: Parametros;
+  /** Editar, dar de baja y los sucesos: solo donde la etapa admite escribir. */
+  readonly puedeEscribir: boolean;
 }) {
   const aAnular = parametros.anularSuceso;
   return (
     <>
-      {typeof parametros.editar === "string" ? (
+      {puedeEscribir && typeof parametros.editar === "string" ? (
         <VentanaDeEdicion id={servicio.id} rutaAlCerrar={ruta} />
       ) : null}
-      {typeof parametros.baja === "string" ? (
+      {puedeEscribir && typeof parametros.baja === "string" ? (
         <VentanaDeBaja servicio={servicio} rutaAlCerrar={ruta} />
       ) : null}
       {typeof parametros.pasar === "string" ? (
@@ -116,14 +124,14 @@ async function VentanasDelServicio({
           rutaAlCerrar={ruta}
         />
       ) : null}
-      {typeof parametros.suceso === "string" ? (
+      {puedeEscribir && typeof parametros.suceso === "string" ? (
         <VentanaDeCarga
           clienteId={servicio.clienteId}
           servicioId={servicio.id}
           rutaAlCerrar={ruta}
         />
       ) : null}
-      {typeof aAnular === "string" ? (
+      {puedeEscribir && typeof aAnular === "string" ? (
         <VentanaDeAnulacion
           origen={{ servicioId: servicio.id }}
           suceso={(await armado().sucesos.listar(servicio.id)).find(
@@ -154,13 +162,14 @@ export async function PaginaDeEtapa({
   if (vista === null) {
     redirect(rutaActual);
   }
-  const rolEscribe = ROLES_QUE_ESCRIBEN_SERVICIOS.includes(rol);
+  const puedeActuar =
+    ROLES_QUE_ESCRIBEN_SERVICIOS.includes(rol) && !vista.soloLectura;
   const parametros = vista.soloLectura ? {} : await searchParams;
   const datos: DatosDePanel = {
     servicio,
     ruta: rutaDeEtapa(servicio.id, vista.etapa),
-    puedeEscribir:
-      rolEscribe && !vista.soloLectura && !esSoloLectura(servicio.etapa),
+    puedeEscribir: puedeActuar && !esSoloLectura(servicio.etapa),
+    puedeActuar,
     soloLectura: vista.soloLectura,
     parametros,
   };
@@ -183,25 +192,23 @@ export async function PaginaDeEtapa({
         <PanelCreado {...datos} />
       ) : vista.etapa === "cotizado" ? (
         <PanelCotizado {...datos} />
+      ) : vista.etapa === "adjudicado" ? (
+        <PanelAdjudicado {...datos} />
+      ) : vista.etapa === "en_ejecucion" ? (
+        <PanelEnEjecucion {...datos} />
+      ) : vista.etapa === "finalizado" ? (
+        <PanelFinalizado {...datos} />
+      ) : vista.etapa === "cerrado" ? (
+        <PanelCerrado {...datos} />
       ) : (
-        <>
-          {datos.puedeEscribir ? (
-            <Transiciones servicio={servicio} ruta={datos.ruta} />
-          ) : null}
-          <VistaDeEtapa
-            {...datos}
-            etapa={vista.etapa}
-            detalle={await armado().planificacion.ver(servicio.id)}
-            // Cotizar la renovación no escribe en este servicio: vale también en «Cerrado».
-            puedeRenovar={rolEscribe && !vista.soloLectura}
-          />
-        </>
+        <PanelSalida {...datos} etapa={vista.etapa} />
       )}
-      {datos.puedeEscribir ? (
+      {datos.puedeActuar ? (
         <VentanasDelServicio
           servicio={servicio}
           ruta={datos.ruta}
           parametros={parametros}
+          puedeEscribir={datos.puedeEscribir}
         />
       ) : null}
     </>

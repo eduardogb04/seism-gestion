@@ -8,6 +8,7 @@ import { Marco } from "../_ui/marco.tsx";
 import { Ventana } from "../_ui/ventana.tsx";
 import { sesionExigida } from "../(auth)/sesion-actual.ts";
 import type { PropsListado } from "../catalogo/_abm/paginas.tsx";
+import { rutaDeEtapa } from "./[id]/rutas.ts";
 import { crearServicio } from "./acciones.ts";
 
 const RUTA = "/servicios";
@@ -18,6 +19,13 @@ export default async function Servicios({ searchParams }: PropsListado) {
   const listado = await armado().servicios.listar(parametros);
   const { email, rol } = sesion.usuario;
   const puedeEscribir = ROLES_QUE_ESCRIBEN_SERVICIOS.includes(rol);
+  // Cada fila va directo al panel de la etapa en la que está.
+  const paneles = new Map(
+    listado.registros.map(({ valor }) => [
+      valor.id,
+      rutaDeEtapa(valor.id, valor.etapa),
+    ]),
+  );
   return (
     <Marco email={email} rol={rol} rutaActual={RUTA}>
       <main>
@@ -32,7 +40,7 @@ export default async function Servicios({ searchParams }: PropsListado) {
           sinCortar="Código"
           acciones={(id) => (
             <Enlace
-              href={`${RUTA}/${id}`}
+              href={paneles.get(id) ?? `${RUTA}/${id}`}
               className={clasesDeBoton("secundario")}
             >
               Ver

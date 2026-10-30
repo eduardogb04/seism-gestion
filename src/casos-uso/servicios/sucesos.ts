@@ -68,6 +68,30 @@ export type SucesoListado = {
   readonly autor: string;
 };
 
+const ETIQUETAS_DE_TIPO = {
+  observacion: "Observación",
+  hallazgo: "Hallazgo",
+  aclaracion: "Aclaración del cliente",
+} as const;
+
+const TIPOS = ["observacion", "hallazgo", "aclaracion"] as const;
+
+const TIPOS_DE_SUCESO = TIPOS.map((valor) => ({
+  valor,
+  etiqueta: ETIQUETAS_DE_TIPO[valor],
+}));
+
+/** Sin tipo (lo cargado antes de F6-01, o sin elegir) es una observación. */
+function etiquetaDeTipo(tipo: string | null): string {
+  return (
+    TIPOS_DE_SUCESO.find(({ valor }) => valor === tipo)?.etiqueta ??
+    ETIQUETAS_DE_TIPO.observacion
+  );
+}
+
+/** Un suceso en la columna del servicio, con la etiqueta de su tipo. */
+export type SucesoDelServicio = SucesoListado & { readonly tipo: string };
+
 /** Una situación de la traza de un cliente: la de un servicio lleva el suyo, para enlazarlo. */
 export type SituacionListada = SucesoListado & {
   readonly servicio: { readonly id: string; readonly codigo: string } | null;
@@ -97,7 +121,7 @@ export type OrigenDeAnulacion =
 
 export type CasosUsoSucesos = {
   /** Los no anulados, el más nuevo primero. */
-  listar(servicioId: string): Promise<readonly SucesoListado[]>;
+  listar(servicioId: string): Promise<readonly SucesoDelServicio[]>;
   /** El cliente vigente con sus datos y su traza. `DOM-0009` si no existe o está dado de baja. */
   delCliente(clienteId: string): Promise<FichaDelCliente>;
   /** Los campos de la carga, con la fecha de hoy. */
@@ -124,6 +148,15 @@ export type CasosUsoSucesos = {
 const CAMPOS: CamposAbm = [
   ["fecha", { tipo: "fecha", etiqueta: "Fecha" }],
   ["texto", { tipo: "textoLargo", etiqueta: "Qué pasó" }],
+  [
+    "tipo",
+    {
+      tipo: "opcion",
+      etiqueta: "Tipo",
+      opciones: TIPOS_DE_SUCESO,
+      opcional: true,
+    },
+  ],
 ];
 
 export const CAMPOS_DE_ANULACION: CamposAbm = [
@@ -133,6 +166,7 @@ export const CAMPOS_DE_ANULACION: CamposAbm = [
 const VALIDACION = z.object({
   fecha: z.string(),
   texto: obligatorio("qué pasó", 2000),
+  tipo: z.enum(TIPOS).nullable(),
 });
 
 const VALIDACION_DE_ANULACION = z.object({
@@ -162,7 +196,10 @@ export function crearCasosUsoSucesos({
         await servicioVigente(repos, servicioId);
         const sucesos = await repos.sucesos.listarDe(servicioId);
         const quien = await nombresDeActores(repos);
-        return sucesos.map((suceso) => listadoDe(suceso, quien));
+        return sucesos.map((suceso) => ({
+          ...listadoDe(suceso, quien),
+          tipo: etiquetaDeTipo(suceso.valor.tipo),
+        }));
       });
     },
 
@@ -189,7 +226,10 @@ export function crearCasosUsoSucesos({
     formulario() {
       return {
         campos: CAMPOS,
-        escrito: { fecha: formatearISO(reloj.ahora()).slice(0, 10) },
+        escrito: {
+          fecha: formatearISO(reloj.ahora()).slice(0, 10),
+          tipo: "observacion",
+        },
       };
     },
 

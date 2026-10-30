@@ -128,13 +128,17 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   await alta.getByLabel("Modalidad").selectOption("puntual");
   await alta.getByRole("button", { name: "Guardar" }).click();
 
-  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     /^SRV-\d{4}-\d{3} · Traslado de prueba — ejemplo$/,
   );
   const estado = page.locator("[data-estado-del-servicio]");
   await expect(estado).toHaveText("Creado");
-  await expect(page.getByText("Empresa Ejemplo Uno S.A.")).toBeVisible();
+  // El panel de «Creado» trae los datos del cliente (F6-01).
+  await expect(
+    // La tarjeta de la razón social: el padre de su título.
+    page.getByRole("heading", { name: "Razón social" }).locator(".."),
+  ).toContainText("Empresa Ejemplo Uno S.A.");
 
   // 3. Los sitios de su cliente, y solo esos: se marca uno.
   await expect(page.getByLabel("Planta Ejemplo Sur")).not.toBeChecked();
@@ -149,17 +153,17 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   await expect(page.getByLabel("Planta Ejemplo Norte")).toBeChecked();
   await expect(page.getByLabel("Planta Ejemplo Sur")).not.toBeChecked();
 
-  // 4. Un suceso: queda en la tabla, con quién lo cargó.
+  // 4. Un suceso: queda en la columna, con quién lo cargó.
   await page.getByRole("link", { name: "Nuevo suceso" }).click();
   const suceso = ventana(page, "Nuevo suceso");
   await expect(suceso.getByLabel("Fecha")).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
   await suceso.getByLabel("Qué pasó").fill("Llamó el cliente para posponer");
   await suceso.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nuevo suceso")).toHaveCount(0);
-  const tablaDeSucesos = page
-    .getByRole("table")
-    .filter({ has: page.getByRole("columnheader", { name: "Qué pasó" }) });
-  const elSuceso = tablaDeSucesos.getByRole("row").nth(1);
+  const elSuceso = page
+    .getByRole("complementary", { name: "Observaciones y sucesos" })
+    .locator("[data-suceso]")
+    .first();
   await expect(elSuceso).toContainText("Llamó el cliente para posponer");
   await expect(elSuceso).toContainText(OPERADORA);
 
@@ -189,6 +193,7 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
     page.getByRole("link", { name: "Pasar a «Cancelado»" }),
   ).toHaveCount(0);
 
+  await page.getByText("Historial de estados").click();
   const historial = page
     .getByRole("table")
     .filter({ has: page.getByRole("columnheader", { name: "Quién" }) });

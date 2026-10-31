@@ -218,7 +218,7 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   await expect(deLaFactura(page, /^Fecha$/)).toHaveText("13/10/2026");
   await expect(deLaFactura(page, /^Orden de compra$/)).toHaveText("OC-E2E-1");
   await expect(deLaFactura(page, /^Importe sin IVA$/)).toHaveText("ARS 400,00");
-  await expect(deLaFactura(page, /^IVA (21 %)$/)).toHaveText("ARS 84,00");
+  await expect(deLaFactura(page, /^IVA \(21 %\)$/)).toHaveText("ARS 84,00");
   await page.goBack();
 
   // 3. La segunda, parcial, al 10,5 %: el saldo de la orden baja en el importe sin IVA.
@@ -241,7 +241,7 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   await filaDeSegunda
     .getByRole("link", { name: `${FACTURA}-2`, exact: true })
     .click();
-  await expect(deLaFactura(page, /^IVA (10,5 %)$/)).toHaveText("ARS 26,25");
+  await expect(deLaFactura(page, /^IVA \(10,5 %\)$/)).toHaveText("ARS 26,25");
   await page.goBack();
   await expect(filaDeOrden.getByRole("cell").nth(3)).toHaveText("ARS 650,00");
   await expect(filaDeOrden.getByRole("cell").nth(4)).toHaveText("ARS 350,00");

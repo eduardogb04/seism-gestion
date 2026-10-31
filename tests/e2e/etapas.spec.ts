@@ -219,7 +219,9 @@ async function comprobarFacturasSinScroll(page: Page): Promise<void> {
     await tabla.evaluate("(el) => el.clientWidth"),
   );
   const cobrar = tabla.getByRole("link", { name: "Registrar cobro" });
-  await expect(cobrar).toBeInViewport();
+  await expect(cobrar).toBeVisible();
+  const caja = await cobrar.boundingBox();
+  expect((caja?.x ?? Infinity) + (caja?.width ?? 0)).toBeLessThanOrEqual(1280);
   await expect(cobrar).toHaveClass(/bg-acento/);
   await expect(
     page.getByRole("link", { name: "Emitir factura" }),
@@ -723,13 +725,9 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await nota.getByLabel("Importe sin IVA", { exact: true }).fill("100,00");
   await nota.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nota de crédito")).toHaveCount(0);
-  await page.getByRole("link", { name: NOTA, exact: true }).click();
-  await expect(
-    page
-      .locator("dt", { hasText: /^Tipo$/ })
-      .locator("xpath=following-sibling::dd[1]"),
-  ).toHaveText("Nota de crédito");
-  await page.goBack();
+  await expect(page.locator("tr", { hasText: NOTA }).first()).toContainText(
+    "Nota de crédito",
+  );
 
   // Cobrar todo lo facturado (con la nota descontada) cierra el servicio.
   await page

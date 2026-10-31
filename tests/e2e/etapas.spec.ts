@@ -11,12 +11,14 @@
  *   (métricas y línea de versiones, sin nada de la orden de compra ni de la
  *   facturación);
  * - los paneles de «Adjudicado» a «Cerrado» (F6-04): en cada uno, su título, su
- *   acción principal y que no está nada de las otras etapas;
+ *   acción principal y que no está nada de las otras etapas, ni la sección
+ *   «Avance» (F7-01), ni las secciones vacías que la etapa no deja cargar;
  * - los botones de transición, que piden confirmación;
  * - en «Adjudicado», el responsable y el inicio estimado cargados en el panel,
  *   la modalidad en tres tarjetas, ajustar la cuota con su aviso, aplicar una
  *   plantilla de hitos y cargar un recurso;
- * - en «En ejecución», tildar hitos y emitir la factura; en «Finalizado», una
+ * - en «En ejecución», tildar hitos y emitir la factura; en «Finalizado», las
+ *   facturas sin scroll horizontal y con «Registrar cobro» a la vista, una
  *   nota de crédito y el cobro con orden de pago; en «Cerrado», el resultado;
  * - una etapa recorrida, en solo lectura, y una futura, que redirige a la actual.
  *
@@ -139,6 +141,13 @@ async function seVeSolo(
   ).toBeVisible();
 }
 
+/** El dato del encabezado del servicio con esa etiqueta. */
+function delEncabezado(page: Page, etiqueta: string) {
+  return page
+    .locator("header dt", { hasText: new RegExp(`^${etiqueta}$`) })
+    .locator("xpath=following-sibling::dd[1]");
+}
+
 function lateral(page: Page) {
   return page.getByRole("complementary", { name: "Observaciones y sucesos" });
 }
@@ -186,6 +195,35 @@ async function altaDeServicio(page: Page, titulo: string): Promise<void> {
   await alta.getByLabel("Fecha de pedido").fill("2026-10-10");
   await alta.getByRole("button", { name: "Guardar" }).click();
   await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/creado$/);
+}
+
+/**
+ * En una ventana de 1280 px las facturas no hacen scroll horizontal, tienen
+ * sus cinco columnas y «Registrar cobro» está a la vista, como acción
+ * principal: la barra de acciones no lleva otra.
+ */
+async function comprobarFacturasSinScroll(page: Page): Promise<void> {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const tabla = page
+    .locator("div.overflow-x-auto")
+    .filter({ has: page.getByRole("columnheader", { name: "Total con IVA" }) });
+  await expect(tabla.getByRole("columnheader")).toHaveText([
+    "Número",
+    "Vencimiento",
+    "Total con IVA",
+    "Saldo",
+    "Acciones",
+  ]);
+  // Sin DOM en los tipos de las pruebas: las medidas se piden como texto.
+  expect(await tabla.evaluate("(el) => el.scrollWidth")).toBe(
+    await tabla.evaluate("(el) => el.clientWidth"),
+  );
+  const cobrar = tabla.getByRole("link", { name: "Registrar cobro" });
+  await expect(cobrar).toBeInViewport();
+  await expect(cobrar).toHaveClass(/bg-acento/);
+  await expect(
+    page.getByRole("link", { name: "Emitir factura" }),
+  ).not.toHaveClass(/bg-acento/);
 }
 
 test.beforeEach(async ({ browser, baseURL }) => {
@@ -318,12 +356,7 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     `Primera cotización · ${OPERADORA}`,
   );
   await expect(versiones.nth(1).locator("[data-vigente]")).toHaveCount(0);
-  for (const deOtraEtapa of [
-    "[data-modalidad]",
-    "[data-numeros-de-facturacion]",
-  ]) {
-    await expect(page.locator(deOtraEtapa)).toHaveCount(0);
-  }
+  await expect(page.locator("[data-numeros-de-facturacion]")).toHaveCount(0);
   for (const enlace of ["Elegir la modalidad", "Nueva factura"]) {
     await expect(page.getByRole("link", { name: enlace })).toHaveCount(0);
   }
@@ -430,8 +463,6 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Responsable e inicio estimado",
     "Hitos",
     "Recursos",
-    "Facturas",
-    "Avance",
     "Órdenes de compra",
   ]);
   // La orden de compra, en la métrica; la acción principal es iniciar la ejecución.
@@ -481,9 +512,8 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await modalidad.getByLabel(/^Cuota mensual sin IVA/).fill("100,00");
   await modalidad.getByLabel(/^Mes de inicio/).fill("2026-01-15");
   await modalidad.getByRole("button", { name: "Guardar" }).click();
-  await expect(page.locator("[data-modalidad]")).toHaveText(
-    "Modalidad: Mensual",
-  );
+  await expect(delEncabezado(page, "Facturación")).toHaveText("Mensual");
+  await expect(delEncabezado(page, "Contratación")).toHaveText("Puntual");
   await expect(tarjetas.locator("[data-modalidad-elegida]")).toHaveText(
     /^Mensual/,
   );
@@ -494,6 +524,8 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Por facturar",
     "Saldo de la orden de compra",
     "Por cobrar (con IVA)",
+    "Facturado (con IVA) · ARS",
+    "Cobrado · ARS",
   ]);
   await expect(numeros).toContainText("ARS 1.000,00");
 
@@ -521,8 +553,8 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await ventana(page, "Modalidad de facturación")
     .getByRole("button", { name: "Guardar" })
     .click();
-  await expect(page.locator("[data-modalidad]")).toHaveText(
-    "Modalidad: Por hitos (libre)",
+  await expect(delEncabezado(page, "Facturación")).toHaveText(
+    "Por hitos (libre)",
   );
   await expect(
     page.getByRole("link", { name: "Ajustar la cuota" }),
@@ -596,7 +628,6 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Hitos",
     "Recursos",
     "Facturas",
-    "Avance",
     "Egresos",
   ]);
   await expect(
@@ -662,11 +693,11 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Falta cobrar para cerrar",
     "Facturas",
     "Ajustes",
-    "Avance",
     "Egresos",
     "Vencimientos",
   ]);
   expect(await transicionesOfrecidas(page)).toEqual([]);
+  await comprobarFacturasSinScroll(page);
   for (const enlace of ["Nuevo hito", "Nuevo recurso", "Registrar egreso"]) {
     await expect(page.getByRole("link", { name: enlace })).toHaveCount(0);
   }
@@ -692,9 +723,13 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await nota.getByLabel("Importe sin IVA", { exact: true }).fill("100,00");
   await nota.getByRole("button", { name: "Cargar" }).click();
   await expect(ventana(page, "Nota de crédito")).toHaveCount(0);
-  await expect(page.locator("tr", { hasText: NOTA }).first()).toContainText(
-    "Nota de crédito",
-  );
+  await page.getByRole("link", { name: NOTA, exact: true }).click();
+  await expect(
+    page
+      .locator("dt", { hasText: /^Tipo$/ })
+      .locator("xpath=following-sibling::dd[1]"),
+  ).toHaveText("Nota de crédito");
+  await page.goBack();
 
   // Cobrar todo lo facturado (con la nota descontada) cierra el servicio.
   await page
@@ -720,8 +755,6 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     "Facturas",
     "Ajustes",
     "Documentación de alcance",
-    "Avance",
-    "Egresos",
   ]);
   // El vencimiento cargado en «Finalizado» sigue pendiente: renovar es la acción principal.
   await expect(

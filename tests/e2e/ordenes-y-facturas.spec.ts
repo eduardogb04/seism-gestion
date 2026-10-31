@@ -54,6 +54,20 @@ function ventana(page: Page, titulo: string) {
   return page.getByRole("dialog", { name: titulo });
 }
 
+/** El dato del encabezado del servicio con esa etiqueta. */
+function delEncabezado(page: Page, etiqueta: string) {
+  return page
+    .locator("header dt", { hasText: new RegExp(`^${etiqueta}$`) })
+    .locator("xpath=following-sibling::dd[1]");
+}
+
+/** El dato de la pantalla de una factura con ese rótulo. */
+function deLaFactura(page: Page, rotulo: RegExp) {
+  return page
+    .locator("dt", { hasText: rotulo })
+    .locator("xpath=following-sibling::dd[1]");
+}
+
 function tablaConColumna(page: Page, columna: string) {
   return page
     .getByRole("table")
@@ -158,8 +172,8 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
     .selectOption({ label: "Por hitos (libre)" });
   await modalidad.getByRole("button", { name: "Guardar" }).click();
   await expect(ventana(page, "Modalidad de facturación")).toHaveCount(0);
-  await expect(page.locator("[data-modalidad]")).toHaveText(
-    "Modalidad: Por hitos (libre)",
+  await expect(delEncabezado(page, "Facturación")).toHaveText(
+    "Por hitos (libre)",
   );
 
   // 2. La primera factura: el IVA y el total se ven antes de guardar y siguen lo que se escribe.
@@ -195,13 +209,17 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   await expect(filaDePrimera.getByRole("cell").nth(0)).toHaveText(
     `${FACTURA}-1`,
   );
-  await expect(filaDePrimera.getByRole("cell").nth(1)).toHaveText("13/10/2026");
-  await expect(filaDePrimera.getByRole("cell").nth(2)).toHaveText("13/11/2026");
-  await expect(filaDePrimera.getByRole("cell").nth(3)).toHaveText("OC-E2E-1");
-  await expect(filaDePrimera.getByRole("cell").nth(4)).toHaveText("ARS 400,00");
-  await expect(filaDePrimera.getByRole("cell").nth(5)).toHaveText("21 %");
-  await expect(filaDePrimera.getByRole("cell").nth(6)).toHaveText("ARS 84,00");
-  await expect(filaDePrimera.getByRole("cell").nth(7)).toHaveText("ARS 484,00");
+  await expect(filaDePrimera.getByRole("cell").nth(1)).toHaveText("13/11/2026");
+  await expect(filaDePrimera.getByRole("cell").nth(2)).toHaveText("ARS 484,00");
+  // El resto del comprobante se ve en su pantalla, a la que lleva el número.
+  await filaDePrimera
+    .getByRole("link", { name: `${FACTURA}-1`, exact: true })
+    .click();
+  await expect(deLaFactura(page, /^Fecha$/)).toHaveText("13/10/2026");
+  await expect(deLaFactura(page, /^Orden de compra$/)).toHaveText("OC-E2E-1");
+  await expect(deLaFactura(page, /^Importe sin IVA$/)).toHaveText("ARS 400,00");
+  await expect(deLaFactura(page, /^IVA (21 %)$/)).toHaveText("ARS 84,00");
+  await page.goBack();
 
   // 3. La segunda, parcial, al 10,5 %: el saldo de la orden baja en el importe sin IVA.
   await cargarFactura(
@@ -219,9 +237,12 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
   await expect(filaDeSegunda.getByRole("cell").nth(0)).toHaveText(
     `${FACTURA}-2`,
   );
-  await expect(filaDeSegunda.getByRole("cell").nth(5)).toHaveText("10,5 %");
-  await expect(filaDeSegunda.getByRole("cell").nth(6)).toHaveText("ARS 26,25");
-  await expect(filaDeSegunda.getByRole("cell").nth(7)).toHaveText("ARS 276,25");
+  await expect(filaDeSegunda.getByRole("cell").nth(2)).toHaveText("ARS 276,25");
+  await filaDeSegunda
+    .getByRole("link", { name: `${FACTURA}-2`, exact: true })
+    .click();
+  await expect(deLaFactura(page, /^IVA (10,5 %)$/)).toHaveText("ARS 26,25");
+  await page.goBack();
   await expect(filaDeOrden.getByRole("cell").nth(3)).toHaveText("ARS 650,00");
   await expect(filaDeOrden.getByRole("cell").nth(4)).toHaveText("ARS 350,00");
   await expect(page.getByRole("status")).toHaveCount(0);

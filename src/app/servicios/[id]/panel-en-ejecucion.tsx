@@ -20,7 +20,6 @@ import {
   ACCIONES_DE_HITOS,
   ACCIONES_DE_RECURSOS,
 } from "./acciones-de-planificacion.ts";
-import { Avance } from "./avance.tsx";
 import {
   type DatosDePanel,
   dias,
@@ -42,6 +41,7 @@ export async function PanelEnEjecucion({
 }: DatosDePanel) {
   const detalle = await armado().planificacion.ver(servicio.id);
   const facturacion = await armado().facturacion.ver(servicio.id);
+  const { servicio: cobro } = await armado().cobros.avance(servicio.id);
   const desdeQueInicio = diasEnEtapa(servicio, "en_ejecucion");
   // El día del arranque es el primero.
   const enObra = desdeQueInicio + 1;
@@ -110,7 +110,7 @@ export async function PanelEnEjecucion({
           />
         </>
       ) : null}
-      <ResumenDeFacturacion facturacion={facturacion} />
+      <ResumenDeFacturacion facturacion={facturacion} cobro={cobro} />
       <PlantillaDeHitos
         {...propias}
         detalle={detalle}
@@ -127,9 +127,9 @@ export async function PanelEnEjecucion({
         puedeFacturar={puedeEscribir}
         puedeCobrar={puedeEscribir}
         parametros={parametros}
+        sinFilasNoSeDibuja={!(puedeEscribir && facturacion.admiteFactura)}
       />
-      <Avance servicioId={servicio.id} />
-      <Egresos servicioId={servicio.id} />
+      <Egresos servicioId={servicio.id} sinFilasNoSeDibuja={!puedeEscribir} />
       {/* Renovar un contrato se cotiza desde acá: sin vencimientos, la sección no se dibuja. */}
       <Vencimientos
         {...propias}

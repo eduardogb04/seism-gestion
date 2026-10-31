@@ -20,7 +20,6 @@ import {
   cargarOrdenDeCompra,
   guardarCambioDeOrdenDeCompra,
 } from "../acciones.ts";
-import { LineasDeAvance } from "./avance.tsx";
 import {
   CambioDelComprobante,
   textoDelEnlaceDeCambio,
@@ -33,7 +32,6 @@ const CABECERAS = [
   "Total sin IVA",
   "Facturado",
   "Saldo por facturar",
-  "Avance",
   "Documento",
   "Cargada por",
   "Tipo de cambio",
@@ -112,7 +110,6 @@ export async function OrdenesDeCompra({
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const ordenes = await armado().ordenesDeCompra.listar(servicioId);
-  const { ordenes: avance } = await armado().cobros.avance(servicioId);
   const aAnular = parametros.anularOrden;
   const aCambiar = parametros.cambioOrden;
   const ordenACambiar = ordenes.find(({ id }) => id === aCambiar);
@@ -146,9 +143,6 @@ export async function OrdenesDeCompra({
                     {orden.aviso}
                   </p>
                 )}
-              </td>
-              <td>
-                <LineasDeAvance lineas={avance[orden.id] ?? []} />
               </td>
               <td>
                 {orden.documento === null ? (

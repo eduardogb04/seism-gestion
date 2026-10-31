@@ -22,7 +22,6 @@ import {
   ACCIONES_DE_HITOS,
   ACCIONES_DE_RECURSOS,
 } from "./acciones-de-planificacion.ts";
-import { Avance } from "./avance.tsx";
 import { CambioDelComprobante } from "./cambio-del-comprobante.tsx";
 import {
   type DatosDePanel,
@@ -51,6 +50,7 @@ export async function PanelAdjudicado({
 }: DatosDePanel) {
   const detalle = await armado().planificacion.ver(servicio.id);
   const facturacion = await armado().facturacion.ver(servicio.id);
+  const { servicio: cobro } = await armado().cobros.avance(servicio.id);
   const [orden] = await armado().ordenesDeCompra.listar(servicio.id);
   const dato = (etiqueta: string) =>
     servicio.datos.find(([de]) => de === etiqueta)?.[1] ?? "";
@@ -142,7 +142,7 @@ export async function PanelAdjudicado({
       {puedeEscribir ? (
         <ResponsableEInicio servicioId={servicio.id} ruta={ruta} />
       ) : null}
-      <ResumenDeFacturacion facturacion={facturacion} />
+      <ResumenDeFacturacion facturacion={facturacion} cobro={cobro} />
       <RecursosAgrupados
         {...propias}
         detalle={detalle}
@@ -159,8 +159,8 @@ export async function PanelAdjudicado({
         puedeFacturar={puedeEscribir}
         puedeCobrar={puedeEscribir}
         parametros={parametros}
+        sinFilasNoSeDibuja={!(puedeEscribir && facturacion.admiteFactura)}
       />
-      <Avance servicioId={servicio.id} />
       <OrdenesDeCompra {...propias} />
       {/* Renovar un contrato se cotiza desde acá: sin vencimientos, la sección no se dibuja. */}
       <Vencimientos

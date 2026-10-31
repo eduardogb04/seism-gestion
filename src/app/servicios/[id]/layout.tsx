@@ -14,6 +14,7 @@ import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
 } from "../../../casos-uso/servicios/servicios.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
+import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
@@ -35,10 +36,13 @@ const DESTACADOS = ["Cliente", "Tipo de servicio", "Responsable"];
 
 function Encabezado({
   servicio,
+  facturacion,
   rutaActual,
   puedeEscribir,
 }: {
   readonly servicio: DetalleDeServicio;
+  /** La modalidad de facturación elegida; `null` si todavía no se eligió. */
+  readonly facturacion: string | null;
   readonly rutaActual: string;
   readonly puedeEscribir: boolean;
 }) {
@@ -110,12 +114,14 @@ function Encabezado({
         </div>
       </div>
       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-sm">
-        {otros.map(([etiqueta, texto]) => (
-          <div key={etiqueta} className="contents">
-            <dt className="text-texto-suave">{etiqueta}</dt>
-            <dd className="whitespace-pre-line">{texto}</dd>
-          </div>
-        ))}
+        {[...otros, ["Facturación", facturacion ?? "Sin definir"]].map(
+          ([etiqueta, texto]) => (
+            <div key={etiqueta} className="contents">
+              <dt className="text-texto-suave">{etiqueta}</dt>
+              <dd className="whitespace-pre-line">{texto}</dd>
+            </div>
+          ),
+        )}
       </dl>
       <LineaDeEtapas servicio={servicio} />
     </header>
@@ -178,6 +184,7 @@ export default async function LayoutDelServicio({
     );
   }
   const { servicio } = leido;
+  const { modalidad } = await armado().facturacion.ver(servicio.id);
   const rutaActual = rutaDeEtapa(servicio.id, servicio.etapa);
   // Lo que se escribe desde el encabezado o la columna va al panel de la etapa actual.
   const puedeEscribir =
@@ -191,6 +198,7 @@ export default async function LayoutDelServicio({
         </p>
         <Encabezado
           servicio={servicio}
+          facturacion={modalidad}
           rutaActual={rutaActual}
           puedeEscribir={puedeEscribir}
         />

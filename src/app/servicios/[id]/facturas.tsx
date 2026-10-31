@@ -5,7 +5,8 @@
  * importe sin IVA; el IVA y el total salen calculados, en el listado y al lado
  * de los campos mientras se escribe. Cada fila trae lo cobrado, lo retenido y el
  * saldo (F2-07, ADR 0037), y desde ahí se cobra. Cargar la factura es una
- * acción del panel; acá solo se abre su ventana (`?factura=1`).
+ * acción del panel; acá solo se abre su ventana (`?factura=1`). El resto de
+ * cada comprobante se ve en su pantalla, a la que lleva el número.
  */
 
 import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
@@ -13,7 +14,6 @@ import type { FacturaListada } from "../../../casos-uso/servicios/facturas.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
-import { EnlaceDeDescarga } from "../../_ui/enlace-de-descarga.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
@@ -25,32 +25,13 @@ import {
   guardarCambioDeFactura,
 } from "../acciones.ts";
 import {
-  CambioDelComprobante,
   textoDelEnlaceDeCambio,
   VentanaDelCambio,
 } from "./cambio-del-comprobante.tsx";
 import { Cobros } from "./cobros.tsx";
 import { IvaEnVivo } from "./iva-en-vivo.tsx";
 
-const CABECERAS = [
-  "Número",
-  "Fecha",
-  "Vencimiento",
-  "Orden de compra",
-  "Importe sin IVA",
-  "Alícuota",
-  "IVA",
-  "Total con IVA",
-  "Cobrado",
-  "Retenido",
-  "Saldo",
-  "Estado",
-  "Documento",
-  "Cargada por",
-  "Tipo de cambio",
-  "Período",
-  "Tipo",
-];
+const CABECERAS = ["Número", "Vencimiento", "Total con IVA", "Saldo"];
 
 async function VentanaDeCarga({
   servicioId,
@@ -120,6 +101,7 @@ export async function Facturas({
   puedeFacturar,
   puedeCobrar,
   parametros,
+  sinFilasNoSeDibuja,
 }: {
   readonly servicioId: string;
   readonly ruta: string;
@@ -128,8 +110,13 @@ export async function Facturas({
   /** Cobrar y anular un cobro: la etapa admite la carga `cobro`. */
   readonly puedeCobrar: boolean;
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
+  /** La etapa no ofrece cargar facturas: sin ninguna, la sección no se dibuja. */
+  readonly sinFilasNoSeDibuja: boolean;
 }) {
   const facturas = await armado().facturas.listar(servicioId);
+  if (sinFilasNoSeDibuja && facturas.length === 0) {
+    return null;
+  }
   const cobranza = await armado().cobros.cobranza(servicioId);
   const aAnular = parametros.anularFactura;
   const aCambiar = parametros.cambioFactura;
@@ -153,33 +140,14 @@ export async function Facturas({
             );
             return (
               <tr key={factura.id}>
-                <td>{factura.numero}</td>
-                <td>{factura.fecha}</td>
+                <td>
+                  <Enlace href={`/servicios/facturas/${factura.id}`}>
+                    {factura.numero}
+                  </Enlace>
+                </td>
                 <td>{factura.vencimiento}</td>
-                <td>{factura.ordenCompra}</td>
-                <td>{factura.sinIva}</td>
-                <td>{factura.alicuota}</td>
-                <td>{factura.iva}</td>
                 <td>{factura.total}</td>
-                <td>{cobro?.cobrado}</td>
-                <td>{cobro?.retenido}</td>
                 <td>{cobro?.saldo}</td>
-                <td>
-                  {cobro?.cobrada ? <strong>Cobrada</strong> : "Con saldo"}
-                </td>
-                <td>
-                  {factura.documento === null ? (
-                    "—"
-                  ) : (
-                    <EnlaceDeDescarga {...factura.documento} />
-                  )}
-                </td>
-                <td>{factura.quien}</td>
-                <td>
-                  <CambioDelComprobante cambio={factura.cambio} />
-                </td>
-                <td>{factura.periodo}</td>
-                <td>{factura.tipo}</td>
                 {puedeFacturar || puedeCobrar ? (
                   <td>
                     <div className="flex flex-wrap items-center gap-3">

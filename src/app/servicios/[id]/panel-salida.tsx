@@ -85,6 +85,7 @@ export async function PanelSalida({
           puedeFacturar={false}
           puedeCobrar={puedeActuar}
           parametros={parametros}
+          sinFilasNoSeDibuja={false}
         />
       ) : null}
       {puedeActuar && etapa === "sin_respuesta" && principal !== null ? (

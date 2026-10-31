@@ -504,7 +504,7 @@ export function crearCasosUsoServicios({
           datos: [
             ["Cliente", cliente?.valor.razonSocial ?? ""],
             ["Tipo de servicio", tipo?.valor.nombre ?? ""],
-            ["Modalidad", etiquetaDe(MODALIDADES, valor.modalidad)],
+            ["Contratación", etiquetaDe(MODALIDADES, valor.modalidad)],
             [
               "Responsable",
               quien({

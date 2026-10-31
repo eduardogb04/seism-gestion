@@ -530,15 +530,26 @@ describe("lo devengado, a la fecha del reloj", () => {
     ).toEqual([{ importe: "ARS 400,00", porcentaje: 40 }]);
   });
 
-  test("lo que se ve en la sección: la modalidad y las cifras de cada moneda", async () => {
+  test("lo que se ve en la sección: las cifras de cada moneda, sin la línea de la modalidad", async () => {
     await mensualEnEjecucion();
     const html = renderToStaticMarkup(
       createElement(ResumenDeFacturacion, {
         facturacion: await facturacion().ver(servicioId),
+        cobro: [
+          {
+            moneda: "ARS",
+            total: "ARS 1.000,00",
+            facturado: "ARS 121,00",
+            cobrado: "ARS 50,00",
+            pendiente: "ARS 71,00",
+          },
+        ],
       }),
     );
     const texto = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-    expect(texto).toContain("Modalidad: Mensual");
+    expect(texto).not.toContain("Modalidad");
+    expect(texto).toContain("Facturado (con IVA) · ARS ARS 121,00");
+    expect(texto).toContain("Cobrado · ARS ARS 50,00");
     expect(texto).toContain(
       "Devengado a julio de 2031 ARS 300,00 Por facturar ARS 300,00 Saldo de la orden de compra ARS 1.000,00 Por cobrar (con IVA) ARS 0,00",
     );

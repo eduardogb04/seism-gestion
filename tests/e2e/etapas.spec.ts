@@ -636,7 +636,8 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     page.getByRole("heading", { name: "Avance de hitos" }).locator(".."),
   ).toContainText("0 de 3");
   await expect(
-    page.getByRole("heading", { name: "Facturado (sin IVA)", exact: true })
+    page
+      .getByRole("heading", { name: "Facturado (sin IVA)", exact: true })
       .locator(".."),
   ).toContainText("0 % de la OC");
   // La modalidad ya está fija: no hay cómo cambiarla.
@@ -685,7 +686,8 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await expect(ventana(page, "Nueva factura")).toHaveCount(0);
   await expect(page.locator("tr", { hasText: FACTURA })).toHaveCount(1);
   await expect(
-    page.getByRole("heading", { name: "Facturado (sin IVA)", exact: true })
+    page
+      .getByRole("heading", { name: "Facturado (sin IVA)", exact: true })
       .locator(".."),
   ).toContainText("100 % de la OC");
 

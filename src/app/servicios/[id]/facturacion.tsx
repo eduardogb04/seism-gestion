@@ -1,22 +1,25 @@
 /**
- * Lo de *Facturación* que muestran los paneles (F3-03, ADR 0041): la modalidad,
- * el historial de la cuota mensual y, por moneda y al mes del reloj, lo
- * devengado, lo que falta facturar, el saldo de la orden de compra y lo que
- * falta cobrar. Ajustar la cuota (`?ajusteDeCuota=1`, con su aviso antes de
+ * Lo de *Facturación* que muestran los paneles (F3-03, ADR 0041): el historial
+ * de la cuota mensual y, por moneda y al mes del reloj, lo devengado, lo que
+ * falta facturar, el saldo de la orden de compra, lo facturado, lo cobrado y lo
+ * que falta cobrar. Ajustar la cuota (`?ajusteDeCuota=1`, con su aviso antes de
  * confirmar) es una ventana sobre el panel.
  */
 
+import type { LineaDeAvance } from "../../../casos-uso/servicios/cobros.ts";
 import type {
   CasosUsoFacturacion,
   Facturacion as DatosDeFacturacion,
 } from "../../../casos-uso/servicios/facturacion.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
+import { GrillaDeMetricas } from "../../_ui/panel.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { TarjetaKpi } from "../../_ui/tarjeta-kpi.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { ajustarCuota } from "../acciones.ts";
 import { AvisoDeAjuste } from "./aviso-de-ajuste.tsx";
+import { metricasDeCobro } from "./datos-de-panel.ts";
 
 /** Sin `armado()`: la sección le pasa el formulario y un test la dibuja con el aviso. */
 export function VentanaDeAjuste({
@@ -49,16 +52,14 @@ export function VentanaDeAjuste({
 /** Lo que se ve de la sección sin las ventanas: lo dibuja un test con los datos de una base sembrada. */
 export function ResumenDeFacturacion({
   facturacion,
+  cobro,
 }: {
   readonly facturacion: DatosDeFacturacion;
+  readonly cobro: readonly LineaDeAvance[];
 }) {
   return (
     <>
-      <p className="mb-3" data-modalidad>
-        Modalidad:{" "}
-        {facturacion.modalidad ?? "sin elegir (hace falta para facturar)"}
-      </p>
-      <div data-numeros-de-facturacion>
+      <div data-numeros-de-facturacion className="mt-4">
         {facturacion.lineas.map((linea) => (
           <div
             key={linea.moneda}
@@ -76,6 +77,7 @@ export function ResumenDeFacturacion({
             <TarjetaKpi titulo="Por cobrar (con IVA)" valor={linea.porCobrar} />
           </div>
         ))}
+        <GrillaDeMetricas metricas={metricasDeCobro(cobro)} />
       </div>
       {facturacion.cuotas.length > 0 ? (
         <>

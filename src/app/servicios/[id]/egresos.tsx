@@ -9,9 +9,19 @@ import { Tabla } from "../../_ui/tabla.tsx";
 
 const CABECERAS = ["Fecha", "Concepto", "Centro de costo", "Importe"];
 
-export async function Egresos({ servicioId }: { readonly servicioId: string }) {
+export async function Egresos({
+  servicioId,
+  sinFilasNoSeDibuja,
+}: {
+  readonly servicioId: string;
+  /** La etapa no ofrece registrar egresos: sin ninguno, la sección no se dibuja. */
+  readonly sinFilasNoSeDibuja: boolean;
+}) {
   const { egresos, totales } =
     await armado().egresosDeServicio.listar(servicioId);
+  if (sinFilasNoSeDibuja && egresos.length === 0) {
+    return null;
+  }
   return (
     <section className="mt-6">
       <h2 className="mb-2 text-xl font-semibold">Egresos</h2>

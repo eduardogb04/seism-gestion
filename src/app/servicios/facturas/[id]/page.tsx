@@ -56,6 +56,14 @@ export default async function DetalleDeFactura({
           </dd>
           <dt className="font-medium">Orden de compra</dt>
           <dd>{factura.ordenCompra === "" ? "—" : factura.ordenCompra}</dd>
+          <dt className="font-medium">Tipo</dt>
+          <dd>{factura.tipo}</dd>
+          {factura.periodo === "" ? null : (
+            <>
+              <dt className="font-medium">Período</dt>
+              <dd>{factura.periodo}</dd>
+            </>
+          )}
           <dt className="font-medium">Fecha</dt>
           <dd>{factura.fecha}</dd>
           <dt className="font-medium">Vencimiento</dt>

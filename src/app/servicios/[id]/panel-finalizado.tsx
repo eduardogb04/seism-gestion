@@ -9,7 +9,6 @@ import { HandCoins, Receipt } from "lucide-react";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { BarraDeAcciones, CabeceraDePanel } from "../../_ui/panel.tsx";
 import { AjustesDelServicio } from "../_piezas/ajustes.tsx";
-import { Avance } from "./avance.tsx";
 import { type DatosDePanel, dias, diasEnEtapa } from "./datos-de-panel.ts";
 import { Egresos } from "./egresos.tsx";
 import { ResumenDeFacturacion } from "./facturacion.tsx";
@@ -25,6 +24,7 @@ export async function PanelFinalizado({
   parametros,
 }: DatosDePanel) {
   const facturacion = await armado().facturacion.ver(servicio.id);
+  const { servicio: cobro } = await armado().cobros.avance(servicio.id);
   const propias = {
     servicioId: servicio.id,
     ruta,
@@ -42,17 +42,17 @@ export async function PanelFinalizado({
             : `Finalizado hace ${dias(diasEnEtapa(servicio, "finalizado"))}. Cuando se cobra todo lo facturado, el servicio se cierra solo.`
         }
       />
-      <ResumenDeFacturacion facturacion={facturacion} />
+      <ResumenDeFacturacion facturacion={facturacion} cobro={cobro} />
       <Facturas
         servicioId={servicio.id}
         ruta={ruta}
         puedeFacturar={puedeEscribir}
         puedeCobrar={puedeEscribir}
         parametros={parametros}
+        sinFilasNoSeDibuja={false}
       />
       <AjustesDelServicio {...propias} />
-      <Avance servicioId={servicio.id} />
-      <Egresos servicioId={servicio.id} />
+      <Egresos servicioId={servicio.id} sinFilasNoSeDibuja={false} />
       <Vencimientos
         {...propias}
         puedeRenovar={puedeActuar}

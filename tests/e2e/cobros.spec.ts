@@ -62,6 +62,13 @@ function ventana(page: Page, titulo: string) {
   return page.getByRole("dialog", { name: titulo });
 }
 
+/** El dato del encabezado del servicio con esa etiqueta. */
+function delEncabezado(page: Page, etiqueta: string) {
+  return page
+    .locator("header dt", { hasText: new RegExp(`^${etiqueta}$`) })
+    .locator("xpath=following-sibling::dd[1]");
+}
+
 function tablaConColumna(page: Page, columna: string) {
   return page
     .getByRole("table")
@@ -220,8 +227,8 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     .selectOption({ label: "Por hitos (libre)" });
   await modalidad.getByRole("button", { name: "Guardar" }).click();
   await expect(ventana(page, "Modalidad de facturación")).toHaveCount(0);
-  await expect(page.locator("[data-modalidad]")).toHaveText(
-    "Modalidad: Por hitos (libre)",
+  await expect(delEncabezado(page, "Facturación")).toHaveText(
+    "Por hitos (libre)",
   );
 
   // 1. Una factura en pesos, vencida: 1.000,00 más 21 % de IVA son 1.210,00.
@@ -234,10 +241,8 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     orden: `${ORDEN} · ARS 1.000,00`,
   });
   const factura = filaDeFactura(page, FACTURA_EN_PESOS);
-  await expect(factura.getByRole("cell").nth(7)).toHaveText("ARS 1.210,00");
-  await expect(factura.getByRole("cell").nth(8)).toHaveText("ARS 0,00");
-  await expect(factura.getByRole("cell").nth(10)).toHaveText("ARS 1.210,00");
-  await expect(factura.getByRole("cell").nth(11)).toHaveText("Con saldo");
+  await expect(factura.getByRole("cell").nth(2)).toHaveText("ARS 1.210,00");
+  await expect(factura.getByRole("cell").nth(3)).toHaveText("ARS 1.210,00");
 
   // Ingresos (menú de Finanzas): la factura del mes ofrece cobrar, con la misma ventana.
   await page.goto("/?mes=2026-09");
@@ -294,10 +299,14 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
   await expect(page).toHaveURL(/\/servicios\/por-cobrar/);
   await expect(porCobrar.getByRole("cell").nth(5)).toHaveText("ARS 710,00");
   await page.goto(servicioUrl);
-  await expect(factura.getByRole("cell").nth(8)).toHaveText("ARS 500,00");
-  await expect(factura.getByRole("cell").nth(9)).toHaveText("ARS 0,00");
-  await expect(factura.getByRole("cell").nth(10)).toHaveText("ARS 710,00");
-  await expect(factura.getByRole("cell").nth(11)).toHaveText("Con saldo");
+  await expect(factura.getByRole("cell").nth(3)).toHaveText("ARS 710,00");
+  await factura
+    .getByRole("link", { name: FACTURA_EN_PESOS, exact: true })
+    .click();
+  await expect(page.locator("[data-cobrado]")).toHaveText("ARS 500,00");
+  await expect(page.getByText("Retenido: ARS 0,00")).toBeVisible();
+  await expect(page.locator("[data-saldo]")).toHaveText("ARS 710,00");
+  await page.goto(servicioUrl);
   const cobros = tablaConColumna(page, "Días desde la factura");
   const filaDelPrimero = cobros.getByRole("row").nth(1);
   await expect(filaDelPrimero.getByRole("cell").nth(0)).toHaveText(
@@ -337,10 +346,14 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     ingreso.getByRole("link", { name: "Registrar cobro" }),
   ).toHaveCount(0);
   await page.goto(servicioUrl);
-  await expect(factura.getByRole("cell").nth(8)).toHaveText("ARS 1.000,00");
-  await expect(factura.getByRole("cell").nth(9)).toHaveText("ARS 210,00");
-  await expect(factura.getByRole("cell").nth(10)).toHaveText("ARS 0,00");
-  await expect(factura.getByRole("cell").nth(11)).toHaveText("Cobrada");
+  await expect(factura.getByRole("cell").nth(3)).toHaveText("ARS 0,00");
+  await factura
+    .getByRole("link", { name: FACTURA_EN_PESOS, exact: true })
+    .click();
+  await expect(page.locator("[data-cobrado]")).toHaveText("ARS 1.000,00");
+  await expect(page.getByText("Retenido: ARS 210,00")).toBeVisible();
+  await expect(page.locator("[data-estado-cobrada]")).toHaveText("Cobrada");
+  await page.goto(servicioUrl);
   await expect(
     factura.getByRole("link", { name: "Registrar cobro", exact: true }),
   ).toHaveCount(0);
@@ -356,7 +369,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     orden: null,
   });
   const enDolares = filaDeFactura(page, FACTURA_EN_DOLARES);
-  await expect(enDolares.getByRole("cell").nth(7)).toHaveText("USD 121,00");
+  await expect(enDolares.getByRole("cell").nth(2)).toHaveText("USD 121,00");
 
   const sinCambio = await abrirCobro(page, FACTURA_EN_DOLARES, "servicio", {
     fecha: "2026-10-12",
@@ -373,8 +386,7 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     .fill("Cotización de prueba");
   await sinCambio.getByRole("button", { name: "Cobrar" }).click();
   await expect(ventana(page, "Cobrar factura")).toHaveCount(0);
-  await expect(enDolares.getByRole("cell").nth(8)).toHaveText("USD 50,00");
-  await expect(enDolares.getByRole("cell").nth(10)).toHaveText("USD 71,00");
+  await expect(enDolares.getByRole("cell").nth(3)).toHaveText("USD 71,00");
   const filaEnDolares = cobros
     .getByRole("row")
     .filter({ hasText: "Cotización de prueba" });
@@ -386,20 +398,20 @@ test("una operadora cobra facturas en partes, con retención y en pesos de una f
     "1.200,00 · Cotización de prueba",
   );
 
-  // 5. El avance, por moneda y sin convertir, en la orden y en el servicio.
-  const lineaEnPesos =
-    "Total ARS 1.000,00 (sin IVA) · Facturado ARS 1.210,00 (con IVA) · Cobrado ARS 1.210,00 · Pendiente de cobro ARS 0,00";
-  const ordenes = tablaConColumna(page, "Saldo por facturar");
-  await expect(ordenes.locator('[data-avance-moneda="ARS"]')).toHaveText(
-    lineaEnPesos,
+  // 5. Lo facturado, lo cobrado y lo que falta, por moneda y sin convertir, en las métricas del panel.
+  const metrica = (titulo: string) =>
+    page.getByRole("heading", { name: titulo, exact: true }).locator("..");
+  await expect(metrica("Facturado (con IVA) · ARS")).toContainText(
+    "ARS 1.210,00",
   );
-  const avance = page.locator("section").filter({
-    has: page.getByRole("heading", { name: "Avance", exact: true }),
-  });
-  await expect(avance.locator('[data-avance-moneda="ARS"]')).toHaveText(
-    lineaEnPesos,
+  await expect(metrica("Cobrado · ARS")).toContainText("ARS 1.210,00");
+  await expect(metrica("Facturado (con IVA) · USD")).toContainText(
+    "USD 121,00",
   );
-  await expect(avance.locator('[data-avance-moneda="USD"]')).toHaveText(
-    "Total USD 0,00 (sin IVA) · Facturado USD 121,00 (con IVA) · Cobrado USD 50,00 · Pendiente de cobro USD 71,00",
-  );
+  await expect(metrica("Cobrado · USD")).toContainText("USD 50,00");
+  await expect(
+    page
+      .getByRole("heading", { name: "Por cobrar (con IVA)", exact: true })
+      .locator(".."),
+  ).toContainText(["ARS 0,00", "USD 71,00"]);
 });

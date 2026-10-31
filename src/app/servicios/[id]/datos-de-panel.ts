@@ -1,9 +1,12 @@
 /** Lo que comparten las páginas de etapa y sus paneles (F6-01). */
 
+import type { ComponentProps } from "react";
+import type { LineaDeAvance } from "../../../casos-uso/servicios/cobros.ts";
 import type { CotizacionListada } from "../../../casos-uso/servicios/cotizaciones.ts";
 import { ETIQUETAS_DE_ESTADO } from "../../../casos-uso/servicios/formulario.ts";
 import type { DetalleDeServicio } from "../../../casos-uso/servicios/servicios.ts";
 import type { Accion } from "../../_ui/panel.tsx";
+import type { TarjetaKpi } from "../../_ui/tarjeta-kpi.tsx";
 
 export type Parametros = Readonly<
   Record<string, string | string[] | undefined>
@@ -66,4 +69,14 @@ export function transicionesDelPanel(
     principal: elegida === undefined ? null : accion(elegida),
     salidas: transiciones.filter((otra) => otra !== elegida).map(accion),
   };
+}
+
+/** Lo facturado (con IVA) y lo cobrado, por moneda y sin convertir: la moneda en el título, para que las tarjetas no se repitan. */
+export function metricasDeCobro(
+  lineas: readonly LineaDeAvance[],
+): ComponentProps<typeof TarjetaKpi>[] {
+  return lineas.flatMap(({ moneda, facturado, cobrado }) => [
+    { titulo: `Facturado (con IVA) · ${moneda}`, valor: facturado },
+    { titulo: `Cobrado · ${moneda}`, valor: cobrado },
+  ]);
 }

@@ -15,8 +15,12 @@ import {
   GrillaDeMetricas,
 } from "../../_ui/panel.tsx";
 import { AjustesDelServicio } from "../_piezas/ajustes.tsx";
-import { Avance } from "./avance.tsx";
-import { type DatosDePanel, dias, diasEnEtapa } from "./datos-de-panel.ts";
+import {
+  type DatosDePanel,
+  dias,
+  diasEnEtapa,
+  metricasDeCobro,
+} from "./datos-de-panel.ts";
 import { DocumentosDeAlcance } from "./documentos-de-alcance.tsx";
 import { Egresos } from "./egresos.tsx";
 import { Facturas } from "./facturas.tsx";
@@ -51,6 +55,7 @@ export async function PanelCerrado({
   parametros,
 }: DatosDePanel) {
   const resultado = await armado().tablero.resultadoDelServicio(servicio.id);
+  const { servicio: cobro } = await armado().cobros.avance(servicio.id);
   const { vencimientos } = await armado().vencimientos.ver(servicio.id);
   const proximo = vencimientos.find(({ pendiente }) => pendiente);
   const aRenovar = vencimientos.find(
@@ -76,6 +81,7 @@ export async function PanelCerrado({
       <GrillaDeMetricas
         metricas={[
           { titulo: "Facturado (sin IVA)", valor: resultado.facturado },
+          ...metricasDeCobro(cobro),
           { titulo: "Egresos del servicio", valor: resultado.egresos },
           { titulo: "Resultado", valor: resultado.resultado },
           { titulo: "Margen", valor: resultado.margen },
@@ -92,12 +98,12 @@ export async function PanelCerrado({
           puedeFacturar={false}
           puedeCobrar={false}
           parametros={parametros}
+          sinFilasNoSeDibuja
         />
         <AjustesDelServicio {...lectura} />
         <DocumentosDeAlcance {...lectura} />
       </div>
-      <Avance servicioId={servicio.id} />
-      <Egresos servicioId={servicio.id} />
+      <Egresos servicioId={servicio.id} sinFilasNoSeDibuja />
       <BarraDeAcciones
         principal={
           puedeActuar && proximo !== undefined

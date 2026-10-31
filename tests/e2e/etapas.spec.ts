@@ -495,7 +495,7 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await planificacion.getByRole("button", { name: "Guardar" }).click();
   const paraArrancar = page.getByRole("list", { name: "Para arrancar" });
   await expect(paraArrancar.getByRole("listitem")).toHaveText([
-    /^Pendiente:Modalidad\s*sin elegir$/,
+    /^Pendiente:Facturación\s*sin elegir$/,
     new RegExp(`^Hecho:Responsable\\s*${OPERADORA}$`),
     /^Hecho:Inicio estimado\s*02\/11\/2026$/,
     /^Pendiente:Recursos\s*ninguno$/,

@@ -71,12 +71,15 @@ export function transicionesDelPanel(
   };
 }
 
-/** Lo facturado (con IVA) y lo cobrado, por moneda y sin convertir: la moneda en el título, para que las tarjetas no se repitan. */
+/** Lo facturado (con IVA) y lo cobrado, por moneda y sin convertir: con más de una moneda, va en el título para que las tarjetas no se repitan. */
 export function metricasDeCobro(
   lineas: readonly LineaDeAvance[],
 ): ComponentProps<typeof TarjetaKpi>[] {
-  return lineas.flatMap(({ moneda, facturado, cobrado }) => [
-    { titulo: `Facturado (con IVA) · ${moneda}`, valor: facturado },
-    { titulo: `Cobrado · ${moneda}`, valor: cobrado },
-  ]);
+  return lineas.flatMap(({ moneda, facturado, cobrado }) => {
+    const sufijo = lineas.length > 1 ? ` · ${moneda}` : "";
+    return [
+      { titulo: `Facturado (con IVA)${sufijo}`, valor: facturado },
+      { titulo: `Cobrado${sufijo}`, valor: cobrado },
+    ];
+  });
 }

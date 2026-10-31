@@ -107,7 +107,7 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   await page.getByRole("link", { name: "Alta de servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await expect(alta).toBeVisible();
-  await expect(alta.getByLabel("Modalidad")).toHaveValue("puntual");
+  await expect(alta.getByLabel("Contratación")).toHaveValue("puntual");
   await alta
     .getByLabel("Cliente")
     .selectOption({ label: "Empresa Ejemplo Uno S.A." });
@@ -115,7 +115,7 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
     .getByLabel("Tipo de servicio")
     .selectOption({ label: "Logística" });
   await alta.getByLabel("Título").fill(TITULO);
-  await alta.getByLabel("Modalidad").selectOption("recurrente");
+  await alta.getByLabel("Contratación").selectOption("recurrente");
   await alta.getByLabel("Responsable").selectOption({ label: ADMIN });
   await alta.getByLabel("Fecha de pedido").fill("2026-11-05");
   await alta.getByRole("button", { name: "Guardar" }).click();
@@ -125,7 +125,7 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   );
   await expect(alta.getByLabel("Título")).toHaveValue(TITULO);
 
-  await alta.getByLabel("Modalidad").selectOption("puntual");
+  await alta.getByLabel("Contratación").selectOption("puntual");
   await alta.getByRole("button", { name: "Guardar" }).click();
 
   await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);

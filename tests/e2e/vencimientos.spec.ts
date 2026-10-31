@@ -185,7 +185,7 @@ test("un servicio recurrente muestra «Renovar contrato» desde «Adjudicado» y
     .getByLabel("Tipo de servicio")
     .selectOption({ label: "Certificación de camiones" });
   await alta.getByLabel("Título").fill(titulo);
-  await alta.getByLabel("Modalidad").selectOption("recurrente");
+  await alta.getByLabel("Contratación").selectOption("recurrente");
   await alta.getByLabel("Responsable").selectOption({ label: ADMIN });
   await alta.getByLabel("Fecha de pedido").fill("2026-10-10");
   await alta.getByLabel("Vigencia desde").fill("2026-11-01");

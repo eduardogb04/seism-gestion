@@ -113,7 +113,7 @@ export async function PanelAdjudicado({
         titulo="Para arrancar"
         items={[
           {
-            texto: "Modalidad",
+            texto: "Facturación",
             hecho: facturacion.modalidad !== null,
             detalle: facturacion.modalidad ?? "sin elegir",
           },

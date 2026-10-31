@@ -61,7 +61,7 @@ export async function PanelEnEjecucion({
         contexto={
           soloLectura
             ? `Estuvo ${dias(desdeQueInicio)} en «En ejecución».`
-            : `Inició hace ${dias(desdeQueInicio)}. Tildá los hitos a medida que se cumplen.`
+            : "Tildá los hitos a medida que se cumplen."
         }
       />
       <GrillaDeMetricas
@@ -86,7 +86,7 @@ export async function PanelEnEjecucion({
               ? []
               : [
                   {
-                    titulo: "Facturado",
+                    titulo: "Facturado (sin IVA)",
                     valor: facturadoDeLaOrden.importe,
                     detalle: `${facturadoDeLaOrden.porcentaje} % de la OC`,
                   },

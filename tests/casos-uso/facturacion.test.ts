@@ -548,8 +548,8 @@ describe("lo devengado, a la fecha del reloj", () => {
     );
     const texto = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
     expect(texto).not.toContain("Modalidad");
-    expect(texto).toContain("Facturado (con IVA) · ARS ARS 121,00");
-    expect(texto).toContain("Cobrado · ARS ARS 50,00");
+    expect(texto).toContain("Facturado (con IVA) ARS 121,00");
+    expect(texto).toContain("Cobrado ARS 50,00");
     expect(texto).toContain(
       "Devengado a julio de 2031 ARS 300,00 Por facturar ARS 300,00 Saldo de la orden de compra ARS 1.000,00 Por cobrar (con IVA) ARS 0,00",
     );

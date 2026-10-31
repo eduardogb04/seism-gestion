@@ -74,7 +74,7 @@ export function camposDeServicio(
     ["titulo", { tipo: "texto", etiqueta: "Título" }],
     [
       "modalidad",
-      { tipo: "opcion", etiqueta: "Modalidad", opciones: MODALIDADES },
+      { tipo: "opcion", etiqueta: "Contratación", opciones: MODALIDADES },
     ],
     [
       "responsableId",

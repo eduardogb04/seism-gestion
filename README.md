@@ -12,7 +12,7 @@ Repositorio **público**. No contiene datos reales ni documentos de negocio: tod
 
 En construcción. Cerradas: Fase 0 (cimientos), F1 (catálogos con un molde de ABM y el front base)
 F2 (finanzas), F3 (el servicio de punta a punta, del recorrido por etapas al inicio con KPI) y
-F4 (vencimientos, calendario y situaciones con el cliente) F5 (los huecos de las dos anteriores) y F6 (el servicio, un panel por etapa). Corre solo en local: todavía no hay
+F4 (vencimientos, calendario y situaciones con el cliente) F5 (los huecos de las dos anteriores) F6 (el servicio, un panel por etapa) y F7 (el pulido de esos paneles). Corre solo en local: todavía no hay
 servidor.
 
 Este README y la descripción del repo se actualizan **al cerrar cada tanda** (F1, F2, F3...), no

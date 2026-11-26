@@ -439,12 +439,11 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     await expect(page.locator("[data-solo-lectura]")).toHaveCount(0);
   }
 
-  // El listado entra directo al panel de la etapa.
+  // La tarjeta del tablero entra directo al panel de la etapa.
   await page.goto(`/servicios?buscar=${encodeURIComponent(TITULO)}`);
   await page
-    .getByRole("row")
-    .filter({ has: page.getByRole("cell", { name: TITULO, exact: true }) })
-    .getByRole("link", { name: "Ver" })
+    .getByRole("main")
+    .getByRole("link", { name: new RegExp(TITULO) })
     .click();
   await expect(page).toHaveURL(`${servicioUrl}/cotizado`);
 

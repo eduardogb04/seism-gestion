@@ -49,6 +49,36 @@ export function VentanaDeAjuste({
   );
 }
 
+/** La cuota inicial y sus ajustes; sin cuotas (no es mensual), no se dibuja. */
+export function HistorialDeCuota({
+  cuotas,
+  titulo = true,
+}: {
+  readonly cuotas: DatosDeFacturacion["cuotas"];
+  readonly titulo?: boolean;
+}) {
+  if (cuotas.length === 0) {
+    return null;
+  }
+  return (
+    <>
+      {titulo ? (
+        <h3 className="mt-4 mb-2 text-lg font-semibold">Cuota mensual</h3>
+      ) : null}
+      <Tabla cabeceras={["Rige desde", "Cuota sin IVA", "Cargada", "Por"]}>
+        {cuotas.map((cuota) => (
+          <tr key={cuota.id}>
+            <td>{cuota.desde}</td>
+            <td>{cuota.importe}</td>
+            <td>{cuota.cuando}</td>
+            <td>{cuota.quien}</td>
+          </tr>
+        ))}
+      </Tabla>
+    </>
+  );
+}
+
 /** Lo que se ve de la sección sin las ventanas: lo dibuja un test con los datos de una base sembrada. */
 export function ResumenDeFacturacion({
   facturacion,
@@ -79,21 +109,7 @@ export function ResumenDeFacturacion({
         ))}
         <GrillaDeMetricas metricas={metricasDeCobro(cobro)} />
       </div>
-      {facturacion.cuotas.length > 0 ? (
-        <>
-          <h3 className="mt-4 mb-2 text-lg font-semibold">Cuota mensual</h3>
-          <Tabla cabeceras={["Rige desde", "Cuota sin IVA", "Cargada", "Por"]}>
-            {facturacion.cuotas.map((cuota) => (
-              <tr key={cuota.id}>
-                <td>{cuota.desde}</td>
-                <td>{cuota.importe}</td>
-                <td>{cuota.cuando}</td>
-                <td>{cuota.quien}</td>
-              </tr>
-            ))}
-          </Tabla>
-        </>
-      ) : null}
+      <HistorialDeCuota cuotas={facturacion.cuotas} />
     </>
   );
 }

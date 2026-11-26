@@ -6,13 +6,17 @@
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { Tabla } from "../../_ui/tabla.tsx";
+import { Parte } from "./_molde/parte.tsx";
 
 const CABECERAS = ["Fecha", "Concepto", "Centro de costo", "Importe"];
 
 export async function Egresos({
+  enSeccion,
   servicioId,
   sinFilasNoSeDibuja,
 }: {
+  /** Dentro de una `Seccion` del molde: sin título propio. */
+  readonly enSeccion?: boolean;
   readonly servicioId: string;
   /** La etapa no ofrece registrar egresos: sin ninguno, la sección no se dibuja. */
   readonly sinFilasNoSeDibuja: boolean;
@@ -23,8 +27,7 @@ export async function Egresos({
     return null;
   }
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Egresos</h2>
+    <Parte enSeccion={enSeccion} titulo="Egresos">
       {egresos.length === 0 ? (
         <p>Todavía no tiene egresos imputados.</p>
       ) : (
@@ -54,6 +57,6 @@ export async function Egresos({
           </p>
         </>
       )}
-    </section>
+    </Parte>
   );
 }

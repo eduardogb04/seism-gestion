@@ -25,6 +25,7 @@ import {
 } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
+import { Parte } from "../[id]/_molde/parte.tsx";
 import { IvaEnVivo } from "../[id]/iva-en-vivo.tsx";
 import { anularAjuste, cargarAjuste } from "../acciones.ts";
 
@@ -42,6 +43,7 @@ const NOMBRES: Readonly<Record<Ajuste, string>> = {
 const CABECERAS = ["Tipo", "Número", "Fecha", "Asociado a", "Total con IVA"];
 
 export function Ajustes({
+  enSeccion,
   ruta,
   puedeEscribir,
   ajustes,
@@ -50,6 +52,8 @@ export function Ajustes({
   cargar,
   anular,
 }: {
+  /** Dentro de una `Seccion` del molde: sin título propio. */
+  readonly enSeccion?: boolean | undefined;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
   /** Las notas y facturas adicionales vigentes. */
@@ -66,8 +70,7 @@ export function Ajustes({
   readonly anular: (id: string) => Accion;
 }) {
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Ajustes</h2>
+    <Parte enSeccion={enSeccion} titulo="Ajustes">
       {puedeEscribir ? (
         <p className="mb-3 flex flex-wrap gap-3">
           {AJUSTES.map((ajuste) => (
@@ -152,16 +155,18 @@ export function Ajustes({
           )}
         </Ventana>
       )}
-    </section>
+    </Parte>
   );
 }
 
 export async function AjustesDelServicio({
+  enSeccion,
   servicioId,
   ruta,
   puedeEscribir,
   parametros,
 }: {
+  readonly enSeccion?: boolean | undefined;
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
@@ -172,6 +177,7 @@ export async function AjustesDelServicio({
   const aAnular = parametros.anularAjuste;
   return (
     <Ajustes
+      enSeccion={enSeccion}
       ruta={ruta}
       puedeEscribir={puedeEscribir}
       ajustes={ajustes}

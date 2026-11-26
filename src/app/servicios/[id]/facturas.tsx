@@ -128,7 +128,15 @@ export async function Facturas({
   return (
     <Parte enSeccion={enSeccion} titulo="Facturas">
       {facturas.length === 0 ? (
-        <p>Todavía no hay facturas cargadas.</p>
+        enSeccion ? (
+          <p className="m-0 text-[13px] text-texto-3">
+            {puedeFacturar
+              ? "Todavía no hay facturas. Emití la primera cuando tengas el remito conformado."
+              : "No se emitieron facturas."}
+          </p>
+        ) : (
+          <p>Todavía no hay facturas cargadas.</p>
+        )
       ) : (
         <Tabla
           cabeceras={

@@ -1,13 +1,13 @@
 /**
- * El panel de «Cotizado» (F6-01): esperando respuesta del cliente. La
- * cotización vigente, los días desde que se cotizó, la línea de versiones (cada
- * cambio queda, con su motivo) y, como acción principal, cargar la orden de
- * compra.
+ * El panel de «Cotizado» (F6-01, SYSTEM_SPEC §5.3): esperando respuesta del
+ * cliente. La cotización vigente, los días desde que se cotizó, la línea de
+ * versiones (cada cambio queda, con su motivo) y, como acción principal,
+ * cargar la orden de compra. Perdido, sin respuesta y cancelar están en el «⋯»
+ * del encabezado.
  */
 
 import {
   CalendarClock,
-  FileCheck,
   Files,
   Hourglass,
   Layers,
@@ -17,13 +17,9 @@ import {
 import { ETIQUETAS_DE_ESTADO } from "../../../casos-uso/servicios/formulario.ts";
 import type { DetalleDeServicio } from "../../../casos-uso/servicios/servicios.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import {
-  BarraDeAcciones,
-  CabeceraDePanel,
-  GrillaDeMetricas,
-  TituloDeParte,
-} from "../../_ui/panel.tsx";
 import { PORCENTAJE } from "../../_ui/tarjeta-kpi.tsx";
+import { accionPrincipalDe } from "./_molde/accion-principal.ts";
+import { PanelDeEtapa, Seccion } from "./_molde/panel-de-etapa.tsx";
 import {
   LineaDeVersiones,
   VentanaDeAnulacion as VentanaDeAnulacionDeCotizacion,
@@ -59,6 +55,7 @@ export async function PanelCotizado({
   parametros,
 }: DatosDePanel) {
   const cotizaciones = await armado().cotizaciones.listar(servicio.id);
+  const alcance = await armado().documentosDeAlcance.listar(servicio.id);
   const vigente = cotizacionVigente(cotizaciones);
   const primera = cotizaciones.at(-1);
   const variacion =
@@ -72,70 +69,48 @@ export async function PanelCotizado({
         Number(primera.monto.centavos);
   const desdeQueSeCotizo = diasDesdeQueSeCotizo(servicio);
   const aAnular = parametros.anular;
+  const principal = accionPrincipalDe(servicio, ruta);
   return (
-    <article className="rounded border border-borde bg-superficie p-5 shadow-sm dark:shadow-none">
-      <CabeceraDePanel
-        Icono={Hourglass}
-        titulo="Esperando respuesta del cliente"
-        contexto={
-          soloLectura
-            ? `Estuvo ${dias(diasEnEtapa(servicio, "cotizado"))} en «Cotizado».`
-            : `Cotizado hace ${dias(desdeQueSeCotizo)}.`
-        }
-      />
-      <div data-metricas-de-cotizado>
-        <GrillaDeMetricas
-          metricas={[
-            {
-              titulo: "Cotización vigente",
-              Icono: Receipt,
-              valor: vigente === null ? "Sin cotización" : vigente.importe,
-              ...(vigente === null
-                ? {}
-                : { detalle: `versión ${vigente.version} · ${vigente.fecha}` }),
-            },
-            {
-              titulo: "Días desde que se cotizó",
-              Icono: CalendarClock,
-              valor: desdeQueSeCotizo,
-            },
-            {
-              titulo: "Versiones",
-              Icono: Layers,
-              valor: cotizaciones.length,
-              ...(variacion === null
-                ? {}
-                : { detalle: `${PORCENTAJE.format(variacion)} sobre la v1` }),
-            },
-          ]}
-        />
-      </div>
-      <TituloDeParte>Versiones de la cotización</TituloDeParte>
-      {cotizaciones.length === 0 ? (
-        <p>Todavía no hay cotizaciones cargadas.</p>
-      ) : (
-        <LineaDeVersiones
-          cotizaciones={cotizaciones}
-          ruta={ruta}
-          puedeEscribir={puedeEscribir}
-        />
-      )}
-      <DocumentosDeAlcance
-        servicioId={servicio.id}
-        ruta={ruta}
-        puedeEscribir={puedeEscribir}
-        parametros={parametros}
-      />
-      {puedeEscribir ? (
-        <>
-          <BarraDeAcciones
-            principal={{
-              texto: "Cargar orden de compra",
-              href: `${ruta}?orden=1`,
-              Icono: FileCheck,
-              carga: "ordenDeCompra",
-            }}
-            secundarias={[
+    <PanelDeEtapa
+      etapa="cotizado"
+      Icono={Hourglass}
+      titulo="Esperando respuesta del cliente"
+      bajada={
+        soloLectura
+          ? `Estuvo ${dias(diasEnEtapa(servicio, "cotizado"))} en «Cotizado».`
+          : `Cotizado hace ${dias(desdeQueSeCotizo)}. Cuando llegue la orden de compra, cargala y el servicio pasa a «Adjudicado».`
+      }
+      metricas={[
+        {
+          titulo: "Cotización vigente",
+          Icono: Receipt,
+          valor: vigente === null ? "Sin cotización" : vigente.importe,
+          ...(vigente === null
+            ? {}
+            : { detalle: `versión ${vigente.version} · ${vigente.fecha}` }),
+        },
+        {
+          titulo: "Días desde que se cotizó",
+          Icono: CalendarClock,
+          valor: desdeQueSeCotizo,
+        },
+        {
+          titulo: "Versiones",
+          Icono: Layers,
+          valor: cotizaciones.length,
+          ...(variacion === null
+            ? {}
+            : { detalle: `${PORCENTAJE.format(variacion)} sobre la v1` }),
+        },
+      ]}
+      principal={
+        puedeEscribir && principal !== null
+          ? { ...principal, carga: "ordenDeCompra" }
+          : null
+      }
+      secundarias={
+        puedeEscribir
+          ? [
               {
                 texto: "Nueva versión",
                 href: `${ruta}?cotizacion=1`,
@@ -148,13 +123,51 @@ export async function PanelCotizado({
                 Icono: Upload,
                 carga: "alcance",
               },
-            ]}
-            rotuloDeSalidas="¿No salió?"
-            salidas={servicio.transiciones.map(({ valor, etiqueta }) => ({
-              texto: etiqueta,
-              href: `${ruta}?pasar=${valor}`,
-            }))}
+            ]
+          : []
+      }
+    >
+      <Seccion
+        clave="cotizado.versiones"
+        titulo="Versiones de la cotización"
+        resumen={
+          cotizaciones.length === 1
+            ? "1 versión"
+            : `${cotizaciones.length} versiones`
+        }
+      >
+        {cotizaciones.length === 0 ? (
+          <p className="m-0 text-[13px] text-texto-3">
+            Todavía no hay cotizaciones cargadas.
+          </p>
+        ) : (
+          <LineaDeVersiones
+            cotizaciones={cotizaciones}
+            ruta={ruta}
+            puedeEscribir={puedeEscribir}
           />
+        )}
+      </Seccion>
+      <Seccion
+        clave="cotizado.alcance"
+        titulo="Documentación de alcance"
+        resumen={
+          alcance.length === 1 ? "1 archivo" : `${alcance.length} archivos`
+        }
+        abiertaPorDefecto={false}
+        parametros={parametros}
+        abreCon={["alcance"]}
+      >
+        <DocumentosDeAlcance
+          enSeccion
+          servicioId={servicio.id}
+          ruta={ruta}
+          puedeEscribir={puedeEscribir}
+          parametros={parametros}
+        />
+      </Seccion>
+      {puedeEscribir ? (
+        <>
           {typeof parametros.cotizacion === "string" ? (
             <VentanaDeCotizacion servicioId={servicio.id} rutaAlCerrar={ruta} />
           ) : null}
@@ -170,6 +183,6 @@ export async function PanelCotizado({
           ) : null}
         </>
       ) : null}
-    </article>
+    </PanelDeEtapa>
   );
 }

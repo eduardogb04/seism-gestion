@@ -1,34 +1,39 @@
 /**
- * El panel de «Adjudicado» (F6-04): planificar el arranque. La orden de compra,
- * la modalidad de facturación en tres tarjetas, el responsable y el inicio
- * estimado (que se cargan acá mismo), los recursos, los hitos y, como acción
- * principal, iniciar la ejecución.
+ * El panel de «Adjudicado» (F6-04, SYSTEM_SPEC §5.3): planificar el arranque.
+ * La orden de compra (número, importe, tipo de cambio), la modalidad de
+ * facturación en tres tarjetas, el responsable y el inicio estimado (que se
+ * cargan acá mismo), los recursos, los hitos y, como acción principal, iniciar
+ * la ejecución. Anular la orden está en su sección.
  */
 
-import { ClipboardList, Receipt, SlidersHorizontal } from "lucide-react";
-import { armado } from "../../../infraestructura/arranque/armado.ts";
 import {
-  BarraDeAcciones,
-  CabeceraDePanel,
-  GrillaDeMetricas,
-  ListaDeControl,
-  TituloDeParte,
-} from "../../_ui/panel.tsx";
+  CalendarClock,
+  ClipboardList,
+  Flag,
+  ListChecks,
+  Receipt,
+  SlidersHorizontal,
+  UserPlus,
+  Wallet,
+} from "lucide-react";
+import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { TarjetasDeModalidad } from "../_piezas/modalidad.tsx";
 import { PlantillaDeHitos } from "../_piezas/plantilla-de-hitos.tsx";
 import { RecursosAgrupados } from "../_piezas/recursos-agrupados.tsx";
 import { ResponsableEInicio } from "../_piezas/responsable-e-inicio.tsx";
+import { accionPrincipalDe } from "./_molde/accion-principal.ts";
+import {
+  type Accion,
+  ListaDeControl,
+  PanelDeEtapa,
+  Seccion,
+} from "./_molde/panel-de-etapa.tsx";
 import {
   ACCIONES_DE_HITOS,
   ACCIONES_DE_RECURSOS,
 } from "./acciones-de-planificacion.ts";
 import { CambioDelComprobante } from "./cambio-del-comprobante.tsx";
-import {
-  type DatosDePanel,
-  dias,
-  diasEnEtapa,
-  transicionesDelPanel,
-} from "./datos-de-panel.ts";
+import { type DatosDePanel, dias, diasEnEtapa } from "./datos-de-panel.ts";
 import { AjusteDeCuota, ResumenDeFacturacion } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
@@ -39,6 +44,19 @@ function cantidad(numero: number, singular: string, plural: string): string {
     ? "ninguno"
     : `${numero} ${numero === 1 ? singular : plural}`;
 }
+
+/** Los parámetros de las ventanas de facturas, cobros y vencimientos: abren la sección «Facturación». */
+const DE_FACTURACION = [
+  "factura",
+  "anularFactura",
+  "cambioFactura",
+  "cobrar",
+  "anularCobro",
+  "vencimiento",
+  "corregir",
+  "descartar",
+  "renovar",
+];
 
 export async function PanelAdjudicado({
   servicio,
@@ -51,128 +69,121 @@ export async function PanelAdjudicado({
   const detalle = await armado().planificacion.ver(servicio.id);
   const facturacion = await armado().facturacion.ver(servicio.id);
   const { servicio: cobro } = await armado().cobros.avance(servicio.id);
-  const [orden] = await armado().ordenesDeCompra.listar(servicio.id);
+  const ordenes = await armado().ordenesDeCompra.listar(servicio.id);
+  const [orden] = ordenes;
   const dato = (etiqueta: string) =>
     servicio.datos.find(([de]) => de === etiqueta)?.[1] ?? "";
   const inicio = dato("Fecha estimada de inicio");
+  const responsable = dato("Responsable");
   const propias = {
     servicioId: servicio.id,
     ruta,
     puedeEscribir,
     parametros,
   };
-  const { principal, salidas } = transicionesDelPanel(
-    servicio,
-    ruta,
-    "en_ejecucion",
-  );
+  const puedePlanificar = puedeEscribir && detalle.planificable;
+  const agregarRecurso: Accion = {
+    texto: "Agregar recurso",
+    href: `${ruta}?recurso=1`,
+    Icono: UserPlus,
+    carga: "planificacion",
+  };
+  const agregarHito: Accion = {
+    texto: "Agregar hito",
+    href: `${ruta}?hito=1`,
+    Icono: Flag,
+    carga: "planificacion",
+  };
+  const control = [
+    {
+      texto: "Modalidad de facturación",
+      hecho: facturacion.modalidad !== null,
+      detalle: facturacion.modalidad ?? "sin elegir",
+    },
+    {
+      texto: "Responsable",
+      hecho: responsable !== "",
+      detalle: responsable || "sin responsable",
+    },
+    {
+      texto: "Inicio estimado",
+      hecho: inicio !== "",
+      detalle: inicio || "sin fecha",
+    },
+    {
+      texto: "Recursos",
+      hecho: detalle.recursos.length > 0,
+      detalle: cantidad(detalle.recursos.length, "cargado", "cargados"),
+      ...(puedePlanificar
+        ? { accion: { ...agregarRecurso, texto: "Agregar" } }
+        : {}),
+    },
+    {
+      texto: "Hitos",
+      hecho: detalle.hitos.length > 0,
+      detalle: cantidad(detalle.hitos.length, "cargado", "cargados"),
+      ...(puedePlanificar
+        ? { accion: { ...agregarHito, texto: "Agregar" } }
+        : {}),
+    },
+  ];
+  const listos = control.filter(({ hecho }) => hecho).length;
+  const principal = accionPrincipalDe(servicio, ruta);
+  const enLaEtapa = dias(diasEnEtapa(servicio, "adjudicado"));
   return (
-    <article className="rounded border border-borde bg-superficie p-5 shadow-sm dark:shadow-none">
-      <CabeceraDePanel
-        Icono={ClipboardList}
-        titulo="Planificar el arranque"
-        contexto={
-          soloLectura
-            ? `Estuvo ${dias(diasEnEtapa(servicio, "adjudicado"))} en «Adjudicado».`
-            : `Adjudicado hace ${dias(diasEnEtapa(servicio, "adjudicado"))}. Dejá definidos modalidad, responsable, recursos e hitos antes de iniciar.`
-        }
-      />
-      <GrillaDeMetricas
-        metricas={[
-          {
-            titulo: "Orden de compra",
-            Icono: Receipt,
-            valor: orden === undefined ? "Sin orden vigente" : orden.total,
-            ...(orden === undefined
-              ? {}
-              : {
-                  detalle: (
-                    <>
-                      {orden.numero}
-                      {orden.cambio === null ? null : (
-                        <>
-                          {" · "}
-                          <CambioDelComprobante cambio={orden.cambio} />
-                        </>
-                      )}
-                    </>
-                  ),
-                }),
-          },
-        ]}
-      />
-      <TituloDeParte>Modalidad de facturación</TituloDeParte>
-      <TarjetasDeModalidad
-        servicioId={servicio.id}
-        facturacion={facturacion}
-        ruta={ruta}
-        puedeElegir={puedeEscribir}
-        parametros={parametros}
-      />
-      <ListaDeControl
-        titulo="Para arrancar"
-        items={[
-          {
-            texto: "Facturación",
-            hecho: facturacion.modalidad !== null,
-            detalle: facturacion.modalidad ?? "sin elegir",
-          },
-          {
-            texto: "Responsable",
-            hecho: dato("Responsable") !== "",
-            detalle: dato("Responsable") || "sin responsable",
-          },
-          {
-            texto: "Inicio estimado",
-            hecho: inicio !== "",
-            detalle: inicio || "sin fecha",
-          },
-          {
-            texto: "Recursos",
-            hecho: detalle.recursos.length > 0,
-            detalle: cantidad(detalle.recursos.length, "cargado", "cargados"),
-          },
-          {
-            texto: "Hitos",
-            hecho: detalle.hitos.length > 0,
-            detalle: cantidad(detalle.hitos.length, "cargado", "cargados"),
-          },
-        ]}
-      />
-      {puedeEscribir ? (
-        <ResponsableEInicio servicioId={servicio.id} ruta={ruta} />
-      ) : null}
-      <ResumenDeFacturacion facturacion={facturacion} cobro={cobro} />
-      <RecursosAgrupados
-        {...propias}
-        detalle={detalle}
-        acciones={ACCIONES_DE_RECURSOS}
-      />
-      <PlantillaDeHitos
-        {...propias}
-        detalle={detalle}
-        acciones={ACCIONES_DE_HITOS}
-      />
-      <Facturas
-        servicioId={servicio.id}
-        ruta={ruta}
-        puedeFacturar={puedeEscribir}
-        puedeCobrar={puedeEscribir}
-        parametros={parametros}
-        sinFilasNoSeDibuja={!(puedeEscribir && facturacion.admiteFactura)}
-      />
-      <OrdenesDeCompra {...propias} />
-      {/* Renovar un contrato se cotiza desde acá: sin vencimientos, la sección no se dibuja. */}
-      <Vencimientos
-        {...propias}
-        puedeRenovar={puedeActuar}
-        sinFilasNoSeDibuja
-      />
-      {puedeEscribir ? (
-        <>
-          <BarraDeAcciones
-            principal={principal}
-            secundarias={[
+    <PanelDeEtapa
+      etapa="adjudicado"
+      Icono={ClipboardList}
+      titulo="Planificar el arranque"
+      bajada={
+        soloLectura
+          ? `Estuvo ${enLaEtapa} en «Adjudicado».`
+          : facturacion.modalidad === null
+            ? `Adjudicado hace ${enLaEtapa}. Elegí la modalidad de facturación: sin ella no se puede iniciar.`
+            : `Adjudicado hace ${enLaEtapa}. Dejá definidos responsable, recursos e hitos antes de iniciar.`
+      }
+      metricas={[
+        {
+          titulo: "Orden de compra",
+          Icono: Receipt,
+          valor: orden === undefined ? "Sin orden vigente" : orden.total,
+          ...(orden === undefined
+            ? {}
+            : {
+                detalle: (
+                  <>
+                    {orden.numero}
+                    {orden.cambio === null ? null : (
+                      <>
+                        {" · "}
+                        <CambioDelComprobante cambio={orden.cambio} />
+                      </>
+                    )}
+                  </>
+                ),
+              }),
+        },
+        {
+          titulo: "Facturación",
+          Icono: Wallet,
+          valor: facturacion.modalidad ?? "Sin elegir",
+        },
+        {
+          titulo: "Inicio estimado",
+          Icono: CalendarClock,
+          valor: inicio || "Sin fecha",
+        },
+        {
+          titulo: "Para arrancar",
+          Icono: ListChecks,
+          valor: `${listos} de ${control.length}`,
+        },
+      ]}
+      principal={puedeEscribir ? principal : null}
+      secundarias={
+        puedeEscribir
+          ? [
+              ...(puedePlanificar ? [agregarRecurso, agregarHito] : []),
               ...(facturacion.admiteFactura
                 ? [
                     {
@@ -193,14 +204,111 @@ export async function PanelAdjudicado({
                     },
                   ]
                 : []),
-            ]}
-            salidas={salidas}
-          />
-          {facturacion.esMensual && parametros.ajusteDeCuota === "1" ? (
-            <AjusteDeCuota servicioId={servicio.id} rutaAlCerrar={ruta} />
-          ) : null}
-        </>
+            ]
+          : []
+      }
+    >
+      <Seccion
+        clave="adjudicado.control"
+        titulo="Para arrancar"
+        resumen={`${listos} de ${control.length}`}
+      >
+        <ListaDeControl titulo="Para arrancar" items={control} />
+      </Seccion>
+      <Seccion
+        clave="adjudicado.modalidad"
+        titulo="Modalidad de facturación"
+        resumen={facturacion.modalidad ?? "sin elegir"}
+        parametros={parametros}
+        abreCon={["modalidad"]}
+      >
+        <TarjetasDeModalidad
+          servicioId={servicio.id}
+          facturacion={facturacion}
+          ruta={ruta}
+          puedeElegir={puedeEscribir}
+          parametros={parametros}
+        />
+      </Seccion>
+      {puedeEscribir ? (
+        <Seccion
+          clave="adjudicado.responsable"
+          titulo="Responsable e inicio estimado"
+        >
+          <div className="max-w-md">
+            <ResponsableEInicio
+              enSeccion
+              servicioId={servicio.id}
+              ruta={ruta}
+            />
+          </div>
+        </Seccion>
       ) : null}
-    </article>
+      <Seccion
+        clave="adjudicado.recursos"
+        titulo="Recursos"
+        resumen={cantidad(detalle.recursos.length, "recurso", "recursos")}
+        parametros={parametros}
+        abreCon={["recurso"]}
+      >
+        <RecursosAgrupados
+          enSeccion
+          {...propias}
+          detalle={detalle}
+          acciones={ACCIONES_DE_RECURSOS}
+        />
+      </Seccion>
+      <Seccion
+        clave="adjudicado.hitos"
+        titulo="Hitos"
+        resumen={cantidad(detalle.hitos.length, "hito", "hitos")}
+        parametros={parametros}
+        abreCon={["hito"]}
+      >
+        <PlantillaDeHitos
+          enSeccion
+          {...propias}
+          detalle={detalle}
+          acciones={ACCIONES_DE_HITOS}
+        />
+      </Seccion>
+      <Seccion
+        clave="adjudicado.orden"
+        titulo="Orden de compra"
+        resumen={orden?.numero}
+        parametros={parametros}
+        abreCon={["anularOrden", "cambioOrden"]}
+      >
+        <OrdenesDeCompra enSeccion {...propias} />
+      </Seccion>
+      <Seccion
+        clave="adjudicado.facturacion"
+        titulo="Facturación y cobros"
+        abiertaPorDefecto={false}
+        parametros={parametros}
+        abreCon={DE_FACTURACION}
+      >
+        <ResumenDeFacturacion facturacion={facturacion} cobro={cobro} />
+        <Facturas
+          servicioId={servicio.id}
+          ruta={ruta}
+          puedeFacturar={puedeEscribir}
+          puedeCobrar={puedeEscribir}
+          parametros={parametros}
+          sinFilasNoSeDibuja={!(puedeEscribir && facturacion.admiteFactura)}
+        />
+        {/* Renovar un contrato se cotiza desde acá: sin vencimientos, la sección no se dibuja. */}
+        <Vencimientos
+          {...propias}
+          puedeRenovar={puedeActuar}
+          sinFilasNoSeDibuja
+        />
+      </Seccion>
+      {puedeEscribir &&
+      facturacion.esMensual &&
+      parametros.ajusteDeCuota === "1" ? (
+        <AjusteDeCuota servicioId={servicio.id} rutaAlCerrar={ruta} />
+      ) : null}
+    </PanelDeEtapa>
   );
 }

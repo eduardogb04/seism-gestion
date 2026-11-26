@@ -4,7 +4,7 @@
  * la cuota y el mes de inicio si es mensual; guarda la misma acción que antes.
  */
 
-import { Check } from "lucide-react";
+import { CalendarDays, Check, Flag, Receipt } from "lucide-react";
 import {
   ETIQUETAS_DE_MODALIDAD,
   type Facturacion,
@@ -22,6 +22,12 @@ const DETALLES: Readonly<Record<ModalidadDeFacturacion, string>> = {
   por_hitos: "Facturas libres, a medida que se avanza.",
   mensual: "Una cuota por mes mientras dure el servicio.",
 };
+
+const ICONOS = {
+  puntual: Receipt,
+  por_hitos: Flag,
+  mensual: CalendarDays,
+} as const;
 
 const esModalidad = (valor: unknown): valor is ModalidadDeFacturacion =>
   MODALIDADES_DE_FACTURACION.some((propia) => propia === valor);
@@ -73,25 +79,35 @@ export async function TarjetasDeModalidad({
     <>
       <ul
         aria-label="Modalidad de facturación"
-        className="grid gap-3 sm:grid-cols-3"
+        className="m-0 grid list-none gap-3 p-0 @xl/panel:grid-cols-3"
       >
         {MODALIDADES_DE_FACTURACION.map((valor) => {
           const elegida = modalidad === ETIQUETAS_DE_MODALIDAD[valor];
-          const clases = `block h-full rounded border p-4 ${
+          const Icono = ICONOS[valor];
+          const clases = `relative block h-full rounded-tarjeta border p-4 text-texto ${
             elegida
-              ? "border-acento bg-superficie-alta"
+              ? "border-acento bg-acento-suave/50 ring-1 ring-acento"
               : "border-borde bg-superficie"
           }`;
           const contenido = (
             <>
-              <span className="flex items-center gap-2 font-semibold">
-                {elegida ? (
-                  <Check aria-hidden="true" className="size-4 text-acento" />
-                ) : null}
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <span
+                  aria-hidden="true"
+                  className={`grid size-7 place-items-center rounded-md ${elegida ? "bg-acento text-sobre-acento" : "bg-superficie-2 text-texto-2"}`}
+                >
+                  <Icono className="size-4" />
+                </span>
                 {ETIQUETAS_DE_MODALIDAD[valor]}
                 {elegida ? <span className="sr-only">(elegida)</span> : null}
+                {elegida ? (
+                  <Check
+                    aria-hidden="true"
+                    className="ml-auto size-4 text-acento"
+                  />
+                ) : null}
               </span>
-              <span className="mt-1 block text-sm text-texto-suave">
+              <span className="mt-2 block text-[13px] text-texto-2">
                 {DETALLES[valor]}
               </span>
             </>
@@ -103,7 +119,7 @@ export async function TarjetasDeModalidad({
                   href={`${ruta}?modalidad=${valor}`}
                   scroll={false}
                   aria-current={elegida ? "true" : undefined}
-                  className={`${clases} no-underline hover:border-acento`}
+                  className={`${clases} presionable no-underline hover:border-borde-fuerte hover:shadow-tarjeta`}
                   data-carga="modalidad"
                 >
                   {contenido}

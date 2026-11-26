@@ -5,16 +5,19 @@
  * panel.
  */
 
+import { Download } from "lucide-react";
 import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
 import type { CotizacionListada } from "../../../casos-uso/servicios/cotizaciones.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import { EnlaceDeDescarga } from "../../_ui/enlace-de-descarga.tsx";
+import { cn } from "../../_ui/cn.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { anularCotizacion, cargarCotizacion } from "../acciones.ts";
+import { Importe } from "./_molde/panel-de-etapa.tsx";
+import { Persona } from "./_molde/persona.tsx";
 
 export async function VentanaDeCarga({
   servicioId,
@@ -75,7 +78,8 @@ export function VentanaDeAnulacion({
 
 /**
  * Todas las versiones no anuladas, de la más nueva a la más vieja, con su
- * importe, fecha, autor y motivo. La vigente es la de versión mayor.
+ * importe, fecha, autor y motivo, en una línea de tiempo. La vigente es la de
+ * versión mayor.
  */
 export function LineaDeVersiones({
   cotizaciones,
@@ -88,51 +92,89 @@ export function LineaDeVersiones({
 }) {
   const vigente = Math.max(...cotizaciones.map(({ version }) => version));
   return (
-    <ol aria-label="Versiones de la cotización">
+    <ol
+      aria-label="Versiones de la cotización"
+      className="relative m-0 list-none p-0 before:absolute before:top-3 before:bottom-3 before:left-[11px] before:w-px before:bg-borde"
+    >
       {cotizaciones.map((cotizacion) => {
         const esVigente = cotizacion.version === vigente;
         return (
           <li
             key={cotizacion.id}
             data-version={cotizacion.version}
-            className="grid grid-cols-[0.75rem_minmax(0,1fr)_auto] gap-3 border-t border-borde py-3 first:border-t-0"
+            className="relative flex gap-3 pb-3 last:pb-0"
           >
             <span
               aria-hidden="true"
-              className={`mt-1.5 size-3 rounded-full border-2 ${esVigente ? "border-acento bg-acento" : "border-borde-control bg-superficie"}`}
-            />
-            <div>
-              <p className="flex flex-wrap items-center gap-2 font-semibold">
-                v{cotizacion.version} · {cotizacion.importe}
-                {esVigente ? (
-                  <span
-                    data-vigente
-                    className="rounded-full border border-acento px-2 text-xs font-semibold text-acento"
-                  >
-                    vigente
-                  </span>
-                ) : null}
-              </p>
-              <p className="text-sm text-texto-suave">
+              className={cn(
+                "relative z-10 mt-3 grid size-6 shrink-0 place-items-center rounded-full border font-mono text-[10px] font-semibold",
+                esVigente
+                  ? "border-acento bg-acento text-sobre-acento"
+                  : "border-borde-fuerte bg-superficie text-texto-3",
+              )}
+            >
+              v{cotizacion.version}
+            </span>
+            <div
+              className={cn(
+                "min-w-0 flex-1 rounded-tarjeta border px-4 py-3",
+                esVigente
+                  ? "border-acento/40 bg-acento-suave/40"
+                  : "border-borde",
+              )}
+            >
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <p className="m-0 flex items-baseline gap-2 text-base font-semibold tracking-tight">
+                  <span className="sr-only">v{cotizacion.version} · </span>
+                  <Importe valor={cotizacion.importe} />
+                  {esVigente ? (
+                    <span
+                      data-vigente
+                      className="rounded-full bg-acento px-1.5 text-[11px] leading-[18px] font-medium text-sobre-acento"
+                    >
+                      vigente
+                    </span>
+                  ) : null}
+                </p>
+                <span className="cifras ml-auto text-xs text-texto-3">
+                  {cotizacion.fecha}
+                </span>
+              </div>
+              <p className="mt-1 mb-0 text-[13px] text-texto-2">
                 {cotizacion.motivo === ""
                   ? "Primera cotización"
-                  : cotizacion.motivo}{" "}
-                · {cotizacion.quien}
+                  : cotizacion.motivo}
               </p>
               {cotizacion.observaciones === "" ? null : (
-                <p className="mt-1 text-sm whitespace-pre-line">
+                <p className="mt-1 mb-0 text-[13px] whitespace-pre-line text-texto-3">
                   {cotizacion.observaciones}
                 </p>
               )}
-            </div>
-            <div className="flex flex-col items-end gap-1 text-right text-sm">
-              <span className="tabular-nums">{cotizacion.fecha}</span>
-              <EnlaceDeDescarga {...cotizacion.documento} />
-              {puedeEscribir ? (
-                <Enlace href={`${ruta}?anular=${cotizacion.id}`} scroll={false}>
-                  Anular
-                </Enlace>
-              ) : null}
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-texto-3">
+                <Persona quien={cotizacion.quien} chica />
+                <a
+                  href={`/documentos/${cotizacion.documento.id}`}
+                  download
+                  className="inline-flex min-w-0 items-center gap-1 no-underline hover:underline"
+                >
+                  <Download aria-hidden="true" className="size-3.5 shrink-0" />
+                  <span className="truncate">
+                    {cotizacion.documento.nombre}
+                  </span>
+                  <span className="text-texto-3">
+                    ({cotizacion.documento.tamano})
+                  </span>
+                </a>
+                {puedeEscribir ? (
+                  <Enlace
+                    href={`${ruta}?anular=${cotizacion.id}`}
+                    scroll={false}
+                    className="ml-auto text-texto-3 no-underline hover:text-peligro hover:underline"
+                  >
+                    Anular
+                  </Enlace>
+                ) : null}
+              </div>
             </div>
           </li>
         );
@@ -141,7 +183,7 @@ export function LineaDeVersiones({
   );
 }
 
-/** La sección de las salidas del recorrido: las cotizaciones que tuvo, en lectura. */
+/** Las cotizaciones que tuvo, en lectura (para las salidas del recorrido). */
 export async function Cotizaciones({
   servicioId,
   ruta,
@@ -150,18 +192,15 @@ export async function Cotizaciones({
   readonly ruta: string;
 }) {
   const cotizaciones = await armado().cotizaciones.listar(servicioId);
-  return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Cotizaciones</h2>
-      {cotizaciones.length === 0 ? (
-        <p>Todavía no hay cotizaciones cargadas.</p>
-      ) : (
-        <LineaDeVersiones
-          cotizaciones={cotizaciones}
-          ruta={ruta}
-          puedeEscribir={false}
-        />
-      )}
-    </section>
+  return cotizaciones.length === 0 ? (
+    <p className="m-0 text-[13px] text-texto-3">
+      No tuvo cotizaciones cargadas.
+    </p>
+  ) : (
+    <LineaDeVersiones
+      cotizaciones={cotizaciones}
+      ruta={ruta}
+      puedeEscribir={false}
+    />
   );
 }

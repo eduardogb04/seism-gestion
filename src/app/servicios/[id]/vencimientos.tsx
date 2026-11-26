@@ -25,6 +25,7 @@ import {
   corregirFechaDeVencimiento,
   descartarVencimiento,
 } from "../acciones.ts";
+import { Parte } from "./_molde/parte.tsx";
 import { VentanaDeRenovacion } from "./ventana-de-renovacion.tsx";
 
 type Fila = DetalleDeVencimientos["vencimientos"][number];
@@ -101,6 +102,7 @@ function VentanaDeDescarte({
 }
 
 export async function Vencimientos({
+  enSeccion,
   servicioId,
   ruta,
   puedeEscribir,
@@ -108,6 +110,8 @@ export async function Vencimientos({
   parametros,
   sinFilasNoSeDibuja,
 }: {
+  /** Dentro de una `Seccion` del molde: sin título propio. */
+  readonly enSeccion?: boolean;
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
@@ -132,8 +136,7 @@ export async function Vencimientos({
     ({ id, pendiente }) => pendiente && id === parametros.renovar,
   );
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Vencimientos</h2>
+    <Parte enSeccion={enSeccion} titulo="Vencimientos">
       {puedeCambiar ? (
         <p className="mb-3">
           <Enlace
@@ -237,6 +240,6 @@ export async function Vencimientos({
           rutaAlCerrar={ruta}
         />
       ) : null}
-    </section>
+    </Parte>
   );
 }

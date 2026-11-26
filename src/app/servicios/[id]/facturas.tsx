@@ -24,6 +24,7 @@ import {
   cargarFactura,
   guardarCambioDeFactura,
 } from "../acciones.ts";
+import { Parte } from "./_molde/parte.tsx";
 import {
   textoDelEnlaceDeCambio,
   VentanaDelCambio,
@@ -96,6 +97,7 @@ function VentanaDeAnulacion({
 }
 
 export async function Facturas({
+  enSeccion,
   servicioId,
   ruta,
   puedeFacturar,
@@ -103,6 +105,8 @@ export async function Facturas({
   parametros,
   sinFilasNoSeDibuja,
 }: {
+  /** Dentro de una `Seccion` del molde: sin título propio. */
+  readonly enSeccion?: boolean;
   readonly servicioId: string;
   readonly ruta: string;
   /** Anular o cambiar una factura y abrir la ventana de la nueva: la etapa admite la carga `factura`. */
@@ -122,8 +126,7 @@ export async function Facturas({
   const aCambiar = parametros.cambioFactura;
   const facturaACambiar = facturas.find(({ id }) => id === aCambiar);
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Facturas</h2>
+    <Parte enSeccion={enSeccion} titulo="Facturas">
       {facturas.length === 0 ? (
         <p>Todavía no hay facturas cargadas.</p>
       ) : (
@@ -218,6 +221,6 @@ export async function Facturas({
           rutaAlCerrar={ruta}
         />
       ) : null}
-    </section>
+    </Parte>
   );
 }

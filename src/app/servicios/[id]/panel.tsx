@@ -6,6 +6,7 @@
  * que el layout no recibe.
  */
 
+import { ArrowRight, Eye } from "lucide-react";
 import { redirect } from "next/navigation.js";
 import { ETIQUETAS_DE_ESTADO } from "../../../casos-uso/servicios/formulario.ts";
 import {
@@ -181,11 +182,22 @@ export async function PaginaDeEtapa({
       {vista.soloLectura ? (
         <p
           data-solo-lectura
-          className="mb-4 rounded border border-borde-control bg-superficie-alta p-3"
+          className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-tarjeta border border-borde bg-superficie-2 px-4 py-2.5 text-[13px] text-texto-2"
         >
-          <strong>Solo lectura:</strong> esta es la etapa «
-          {ETIQUETAS_DE_ESTADO[vista.etapa]}», que el servicio ya pasó.{" "}
-          <Enlace href={rutaActual}>Volver a la etapa actual</Enlace>
+          <Eye aria-hidden="true" className="size-4 shrink-0 text-texto-3" />
+          <span>
+            <span className="font-medium text-texto">
+              Estás viendo una etapa anterior
+            </span>{" "}
+            · «{ETIQUETAS_DE_ESTADO[vista.etapa]}», en solo lectura.
+          </span>
+          <Enlace
+            href={rutaActual}
+            className="ml-auto inline-flex items-center gap-1 font-medium no-underline hover:underline"
+          >
+            Volver a la actual
+            <ArrowRight aria-hidden="true" className="size-3.5" />
+          </Enlace>
         </p>
       ) : null}
       {vista.etapa === "creado" ? (

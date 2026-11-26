@@ -326,3 +326,66 @@
     }
   }
 }
+
+/*
+ * El detalle de un servicio (`servicios/[id]/_molde`): el encabezado fijo al
+ * desplazar y las secciones plegables de los paneles de etapa.
+ */
+@layer components {
+  /*
+   * El encabezado fijo (modern-web-guidance: state-aware-sticky-headers). Al
+   * quedar pegado gana borde y sombra; la acción principal repetida se ve recién
+   * ahí, porque arriba de todo ya está la del panel. Donde el navegador no
+   * entiende `scroll-state`, el encabezado igual se pega y la acción se ve
+   * siempre.
+   */
+  .encabezado-fijo {
+    position: sticky;
+    inset-block-start: 3.5rem;
+    z-index: 20;
+    container-type: scroll-state;
+    container-name: encabezado-del-servicio;
+
+    @media (width >= 48rem) {
+      inset-block-start: 0;
+    }
+  }
+  .encabezado-fijo__barra {
+    transition:
+      box-shadow 150ms ease-out,
+      border-color 150ms ease-out;
+  }
+  @container encabezado-del-servicio scroll-state(stuck: top) {
+    .encabezado-fijo__barra {
+      border-color: var(--color-borde);
+      box-shadow: 0 6px 16px -12px rgb(28 25 23 / 0.35);
+    }
+  }
+  @container encabezado-del-servicio scroll-state(stuck: none) {
+    .encabezado-fijo__accion {
+      visibility: hidden;
+    }
+  }
+  /* Lo que se enfoca no queda tapado por el encabezado (WCAG 2.4.11). */
+  html:has(.encabezado-fijo) {
+    scroll-padding-block-start: 8rem;
+  }
+
+  /* El contenido que se abre y se cierra (modern-web-guidance: accordion). */
+  .seccion-plegable__contenido {
+    @media (prefers-reduced-motion: no-preference) {
+      &:not([hidden]) {
+        animation: aparecer 200ms ease-out both;
+      }
+    }
+  }
+  .seccion-plegable__flecha {
+    rotate: -90deg;
+    [aria-expanded="true"] > & {
+      rotate: 0deg;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      transition: rotate 200ms ease-out;
+    }
+  }
+}

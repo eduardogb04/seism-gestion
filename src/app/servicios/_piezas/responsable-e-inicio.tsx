@@ -12,9 +12,12 @@ import { guardarPlanificacionDeServicio } from "../acciones.ts";
 const CAMPOS = ["responsableId", "fechaInicioEstimada"];
 
 export async function ResponsableEInicio({
+  enSeccion = false,
   servicioId,
   ruta,
 }: {
+  /** Dentro de una `Seccion` del molde: sin título propio. */
+  readonly enSeccion?: boolean;
   readonly servicioId: string;
   readonly ruta: string;
 }) {
@@ -22,7 +25,9 @@ export async function ResponsableEInicio({
     await armado().servicios.formulario(servicioId);
   return (
     <section data-carga="planificacion">
-      <TituloDeParte>Responsable e inicio estimado</TituloDeParte>
+      {enSeccion ? null : (
+        <TituloDeParte>Responsable e inicio estimado</TituloDeParte>
+      )}
       <FormularioAbm
         accion={guardarPlanificacionDeServicio.bind(null, servicioId)}
         campos={campos.filter(([nombre]) => CAMPOS.includes(nombre))}

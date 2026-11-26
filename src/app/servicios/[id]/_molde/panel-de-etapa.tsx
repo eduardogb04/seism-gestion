@@ -249,8 +249,8 @@ export function PanelDeEtapa({
       data-panel-de-etapa={etapa}
       className="@container/panel aparece min-w-0 rounded-tarjeta border border-borde bg-superficie shadow-tarjeta"
     >
-      <header className="flex flex-col gap-4 px-5 pt-5 pb-4 @2xl/panel:flex-row @2xl/panel:items-start @2xl/panel:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 pb-4">
+        <div className="flex min-w-0 flex-[1_1_18rem] items-start gap-3">
           <span
             aria-hidden="true"
             className={cn(
@@ -274,7 +274,7 @@ export function PanelDeEtapa({
           </div>
         </div>
         {conAcciones ? (
-          <div className="flex flex-wrap items-center gap-1.5 @2xl/panel:shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5">
             {principal === null ? null : (
               <EnlaceDeAccion accion={principal} variante="primario" />
             )}

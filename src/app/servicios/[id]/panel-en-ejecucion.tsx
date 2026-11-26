@@ -97,9 +97,10 @@ export async function PanelEnEjecucion({
     facturacion.lineas.find(
       ({ facturadoDeLaOrden }) => facturadoDeLaOrden !== null,
     )?.facturadoDeLaOrden ?? undefined;
-  const porCobrar = facturacion.lineas
+  const porCobrarPorMoneda = facturacion.lineas
     .map(({ porCobrar: importe }) => importe)
-    .join(" · ");
+    .filter(Boolean);
+  const porCobrar = porCobrarPorMoneda.join(" · ");
   const proximo = proximoVencimiento(vencimientos);
   const faltan = proximo === undefined ? 0 : diasHasta(proximo.fecha);
   const propias = {
@@ -155,8 +156,11 @@ export async function PanelEnEjecucion({
         },
         {
           titulo: "Por cobrar",
-          valor: porCobrar || "—",
-          detalle: "facturas sin cobrar",
+          valor: porCobrarPorMoneda[0] ?? "—",
+          detalle:
+            porCobrarPorMoneda.length > 1
+              ? `y ${porCobrarPorMoneda.slice(1).join(" · ")}`
+              : "facturas sin cobrar",
         },
         {
           titulo: "Próximo vencimiento",

@@ -3,11 +3,15 @@
 /**
  * El formulario de alta, de edición y de confirmación de baja (sin campos) de
  * cualquier ABM (F1-03, ADR 0031), dentro de la ventana (F1-09). Es el único
- * componente de cliente de `_ui/`: `useActionState` es lo que permite que una
- * acción rechazada vuelva con lo que la persona escribió y el mensaje al lado
- * de cada campo, y Escape cierra la ventana. Con JavaScript apagado funciona
- * igual: el formulario se envía entero y la página vuelve renderizada con ese
- * mismo estado.
+ * componente de cliente: `useActionState` es lo que permite que una acción
+ * rechazada vuelva con lo que la persona escribió y el mensaje al lado de cada
+ * campo.
+ *
+ * Los obligatorios llevan `required` (el navegador frena el envío y enfoca el
+ * primero vacío) y los opcionales dicen «opcional» (FRONT_SPEC 4.3). Si el
+ * servidor rechaza, el foco va al primer campo inválido (o al error general).
+ * Mientras envía, el botón dice «Guardando…»; si el guardado sale bien (la
+ * acción redirige y el formulario se desmonta), un toast lo confirma.
  */
 
 import { useRouter } from "next/navigation.js";
@@ -16,8 +20,11 @@ import {
   type ReactNode,
   useActionState,
   useContext,
+  useEffect,
+  useRef,
   useState,
 } from "react";
+import { toast } from "sonner";
 import type {
   ErroresPorCampo,
   OpcionDeRelacion,
@@ -64,6 +71,29 @@ export type EstadoFormulario = {
   readonly error?: ErrorDeLogin;
 };
 
+/** Si el campo se puede dejar vacío (`false`: obligatorio; `null`: no se marca). */
+function esOpcional(campo: CampoAbm): boolean | null {
+  switch (campo.tipo) {
+    case "texto":
+    case "numero":
+    case "fecha":
+    case "opcion":
+      return campo.opcional === true;
+    case "relacion":
+      return campo.obligatoria !== true;
+    case "textoLargo":
+    case "servicio":
+      return true;
+    case "importe":
+    case "tipoDeCambio":
+      return false;
+    case "siNo":
+    case "lista":
+    case "archivo":
+      return null;
+  }
+}
+
 function Control({
   nombre,
   campo,
@@ -80,12 +110,15 @@ function Control({
 }) {
   // Un `<select>` no toma de nuevo su `defaultValue` cuando React resetea el
   // formulario después de la acción: la `key` lo vuelve a armar con lo escrito.
+  const opcional = esOpcional(campo);
   const comunes = {
     autoFocus: alAbrir,
     etiqueta: campo.etiqueta,
     name: nombre,
     defaultValue: estado.escrito[nombre] ?? "",
     error: estado.errores[nombre],
+    opcional: opcional === true,
+    required: opcional === false,
   };
   switch (campo.tipo) {
     case "texto":
@@ -180,9 +213,17 @@ function Control({
   }
 }
 
-/** La baja no tiene campos: el foco entra por *Cancelar*, la salida segura. */
-function enfocar(enlace: { focus(): void } | null) {
-  enlace?.focus();
+/** El mensaje del navegador para un obligatorio vacío, en castellano. */
+const FALTA = "Completá este campo.";
+
+function controlValidable(
+  objetivo: EventTarget,
+): HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null {
+  return objetivo instanceof HTMLInputElement ||
+    objetivo instanceof HTMLSelectElement ||
+    objetivo instanceof HTMLTextAreaElement
+    ? objetivo
+    : null;
 }
 
 export function FormularioAbm({
@@ -221,28 +262,72 @@ export function FormularioAbm({
 }) {
   const [estado, alEnviar, enviando] = useActionState(accion, inicial);
   const router = useRouter();
+  const formulario = useRef<HTMLFormElement>(null);
+  const enviandoAhora = useRef(false);
+  const primero = useRef(inicial);
+
+  // Rechazado por el servidor: el foco al primer campo inválido o al error general.
+  useEffect(() => {
+    if (estado === primero.current) {
+      return;
+    }
+    const raiz = formulario.current;
+    const objetivo =
+      raiz?.querySelector<HTMLElement>('[aria-invalid="true"]') ??
+      raiz?.querySelector<HTMLElement>('[role="alert"]');
+    objetivo?.focus();
+  }, [estado]);
+
+  useEffect(() => {
+    enviandoAhora.current = enviando;
+  }, [enviando]);
+
+  // Se desmonta mientras enviaba: la acción redirigió, salió bien.
+  useEffect(
+    () => () => {
+      if (enviandoAhora.current) {
+        toast.success(
+          variante === "peligro" ? "Listo." : "Listo, quedó guardado.",
+        );
+      }
+    },
+    [variante],
+  );
+
   const [tecleado, tecleo] = useState<Escrito>({});
   const vivo = { ...estado.escrito, ...tecleado };
   return (
     <form
+      ref={formulario}
       action={alEnviar}
+      onInvalidCapture={(evento) => {
+        const control = controlValidable(evento.target);
+        if (control?.validity.valueMissing === true) {
+          control.setCustomValidity(FALTA);
+        }
+      }}
       onInput={(evento) => {
+        controlValidable(evento.target)?.setCustomValidity("");
         const control = controlDe(evento.target);
         if (control !== null) {
           tecleo((previo) => ({ ...previo, [control[0]]: control[1] }));
         }
       }}
       onKeyDown={(evento) => {
-        if (evento.key === "Escape") {
+        // Dentro de una ventana, Escape lo resuelve el <dialog>.
+        if (
+          evento.key === "Escape" &&
+          evento.currentTarget.closest("dialog") === null
+        ) {
           router.push(rutaAlCancelar, { scroll: false });
         }
       }}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-5"
     >
       {estado.error === undefined ? null : (
         <ErrorEnPantalla error={estado.error} />
       )}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <div className="flex flex-col gap-4">
         {campos
           .filter(
             ([, campo]) =>
@@ -250,14 +335,7 @@ export function FormularioAbm({
               (campo.tipo !== "tipoDeCambio" || seOfreceElCambio(campo, vivo)),
           )
           .map(([nombre, campo], posicion) => (
-            <div
-              key={nombre}
-              className={
-                campo.tipo === "textoLargo" || campo.tipo === "lista"
-                  ? "md:col-span-2"
-                  : ""
-              }
-            >
+            <div key={nombre}>
               <Control
                 nombre={nombre}
                 campo={campo}
@@ -268,7 +346,7 @@ export function FormularioAbm({
             </div>
           ))}
         {archivo === undefined ? null : (
-          <div className="md:col-span-2">
+          <div>
             <CampoArchivo
               etiqueta={archivo.etiqueta}
               name={archivo.nombre}
@@ -279,15 +357,16 @@ export function FormularioAbm({
         )}
       </div>
       <EscritoEnVivo value={vivo}>{children}</EscritoEnVivo>
-      <div className="flex flex-wrap gap-3">
-        <Boton variante={variante} type="submit" disabled={enviando}>
-          {texto}
+      <div className="flex flex-wrap items-center gap-2 border-t border-borde pt-4 in-[.ventana]:sticky in-[.ventana]:bottom-0 in-[.ventana]:-mx-5 in-[.ventana]:-mb-6 in-[.ventana]:bg-superficie/95 in-[.ventana]:px-5 in-[.ventana]:pb-5 in-[.ventana]:backdrop-blur-sm">
+        <Boton variante={variante} type="submit" cargando={enviando}>
+          {enviando ? "Guardando…" : texto}
         </Boton>
+        {/* La baja no tiene campos: el foco entra por *Cancelar*, la salida segura. */}
         <Enlace
           href={rutaAlCancelar}
           scroll={false}
-          ref={campos.length === 0 ? enfocar : undefined}
-          className={clasesDeBoton("secundario")}
+          data-autofocus={campos.length === 0 ? true : undefined}
+          className={clasesDeBoton("fantasma")}
         >
           Cancelar
         </Enlace>

@@ -55,7 +55,7 @@ test("un administrador da de alta un cliente con grupo, lo edita y lo da de baja
   );
 
   // 2. Alta con un CUIT inválido: el mensaje queda al lado y lo escrito sigue.
-  await page.getByRole("link", { name: "Alta de cliente o proveedor" }).click();
+  await page.getByRole("link", { name: "Nuevo cliente o proveedor" }).click();
   const ventana = page.getByRole("dialog", {
     name: "Alta de cliente o proveedor",
   });

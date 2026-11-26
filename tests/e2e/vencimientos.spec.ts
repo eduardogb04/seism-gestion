@@ -66,7 +66,7 @@ test("al finalizar un servicio con dos camiones aparecen dos vencimientos; se co
 
   // Un servicio de un tipo con plazo que llega a «Adjudicado» por su cotización y su orden de compra.
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await alta
     .getByLabel("Cliente")
@@ -176,7 +176,7 @@ test("un servicio recurrente muestra «Renovar contrato» desde «Adjudicado» y
   const renovar = page.locator('[data-vencimiento="Renovar contrato"]');
 
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await alta
     .getByLabel("Cliente")

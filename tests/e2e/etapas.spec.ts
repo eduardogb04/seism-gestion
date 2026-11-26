@@ -104,9 +104,7 @@ async function asegurarPlantilla(
     (await admin.getByRole("row", { name: new RegExp(PLANTILLA) }).count()) ===
     0
   ) {
-    await admin
-      .getByRole("link", { name: "Alta de plantilla de hitos" })
-      .click();
+    await admin.getByRole("link", { name: "Nueva plantilla de hitos" }).click();
     const alta = ventana(admin, "Alta de plantilla de hitos");
     await alta.getByLabel("Nombre", { exact: true }).fill(PLANTILLA);
     for (const [lugar, texto] of ["Movilización", "Informe"].entries()) {
@@ -182,7 +180,7 @@ async function confirmar(page: Page, boton: string): Promise<void> {
 /** Da de alta un servicio de ejemplo y deja la pantalla en su panel de «Creado». */
 async function altaDeServicio(page: Page, titulo: string): Promise<void> {
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await alta
     .getByLabel("Cliente")
@@ -379,7 +377,7 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await expect(page).toHaveURL(`${servicioUrl}/cotizado?pasar=perdido`);
   await expect(ventana(page, "Pasar a «Perdido»")).toBeVisible();
   await ventana(page, "Pasar a «Perdido»")
-    .getByRole("link", { name: "Cerrar" })
+    .getByRole("button", { name: "Cerrar" })
     .click();
   await expect(ventana(page, "Pasar a «Perdido»")).toHaveCount(0);
   await expect(estado).toHaveText("Cotizado");

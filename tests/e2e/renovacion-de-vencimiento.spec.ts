@@ -65,7 +65,7 @@ test("desde el vencimiento de un camión se cotiza la renovación: servicio nuev
 
   // Un servicio de un tipo con plazo, con un camión, hasta «Finalizado».
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await alta
     .getByLabel("Cliente")

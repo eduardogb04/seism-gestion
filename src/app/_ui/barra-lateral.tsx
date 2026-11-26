@@ -104,7 +104,7 @@ export function BarraLateral({
         <Marca />
         <button
           type="button"
-          aria-label="Buscar"
+          aria-label="Búsqueda global"
           onClick={abrirPaleta}
           className="presionable ml-auto inline-flex size-10 items-center justify-center rounded-md text-texto-2 hover:bg-superficie-2"
         >
@@ -173,6 +173,7 @@ export function BarraLateral({
             type="button"
             onClick={abrirPaleta}
             title="Buscar (Ctrl K)"
+            aria-label="Búsqueda global (Ctrl K)"
             className="presionable flex h-9 items-center gap-2 rounded-md border border-borde bg-superficie px-2.5 text-texto-3 shadow-tarjeta hover:border-borde-fuerte hover:text-texto-2 group-data-[compacta=si]/barra:size-9 group-data-[compacta=si]/barra:justify-center group-data-[compacta=si]/barra:px-0"
           >
             <Search aria-hidden="true" className="size-4 shrink-0" />

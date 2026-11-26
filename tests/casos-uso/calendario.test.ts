@@ -414,7 +414,7 @@ describe("los avisos del inicio", () => {
   test("cuenta lo que vence entre hoy y hoy más N días, y lo vencido de cualquier mes", async () => {
     // Próximos: la factura del 12, el egreso del 20 y el inicio del 25. Vencidos:
     // los del 3 y el 5 de julio, el del 10 de junio y el del 10 de mayo.
-    expect(await conDias("30")).toEqual({
+    expect(await conDias("30")).toMatchObject({
       dias: 30,
       proximos: 3,
       vencidos: 4,

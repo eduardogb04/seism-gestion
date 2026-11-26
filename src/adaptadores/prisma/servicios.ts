@@ -170,6 +170,8 @@ export function crearRepositorioServiciosPrisma(
           orden === "codigo"
             ? { codigo: direccion }
             : { fechaPedido: direccion },
+          // A igual fecha, el cargado más recientemente primero.
+          { creadoEn: direccion },
           { id: "asc" },
         ],
         skip: saltear,

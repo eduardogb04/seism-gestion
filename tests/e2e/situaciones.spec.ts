@@ -69,7 +69,7 @@ test("una operadora carga un suceso en un servicio y uno suelto, y los ve juntos
   await entrarComo(page, OPERADORA);
 
   // 1. Un suceso en un servicio de la semilla.
-  await page.goto("/servicios");
+  await page.goto("/servicios?vista=tabla");
   await page
     .getByRole("row", { name: /Operación de tanques — ejemplo/ })
     .getByRole("link")
@@ -116,7 +116,7 @@ test("una operadora anula una situación suelta desde la ficha: sigue a la vista
   const suelta = "Se anotó en el cliente equivocado";
   const motivo = "Era de otro cliente";
   await entrarComo(page, OPERADORA);
-  await page.goto("/servicios");
+  await page.goto("/servicios?vista=tabla");
   await page
     .getByRole("row", { name: /Operación de tanques — ejemplo/ })
     .getByRole("link")

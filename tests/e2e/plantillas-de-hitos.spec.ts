@@ -97,7 +97,7 @@ test("un administrador da de alta una plantilla con tres hitos, los reordena y l
 
   // 2. Un servicio «Adjudicado» y la plantilla aplicada.
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const servicio = ventana(page, "Alta de servicio");
   await servicio
     .getByLabel("Cliente")

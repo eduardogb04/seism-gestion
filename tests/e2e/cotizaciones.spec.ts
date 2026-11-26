@@ -79,7 +79,7 @@ test("una operadora carga una cotización con su archivo, una segunda versión c
 
   // Un servicio nuevo, «Creado». Su pedido es más viejo que el de Servicios, que mira quién queda primero.
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await alta
     .getByLabel("Cliente")

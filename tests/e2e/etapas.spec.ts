@@ -182,7 +182,7 @@ async function confirmar(page: Page, boton: string): Promise<void> {
 /** Da de alta un servicio de ejemplo y deja la pantalla en su panel de «Creado». */
 async function altaDeServicio(page: Page, titulo: string): Promise<void> {
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await alta
     .getByLabel("Cliente")
@@ -441,12 +441,11 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     await expect(page.locator("[data-solo-lectura]")).toHaveCount(0);
   }
 
-  // El listado entra directo al panel de la etapa.
+  // La tarjeta del tablero entra directo al panel de la etapa.
   await page.goto(`/servicios?buscar=${encodeURIComponent(TITULO)}`);
   await page
-    .getByRole("row")
-    .filter({ has: page.getByRole("cell", { name: TITULO, exact: true }) })
-    .getByRole("link", { name: "Ver" })
+    .getByRole("main")
+    .getByRole("link", { name: new RegExp(TITULO) })
     .click();
   await expect(page).toHaveURL(`${servicioUrl}/cotizado`);
 

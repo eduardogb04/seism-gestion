@@ -112,7 +112,7 @@ test("una operadora carga una orden de compra y facturas parciales, ve el IVA an
 
   // Un servicio nuevo que pasa a «Cotizado» con su cotización: ahí la orden de compra lo adjudica.
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await alta
     .getByLabel("Cliente")

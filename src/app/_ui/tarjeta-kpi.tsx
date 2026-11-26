@@ -11,16 +11,16 @@ export const PORCENTAJE = new Intl.NumberFormat("es-AR", {
 function Variacion({ variacion }: { readonly variacion: number }) {
   const [Icono, color] =
     variacion > 0
-      ? [TrendingUp, "text-exito"]
+      ? [TrendingUp, "bg-exito-suave text-exito"]
       : variacion < 0
-        ? [TrendingDown, "text-peligro"]
-        : [Minus, "text-texto-suave"];
+        ? [TrendingDown, "bg-peligro-suave text-peligro"]
+        : [Minus, "bg-superficie-2 text-texto-suave"];
   return (
     <p
       data-variacion
-      className={`mt-1 inline-flex items-center gap-1 text-sm font-medium ${color}`}
+      className={`cifras mt-2 inline-flex w-fit items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium ${color}`}
     >
-      <Icono aria-hidden="true" className="size-4" />
+      <Icono aria-hidden="true" className="size-3" />
       {PORCENTAJE.format(variacion)}
     </p>
   );
@@ -28,9 +28,9 @@ function Variacion({ variacion }: { readonly variacion: number }) {
 
 /** El tamaño del valor: el de la cifra principal del inicio, el común, o el de las tarjetas de cada moneda (F3-08). */
 const TAMANOS = {
-  grande: "text-4xl",
-  comun: "text-2xl",
-  chica: "text-lg",
+  grande: "text-[32px] leading-9",
+  comun: "text-[26px] leading-8",
+  chica: "text-lg leading-7",
 } as const;
 
 /**
@@ -54,20 +54,20 @@ export function TarjetaKpi({
   readonly variacion?: number;
 }) {
   return (
-    <article className="flex flex-col rounded border border-borde bg-superficie p-4 shadow-sm dark:shadow-none">
-      <h3 className="flex items-center gap-2 text-sm font-medium text-texto-suave">
+    <article className="flex min-w-0 flex-col rounded-tarjeta border border-borde bg-superficie p-5 shadow-tarjeta">
+      <h3 className="m-0 flex items-center gap-2 text-[13px] font-medium text-texto-2">
         {Icono === undefined ? null : (
           <Icono aria-hidden="true" className="size-4 shrink-0" />
         )}
         {titulo}
       </h3>
       <p
-        className={`mt-2 ${TAMANOS[tamano]} font-semibold tabular-nums [&_a]:no-underline [&_a:hover]:underline`}
+        className={`cifras mt-2 mb-0 ${TAMANOS[tamano]} font-semibold tracking-tight text-texto [&_a]:text-texto [&_a]:no-underline [&_a:hover]:underline`}
       >
         {valor}
       </p>
       {detalle === undefined ? null : (
-        <p className="mt-1 text-sm text-texto-suave">{detalle}</p>
+        <p className="mt-1 mb-0 text-[13px] text-texto-3">{detalle}</p>
       )}
       {variacion === undefined ? null : <Variacion variacion={variacion} />}
     </article>

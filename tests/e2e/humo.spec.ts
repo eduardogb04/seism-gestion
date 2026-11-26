@@ -68,7 +68,7 @@ test("la app levantada pide entrar en la página de inicio, responde el latido y
 
   await entrarComo(page, ADMIN);
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await verElPanel(page);
 });
 

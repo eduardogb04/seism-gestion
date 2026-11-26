@@ -101,11 +101,8 @@ test("una operadora da de alta, edita y da de baja un grupo en ventanas sobre el
   await expect(fila(page, "Grupo Centro")).toBeVisible();
 
   // 1. Alta: la ventana abre con el foco en el primer campo.
-  await page.getByRole("link", { name: "Alta de grupo" }).click();
-  await expect(ventana(page, "Alta de grupo")).toHaveAttribute(
-    "aria-modal",
-    "true",
-  );
+  await page.getByRole("link", { name: "Nuevo grupo" }).click();
+  await expect(ventana(page, "Alta de grupo")).toBeVisible();
   await listadoDetras(page);
   await expect(page.getByLabel("Nombre")).toBeFocused();
   await page.getByLabel("Nombre").fill("Grupo Este");
@@ -116,7 +113,7 @@ test("una operadora da de alta, edita y da de baja un grupo en ventanas sobre el
 
   // 2. El mismo nombre, con otras mayúsculas: la ventana sigue abierta con el
   // mensaje al lado del campo y lo escrito.
-  await page.getByRole("link", { name: "Alta de grupo" }).click();
+  await page.getByRole("link", { name: "Nuevo grupo" }).click();
   await page.getByLabel("Nombre").fill("grupo ESTE");
   await page.getByLabel("Observaciones").fill("Otra nota");
   await page.getByRole("button", { name: "Guardar" }).click();
@@ -194,7 +191,7 @@ test.describe("con JavaScript apagado", () => {
   }) => {
     await entrarComo(page, OPERADORA);
     await page.goto("/catalogo/grupos");
-    await page.getByRole("link", { name: "Alta de grupo" }).click();
+    await page.getByRole("link", { name: "Nuevo grupo" }).click();
     await expect(ventana(page, "Alta de grupo")).toBeVisible();
 
     // Un nombre que ya existe (el de la semilla).

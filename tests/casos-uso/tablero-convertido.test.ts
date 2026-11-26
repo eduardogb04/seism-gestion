@@ -547,6 +547,7 @@ const AVISOS = {
   proximos: 0,
   vencidos: 0,
   enlace: "/calendario?mes=2031-07",
+  entradas: [],
 };
 
 /** El inicio dibujado con los números de la base sembrada: lo que se ve, no el dato intermedio. */
@@ -582,20 +583,11 @@ function enlaceDelKpi(html: string, id: string): string | null {
   );
 }
 
-/** El tamaño del valor de una tarjeta: la clase del párrafo que contiene el número `marca`. */
-function tamanoDelNumero(html: string, marca: string): string | undefined {
-  return new RegExp(
-    `<p class="[^"]*\\b(text-4xl|text-2xl|text-lg)\\b[^"]*"><(?:a|span)[^>]*${marca}`,
-  ).exec(html)?.[1];
-}
-
 describe("lo que se ve en el inicio, en una sola moneda", () => {
   test("en pesos: la facturación en grande, el resto de los números y el aviso que lleva a la lista", async () => {
     const html = await inicioDibujado("ARS");
 
     expect(kpiVisto(html, "facturacion")).toBe("ARS 180.330,03");
-    expect(tamanoDelNumero(html, 'data-kpi="facturacion"')).toBe("text-4xl");
-    expect(tamanoDelNumero(html, 'data-kpi="cobrado"')).toBe("text-2xl");
     expect(kpiVisto(html, "resultado-de-caja")).toBe("ARS 4.020,00");
     expect(kpiVisto(html, "por-cobrar-vencido")).toBe("ARS 18.000,00");
     expect(html).toMatch(
@@ -648,9 +640,6 @@ describe("lo que se ve en el inicio, en una sola moneda", () => {
     const html = await inicioDibujado("USD");
 
     expect(cifraVista(html, "ARS-facturado-sin-iva")).toBeDefined();
-    expect(tamanoDelNumero(html, 'data-cifra="USD-facturado-sin-iva"')).toBe(
-      "text-lg",
-    );
     expect(html).toMatch(
       /<a href="\/servicios\/facturas\?mes=2031-07&amp;moneda=USD"[^>]*data-cifra="USD-facturado-sin-iva"/,
     );

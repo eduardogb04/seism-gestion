@@ -24,13 +24,13 @@ export function CabeceraDePanel({
     <div className="flex items-center gap-3">
       <span
         aria-hidden="true"
-        className="grid size-11 shrink-0 place-items-center rounded-lg bg-superficie-alta text-texto-suave"
+        className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-acento-suave text-acento"
       >
-        <Icono className="size-6" />
+        <Icono className="size-5" />
       </span>
       <div>
-        <h2 className="text-xl font-semibold">{titulo}</h2>
-        <p data-contexto-del-panel className="mt-0.5 text-texto-suave">
+        <h2 className="m-0 text-lg font-semibold tracking-tight">{titulo}</h2>
+        <p data-contexto-del-panel className="mt-0.5 text-[13px] text-texto-2">
           {contexto}
         </p>
       </div>
@@ -41,7 +41,7 @@ export function CabeceraDePanel({
 /** Un subtítulo de panel, discreto, para separar sus partes. */
 export function TituloDeParte({ children }: { readonly children: ReactNode }) {
   return (
-    <h3 className="mt-6 mb-2 text-sm font-semibold tracking-wide text-texto-suave uppercase">
+    <h3 className="mt-6 mb-2 text-xs font-medium tracking-wide text-texto-2 uppercase">
       {children}
     </h3>
   );
@@ -76,22 +76,25 @@ export function ListaDeControl({
   return (
     <>
       <TituloDeParte>{titulo}</TituloDeParte>
-      <ul aria-label={titulo}>
+      <ul
+        aria-label={titulo}
+        className="overflow-hidden rounded-tarjeta border border-borde bg-superficie shadow-tarjeta"
+      >
         {items.map(({ texto, hecho, detalle }) => {
           const Icono = hecho ? CircleCheck : CircleDashed;
           return (
             <li
               key={texto}
               data-control={hecho ? "hecho" : "pendiente"}
-              className="flex items-center gap-3 border-t border-borde py-2.5 first:border-t-0"
+              className="flex items-center gap-3 border-t border-borde px-4 py-2.5 first:border-t-0"
             >
               <Icono
                 aria-hidden="true"
-                className={`size-5 shrink-0 ${hecho ? "text-exito" : "text-texto-suave"}`}
+                className={`size-5 shrink-0 ${hecho ? "text-exito" : "text-texto-3"}`}
               />
               <span className="sr-only">{hecho ? "Hecho:" : "Pendiente:"}</span>
               {texto}
-              <span className="ml-auto text-sm text-texto-suave">
+              <span className="cifras ml-auto text-[13px] text-texto-3">
                 {detalle}
               </span>
             </li>
@@ -163,7 +166,7 @@ export function BarraDeAcciones({
       {salidas.length === 0 ? null : (
         <section
           aria-label="Cambiar de etapa"
-          className="flex flex-wrap items-center gap-1 text-sm text-texto-suave sm:ml-auto"
+          className="flex flex-wrap items-center gap-1 text-[13px] text-texto-3 sm:ml-auto"
         >
           {rotuloDeSalidas === undefined ? null : (
             <span className="mr-1">{rotuloDeSalidas}</span>

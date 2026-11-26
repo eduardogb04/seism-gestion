@@ -47,7 +47,7 @@ test("un administrador da de alta un semi con cisterna, ve su antigüedad, cambi
   await expect(fila(page, "ZZ001ZZ")).toContainText("Empresa Ejemplo Uno S.A.");
   await expect(fila(page, "ZZ001ZZ")).toContainText("Semi con cisterna");
 
-  await page.getByRole("link", { name: "Alta de camión" }).click();
+  await page.getByRole("link", { name: "Nuevo camión" }).click();
   const ventana = page.getByRole("dialog", { name: "Alta de camión" });
   await expect(ventana).toBeVisible();
   await expect(campo(page, "Cliente").locator("option:checked")).toHaveText(

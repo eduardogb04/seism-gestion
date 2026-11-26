@@ -82,6 +82,8 @@ export type Avisos = {
   readonly vencidos: number;
   /** El calendario del mes de hoy. */
   readonly enlace: string;
+  /** Lo vencido y lo que vence en el plazo, por fecha (el «Para hoy» del inicio). */
+  readonly entradas: readonly EntradaDelCalendario[];
 };
 
 export const CLAVE_DIAS_DE_AVISO = "calendario.dias_de_aviso";
@@ -285,6 +287,7 @@ export function crearCasosUsoCalendario({
         proximos: entradas.length - vencidos,
         vencidos,
         enlace: `/calendario?mes=${mesDe(hoy)}`,
+        entradas,
       };
     },
   };

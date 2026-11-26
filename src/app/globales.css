@@ -1,15 +1,13 @@
 @import "tailwindcss";
 
 /*
- * Los temas (F3-05, ADR 0040). Colores, tipografía y espacios viven solo acá:
- * las pantallas usan los nombres (`bg-superficie`, `text-texto-suave`), nunca
- * un color suelto (lo frena tests/dominio/colores-por-nombre.test.ts). `@theme`
- * trae los valores del tema claro y el bloque `dark` de abajo los del oscuro;
- * los dos tienen los mismos nombres y tests/dominio/temas.test.ts los lee
- * de este archivo para exigir contraste AA.
+ * Sistema visual del rediseño (Specs/FRONT_SPEC.md §3). Neutros cálidos y un
+ * acento petróleo. Las pantallas usan nombres, nunca un color suelto. Los
+ * nombres del front anterior (`superficie-alta`, `texto-suave`, `menu-*`…)
+ * siguen existiendo apuntando a la paleta nueva, para que lo no rediseñado
+ * todavía tome el estilo sin romperse.
  *
- * `data-tema` en `<html>` lo pone el layout desde la cookie `tema`: `claro`,
- * `oscuro` o `sistema` (oscuro solo si el sistema operativo lo está).
+ * `data-tema` en `<html>` viene de la cookie `tema`: claro, oscuro o sistema.
  */
 @custom-variant dark {
   &:where([data-tema="oscuro"], [data-tema="oscuro"] *) {
@@ -23,89 +21,308 @@
 }
 
 @theme {
-  --font-sans:
-    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    sans-serif;
+  --font-sans: var(--font-geist-sans), system-ui, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --spacing: 0.25rem;
 
-  --color-fondo: #f5f6f8;
+  --radius-control: 6px;
+  --radius-tarjeta: 12px;
+
+  --shadow-flota:
+    0 1px 2px rgb(28 25 23 / 0.04), 0 8px 24px rgb(28 25 23 / 0.08);
+  --shadow-tarjeta: 0 1px 2px rgb(28 25 23 / 0.04);
+
+  --ease-resorte: linear(0, 0.45 15%, 1.08 35%, 0.97 55%, 1.01 75%, 1);
+
+  /* Base */
+  --color-fondo: #fafaf9;
   --color-superficie: #ffffff;
-  --color-superficie-alta: #eef1f4;
-  --color-borde: #dde2e8;
-  --color-borde-control: #7c8695;
-  --color-texto: #161b22;
-  --color-texto-suave: #4a5462;
-  --color-acento: #1d4ed8;
-  --color-acento-fuerte: #1e3fa8;
+  --color-superficie-2: #f5f5f4;
+  --color-superficie-3: #eeedeb;
+  --color-borde: #e7e5e4;
+  --color-borde-fuerte: #d6d3d1;
+  --color-texto: #1c1917;
+  --color-texto-2: #57534e;
+  --color-texto-3: #736c66;
+
+  /* Acento */
+  --color-acento: #0f5c66;
+  --color-acento-fuerte: #0a4850;
+  --color-acento-suave: #e6f2f3;
   --color-sobre-acento: #ffffff;
-  --color-peligro: #b42318;
-  --color-peligro-fuerte: #912018;
+  /* Placa del logo: blanca en los dos temas. */
+  --color-placa: #ffffff;
+
+  /* Estados */
+  --color-exito: #15803d;
+  --color-exito-suave: #ecfdf3;
+  --color-aviso: #b45309;
+  --color-aviso-suave: #fff7e6;
+  --color-peligro: #b91c1c;
+  --color-peligro-fuerte: #991b1b;
+  --color-peligro-suave: #fef2f2;
   --color-sobre-peligro: #ffffff;
-  --color-peligro-suave: #fdecea;
-  --color-exito: #13733a;
-  --color-exito-suave: #e7f6ec;
-  --color-aviso: #965a07;
-  --color-aviso-suave: #fdf3e1;
-  --color-menu: #141a22;
-  --color-menu-activo: #2a3442;
-  --color-menu-texto: #e8ecf1;
-  --color-menu-texto-suave: #9aa5b4;
-  --color-velo: #161b22;
-  --color-serie-1: #1d4ed8;
-  --color-serie-2: #0f8a7e;
+
+  /* Etapas del servicio */
+  --color-etapa-creado: #78716c;
+  --color-etapa-cotizado: #6d28d9;
+  --color-etapa-adjudicado: #1d4ed8;
+  --color-etapa-ejecucion: #0f5c66;
+  --color-etapa-finalizado: #b45309;
+  --color-etapa-cerrado: #15803d;
+  --color-etapa-salida: #9f1239;
+
+  /* Series de gráficos */
+  --color-serie-1: #0f5c66;
+  --color-serie-2: #c2b8ad;
   --color-serie-3: #b45309;
-  --color-serie-4: #7c3aed;
+  --color-serie-4: #6d28d9;
+
+  /* Nombres del front anterior */
+  --color-superficie-alta: var(--color-superficie-2);
+  --color-borde-control: #8a847e;
+  --color-texto-suave: var(--color-texto-2);
+  --color-menu: var(--color-fondo);
+  --color-menu-activo: var(--color-superficie-3);
+  --color-menu-texto: var(--color-texto);
+  --color-menu-texto-suave: var(--color-texto-3);
+  --color-velo: #1c1917;
 }
 
 @layer base {
   :root {
     color-scheme: light;
+    accent-color: var(--color-acento);
 
     @variant dark {
       color-scheme: dark;
 
-      --color-fondo: #0e1217;
-      --color-superficie: #161b22;
-      --color-superficie-alta: #1f2630;
-      --color-borde: #2a323d;
-      --color-borde-control: #6f7a89;
-      --color-texto: #e6eaef;
-      --color-texto-suave: #a4aebb;
-      --color-acento: #7ea6f8;
-      --color-acento-fuerte: #a3c0fa;
-      --color-sobre-acento: #0e1217;
-      --color-peligro: #f47c70;
-      --color-peligro-fuerte: #f8a198;
-      --color-sobre-peligro: #0e1217;
-      --color-peligro-suave: #3a1715;
-      --color-exito: #4cc27a;
-      --color-exito-suave: #12301f;
-      --color-aviso: #e0a43b;
-      --color-aviso-suave: #33260f;
-      --color-menu: #0a0d11;
-      --color-menu-activo: #232b36;
-      --color-menu-texto: #e6eaef;
-      --color-menu-texto-suave: #8f9aa8;
+      --color-fondo: #0c0c0b;
+      --color-superficie: #151514;
+      --color-superficie-2: #1c1c1a;
+      --color-superficie-3: #262624;
+      --color-borde: #262624;
+      --color-borde-fuerte: #3a3a37;
+      --color-texto: #f5f5f4;
+      --color-texto-2: #a8a29e;
+      --color-texto-3: #8f8882;
+      --color-acento: #4fb3bf;
+      --color-acento-fuerte: #7ccad3;
+      --color-acento-suave: #12353a;
+      --color-sobre-acento: #0c0c0b;
+      --color-exito: #4ade80;
+      --color-exito-suave: #0f2a1a;
+      --color-aviso: #fbbf24;
+      --color-aviso-suave: #33240a;
+      --color-peligro: #f87171;
+      --color-peligro-fuerte: #fca5a5;
+      --color-peligro-suave: #3a1414;
+      --color-sobre-peligro: #0c0c0b;
+      --color-etapa-creado: #a8a29e;
+      --color-etapa-cotizado: #a78bfa;
+      --color-etapa-adjudicado: #60a5fa;
+      --color-etapa-ejecucion: #4fb3bf;
+      --color-etapa-finalizado: #fbbf24;
+      --color-etapa-cerrado: #4ade80;
+      --color-etapa-salida: #fb7185;
+      --color-serie-1: #4fb3bf;
+      --color-serie-2: #57534e;
+      --color-serie-3: #fbbf24;
+      --color-serie-4: #a78bfa;
+      --color-borde-control: #6b645e;
       --color-velo: #000000;
-      --color-serie-1: #7ea6f8;
-      --color-serie-2: #3fc1b0;
-      --color-serie-3: #e6a04a;
-      --color-serie-4: #b597f6;
+      --shadow-flota: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 32px rgb(0 0 0 / 0.45);
     }
   }
   body {
-    @apply bg-fondo text-base text-texto;
+    @apply bg-fondo font-sans text-sm text-texto antialiased;
+    font-feature-settings: "cv11", "ss01";
   }
   h1 {
-    @apply mb-4 text-2xl font-semibold;
+    @apply mb-4 text-2xl font-semibold tracking-tight;
   }
   h2 {
-    @apply mt-6 mb-2 text-lg font-semibold;
+    @apply mt-6 mb-2 text-base font-semibold;
   }
   a {
-    @apply text-acento underline underline-offset-2;
+    @apply text-acento underline-offset-2;
   }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-acento;
+  }
+  ::selection {
+    background: var(--color-acento-suave);
+  }
+}
+
+/* Cifras que no bailan (importes, contadores, KPI). */
+@utility cifras {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Respuesta física de los controles (modern-web-guidance: natural-interactions). */
+@utility presionable {
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    box-shadow 150ms ease-out,
+    scale 150ms ease-out;
+  &:active {
+    scale: 0.97;
+  }
+}
+
+/* Entrada suave del contenido nuevo, solo si la persona no pidió menos movimiento. */
+@utility aparece {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: aparecer 320ms ease-out both;
+    animation-delay: calc(var(--orden, 0) * 40ms);
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@keyframes esqueleto {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Transición entre pantallas (View Transitions, vía <ViewTransition> de React). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 180ms;
+  animation-timing-function: ease-out;
+}
+::view-transition-group(contenido) {
+  animation-duration: 220ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    /* biome-ignore lint/complexity/noImportantStyles: gana sobre las animaciones del navegador */
+    animation: none !important;
+  }
+}
+
+@keyframes paleta {
+  from {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+/* Menús que abren desde su botón (modern-web-guidance: natural-interactions). */
+@utility menu-flotante {
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+  @media (prefers-reduced-motion: no-preference) {
+    &[data-state="open"] {
+      animation:
+        paleta 150ms ease-out both,
+        paleta 260ms var(--ease-resorte) both;
+    }
+  }
+}
+
+/*
+ * La ventana (`_ui/ventana.tsx`): un <dialog> modal presentado como panel
+ * lateral derecho de 480 px; en el celular, hoja de abajo a pantalla completa.
+ * Entra y sale con @starting-style + display/overlay discretos
+ * (modern-web-guidance: dialog, animate-to-from-top-layer,
+ * prevent-page-scroll-under-modal-dialog). Sin movimiento si se pidió menos.
+ */
+@layer components {
+  .ventana {
+    margin: 0 0 0 auto;
+    padding: 0;
+    border: 0;
+    border-inline-start: 1px solid var(--color-borde);
+    inline-size: min(480px, 100vw);
+    max-inline-size: 100vw;
+    block-size: 100dvh;
+    max-block-size: 100dvh;
+    background: var(--color-superficie);
+    color: var(--color-texto);
+    box-shadow: var(--shadow-flota);
+    overscroll-behavior: contain;
+    opacity: 0;
+    transition-property: opacity, translate, display, overlay;
+    transition-duration: 160ms;
+    transition-timing-function: ease-in;
+    transition-behavior: allow-discrete;
+
+    @media (prefers-reduced-motion: no-preference) {
+      translate: 100% 0;
+    }
+
+    &[open] {
+      opacity: 1;
+      transition-duration: 220ms;
+      transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+
+      @starting-style {
+        opacity: 0;
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        translate: 0 0;
+
+        @starting-style {
+          translate: 100% 0;
+        }
+      }
+    }
+
+    &::backdrop {
+      background-color: transparent;
+      overflow: hidden;
+      overscroll-behavior: contain;
+      transition-property: background-color, display, overlay;
+      transition-duration: 200ms;
+      transition-timing-function: ease-out;
+      transition-behavior: allow-discrete;
+    }
+
+    &[open]::backdrop {
+      background-color: color-mix(in srgb, var(--color-velo) 35%, transparent);
+
+      @starting-style {
+        background-color: transparent;
+      }
+    }
+
+    /* Celular: hoja que sube desde abajo y ocupa la pantalla. */
+    @media (width < 40rem) {
+      margin: 0;
+      inline-size: 100vw;
+      border-inline-start: 0;
+
+      @media (prefers-reduced-motion: no-preference) {
+        translate: 0 100%;
+
+        &[open] {
+          translate: 0 0;
+
+          @starting-style {
+            translate: 0 100%;
+          }
+        }
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition-duration: 100ms;
+
+      &[open] {
+        transition-duration: 100ms;
+      }
+    }
   }
 }

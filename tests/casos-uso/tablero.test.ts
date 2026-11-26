@@ -791,6 +791,7 @@ const AVISOS = {
   proximos: 0,
   vencidos: 0,
   enlace: "/calendario?mes=2031-07",
+  entradas: [],
 };
 
 async function inicioDibujado(mes?: string): Promise<string> {

@@ -40,7 +40,7 @@ test("un administrador da de alta una plantilla con tres hitos, los reordena y l
       .getByRole("navigation", { name: "Secciones" })
       .getByRole("link", { name: "Plantillas de hitos" }),
   ).toHaveAttribute("aria-current", "page");
-  await page.getByRole("link", { name: "Alta de plantilla de hitos" }).click();
+  await page.getByRole("link", { name: "Nueva plantilla de hitos" }).click();
   const alta = ventana(page, "Alta de plantilla de hitos");
   await alta.getByLabel("Nombre", { exact: true }).fill(NOMBRE);
   for (const [lugar, texto] of [
@@ -97,7 +97,7 @@ test("un administrador da de alta una plantilla con tres hitos, los reordena y l
 
   // 2. Un servicio «Adjudicado» y la plantilla aplicada.
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const servicio = ventana(page, "Alta de servicio");
   await servicio
     .getByLabel("Cliente")

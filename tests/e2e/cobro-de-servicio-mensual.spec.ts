@@ -22,7 +22,7 @@ test("cobrar una factura de un servicio mensual muestra lo devengado a la fecha"
 }) => {
   await entrarComo(page, ADMIN);
 
-  await page.goto("/servicios");
+  await page.goto("/servicios?vista=tabla");
   await page
     .getByRole("row", { name: new RegExp(TITULO) })
     .getByRole("link")

@@ -53,7 +53,7 @@ test("un administrador da de alta un centro de costo, le cambia la clase y lo da
   );
 
   // 2. Alta: un nombre repetido vuelve con lo escrito.
-  await page.getByRole("link", { name: "Alta de centro de costo" }).click();
+  await page.getByRole("link", { name: "Nuevo centro de costo" }).click();
   const ventana = page.getByRole("dialog", { name: "Alta de centro de costo" });
   await expect(ventana).toBeVisible();
   await expect(campo(page, "Activo")).toBeChecked();

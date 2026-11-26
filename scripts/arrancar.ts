@@ -19,7 +19,7 @@ import path from "node:path";
 import process from "node:process";
 import { BIN_PRISMA } from "./lib/migraciones.ts";
 
-const PUERTO_APP = 3000;
+const PUERTO_APP = Number(process.env.PORT ?? 3000);
 const BIN_NEXT = path.join(
   process.cwd(),
   "node_modules",
@@ -138,7 +138,11 @@ avisar(
 rmSync(CACHE_DE_NEXT_DEV, { recursive: true, force: true });
 avisar("Borré la caché de desarrollo (.next/dev) para empezar limpio.");
 
-const app = spawnSync(process.execPath, [BIN_NEXT, "dev"], {
-  stdio: "inherit",
-});
+const app = spawnSync(
+  process.execPath,
+  [BIN_NEXT, "dev", "-p", String(PUERTO_APP)],
+  {
+    stdio: "inherit",
+  },
+);
 process.exit(app.status ?? 1);

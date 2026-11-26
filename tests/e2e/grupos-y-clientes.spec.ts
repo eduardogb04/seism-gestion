@@ -28,7 +28,7 @@ async function entrarComoAdmin(page: Page): Promise<void> {
 
 async function altaDeGrupo(page: Page, nombre: string): Promise<void> {
   await page.goto("/catalogo/grupos");
-  await page.getByRole("link", { name: "Alta de grupo" }).click();
+  await page.getByRole("link", { name: "Nuevo grupo" }).click();
   await page.getByLabel("Nombre").fill(nombre);
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);

@@ -1,6 +1,9 @@
+import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { useId, useState } from "react";
 import { textosDeLista } from "../../casos-uso/abm/definicion.ts";
 import { Boton } from "./boton.tsx";
+import { CLASES_DE_CONTROL, ErrorDeCampo } from "./campo-texto.tsx";
+import { cn } from "./cn.ts";
 
 /** El nombre y el valor del control que cambió. El DOM no está en los tipos de este proyecto: se mira lo que trae. */
 export function controlDe(destino: unknown): readonly [string, string] | null {
@@ -66,23 +69,31 @@ export function CampoLista({
           );
     });
   return (
-    <fieldset className="flex flex-col gap-2" data-lista={name}>
-      <legend className="font-medium">{etiqueta}</legend>
+    <fieldset className="flex flex-col gap-1.5" data-lista={name}>
+      <legend className="mb-1.5 text-[13px] leading-[18px] font-medium text-texto">
+        {etiqueta}
+      </legend>
       <input
         type="hidden"
         name={name}
         value={filas.map(({ texto }) => texto).join("\n")}
       />
-      <ol className="flex flex-col gap-2">
+      <ol className="flex flex-col gap-1.5">
         {filas.map((fila, lugar) => (
-          <li key={fila.clave} className="flex flex-wrap items-center gap-2">
+          <li key={fila.clave} className="flex items-center gap-1">
+            <span
+              aria-hidden="true"
+              className="cifras w-5 shrink-0 text-right text-xs text-texto-3"
+            >
+              {lugar + 1}
+            </span>
             <input
               type="text"
               aria-label={`${nombre} ${lugar + 1}`}
               aria-invalid={error !== undefined}
               aria-describedby={error === undefined ? undefined : `${id}-error`}
               ref={fila.nueva ? enfocar : undefined}
-              className="min-w-0 flex-1 rounded border border-borde-control bg-superficie px-3 py-2 aria-invalid:border-peligro"
+              className={cn(CLASES_DE_CONTROL, "ml-1 flex-1")}
               value={fila.texto}
               onChange={(evento) => {
                 const texto = controlDe(evento.target)?.[1] ?? "";
@@ -94,25 +105,25 @@ export function CampoLista({
               }}
             />
             <Boton
-              variante="secundario"
+              variante="fantasma"
               type="button"
               disabled={lugar === 0}
               aria-label={`Subir ${elemento} ${lugar + 1}`}
               onClick={() => mover(lugar, lugar - 1)}
             >
-              Subir
+              <ChevronUp aria-hidden="true" />
             </Boton>
             <Boton
-              variante="secundario"
+              variante="fantasma"
               type="button"
               disabled={lugar === filas.length - 1}
               aria-label={`Bajar ${elemento} ${lugar + 1}`}
               onClick={() => mover(lugar, lugar + 1)}
             >
-              Bajar
+              <ChevronDown aria-hidden="true" />
             </Boton>
             <Boton
-              variante="peligro"
+              variante="fantasma"
               type="button"
               aria-label={`Quitar ${elemento} ${lugar + 1}`}
               onClick={() =>
@@ -121,7 +132,7 @@ export function CampoLista({
                 )
               }
             >
-              Quitar
+              <X aria-hidden="true" />
             </Boton>
           </li>
         ))}
@@ -141,14 +152,11 @@ export function CampoLista({
             ])
           }
         >
+          <Plus aria-hidden="true" />
           Agregar {elemento}
         </Boton>
       </div>
-      {error === undefined ? null : (
-        <p id={`${id}-error`} data-error-de-campo className="text-peligro">
-          {error}
-        </p>
-      )}
+      <ErrorDeCampo id={id} error={error} />
     </fieldset>
   );
 }

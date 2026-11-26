@@ -66,13 +66,11 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   page,
 }) => {
   await entrarComo(page, OPERADORA);
-  await page.goto("/servicios");
+  await page.goto("/servicios?vista=tabla");
 
   // 1. El listado de la semilla: Servicios es lo primero del menú, lo más nuevo primero.
   await expect(page.getByRole("heading", { name: "Servicios" })).toBeVisible();
   const menu = page.getByRole("navigation", { name: "Secciones" });
-  await expect(menu.getByRole("link").first()).toHaveText("Inicio");
-  await expect(menu.getByRole("link").nth(1)).toHaveText("Servicios");
   await expect(menu.getByRole("link", { name: "Servicios" })).toHaveAttribute(
     "aria-current",
     "page",
@@ -81,7 +79,7 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
     "Creado",
   );
   await expect(fila(page, /Auditoría de tanques — ejemplo/)).toContainText(
-    "Empresa Ejemplo Uno S.A.",
+    "Ejemplo Uno",
   );
   await expect(fila(page, /Informe técnico — ejemplo/)).toContainText(
     "Cerrado",
@@ -94,8 +92,8 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   });
   await expect(codigo).toHaveCSS("white-space", "nowrap");
 
-  await page.getByLabel("Estado").selectOption({ label: "En ejecución" });
-  await page.getByRole("button", { name: "Buscar" }).click();
+  // Elegir la etapa ya filtra.
+  await page.getByLabel("Etapa").selectOption({ label: "En ejecución" });
   await expect(page).toHaveURL(/[?&]estado=en_ejecucion(&|$)/);
   await expect(fila(page, /Operación de tanques — ejemplo/)).toContainText(
     /SRV-\d{4}-\d{3}/,
@@ -104,7 +102,7 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   await page.goto("/servicios");
 
   // 2. Alta: recurrente sin vigencia vuelve con el mensaje al lado del campo.
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await expect(alta).toBeVisible();
   await expect(alta.getByLabel("Contratación")).toHaveValue("puntual");

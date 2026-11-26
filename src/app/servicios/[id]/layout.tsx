@@ -49,7 +49,13 @@ export default async function LayoutDelServicio({
     );
   }
   const { servicio } = leido;
-  const { modalidad } = await armado().facturacion.ver(servicio.id);
+  const facturacion = await armado().facturacion.ver(servicio.id);
+  const facturaACobrar =
+    servicio.etapa === "finalizado"
+      ? (await armado().cobros.cobranza(servicio.id)).find(
+          ({ cobrada }) => !cobrada,
+        )?.facturaId
+      : undefined;
   const rutaActual = rutaDeEtapa(servicio.id, servicio.etapa);
   const puedeActuar = ROLES_QUE_ESCRIBEN_SERVICIOS.includes(rol);
   // Lo que se escribe desde el encabezado o la actividad va al panel de la etapa actual.
@@ -60,7 +66,10 @@ export default async function LayoutDelServicio({
         <EncabezadoDelServicio
           servicio={servicio}
           rutaActual={rutaActual}
-          principal={accionPrincipalDe(servicio, rutaActual)}
+          principal={accionPrincipalDe(servicio, rutaActual, {
+            facturable: facturacion.admiteFactura,
+            facturaACobrar,
+          })}
           puedeEscribir={puedeEscribir}
           puedeActuar={puedeActuar}
         />
@@ -74,7 +83,10 @@ export default async function LayoutDelServicio({
               aria-label="Actividad"
               className="flex min-w-0 flex-col gap-4"
             >
-              <DatosDelServicio servicio={servicio} facturacion={modalidad} />
+              <DatosDelServicio
+                servicio={servicio}
+                facturacion={facturacion.modalidad}
+              />
               <Actividad
                 servicioId={servicio.id}
                 historial={servicio.historial}

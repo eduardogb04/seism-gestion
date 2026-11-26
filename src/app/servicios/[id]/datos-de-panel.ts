@@ -83,3 +83,29 @@ export function metricasDeCobro(
     ];
   });
 }
+
+/** Los días civiles de un día `dd/mm/aaaa` a hoy (hora de la Argentina); negativo si ya pasó. */
+export function diasHasta(fecha: string): number {
+  const [dia = "", mes = "", anio = ""] = fecha.split("/");
+  const hoy = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
+  return Math.round(
+    (Date.parse(`${anio}-${mes}-${dia}`) - Date.parse(hoy)) / 86_400_000,
+  );
+}
+
+/** ¿Un importe escrito (`ARS 1.000,00`) es mayor que cero? */
+export function esPositivo(importe: string): boolean {
+  return !importe.includes("-") && /[1-9]/.test(importe);
+}
+
+/** El primer vencimiento pendiente (el más próximo), o `undefined`. */
+export function proximoVencimiento<
+  T extends { readonly fecha: string; readonly pendiente: boolean },
+>(vencimientos: readonly T[]): T | undefined {
+  const clave = ({ fecha }: T) => fecha.split("/").reverse().join("");
+  return vencimientos
+    .filter(({ pendiente }) => pendiente)
+    .sort((a, b) => clave(a).localeCompare(clave(b)))[0];
+}

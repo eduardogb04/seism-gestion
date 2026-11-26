@@ -53,13 +53,18 @@ const SECCIONES = [
   "Hitos",
   "Recursos",
   "Facturas",
-  "En obra · día 1",
+  "En ejecución",
   "Avance",
   "Egresos",
-  "Falta cobrar para cerrar",
+  "Cerrar el servicio",
   "Ajustes",
   "Vencimientos",
-  "Cerrado · todo cobrado",
+  "Servicio cerrado",
+  "Facturas y cobros",
+  "Orden de compra",
+  "Documentación",
+  "Para cerrar",
+  "Resultado",
 ] as const;
 
 async function entrarComo(page: Page, email: string): Promise<void> {
@@ -623,20 +628,21 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await expect(estado).toHaveText("En ejecución");
   await expect(page).toHaveURL(`${servicioUrl}/en-ejecucion`);
   await seVeSolo(page, [
-    "En obra · día 1",
+    "En ejecución",
     "Hitos",
+    "Facturas y cobros",
+    "Vencimientos",
     "Recursos",
-    "Facturas",
+    "Orden de compra",
     "Egresos",
+    "Documentación",
   ]);
   await expect(
-    page.getByRole("heading", { name: "Avance de hitos" }).locator(".."),
+    page.getByRole("heading", { name: "Avance" }).locator(".."),
   ).toContainText("0 de 3");
   await expect(
-    page
-      .getByRole("heading", { name: "Facturado (sin IVA)", exact: true })
-      .locator(".."),
-  ).toContainText("0 % de la OC");
+    page.getByRole("heading", { name: "Facturado", exact: true }).locator(".."),
+  ).toContainText("0 %");
   // La modalidad ya está fija: no hay cómo cambiarla.
   await expect(
     page.getByRole("list", { name: "Modalidad de facturación" }),
@@ -668,7 +674,7 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     ).toContainText(OPERADORA);
   }
   await expect(
-    page.getByRole("heading", { name: "Avance de hitos" }).locator(".."),
+    page.getByRole("heading", { name: "Avance" }).locator(".."),
   ).toContainText("2 de 3");
   await page.getByRole("link", { name: "Emitir factura" }).click();
   const factura = ventana(page, "Nueva factura");
@@ -693,11 +699,13 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   await expect(estado).toHaveText("Finalizado");
   await expect(page).toHaveURL(`${servicioUrl}/finalizado`);
   await seVeSolo(page, [
-    "Falta cobrar para cerrar",
-    "Facturas",
-    "Ajustes",
-    "Egresos",
+    "Cerrar el servicio",
+    "Para cerrar",
+    "Facturas y cobros",
     "Vencimientos",
+    "Hitos",
+    "Egresos",
+    "Documentación",
   ]);
   expect(await transicionesOfrecidas(page)).toEqual([]);
   await comprobarFacturasSinScroll(page);
@@ -750,10 +758,11 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
 
   // Cerrado: el resultado y nada que cargar.
   await seVeSolo(page, [
-    "Cerrado · todo cobrado",
-    "Facturas",
-    "Ajustes",
-    "Documentación de alcance",
+    "Servicio cerrado",
+    "Hitos",
+    "Facturas y cobros",
+    "Resultado",
+    "Documentación",
   ]);
   // El vencimiento cargado en «Finalizado» sigue pendiente: renovar es la acción principal.
   await expect(
@@ -794,12 +803,6 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
     ).toHaveCount(0);
   }
   expect(await transicionesOfrecidas(page)).toEqual([]);
-  // «Ver documentos» lleva a los comprobantes y documentos, en lectura.
-  await page.getByRole("link", { name: "Ver documentos" }).click();
-  await expect(page).toHaveURL(`${servicioUrl}/cerrado#documentos`);
-  await expect(
-    page.locator("#documentos").getByRole("heading", { name: "Facturas" }),
-  ).toBeVisible();
   await expect(
     page.locator("[data-etapa]:not([data-situacion='actual']) a"),
   ).toHaveCount(5);
@@ -864,15 +867,12 @@ test("un servicio cerrado sin vencimientos pendientes no ofrece cotizar la renov
   await expect(estado).toHaveText("Cerrado");
 
   await expect(
-    page.getByRole("heading", { name: "Cerrado · todo cobrado" }),
+    page.getByRole("heading", { name: "Servicio cerrado" }),
   ).toBeVisible();
   await expect(page.locator("[data-vencimiento]")).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Cotizar renovación" }),
   ).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Ver documentos" })).toHaveCount(
-    1,
-  );
 });
 
 const CIERRES = [

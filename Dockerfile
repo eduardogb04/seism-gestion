@@ -65,8 +65,6 @@ RUN npm run build
 
 FROM base AS final
 ENV NODE_ENV=production
-# Red de seguridad: el reloj ya pide la zona explícita (auditoría front A1).
-ENV TZ=America/Argentina/Catamarca
 
 # El usuario `node` (uid 1000) ya viene en la imagen oficial. Los archivos
 # quedan de root: el proceso los lee, no los escribe.

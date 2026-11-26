@@ -15,28 +15,40 @@ import {
   type Reloj,
 } from "../../dominio/compartido/reloj.ts";
 
+/** La zona de la base de SeisM (Andalgalá). El dominio trabaja en fecha civil argentina (ADR 0012). */
+export const ZONA_ARGENTINA = "America/Argentina/Catamarca";
+
+const PARTES = new Intl.DateTimeFormat("en-CA", {
+  timeZone: ZONA_ARGENTINA,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
 /**
- * La fecha y hora civiles **locales** de un instante: la misma lectura que
- * hace el reloj del sistema, así que dos `FechaHora` sacadas de acá (o de
- * `crearRelojSistema`) se pueden restar entre sí sin que la zona horaria de
- * la máquina cuente (F0-26: el panel de salud compara "ahora" con el inicio
- * de una corrida que guardó la base). Los componentes que da `Date` (año,
- * mes 0-indexado, día, hora, minuto, segundo, milisegundo) siempre caen
- * dentro de los rangos que `crearFechaHora` acepta, así que el resultado
- * siempre es `ok`.
+ * La fecha y hora civiles **argentinas** de un instante, en zona IANA
+ * explícita: no depende de la zona horaria de la máquina (la imagen Docker
+ * corre en UTC; auditoría del front 2026-11-22, A1).
  */
 export function fechaHoraLocalDe(instante: Date): FechaHora {
+  const p: Record<string, number> = {};
+  for (const parte of PARTES.formatToParts(instante)) {
+    if (parte.type !== "literal") p[parte.type] = Number(parte.value);
+  }
   const resultado = crearFechaHora({
-    anio: instante.getFullYear(),
-    mes: instante.getMonth() + 1,
-    dia: instante.getDate(),
-    hora: instante.getHours(),
-    minuto: instante.getMinutes(),
-    segundo: instante.getSeconds(),
-    milisegundo: instante.getMilliseconds(),
+    anio: p.year ?? 0,
+    mes: p.month ?? 0,
+    dia: p.day ?? 0,
+    hora: p.hour ?? 0,
+    minuto: p.minute ?? 0,
+    segundo: p.second ?? 0,
+    milisegundo: instante.getUTCMilliseconds(),
   });
   if (!resultado.ok) {
-    // Inalcanzable: los componentes de `Date` siempre están en rango.
     throw new Error(
       `el reloj del sistema dio una fecha inválida (esto no debería pasar nunca): ${resultado.mensaje}`,
     );
@@ -44,7 +56,7 @@ export function fechaHoraLocalDe(instante: Date): FechaHora {
   return resultado.fechaHora;
 }
 
-/** Un `Reloj` que lee la hora local del sistema en cada `ahora()`. */
+/** Un `Reloj` que lee la hora argentina en cada `ahora()`. */
 export function crearRelojSistema(): Reloj {
   return {
     ahora(): FechaHora {

@@ -11,7 +11,11 @@
  * inyecta este reloj en nada más. Queda para quien lo cree.
  */
 import { describe, expect, it } from "vitest";
-import { crearRelojSistema } from "../../src/adaptadores/reloj/sistema.ts";
+import { aInstante } from "../../src/adaptadores/prisma/conversiones.ts";
+import {
+  crearRelojSistema,
+  fechaHoraLocalDe,
+} from "../../src/adaptadores/reloj/sistema.ts";
 import { esAnterior } from "../../src/dominio/compartido/reloj.ts";
 
 describe("crearRelojSistema", () => {
@@ -24,23 +28,21 @@ describe("crearRelojSistema", () => {
     expect(esAnterior(segunda, primera)).toBe(false);
   });
 
+  it("21:30 de Argentina sigue siendo el mismo día aunque en UTC ya sea mañana", () => {
+    const leida = fechaHoraLocalDe(new Date("2026-11-27T00:30:00.000Z"));
+    expect([leida.anio, leida.mes, leida.dia, leida.hora]).toEqual([
+      2026, 11, 26, 21,
+    ]);
+  });
+
   it("la lectura está a menos de 5 segundos de la hora real del sistema", () => {
     const reloj = crearRelojSistema();
     const antes = Date.now();
 
     const leida = reloj.ahora();
 
-    // `FechaHora` es una fecha civil local (sin zona), así que se reconstruye
-    // como `Date` local, no UTC: es la forma en que un adaptador la traduce.
-    const leidaComoInstante = new Date(
-      leida.anio,
-      leida.mes - 1,
-      leida.dia,
-      leida.hora,
-      leida.minuto,
-      leida.segundo,
-      leida.milisegundo,
-    ).getTime();
+    // `FechaHora` es fecha civil argentina: se vuelve instante con -03:00.
+    const leidaComoInstante = aInstante(leida).getTime();
 
     expect(Math.abs(leidaComoInstante - antes)).toBeLessThan(5000);
   });

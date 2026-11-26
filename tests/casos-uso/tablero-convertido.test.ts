@@ -547,6 +547,7 @@ const AVISOS = {
   proximos: 0,
   vencidos: 0,
   enlace: "/calendario?mes=2031-07",
+  entradas: [],
 };
 
 /** El inicio dibujado con los números de la base sembrada: lo que se ve, no el dato intermedio. */

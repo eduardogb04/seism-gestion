@@ -139,7 +139,7 @@ function formulario(
     datos.set(nombre, valor);
   }
   if (archivo !== undefined) {
-    datos.set("archivo", new File([archivo.bytes], archivo.nombre));
+    datos.set("archivo", new File([archivo.bytes as BlobPart], archivo.nombre));
   }
   return datos;
 }

@@ -111,6 +111,8 @@ import {
 import { armarSalud } from "./salud.ts";
 
 export type Armado = {
+  /** Prisma directo, para los módulos del rediseño (`src/server/`). */
+  readonly prisma: ReturnType<typeof crearClientePrisma>;
   readonly appEntorno: Entorno["APP_ENTORNO"];
   readonly identidad: Identidad;
   /** La identidad falsa (su lista de emails); `null` con Google. */
@@ -173,6 +175,7 @@ function armar(): Armado {
   const generadorId = crearGeneradorIdCrypto();
   const almacen = crearAlmacenDocumentos(entorno);
   return {
+    prisma,
     appEntorno: entorno.APP_ENTORNO,
     identidad,
     pruebas,

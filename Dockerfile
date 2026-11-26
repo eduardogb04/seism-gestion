@@ -80,7 +80,7 @@ COPY --from=construccion /app/src/puertos ./src/puertos
 COPY --from=construccion /app/src/dominio ./src/dominio
 COPY --from=construccion /app/.next/standalone ./
 COPY --from=construccion /app/.next/static ./.next/static
-# No hay `public/` todavía; cuando exista, se copia acá y `server.js` la sirve.
+COPY --from=construccion /app/public ./public
 
 USER node
 

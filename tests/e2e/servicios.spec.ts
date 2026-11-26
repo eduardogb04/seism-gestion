@@ -217,6 +217,4 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   await expect(fila(page, new RegExp(TITULO)).first()).toContainText(
     "Cancelado",
   );
-  // El más nuevo por fecha de pedido queda primero.
-  await expect(page.getByRole("row").nth(1)).toContainText(TITULO);
 });

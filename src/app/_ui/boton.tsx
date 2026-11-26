@@ -1,37 +1,64 @@
+import { LoaderCircle } from "lucide-react";
 import type { ComponentProps } from "react";
+import { cn } from "./cn.ts";
 
 export type VarianteDeBoton =
   | "primario"
   | "secundario"
   | "peligro"
+  | "fantasma"
   | "discreto";
 
 const BASE =
-  "inline-flex cursor-pointer items-center justify-center gap-2 rounded border px-3 py-2 font-medium no-underline motion-safe:transition-colors motion-safe:duration-150 pointer-coarse:min-h-11";
+  "presionable inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-control border px-3.5 text-sm font-medium no-underline select-none [&_svg]:size-4 [&_svg]:shrink-0 disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100 aria-disabled:pointer-events-none aria-disabled:opacity-55 pointer-coarse:h-11";
 
 const VARIANTES: Record<VarianteDeBoton, string> = {
   primario:
-    "border-acento bg-acento text-sobre-acento hover:border-acento-fuerte hover:bg-acento-fuerte",
+    "border-transparent bg-acento text-sobre-acento shadow-tarjeta hover:bg-acento-fuerte",
   secundario:
-    "border-borde-control bg-superficie text-texto hover:bg-superficie-alta",
+    "border-borde-fuerte bg-superficie text-texto shadow-tarjeta hover:border-borde-control hover:bg-superficie-2",
   peligro:
-    "border-peligro bg-peligro text-sobre-peligro hover:border-peligro-fuerte hover:bg-peligro-fuerte",
+    "border-transparent bg-peligro text-sobre-peligro shadow-tarjeta hover:bg-peligro-fuerte",
+  fantasma:
+    "border-transparent bg-transparent text-texto-2 hover:bg-superficie-2 hover:text-texto",
   // Las salidas negativas de un panel (F6-01): a la vista, pero sin competir con la acción principal.
   discreto:
-    "border-transparent bg-transparent text-sm text-peligro hover:bg-superficie-alta",
+    "h-8 border-transparent bg-transparent px-2.5 text-[13px] text-peligro hover:bg-peligro-suave",
 };
 
 /** Las clases del botón, para el enlace que tiene que verse como uno. */
-export function clasesDeBoton(variante: VarianteDeBoton): string {
-  return `${BASE} ${VARIANTES[variante]}`;
+export function clasesDeBoton(
+  variante: VarianteDeBoton,
+  extra?: string,
+): string {
+  return cn(BASE, VARIANTES[variante], extra);
 }
 
+/**
+ * Un botón. `cargando`: lo deshabilita, lo marca `aria-busy` y le pone una
+ * rueda chica delante del texto (que conviene cambiar: «Guardando…»).
+ */
 export function Boton({
   variante,
+  cargando = false,
+  disabled,
+  children,
   ...resto
-}: { readonly variante: VarianteDeBoton } & Omit<
-  ComponentProps<"button">,
-  "className"
->) {
-  return <button className={clasesDeBoton(variante)} {...resto} />;
+}: {
+  readonly variante: VarianteDeBoton;
+  readonly cargando?: boolean;
+} & Omit<ComponentProps<"button">, "className">) {
+  return (
+    <button
+      className={clasesDeBoton(variante)}
+      disabled={disabled === true || cargando}
+      aria-busy={cargando || undefined}
+      {...resto}
+    >
+      {cargando ? (
+        <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" />
+      ) : null}
+      {children}
+    </button>
+  );
 }

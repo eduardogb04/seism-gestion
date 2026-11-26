@@ -57,7 +57,7 @@ test("un administrador da de alta un tipo de servicio con su regla de vencimient
   );
 
   // 2. Alta: «Activo» viene marcado. Un nombre repetido vuelve con lo escrito.
-  await page.getByRole("link", { name: "Alta de tipo de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo tipo de servicio" }).click();
   const ventana = page.getByRole("dialog", {
     name: "Alta de tipo de servicio",
   });

@@ -50,7 +50,7 @@ test("un administrador da de alta un sitio, cambia su cantidad de tanques y ve e
 
   // 2. Alta sin cliente y con una cantidad inválida: los mensajes quedan al
   // lado de su campo y lo escrito sigue.
-  await page.getByRole("link", { name: "Alta de sitio" }).click();
+  await page.getByRole("link", { name: "Nuevo sitio" }).click();
   const ventana = page.getByRole("dialog", { name: "Alta de sitio" });
   await expect(ventana).toBeVisible();
   await campo(page, "Nombre").fill("Sitio de Humo Ejemplo");

@@ -134,7 +134,10 @@ test("una operadora paga un egreso en dos partes y otro en dólares desde una cu
       .getByRole("dialog", { name: "Registrar pago" })
       .locator("[data-pendiente]"),
   ).toHaveText("USD 500,00");
-  await page.getByRole("dialog").getByRole("link", { name: "Cerrar" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cerrar" })
+    .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page).toHaveURL(/\/egresos\?/);
   await expect(

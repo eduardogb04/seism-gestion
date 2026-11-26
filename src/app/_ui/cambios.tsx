@@ -11,15 +11,20 @@ export function Cambios({
     return null;
   }
   return (
-    <section className="mt-6">
-      <h3 className="mb-2 font-semibold">Cambios</h3>
-      <Tabla cabeceras={["Cuándo", "Quién", "Campo", "De", "A"]}>
+    <section className="mt-8">
+      <h3 className="mb-2 text-xs font-medium tracking-wide text-texto-2 uppercase">
+        Cambios
+      </h3>
+      <Tabla
+        titulo="Cambios"
+        cabeceras={["Cuándo", "Quién", "Campo", "De", "A"]}
+      >
         {cambios.map(({ cuando, quien, campo, de, a }) => (
           <tr key={`${cuando}-${campo}-${de}-${a}`}>
-            <td>{cuando}</td>
+            <td className="whitespace-nowrap text-texto-2">{cuando}</td>
             <td>{quien}</td>
-            <td>{campo}</td>
-            <td>{de}</td>
+            <td className="font-medium">{campo}</td>
+            <td className="text-texto-2">{de}</td>
             <td>{a}</td>
           </tr>
         ))}

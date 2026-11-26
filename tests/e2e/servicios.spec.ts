@@ -102,7 +102,7 @@ test("una operadora da de alta un servicio, le marca un sitio, carga un suceso, 
   await page.goto("/servicios");
 
   // 2. Alta: recurrente sin vigencia vuelve con el mensaje al lado del campo.
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await expect(alta).toBeVisible();
   await expect(alta.getByLabel("Contratación")).toHaveValue("puntual");

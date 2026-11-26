@@ -243,7 +243,10 @@ export async function PaginaListado<E extends EntidadAbm>({
                         valor: id,
                       })}
                       scroll={false}
-                      className={clasesDeBoton("secundario")}
+                      className={clasesDeBoton(
+                        "fantasma",
+                        "h-8 px-2.5 text-[13px]",
+                      )}
                     >
                       Editar
                     </Enlace>
@@ -253,7 +256,7 @@ export async function PaginaListado<E extends EntidadAbm>({
                         valor: id,
                       })}
                       scroll={false}
-                      className={clasesDeBoton("peligro")}
+                      className={clasesDeBoton("discreto")}
                     >
                       Dar de baja
                     </Enlace>

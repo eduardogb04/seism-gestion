@@ -41,7 +41,7 @@ export function cabeceraOrdenable(
 
 /** El `<tr>` de una fila que lleva a un detalle: relativo, para que el enlace de su primera celda la cubra entera. */
 export const CLASES_DE_FILA_ENLAZADA =
-  "relative cursor-pointer hover:bg-superficie-alta";
+  "relative cursor-pointer hover:bg-superficie-2";
 
 /**
  * El enlace de la primera celda se estira a toda la fila (`::after` sobre el
@@ -49,7 +49,7 @@ export const CLASES_DE_FILA_ENLAZADA =
  * con Tab y Enter sin JavaScript. El foco se dibuja alrededor de la fila.
  */
 export const CLASES_DE_ENLACE_DE_FILA =
-  "font-medium no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-acento";
+  "font-medium text-texto no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-acento";
 
 /** La celda de lo que se hace con la fila: queda encima del enlace de la fila entera. */
 export const CLASES_DE_ACCIONES = "relative z-10";
@@ -72,42 +72,64 @@ function CabeceraOrdenable({
         ? ArrowDown
         : ChevronsUpDown;
   return (
-    <th aria-sort={sentido === null ? undefined : ARIA_SORT[sentido]}>
+    <th
+      scope="col"
+      aria-sort={sentido === null ? undefined : ARIA_SORT[sentido]}
+    >
       <a
         href={enlace}
         title={`Ordenar por ${texto}`}
-        className="inline-flex items-center gap-1 text-texto no-underline hover:underline"
+        className={`group -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 no-underline hover:bg-superficie-3 hover:text-texto ${sentido === null ? "text-texto-2" : "text-texto"}`}
       >
         {texto}
         <Icono
           aria-hidden="true"
-          className={`size-4 shrink-0 ${sentido === null ? "text-texto-suave" : "text-acento"}`}
+          className={`size-3.5 shrink-0 ${sentido === null ? "text-texto-3 opacity-60 group-hover:opacity-100" : "text-acento"}`}
         />
       </a>
     </th>
   );
 }
 
+/** El texto de una cabecera, ordene o no. */
+function textoDe(cabecera: Cabecera): string {
+  return typeof cabecera === "string" ? cabecera : cabecera.texto;
+}
+
 /**
  * Cabecera y filas. Las filas (`<tr>`) las arma quien la usa; el estilo de las
  * celdas lo da la tabla. En pantallas angostas hace scroll dentro de su
- * contenedor, no de la página.
+ * contenedor (una región con nombre a la que se llega con Tab), no de la
+ * página (modern-web-guidance: responsive-table). `titulo` es el `<caption>`,
+ * solo para lectores de pantalla; sin él, se nombra por sus columnas.
  */
 export function Tabla({
   cabeceras,
+  titulo,
   children,
 }: {
   readonly cabeceras: readonly Cabecera[];
+  readonly titulo?: string | undefined;
   readonly children: ReactNode;
 }) {
+  // Sin hooks: algunas pantallas la llaman como función.
+  const nombre = titulo ?? `Tabla: ${cabeceras.map(textoDe).join(", ")}`;
   return (
-    <div className="overflow-x-auto rounded border border-borde bg-superficie">
-      <table className="w-full border-collapse text-left tabular-nums [&_td]:border-t [&_td]:border-borde [&_td]:px-3 [&_td]:py-2 [&_th]:bg-superficie-alta [&_th]:px-3 [&_th]:py-2 [&_th]:font-semibold">
+    <section
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: la región desplazable se recorre con el teclado (responsive-table)
+      tabIndex={0}
+      aria-label={nombre}
+      className="overflow-x-auto overscroll-x-contain rounded-tarjeta border border-borde bg-superficie shadow-tarjeta focus-visible:outline-offset-1"
+    >
+      <table className="cifras w-full border-separate border-spacing-0 text-left text-sm [&_tbody_tr]:transition-colors [&_tbody_tr]:duration-150 [&_tbody_tr:hover]:bg-superficie-2 [&_tbody_tr:last-child_td]:border-b-0 [&_td]:h-11 [&_td]:min-w-32 [&_td:last-child]:min-w-0 [&_td]:border-b [&_td]:border-borde [&_td]:px-4 [&_td]:py-2 [&_th]:h-9 [&_th]:border-b [&_th]:border-borde [&_th]:bg-superficie-2 [&_th]:px-4 [&_th]:text-xs [&_th]:font-medium [&_th]:whitespace-nowrap [&_th]:text-texto-2">
+        <caption className="sr-only">{nombre}</caption>
         <thead>
           <tr>
             {cabeceras.map((cabecera) =>
               typeof cabecera === "string" ? (
-                <th key={cabecera}>{cabecera}</th>
+                <th key={cabecera} scope="col">
+                  {cabecera}
+                </th>
               ) : (
                 <CabeceraOrdenable
                   key={cabecera.texto}
@@ -121,6 +143,6 @@ export function Tabla({
         </thead>
         <tbody>{children}</tbody>
       </table>
-    </div>
+    </section>
   );
 }

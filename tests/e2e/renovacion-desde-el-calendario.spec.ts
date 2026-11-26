@@ -65,7 +65,7 @@ test("desde el calendario se cotiza la renovación de un vencimiento: lleva al s
 
   // Un servicio con un camión, hasta «Finalizado»: su vencimiento se lleva a una fecha fija.
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await alta
     .getByLabel("Cliente")

@@ -230,3 +230,99 @@
     }
   }
 }
+
+/*
+ * La ventana (`_ui/ventana.tsx`): un <dialog> modal presentado como panel
+ * lateral derecho de 480 px; en el celular, hoja de abajo a pantalla completa.
+ * Entra y sale con @starting-style + display/overlay discretos
+ * (modern-web-guidance: dialog, animate-to-from-top-layer,
+ * prevent-page-scroll-under-modal-dialog). Sin movimiento si se pidió menos.
+ */
+@layer components {
+  .ventana {
+    margin: 0 0 0 auto;
+    padding: 0;
+    border: 0;
+    border-inline-start: 1px solid var(--color-borde);
+    inline-size: min(480px, 100vw);
+    max-inline-size: 100vw;
+    block-size: 100dvh;
+    max-block-size: 100dvh;
+    background: var(--color-superficie);
+    color: var(--color-texto);
+    box-shadow: var(--shadow-flota);
+    overscroll-behavior: contain;
+    opacity: 0;
+    transition-property: opacity, translate, display, overlay;
+    transition-duration: 160ms;
+    transition-timing-function: ease-in;
+    transition-behavior: allow-discrete;
+
+    @media (prefers-reduced-motion: no-preference) {
+      translate: 100% 0;
+    }
+
+    &[open] {
+      opacity: 1;
+      transition-duration: 220ms;
+      transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+
+      @starting-style {
+        opacity: 0;
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        translate: 0 0;
+
+        @starting-style {
+          translate: 100% 0;
+        }
+      }
+    }
+
+    &::backdrop {
+      background-color: transparent;
+      overflow: hidden;
+      overscroll-behavior: contain;
+      transition-property: background-color, display, overlay;
+      transition-duration: 200ms;
+      transition-timing-function: ease-out;
+      transition-behavior: allow-discrete;
+    }
+
+    &[open]::backdrop {
+      background-color: color-mix(in srgb, var(--color-velo) 35%, transparent);
+
+      @starting-style {
+        background-color: transparent;
+      }
+    }
+
+    /* Celular: hoja que sube desde abajo y ocupa la pantalla. */
+    @media (width < 40rem) {
+      margin: 0;
+      inline-size: 100vw;
+      border-inline-start: 0;
+
+      @media (prefers-reduced-motion: no-preference) {
+        translate: 0 100%;
+
+        &[open] {
+          translate: 0 0;
+
+          @starting-style {
+            translate: 0 100%;
+          }
+        }
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      transition-duration: 100ms;
+
+      &[open] {
+        transition-duration: 100ms;
+      }
+    }
+  }
+}

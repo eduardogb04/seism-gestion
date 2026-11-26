@@ -1,4 +1,7 @@
+import { ChevronDown } from "lucide-react";
 import { type ComponentProps, useId } from "react";
+import { CLASES_DE_CONTROL, ErrorDeCampo, Etiqueta } from "./campo-texto.tsx";
+import { cn } from "./cn.ts";
 
 export type OpcionDeSelector = {
   readonly valor: string;
@@ -14,41 +17,46 @@ export function Selector({
   etiqueta,
   etiquetaOculta = false,
   error,
+  opcional,
   opciones,
   ...resto
 }: {
   readonly etiqueta: string;
   readonly etiquetaOculta?: boolean | undefined;
   readonly error?: string | undefined;
+  /** Se puede dejar sin elegir: la etiqueta lo dice con «opcional». */
+  readonly opcional?: boolean | undefined;
   readonly opciones: readonly OpcionDeSelector[];
 } & Omit<ComponentProps<"select">, "className" | "id" | "children">) {
   const id = useId();
   return (
-    <div className="flex flex-col gap-1">
-      <label
-        htmlFor={id}
-        className={etiquetaOculta ? "sr-only" : "font-medium"}
-      >
+    <div className="flex flex-col gap-1.5">
+      <Etiqueta htmlFor={id} opcional={opcional} oculta={etiquetaOculta}>
         {etiqueta}
-      </label>
-      <select
-        id={id}
-        className="rounded border border-borde-control bg-superficie px-3 py-2 aria-invalid:border-peligro"
-        aria-invalid={error !== undefined}
-        aria-describedby={error === undefined ? undefined : `${id}-error`}
-        {...resto}
-      >
-        {opciones.map(({ valor, texto }) => (
-          <option key={valor} value={valor}>
-            {texto}
-          </option>
-        ))}
-      </select>
-      {error === undefined ? null : (
-        <p id={`${id}-error`} data-error-de-campo className="text-peligro">
-          {error}
-        </p>
-      )}
+      </Etiqueta>
+      <span className="relative flex">
+        <select
+          id={id}
+          className={cn(
+            CLASES_DE_CONTROL,
+            "cursor-pointer appearance-none pr-8",
+          )}
+          aria-invalid={error !== undefined}
+          aria-describedby={error === undefined ? undefined : `${id}-error`}
+          {...resto}
+        >
+          {opciones.map(({ valor, texto }) => (
+            <option key={valor} value={valor}>
+              {texto}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-texto-3"
+        />
+      </span>
+      <ErrorDeCampo id={id} error={error} />
     </div>
   );
 }

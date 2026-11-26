@@ -81,7 +81,7 @@ describe("Tabla", () => {
     expect(concepto).toMatch(/<a [^>]*href="\/x\?b=2"/);
     expect(concepto).toContain("lucide-chevrons-up-down");
 
-    expect(cabecera(html, "Importe")).toBe("<th>Importe</th>");
+    expect(cabecera(html, "Importe")).toBe('<th scope="col">Importe</th>');
   });
 });
 
@@ -96,7 +96,7 @@ describe("ListadoAbm", () => {
     expect(nombre).toMatch(
       /href="\/catalogo\/inventados\?orden=nombre&amp;direccion=desc&amp;pagina=1"/,
     );
-    expect(cabecera(html, "Nota")).toBe("<th>Nota</th>");
+    expect(cabecera(html, "Nota")).toBe('<th scope="col">Nota</th>');
   });
 
   test("tocar el título de otra columna ordena por ella de menor a mayor", () => {

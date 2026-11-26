@@ -54,7 +54,7 @@ test("un administrador da de alta una cuenta, la edita para dejarla inactiva y l
   await expect(fila(page, "Caja")).toContainText("Sí");
 
   // 2. Alta: «Activa» viene marcada. Un nombre repetido vuelve con lo escrito.
-  await page.getByRole("link", { name: "Alta de cuenta" }).click();
+  await page.getByRole("link", { name: "Nueva cuenta" }).click();
   const ventana = page.getByRole("dialog", { name: "Alta de cuenta" });
   await expect(ventana).toBeVisible();
   await expect(campo(page, "Activa")).toBeChecked();

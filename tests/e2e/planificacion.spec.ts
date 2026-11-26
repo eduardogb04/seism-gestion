@@ -60,7 +60,7 @@ test("una operadora carga un hito y un camión en «Adjudicado», inicia la ejec
 
   // Un servicio nuevo que llega a «Adjudicado» por su cotización y su orden de compra.
   await page.goto("/servicios");
-  await page.getByRole("link", { name: "Alta de servicio" }).click();
+  await page.getByRole("link", { name: "Nuevo servicio" }).click();
   const alta = ventana(page, "Alta de servicio");
   await alta
     .getByLabel("Cliente")

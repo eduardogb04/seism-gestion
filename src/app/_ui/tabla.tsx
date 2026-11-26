@@ -91,11 +91,6 @@ function CabeceraOrdenable({
   );
 }
 
-/** El texto de una cabecera, ordene o no. */
-function textoDe(cabecera: Cabecera): string {
-  return typeof cabecera === "string" ? cabecera : cabecera.texto;
-}
-
 /**
  * Cabecera y filas. Las filas (`<tr>`) las arma quien la usa; el estilo de las
  * celdas lo da la tabla. En pantallas angostas hace scroll dentro de su
@@ -113,7 +108,7 @@ export function Tabla({
   readonly children: ReactNode;
 }) {
   // Sin hooks: algunas pantallas la llaman como función.
-  const nombre = titulo ?? `Tabla: ${cabeceras.map(textoDe).join(", ")}`;
+  const nombre = titulo ?? "Tabla";
   return (
     <section
       // biome-ignore lint/a11y/noNoninteractiveTabindex: la región desplazable se recorre con el teclado (responsive-table)

@@ -20,6 +20,7 @@ import {
   cargarOrdenDeCompra,
   guardarCambioDeOrdenDeCompra,
 } from "../acciones.ts";
+import { Parte } from "./_molde/parte.tsx";
 import {
   CambioDelComprobante,
   textoDelEnlaceDeCambio,
@@ -99,11 +100,14 @@ function VentanaDeAnulacion({
 }
 
 export async function OrdenesDeCompra({
+  enSeccion,
   servicioId,
   ruta,
   puedeEscribir,
   parametros,
 }: {
+  /** Dentro de una `Seccion` del molde: sin título propio. */
+  readonly enSeccion?: boolean;
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
@@ -114,8 +118,7 @@ export async function OrdenesDeCompra({
   const aCambiar = parametros.cambioOrden;
   const ordenACambiar = ordenes.find(({ id }) => id === aCambiar);
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Órdenes de compra</h2>
+    <Parte enSeccion={enSeccion} titulo="Órdenes de compra">
       {ordenes.length === 0 ? (
         <p>Todavía no hay órdenes de compra cargadas.</p>
       ) : (
@@ -201,6 +204,6 @@ export async function OrdenesDeCompra({
           rutaAlCerrar={ruta}
         />
       ) : null}
-    </section>
+    </Parte>
   );
 }

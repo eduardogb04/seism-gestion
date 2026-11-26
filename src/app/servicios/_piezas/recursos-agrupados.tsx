@@ -16,6 +16,7 @@ import {
 } from "../../_ui/formulario-abm.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
+import { Parte } from "../[id]/_molde/parte.tsx";
 
 export type AccionesDeRecursos = {
   readonly cargar: (
@@ -57,6 +58,7 @@ async function VentanaDeRecurso({
 }
 
 export function RecursosAgrupados({
+  enSeccion,
   servicioId,
   detalle: { recursos, planificable },
   acciones,
@@ -64,6 +66,8 @@ export function RecursosAgrupados({
   puedeEscribir,
   parametros,
 }: {
+  /** Dentro de una `Seccion` del molde: sin título propio. */
+  readonly enSeccion?: boolean;
   readonly servicioId: string;
   readonly detalle: DetalleDePlanificacion;
   readonly acciones: AccionesDeRecursos;
@@ -74,9 +78,8 @@ export function RecursosAgrupados({
   const puedeCargar = puedeEscribir && planificable;
   const cabeceras = ["Tipo", "Detalle", "Cantidad", "Desde", "Hasta"];
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Recursos</h2>
-      {puedeCargar ? (
+    <Parte enSeccion={enSeccion} titulo="Recursos">
+      {puedeCargar && !enSeccion ? (
         <p className="mb-3">
           <Enlace
             href={`${ruta}?recurso=1`}
@@ -89,7 +92,9 @@ export function RecursosAgrupados({
         </p>
       ) : null}
       {recursos.length === 0 ? (
-        <p>Todavía no hay recursos cargados.</p>
+        <p className={enSeccion ? "m-0 text-[13px] text-texto-3" : undefined}>
+          Todavía no hay recursos cargados.
+        </p>
       ) : (
         GRUPOS.map(({ grupo, titulo }) => {
           const delGrupo = recursos.filter(
@@ -97,7 +102,15 @@ export function RecursosAgrupados({
           );
           return delGrupo.length === 0 ? null : (
             <div key={grupo} data-grupo-de-recursos={grupo} className="mb-4">
-              <h3 className="mb-2 text-lg font-semibold">{titulo}</h3>
+              <h4
+                className={
+                  enSeccion
+                    ? "mt-0 mb-1.5 text-xs font-medium tracking-wide text-texto-3 uppercase"
+                    : "mb-2 text-lg font-semibold"
+                }
+              >
+                {titulo}
+              </h4>
               <Tabla
                 cabeceras={puedeCargar ? [...cabeceras, "Acciones"] : cabeceras}
               >
@@ -118,7 +131,7 @@ export function RecursosAgrupados({
                           )}
                         >
                           <Boton
-                            variante="peligro"
+                            variante={enSeccion ? "discreto" : "peligro"}
                             type="submit"
                             data-carga="planificacion"
                           >
@@ -141,6 +154,6 @@ export function RecursosAgrupados({
           rutaAlCerrar={ruta}
         />
       ) : null}
-    </section>
+    </Parte>
   );
 }

@@ -19,6 +19,7 @@ import {
 import { Selector } from "../../_ui/selector.tsx";
 import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
+import { Parte } from "../[id]/_molde/parte.tsx";
 
 export type AccionesDeHitos = {
   readonly cargar: (
@@ -45,6 +46,7 @@ export type AccionesDeHitos = {
 };
 
 export function PlantillaDeHitos({
+  enSeccion,
   servicioId,
   detalle: { hitos, plantillas, planificable, tildable },
   acciones,
@@ -52,6 +54,8 @@ export function PlantillaDeHitos({
   puedeEscribir,
   parametros,
 }: {
+  /** Dentro de una `Seccion` del molde: sin título propio. */
+  readonly enSeccion?: boolean;
   readonly servicioId: string;
   readonly detalle: DetalleDePlanificacion;
   readonly acciones: AccionesDeHitos;
@@ -63,18 +67,19 @@ export function PlantillaDeHitos({
   const puedeTildar = puedeEscribir && tildable;
   const cabeceras = ["Hito", "Realizado"];
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-xl font-semibold">Hitos</h2>
+    <Parte enSeccion={enSeccion} titulo="Hitos">
       {puedeArmar ? (
         <div className="mb-3 flex flex-wrap items-end gap-3">
-          <Enlace
-            href={`${ruta}?hito=1`}
-            scroll={false}
-            className={clasesDeBoton("primario")}
-            data-carga="planificacion"
-          >
-            Nuevo hito
-          </Enlace>
+          {enSeccion ? null : (
+            <Enlace
+              href={`${ruta}?hito=1`}
+              scroll={false}
+              className={clasesDeBoton("primario")}
+              data-carga="planificacion"
+            >
+              Nuevo hito
+            </Enlace>
+          )}
           {plantillas.length === 0 ? null : (
             <form
               action={acciones.aplicarPlantilla.bind(null, servicioId)}
@@ -100,7 +105,9 @@ export function PlantillaDeHitos({
         </div>
       ) : null}
       {hitos.length === 0 ? (
-        <p>Todavía no hay hitos cargados.</p>
+        <p className={enSeccion ? "m-0 text-[13px] text-texto-3" : undefined}>
+          Todavía no hay hitos cargados.
+        </p>
       ) : (
         <Tabla
           cabeceras={
@@ -147,7 +154,7 @@ export function PlantillaDeHitos({
                           )}
                         >
                           <Boton
-                            variante="secundario"
+                            variante={enSeccion ? "fantasma" : "secundario"}
                             type="submit"
                             data-carga="planificacion"
                           >
@@ -165,7 +172,7 @@ export function PlantillaDeHitos({
                           )}
                         >
                           <Boton
-                            variante="secundario"
+                            variante={enSeccion ? "fantasma" : "secundario"}
                             type="submit"
                             data-carga="planificacion"
                           >
@@ -177,7 +184,7 @@ export function PlantillaDeHitos({
                         action={acciones.quitar.bind(null, servicioId, hito.id)}
                       >
                         <Boton
-                          variante="peligro"
+                          variante={enSeccion ? "discreto" : "peligro"}
                           type="submit"
                           data-carga="planificacion"
                         >
@@ -204,6 +211,6 @@ export function PlantillaDeHitos({
           />
         </Ventana>
       ) : null}
-    </section>
+    </Parte>
   );
 }

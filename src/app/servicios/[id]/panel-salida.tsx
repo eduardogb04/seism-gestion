@@ -1,28 +1,37 @@
 /**
- * El panel de las salidas del recorrido (F6-04): «Perdido», «Sin respuesta» y
- * «Cancelado». Por qué, cuándo y quién lo cambió, la última cotización y, solo
- * en «Sin respuesta», volver a cotizar. Si el servicio ya tenía facturas, se
- * puede cobrar lo que queda.
+ * El panel de las salidas del recorrido (F6-04, SYSTEM_SPEC §5.3): «Perdido»,
+ * «Sin respuesta» y «Cancelado». Por qué, cuándo y quién lo cambió, la última
+ * cotización y, solo en «Sin respuesta», «El cliente volvió». Si el servicio ya
+ * tenía facturas, se puede cobrar lo que queda.
  */
 
-import { Ban, CalendarClock, Hourglass, Undo2 } from "lucide-react";
+import {
+  Ban,
+  CalendarClock,
+  CircleSlash,
+  Hourglass,
+  Receipt,
+} from "lucide-react";
 import { ETIQUETAS_DE_ESTADO } from "../../../casos-uso/servicios/formulario.ts";
 import type { EstadoServicio } from "../../../dominio/servicios/estados.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import {
-  BarraDeAcciones,
-  CabeceraDePanel,
-  GrillaDeMetricas,
-} from "../../_ui/panel.tsx";
+import { accionPrincipalDe } from "./_molde/accion-principal.ts";
+import { PanelDeEtapa, Seccion } from "./_molde/panel-de-etapa.tsx";
+import { Persona } from "./_molde/persona.tsx";
 import { Cotizaciones } from "./cotizaciones.tsx";
 import {
   cotizacionVigente,
   type DatosDePanel,
   dias,
   diasEnEtapa,
-  transicionesDelPanel,
 } from "./datos-de-panel.ts";
 import { Facturas } from "./facturas.tsx";
+
+const ICONOS = {
+  perdido: CircleSlash,
+  sin_respuesta: Hourglass,
+  cancelado: Ban,
+} as const;
 
 export async function PanelSalida({
   servicio,
@@ -37,64 +46,101 @@ export async function PanelSalida({
   const etiqueta = ETIQUETAS_DE_ESTADO[etapa];
   const cambio = servicio.historial.find(({ a }) => a === etiqueta);
   const conFacturas = (await armado().facturas.listar(servicio.id)).length > 0;
-  const { principal } = transicionesDelPanel(servicio, ruta, "cotizado");
+  const principal = accionPrincipalDe(servicio, ruta);
+  const Icono =
+    etapa === "perdido" || etapa === "sin_respuesta" || etapa === "cancelado"
+      ? ICONOS[etapa]
+      : Ban;
   return (
-    <article className="rounded border border-borde bg-superficie p-5 shadow-sm dark:shadow-none">
-      <CabeceraDePanel
-        Icono={Ban}
-        titulo={etiqueta}
-        contexto={
-          soloLectura
-            ? `Estuvo ${dias(diasEnEtapa(servicio, etapa))} en «${etiqueta}».`
-            : `Pasó a «${etiqueta}» el ${cambio?.cuando ?? ""}. Ya no se carga nada: se mira.`
+    <PanelDeEtapa
+      etapa={etapa}
+      Icono={Icono}
+      titulo={etiqueta}
+      bajada={
+        soloLectura
+          ? `Estuvo ${dias(diasEnEtapa(servicio, etapa))} en «${etiqueta}».`
+          : etapa === "sin_respuesta"
+            ? `Pasó a «${etiqueta}» el ${cambio?.cuando ?? ""}. Si el cliente vuelve, retomalo y queda otra vez en «Cotizado».`
+            : `Pasó a «${etiqueta}» el ${cambio?.cuando ?? ""}. Queda en solo lectura.`
+      }
+      metricas={[
+        {
+          titulo: "Última cotización",
+          Icono: Receipt,
+          valor: vigente === null ? "Sin cotización" : vigente.importe,
+          ...(vigente === null
+            ? {}
+            : { detalle: `versión ${vigente.version} · ${vigente.fecha}` }),
+        },
+        {
+          titulo: "Días en cotización",
+          Icono: CalendarClock,
+          valor: diasEnEtapa(servicio, "cotizado"),
+        },
+      ]}
+      principal={
+        puedeActuar && etapa === "sin_respuesta" && !soloLectura
+          ? principal
+          : null
+      }
+    >
+      <Seccion clave="salida.motivo" titulo="Motivo">
+        <figure className="m-0 rounded-tarjeta border border-borde bg-superficie-2/60 px-4 py-3">
+          <blockquote
+            className={`m-0 text-sm whitespace-pre-line ${
+              cambio?.nota ? "text-texto" : "text-texto-3"
+            }`}
+          >
+            {cambio?.nota || "No se dejó un motivo."}
+          </blockquote>
+          <figcaption className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-texto-3">
+            {cambio === undefined ? null : (
+              <>
+                <Persona quien={cambio.quien} chica />
+                <span className="cifras">{cambio.cuando}</span>
+              </>
+            )}
+          </figcaption>
+        </figure>
+        {/* Los mismos datos, como lista, para quien los lee de corrido. */}
+        <dl data-cierre className="sr-only">
+          <dt>Motivo</dt>
+          <dd>{cambio?.nota}</dd>
+          <dt>Fecha</dt>
+          <dd>{cambio?.cuando}</dd>
+          <dt>Quién</dt>
+          <dd>{cambio?.quien}</dd>
+        </dl>
+      </Seccion>
+      <Seccion
+        clave="salida.cotizaciones"
+        titulo="Cotizaciones"
+        resumen={
+          cotizaciones.length === 1
+            ? "1 versión"
+            : `${cotizaciones.length} versiones`
         }
-      />
-      <GrillaDeMetricas
-        metricas={[
-          {
-            titulo: "Última cotización",
-            Icono: Hourglass,
-            valor: vigente === null ? "Sin cotización" : vigente.importe,
-            ...(vigente === null
-              ? {}
-              : { detalle: `versión ${vigente.version} · ${vigente.fecha}` }),
-          },
-          {
-            titulo: "Días en cotización",
-            Icono: CalendarClock,
-            valor: diasEnEtapa(servicio, "cotizado"),
-          },
-        ]}
-      />
-      <dl
-        data-cierre
-        className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5"
       >
-        <dt className="text-texto-suave">Motivo</dt>
-        <dd className="whitespace-pre-line">{cambio?.nota}</dd>
-        <dt className="text-texto-suave">Fecha</dt>
-        <dd>{cambio?.cuando}</dd>
-        <dt className="text-texto-suave">Quién</dt>
-        <dd>{cambio?.quien}</dd>
-      </dl>
-      <Cotizaciones servicioId={servicio.id} ruta={ruta} />
+        <Cotizaciones servicioId={servicio.id} ruta={ruta} />
+      </Seccion>
       {conFacturas ? (
-        <Facturas
-          servicioId={servicio.id}
-          ruta={ruta}
-          puedeFacturar={false}
-          puedeCobrar={puedeActuar}
+        <Seccion
+          clave="salida.facturas"
+          titulo="Facturas"
           parametros={parametros}
-          sinFilasNoSeDibuja={false}
-        />
+          abreCon={["cobrar", "anularCobro"]}
+        >
+          <Facturas
+            enSeccion
+            servicioId={servicio.id}
+            ruta={ruta}
+            puedeFacturar={false}
+            puedeCobrar={puedeActuar}
+            parametros={parametros}
+            sinFilasNoSeDibuja={false}
+          />
+        </Seccion>
       ) : null}
-      {puedeActuar && etapa === "sin_respuesta" && principal !== null ? (
-        <BarraDeAcciones
-          principal={{ ...principal, Icono: Undo2 }}
-          secundarias={[]}
-          salidas={[]}
-        />
-      ) : null}
-    </article>
+    </PanelDeEtapa>
   );
 }

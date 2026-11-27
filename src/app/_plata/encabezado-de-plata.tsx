@@ -67,16 +67,14 @@ function MetricaDePlata({
       Icono={Icono}
       valor={primera?.valor ?? sinDatos}
       detalle={
-        partes.length === 0 ? undefined : (
-          <>
-            {partes.map(({ clave, nodo }, i) => (
+        partes.length === 0
+          ? undefined
+          : partes.map(({ clave, nodo }, i) => (
               <span key={clave}>
                 {i > 0 ? " · " : null}
                 {nodo}
               </span>
-            ))}
-          </>
-        )
+            ))
       }
     />
   );

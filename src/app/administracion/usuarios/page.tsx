@@ -93,35 +93,45 @@ export default async function Usuarios({ searchParams }: Props) {
   }
   return (
     <Marco email={email} rol={rol} rutaActual="/administracion/usuarios">
-      <main>
-        <h1>Usuarios</h1>
-        <p>
-          <a href="/administracion">Administración</a>
-        </p>
+      <main className="flex flex-col gap-5">
+        <header className="aparece">
+          <h1 className="m-0 text-[24px] leading-8 font-semibold tracking-tight">
+            Usuarios
+          </h1>
+          <p className="m-0 mt-1 text-texto-2">
+            Quiénes pueden entrar al sistema y con qué rol.{" "}
+            <a href="/administracion">Administración</a>
+          </p>
+        </header>
         {typeof error === "string" ? (
           <ErrorEnPantalla error={pantallaDeCodigo(error)} />
         ) : null}
 
-        <h2>Dar de alta</h2>
-        <form action={altaDeUsuario} className="flex flex-wrap items-end gap-3">
-          <CampoTexto
-            etiqueta="Email"
-            type="email"
-            name="email"
-            required
-            maxLength={254}
-          />
-          <SelectorDeRol etiqueta="Rol" actual="operador" />
-          <Boton variante="primario" type="submit">
-            Dar de alta
-          </Boton>
-        </form>
+        <section className="flex flex-col gap-3 rounded-tarjeta border border-borde bg-superficie p-4 shadow-tarjeta">
+          <h2 className="m-0">Dar de alta</h2>
+          <form
+            action={altaDeUsuario}
+            className="flex flex-wrap items-end gap-3"
+          >
+            <CampoTexto
+              etiqueta="Email"
+              type="email"
+              name="email"
+              required
+              maxLength={254}
+            />
+            <SelectorDeRol etiqueta="Rol" actual="operador" />
+            <Boton variante="primario" type="submit">
+              Dar de alta
+            </Boton>
+          </form>
+        </section>
 
-        <h2>Lista</h2>
+        <h2 className="m-0">Lista</h2>
         <Tabla cabeceras={["Email", "Rol", "Estado"]}>
           {usuarios.map(({ valor }) => (
             <tr key={valor.id} data-usuario={valor.email}>
-              <td>{valor.email}</td>
+              <td className="font-medium">{valor.email}</td>
               <td>
                 {valor.estado === "activo" ? (
                   <form
@@ -148,14 +158,18 @@ export default async function Usuarios({ searchParams }: Props) {
                     action={revocarUsuario}
                     className="flex flex-wrap items-center gap-2"
                   >
-                    <span>activo</span>
+                    <span className="inline-flex items-center rounded-full bg-exito-suave px-2 py-0.5 text-xs font-medium text-exito">
+                      activo
+                    </span>
                     <input type="hidden" name="usuarioId" value={valor.id} />
                     <Boton variante="peligro" type="submit">
                       Revocar
                     </Boton>
                   </form>
                 ) : (
-                  "revocado"
+                  <span className="inline-flex items-center rounded-full bg-superficie-3 px-2 py-0.5 text-xs font-medium text-texto-2">
+                    revocado
+                  </span>
                 )}
               </td>
             </tr>

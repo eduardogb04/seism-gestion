@@ -6,6 +6,7 @@ export default async function PlantillasDeHitos(props: PropsListado) {
   const sesion = await sesionExigida();
   return (
     <PaginaListado
+      bajada="Los hitos que se cargan solos al abrir un servicio de cada tipo."
       definicion={PLANTILLAS_DE_HITOS}
       sesion={sesion}
       {...props}

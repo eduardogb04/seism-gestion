@@ -48,6 +48,7 @@ export const GRUPOS: readonly Grupo[] = [
         Icono: CalendarDays,
         atajo: "c",
       },
+      { texto: "Clientes", ruta: "/catalogo/clientes", Icono: Building2 },
     ],
   },
   {
@@ -73,11 +74,6 @@ export const GRUPOS: readonly Grupo[] = [
     nombre: "Configuración",
     plegable: true,
     secciones: [
-      {
-        texto: "Clientes y proveedores",
-        ruta: "/catalogo/clientes",
-        Icono: Building2,
-      },
       { texto: "Grupos", ruta: "/catalogo/grupos", Icono: Layers },
       { texto: "Sitios", ruta: "/catalogo/sitios", Icono: MapPin },
       { texto: "Camiones", ruta: "/catalogo/camiones", Icono: Truck },

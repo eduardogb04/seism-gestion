@@ -5,6 +5,11 @@ import { PaginaListado, type PropsListado } from "../_abm/paginas.tsx";
 export default async function TiposDeServicio(props: PropsListado) {
   const sesion = await sesionExigida();
   return (
-    <PaginaListado definicion={TIPOS_DE_SERVICIO} sesion={sesion} {...props} />
+    <PaginaListado
+      bajada="Las clases de servicio que ofrecemos y cómo se facturan."
+      definicion={TIPOS_DE_SERVICIO}
+      sesion={sesion}
+      {...props}
+    />
   );
 }

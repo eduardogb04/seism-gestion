@@ -544,6 +544,21 @@ export async function aplicarPlantillaDeHitos(
   );
 }
 
+/** Copiar al final de los recursos los de la plantilla elegida (`plantilla` en el formulario). */
+export async function aplicarPlantillaDeRecursos(
+  servicioId: string,
+  formulario: FormData,
+): Promise<void> {
+  const { plantilla = "" } = escritoEn(formulario);
+  return enElServicio(servicioId, (actor) =>
+    armado().planificacion.crearRecursosDePlantilla(
+      actor,
+      servicioId,
+      plantilla,
+    ),
+  );
+}
+
 /** Cargar un recurso del servicio. */
 export async function cargarRecurso(
   servicioId: string,

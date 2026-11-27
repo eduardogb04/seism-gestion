@@ -2,6 +2,7 @@
 
 import {
   aplicarPlantillaDeHitos,
+  aplicarPlantillaDeRecursos,
   cambiarOrdenDeHito,
   cambiarRealizadoDeHito,
   cargarHito,
@@ -23,4 +24,5 @@ export const ACCIONES_DE_RECURSOS = {
   cargar: cargarRecurso,
   quitar: quitarRecurso,
   editar: editarRecurso,
+  aplicarPlantilla: aplicarPlantillaDeRecursos,
 };

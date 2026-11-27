@@ -13,6 +13,7 @@ const ACCIONES = {
   cargar: async () => ({ escrito: {}, errores: {} }),
   editar: async () => ({ escrito: {}, errores: {} }),
   quitar: async () => undefined,
+  aplicarPlantilla: async () => undefined,
 };
 
 function textoDe(recursos: DetalleDePlanificacion["recursos"]): string {
@@ -20,6 +21,7 @@ function textoDe(recursos: DetalleDePlanificacion["recursos"]): string {
     hitos: [],
     recursos,
     plantillas: [],
+    plantillasDeRecursos: [],
     planificable: true,
     tildable: false,
   };

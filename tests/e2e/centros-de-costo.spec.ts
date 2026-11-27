@@ -28,7 +28,7 @@ function fila(page: Page, texto: string) {
 function campo(page: Page, etiqueta: string) {
   // El nombre accesible de un campo opcional lleva «opcional» al final.
   const literal = etiqueta.replace(/[()]/g, (c) => "\\" + c);
-  return page.getByLabel(new RegExp(`^${literal}( opcional)?$`));
+  return page.getByLabel(new RegExp(`^${literal}( ?opcional)?$`));
 }
 
 test("un administrador da de alta un centro de costo, le cambia la clase y lo da de baja; un nombre repetido vuelve con lo escrito", async ({

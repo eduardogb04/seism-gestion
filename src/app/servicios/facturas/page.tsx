@@ -8,10 +8,20 @@
 
 import { ROLES_QUE_ESCRIBEN_SERVICIOS } from "../../../casos-uso/servicios/servicios.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
+import { EncabezadoDePlata } from "../../_plata/encabezado-de-plata.tsx";
+import {
+  FilaDeFiltros,
+  FiltroEnlace,
+  Importe,
+  ListaDeTarjetas,
+  TarjetaDeFila,
+  Totales,
+  Vacio,
+} from "../../_plata/piezas.tsx";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
+import { cn } from "../../_ui/cn.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { Marco } from "../../_ui/marco.tsx";
-import { Selector } from "../../_ui/selector.tsx";
 import {
   CLASES_DE_ACCIONES,
   CLASES_DE_ENLACE_DE_FILA,
@@ -28,17 +38,6 @@ type Props = {
 
 const RUTA = "/servicios/facturas";
 
-/** Cada cabecera y la columna por la que ordena (`null`: esa no ordena). */
-const COLUMNAS = [
-  ["Tipo", null],
-  ["Factura", "numero"],
-  ["Servicio", "servicio"],
-  ["Fecha", "fecha"],
-  ["Sin IVA", null],
-  ["IVA", null],
-  ["Total", null],
-] as const;
-
 export default async function Ingresos({ searchParams }: Props) {
   const sesion = await sesionExigida();
   const parametros = await searchParams;
@@ -48,11 +47,12 @@ export default async function Ingresos({ searchParams }: Props) {
   const puedeEscribir = ROLES_QUE_ESCRIBEN_SERVICIOS.includes(rol);
   const aCobrar =
     typeof parametros.cobrar === "string" ? parametros.cobrar : null;
-  /** El listado con su mes, moneda y orden y, si se pide, la ventana de cobro abierta. */
+  /** El listado con su mes, moneda, tipo y orden y, si se pide, la ventana de cobro abierta. */
   const enlace = (
     ordenNuevo: string,
     direccionNueva: "asc" | "desc",
     cobrar?: string,
+    tipoNuevo: string = tipo,
   ) => {
     const consulta = new URLSearchParams({
       mes: mes.mes,
@@ -60,95 +60,176 @@ export default async function Ingresos({ searchParams }: Props) {
       orden: ordenNuevo,
       direccion: direccionNueva,
     });
-    if (tipo !== "") {
-      consulta.set("tipo", tipo);
+    if (tipoNuevo !== "") {
+      consulta.set("tipo", tipoNuevo);
     }
     if (cobrar !== undefined) {
       consulta.set("cobrar", cobrar);
     }
     return `${RUTA}?${consulta}`;
   };
-  const cabeceras = COLUMNAS.map(([texto, columna]) =>
-    columna === null
-      ? texto
-      : cabeceraOrdenable(texto, columna, { orden, direccion }, enlace),
+  const ordenable = (texto: string, columna: string) =>
+    cabeceraOrdenable(texto, columna, { orden, direccion }, (o, d) =>
+      enlace(o, d),
+    );
+  const derecha =
+    "[&_th:nth-child(5)]:text-right [&_th:nth-child(6)]:text-right [&_th:nth-child(7)]:text-right";
+  const botonDeCobro = (facturaId: string) => (
+    <Enlace
+      href={enlace(orden, direccion, facturaId)}
+      scroll={false}
+      className={clasesDeBoton("secundario", "h-8 px-2.5 text-[13px]")}
+    >
+      Registrar cobro
+    </Enlace>
   );
   return (
     <Marco email={email} rol={rol} rutaActual={RUTA}>
-      <main>
-        <h1>
-          Facturado · {mes.nombre} · {moneda}
-        </h1>
-        <p>
-          <a href={`/?mes=${mes.mes}`}>Volver al inicio</a>
+      <main className="flex flex-col gap-5">
+        <EncabezadoDePlata activa="ingresos" />
+        <p className="m-0 text-texto-2">
+          Facturado en <strong className="text-texto">{mes.nombre}</strong> en{" "}
+          {moneda}. <Enlace href={`/?mes=${mes.mes}`}>Volver al inicio</Enlace>
         </p>
-        <form
-          method="get"
-          action={RUTA}
-          className="my-4 flex flex-wrap items-end gap-4"
-        >
-          <input type="hidden" name="mes" value={mes.mes} />
-          <input type="hidden" name="moneda" value={moneda} />
-          <input type="hidden" name="orden" value={orden} />
-          <input type="hidden" name="direccion" value={direccion} />
-          <Selector
-            etiqueta="Tipo"
-            name="tipo"
-            defaultValue={tipo}
-            opciones={[
-              { valor: "", texto: "Todos" },
-              ...listado.tipos.map(({ valor, etiqueta }) => ({
-                valor,
-                texto: etiqueta,
-              })),
-            ]}
-          />
-          <button type="submit" className={clasesDeBoton("secundario")}>
-            Filtrar
-          </button>
-        </form>
-        <Tabla
-          cabeceras={puedeEscribir ? [...cabeceras, "Acciones"] : cabeceras}
-        >
-          {filas.map((fila) => (
-            <tr key={fila.facturaId} className={CLASES_DE_FILA_ENLAZADA}>
-              <td>{fila.tipo}</td>
-              <td>
-                <Enlace
-                  href={`/servicios/facturas/${fila.facturaId}`}
-                  className={CLASES_DE_ENLACE_DE_FILA}
-                >
-                  {fila.numero}
-                </Enlace>
-              </td>
-              <td className={CLASES_DE_ACCIONES}>
-                <a href={`/servicios/${fila.servicioId}`}>{fila.servicio}</a>
-              </td>
-              <td>{fila.fecha}</td>
-              <td>{fila.sinIva}</td>
-              <td>{fila.iva}</td>
-              <td>{fila.total}</td>
-              {puedeEscribir ? (
-                <td className={CLASES_DE_ACCIONES}>
-                  {fila.conSaldo ? (
-                    <Enlace
-                      href={enlace(orden, direccion, fila.facturaId)}
-                      scroll={false}
-                      className={clasesDeBoton("primario")}
-                    >
-                      Registrar cobro
-                    </Enlace>
-                  ) : null}
-                </td>
-              ) : null}
-            </tr>
+        <FilaDeFiltros>
+          <FiltroEnlace
+            href={enlace(orden, direccion, undefined, "")}
+            activo={tipo === ""}
+          >
+            Todos
+          </FiltroEnlace>
+          {listado.tipos.map(({ valor, etiqueta }) => (
+            <FiltroEnlace
+              key={valor}
+              href={enlace(orden, direccion, undefined, valor)}
+              activo={tipo === valor}
+            >
+              {etiqueta}
+            </FiltroEnlace>
           ))}
-        </Tabla>
-        <p className="mt-3" data-total-sin-iva>
-          Sin IVA: {listado.totalSinIva}
-        </p>
-        <p data-total-iva>IVA: {listado.totalIva}</p>
-        <p data-total>Total con IVA: {listado.total}</p>
+        </FilaDeFiltros>
+        {filas.length === 0 ? (
+          <Vacio
+            titulo="No hay facturas con estos filtros."
+            texto="Probá con otro tipo o con otro mes desde el inicio."
+          />
+        ) : (
+          <>
+            <div
+              className={cn(
+                "hidden md:block [&_td]:text-[13px] [&_th]:text-[12px]",
+                derecha,
+              )}
+            >
+              <Tabla
+                titulo="Facturas del mes"
+                cabeceras={[
+                  "Tipo",
+                  ordenable("Factura", "numero"),
+                  ordenable("Servicio", "servicio"),
+                  ordenable("Fecha", "fecha"),
+                  "Sin IVA",
+                  "IVA",
+                  "Total",
+                  ...(puedeEscribir ? ["Acciones"] : []),
+                ]}
+              >
+                {filas.map((fila) => (
+                  <tr key={fila.facturaId} className={CLASES_DE_FILA_ENLAZADA}>
+                    <td className="whitespace-nowrap text-texto-2">
+                      {fila.tipo}
+                    </td>
+                    <td>
+                      <Enlace
+                        href={`/servicios/facturas/${fila.facturaId}`}
+                        className={cn(
+                          CLASES_DE_ENLACE_DE_FILA,
+                          "font-mono text-[12px]",
+                        )}
+                      >
+                        {fila.numero}
+                      </Enlace>
+                    </td>
+                    <td className={cn(CLASES_DE_ACCIONES, "whitespace-nowrap")}>
+                      <a
+                        href={`/servicios/${fila.servicioId}`}
+                        className="font-mono text-[12px]"
+                      >
+                        {fila.servicio}
+                      </a>
+                    </td>
+                    <td className="cifras whitespace-nowrap">{fila.fecha}</td>
+                    <td className="text-right whitespace-nowrap text-texto-2">
+                      <Importe texto={fila.sinIva} className="font-normal" />
+                    </td>
+                    <td className="text-right whitespace-nowrap text-texto-2">
+                      <Importe texto={fila.iva} className="font-normal" />
+                    </td>
+                    <td className="text-right whitespace-nowrap">
+                      <Importe texto={fila.total} />
+                    </td>
+                    {puedeEscribir ? (
+                      <td className={cn(CLASES_DE_ACCIONES, "text-right")}>
+                        {fila.conSaldo ? botonDeCobro(fila.facturaId) : null}
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+              </Tabla>
+            </div>
+            <ListaDeTarjetas>
+              {filas.map((fila) => (
+                <TarjetaDeFila
+                  key={fila.facturaId}
+                  href={`/servicios/facturas/${fila.facturaId}`}
+                  titulo={
+                    <span className="block truncate font-mono text-[13px]">
+                      {fila.numero}
+                    </span>
+                  }
+                  derecha={<Importe texto={fila.total} />}
+                  accion={
+                    puedeEscribir && fila.conSaldo
+                      ? botonDeCobro(fila.facturaId)
+                      : undefined
+                  }
+                >
+                  <span className="cifras flex flex-wrap items-center gap-x-2 text-[12px] text-texto-3">
+                    {fila.tipo} · {fila.fecha} ·{" "}
+                    <a
+                      href={`/servicios/${fila.servicioId}`}
+                      className="relative z-10 font-mono"
+                    >
+                      {fila.servicio}
+                    </a>
+                  </span>
+                  <span className="cifras text-[12px] text-texto-3">
+                    Sin IVA {fila.sinIva} · IVA {fila.iva}
+                  </span>
+                </TarjetaDeFila>
+              ))}
+            </ListaDeTarjetas>
+          </>
+        )}
+        <Totales
+          renglones={[
+            {
+              etiqueta: "Sin IVA",
+              valor: listado.totalSinIva,
+              dato: "data-total-sin-iva",
+            },
+            {
+              etiqueta: "IVA",
+              valor: listado.totalIva,
+              dato: "data-total-iva",
+            },
+            {
+              etiqueta: "Total con IVA",
+              valor: listado.total,
+              dato: "data-total",
+            },
+          ]}
+        />
       </main>
       {puedeEscribir && aCobrar !== null ? (
         <VentanaDeCobro

@@ -1,23 +1,19 @@
 /**
  * *Por cobrar* (F2-07, ADR 0037): las facturas con saldo, por vencimiento, con
- * los días de atraso de la que ya venció y, al pie, lo que queda por cobrar en
- * cada moneda. La fila entera lleva a la factura y cada una ofrece «Registrar
- * cobro» en una ventana sobre este mismo listado (`?cobrar=<id>`, F3-07).
- * HTML del servidor, sin JavaScript de cliente.
+ * lo vencido arriba y lo próximo debajo. Cada una ofrece «Registrar cobro» en
+ * una ventana sobre este mismo listado (`?cobrar=<id>`, F3-07). HTML del
+ * servidor, sin JavaScript de cliente.
  */
 
 import { ROLES_QUE_ESCRIBEN_SERVICIOS } from "../../../casos-uso/servicios/servicios.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
+import { EncabezadoDePlata } from "../../_plata/encabezado-de-plata.tsx";
+import { Totales } from "../../_plata/piezas.tsx";
+import { type FilaPorVencer, PorVencer } from "../../_plata/por-vencer.tsx";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import { Marco } from "../../_ui/marco.tsx";
-import {
-  CLASES_DE_ACCIONES,
-  CLASES_DE_ENLACE_DE_FILA,
-  CLASES_DE_FILA_ENLAZADA,
-  cabeceraOrdenable,
-  Tabla,
-} from "../../_ui/tabla.tsx";
+import { cabeceraOrdenable } from "../../_ui/tabla.tsx";
 import { VentanaDeCobro } from "../../_ui/ventana-de-movimiento.tsx";
 import { sesionExigida } from "../../(auth)/sesion-actual.ts";
 
@@ -26,17 +22,6 @@ type Props = {
 };
 
 const RUTA = "/servicios/por-cobrar";
-
-/** Cada cabecera y la columna por la que ordena (`null`: esa no ordena). */
-const COLUMNAS = [
-  ["Factura", "factura"],
-  ["Servicio", "servicio"],
-  ["Cliente", "cliente"],
-  ["Vencimiento", "vencimiento"],
-  ["Total con IVA", null],
-  ["Saldo", null],
-  ["Atraso", null],
-] as const;
 
 /** El listado con su orden y, si se pide, la ventana de cobro abierta. */
 function enlace(
@@ -60,58 +45,71 @@ export default async function PorCobrar({ searchParams }: Props) {
   const puedeEscribir = ROLES_QUE_ESCRIBEN_SERVICIOS.includes(rol);
   const aCobrar =
     typeof parametros.cobrar === "string" ? parametros.cobrar : null;
-  const cabeceras = COLUMNAS.map(([texto, columna]) =>
-    columna === null
-      ? texto
-      : cabeceraOrdenable(
-          texto,
-          columna,
-          { orden, direccion },
-          (ordenNuevo, direccionNueva) => enlace(ordenNuevo, direccionNueva),
-        ),
-  );
+  const ordenable = (texto: string, columna: string) =>
+    cabeceraOrdenable(texto, columna, { orden, direccion }, (o, d) =>
+      enlace(o, d),
+    );
+  const vista: FilaPorVencer[] = filas.map((fila) => ({
+    id: fila.facturaId,
+    href: `/servicios/facturas/${fila.facturaId}`,
+    principal: fila.numero,
+    mono: true,
+    tercero: fila.cliente,
+    servicio: {
+      codigo: fila.servicio,
+      href: `/servicios/${fila.servicioId}`,
+    },
+    vence: fila.vencimiento,
+    atraso: fila.atraso,
+    total: fila.total,
+    saldo: fila.saldo,
+    accion: puedeEscribir ? (
+      <Enlace
+        href={enlace(orden, direccion, fila.facturaId)}
+        scroll={false}
+        className={clasesDeBoton("secundario", "h-8 px-2.5 text-[13px]")}
+      >
+        Registrar cobro
+      </Enlace>
+    ) : null,
+  }));
   return (
     <Marco email={email} rol={rol} rutaActual={RUTA}>
-      <main>
-        <h1>Por cobrar</h1>
-        <Tabla
-          cabeceras={puedeEscribir ? [...cabeceras, "Acciones"] : cabeceras}
-        >
-          {filas.map((fila) => (
-            <tr key={fila.facturaId} className={CLASES_DE_FILA_ENLAZADA}>
-              <td>
-                <Enlace
-                  href={`/servicios/facturas/${fila.facturaId}`}
-                  className={CLASES_DE_ENLACE_DE_FILA}
-                >
-                  {fila.numero}
-                </Enlace>
-              </td>
-              <td className={CLASES_DE_ACCIONES}>
-                <a href={`/servicios/${fila.servicioId}`}>{fila.servicio}</a>
-              </td>
-              <td>{fila.cliente}</td>
-              <td>{fila.vencimiento}</td>
-              <td>{fila.total}</td>
-              <td>{fila.saldo}</td>
-              <td>{fila.atraso}</td>
-              {puedeEscribir ? (
-                <td className={CLASES_DE_ACCIONES}>
-                  <Enlace
-                    href={enlace(orden, direccion, fila.facturaId)}
-                    scroll={false}
-                    className={clasesDeBoton("primario")}
-                  >
-                    Registrar cobro
-                  </Enlace>
-                </td>
-              ) : null}
-            </tr>
-          ))}
-        </Tabla>
-        <p className="mt-3" data-saldos-por-moneda>
-          Saldo por cobrar: {saldos.length === 0 ? "nada" : saldos.join(" · ")}
-        </p>
+      <main className="flex flex-col gap-5">
+        <EncabezadoDePlata activa="por-cobrar" />
+        <PorVencer
+          grupos={[
+            {
+              id: "vencido",
+              titulo: "Vencido",
+              tono: "peligro",
+              filas: vista.filter(({ atraso }) => atraso !== ""),
+            },
+            {
+              id: "proximo",
+              titulo: "Próximo",
+              tono: "normal",
+              filas: vista.filter(({ atraso }) => atraso === ""),
+            },
+          ]}
+          cabeceras={{
+            principal: ordenable("Comprobante", "factura"),
+            servicio: ordenable("Servicio", "servicio"),
+            vence: ordenable("Vence", "vencimiento"),
+          }}
+          conServicio
+          conAccion={puedeEscribir}
+          vacio="Nada por cobrar. Todo al día."
+        />
+        {saldos.length === 0 ? null : (
+          <Totales
+            renglones={saldos.map((valor) => ({
+              etiqueta: "Saldo por cobrar",
+              valor,
+              dato: "data-saldos-por-moneda",
+            }))}
+          />
+        )}
       </main>
       {puedeEscribir && aCobrar !== null ? (
         <VentanaDeCobro

@@ -233,11 +233,19 @@ export async function listadoDeServicios(
           take: 1,
           select: { importeCentavos: true, importeMoneda: true },
         },
+        // La orden vigente (no reemplazada), con sus ampliaciones: el total es la suma.
         ordenesCompra: {
-          where: { eliminadoEn: null },
+          where: { eliminadoEn: null, reemplazadaEn: null },
           orderBy: { fecha: "desc" },
           take: 1,
-          select: { importeCentavos: true, importeMoneda: true },
+          select: {
+            importeCentavos: true,
+            importeMoneda: true,
+            ampliaciones: {
+              where: { eliminadoEn: null },
+              select: { importeCentavos: true },
+            },
+          },
         },
       },
     }),
@@ -247,7 +255,17 @@ export async function listadoDeServicios(
   const todos: ServicioDelListado[] = filas.map((s) => {
     const ultimo = s.eventos[0];
     const etapa = esEstado(ultimo?.a) ? ultimo.a : "creado";
-    const orden = s.ordenesCompra[0];
+    const vigente = s.ordenesCompra[0];
+    const orden =
+      vigente === undefined
+        ? undefined
+        : {
+            importeMoneda: vigente.importeMoneda,
+            importeCentavos: vigente.ampliaciones.reduce(
+              (total, { importeCentavos }) => total + importeCentavos,
+              vigente.importeCentavos,
+            ),
+          };
     const cotizacion = s.cotizaciones[0];
     const base = orden ?? cotizacion;
     const moneda = base?.importeMoneda as Moneda | undefined;

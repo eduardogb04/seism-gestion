@@ -99,7 +99,15 @@ export function ResumenDeFacturacion({
               titulo={`Devengado a ${facturacion.alMes}`}
               valor={linea.devengado}
             />
-            <TarjetaKpi titulo="Por facturar" valor={linea.porFacturar} />
+            {/* Negativo: se facturó antes de devengar (un anticipo) o de más. */}
+            {linea.porFacturar.includes("-") ? (
+              <TarjetaKpi
+                titulo="Facturado por adelantado"
+                valor={linea.porFacturar.replace("-", "")}
+              />
+            ) : (
+              <TarjetaKpi titulo="Por facturar" valor={linea.porFacturar} />
+            )}
             <TarjetaKpi
               titulo="Saldo de la orden de compra"
               valor={linea.saldoDeOrden === "" ? "—" : linea.saldoDeOrden}

@@ -117,6 +117,8 @@ export type CasosUsoPlanificacion = {
     servicioId: string,
     escrito: Escrito,
   ): Promise<Resultado>;
+  /** Cambia el texto del hito; `DOM-0039` si ya está realizado. */
+  guardarHito(actor: Actor, id: string, escrito: Escrito): Promise<Resultado>;
   /** Quita el hito; `DOM-0039` si ya está realizado. */
   marcarEliminadoHito(actor: Actor, id: string): Promise<void>;
   /** Intercambia el lugar del hito con el de arriba o el de abajo; `DOM-0039` si ya está realizado. */
@@ -424,6 +426,38 @@ export function crearCasosUsoPlanificacion({
           return validado;
         }
         await agregarHitos(actor, repos, servicioId, [validado.datos.texto]);
+        return { ok: true };
+      });
+    },
+
+    guardarHito(actor, id, escrito) {
+      return transaccional.ejecutar(async (repos) => {
+        const actual = await vigentePorId(repos.hitos.buscarPorId, "Hito", id);
+        await prepararEscritura(
+          repos,
+          actor,
+          actual.valor.servicioId,
+          "planificacion",
+        );
+        exigirNoRealizado(actual.valor);
+        const validado = validarEscrito(
+          CAMPOS_DE_HITO,
+          VALIDACION_DE_HITO,
+          escrito,
+        );
+        if (!validado.ok) {
+          return validado;
+        }
+        const cambiado = marcarActualizado(
+          actual,
+          { ...actual.valor, texto: validado.datos.texto },
+          actor,
+          reloj,
+        );
+        if (!cambiado.ok) {
+          throw nuevoError(catalogo.DOM_0009, { entidad: "Hito", id });
+        }
+        await repos.hitos.actualizar(actor, cambiado.valor, "actualizar");
         return { ok: true };
       });
     },

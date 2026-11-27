@@ -20,7 +20,7 @@ import { Selector } from "../../_ui/selector.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import { AgregarEnLinea } from "../[id]/_molde/fila-editable.tsx";
 import { Parte } from "../[id]/_molde/parte.tsx";
-import { destildarHitoConMotivo } from "../acciones.ts";
+import { destildarHitoConMotivo, editarHito } from "../acciones.ts";
 import { FilaDeHito } from "./fila-de-hito.tsx";
 
 export type AccionesDeHitos = {
@@ -113,6 +113,11 @@ export function PlantillaDeHitos({
               quitar={
                 puedeArmar && hito.realizado === null
                   ? acciones.quitar.bind(null, servicioId, hito.id)
+                  : null
+              }
+              editar={
+                puedeArmar && hito.realizado === null
+                  ? editarHito.bind(null, servicioId, hito.id)
                   : null
               }
             />

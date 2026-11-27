@@ -7,8 +7,11 @@
  * motivo; quitar, confirmación.
  */
 
-import { ArrowUp, Trash2 } from "lucide-react";
+import { ArrowUp, Pencil, Trash2 } from "lucide-react";
+import { useState } from "react";
+import type { EstadoFormulario } from "../../_ui/formulario-abm.tsx";
 import { Confirmar } from "../[id]/_molde/confirmar.tsx";
+import { FilaEditable } from "../[id]/_molde/fila-editable.tsx";
 
 const ICONO =
   "grid size-7 cursor-pointer place-items-center rounded-control text-texto-3 hover:bg-superficie-2 hover:text-texto pointer-coarse:size-11";
@@ -21,10 +24,18 @@ export function FilaDeHito({
   destildar,
   subir,
   quitar,
+  editar,
 }: {
   readonly texto: string;
   /** `25/10/2026 · Admin`, o `null` si no está hecho. */
   readonly realizado: string | null;
+  /** `null`: no se puede editar (hecho, o la etapa no arma). */
+  readonly editar:
+    | ((
+        previo: EstadoFormulario,
+        formulario: FormData,
+      ) => Promise<EstadoFormulario>)
+    | null;
   readonly puedeTildar: boolean;
   readonly tildar: (formulario: FormData) => Promise<void>;
   readonly destildar: (formulario: FormData) => Promise<void>;
@@ -34,6 +45,21 @@ export function FilaDeHito({
   readonly quitar: (() => Promise<void>) | null;
 }) {
   const hecho = realizado !== null;
+  const [editando, setEditando] = useState(false);
+  if (editando && editar !== null) {
+    return (
+      <li data-hito={texto} className="border-b border-borde last:border-b-0">
+        <FilaEditable
+          campos={[
+            { nombre: "texto", etiqueta: "Hito", requerido: true, crece: true },
+          ]}
+          inicial={{ texto }}
+          accion={editar}
+          alCancelar={() => setEditando(false)}
+        />
+      </li>
+    );
+  }
   return (
     <li
       data-hito={texto}
@@ -89,6 +115,17 @@ export function FilaDeHito({
               <ArrowUp aria-hidden="true" className="size-4" />
             </button>
           </form>
+        )}
+        {editar === null ? null : (
+          <button
+            type="button"
+            onClick={() => setEditando(true)}
+            aria-label={`Editar "${texto}"`}
+            title="Editar"
+            className={ICONO}
+          >
+            <Pencil aria-hidden="true" className="size-4" />
+          </button>
         )}
         {quitar === null ? null : (
           <Confirmar

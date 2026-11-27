@@ -455,6 +455,23 @@ export async function cargarHito(
   });
 }
 
+/** Cambiar el texto de un hito, en el lugar. */
+export async function editarHito(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const guardado = await armado().planificacion.guardarHito(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return guardado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardado;
+  });
+}
+
 /** Quitar un hito de la lista. */
 export async function quitarHito(
   servicioId: string,

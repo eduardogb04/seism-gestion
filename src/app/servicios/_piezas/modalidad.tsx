@@ -18,6 +18,7 @@ import type { ModalidadDeFacturacion } from "../../../dominio/servicios/estados.
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
 import type { EstadoFormulario } from "../../_ui/formulario-abm.tsx";
+import { Ventana } from "../../_ui/ventana.tsx";
 import { HistorialDeCuota } from "../[id]/facturacion.tsx";
 import { cambiarModalidadDeFacturacion } from "../acciones.ts";
 import { ConfiguracionMensual, ElegirModalidad } from "./elegir-modalidad.tsx";
@@ -39,21 +40,19 @@ const esModalidad = (valor: unknown): valor is ModalidadDeFacturacion =>
 
 type Parametros = Readonly<Record<string, string | string[] | undefined>>;
 
-/** La modalidad cuyo panel se despliega: la pedida en la dirección o, si no, la elegida. */
+/** La modalidad cuya ventana está abierta (`?modalidad=`), o `null`. */
 export function modalidadDesplegada(
-  { modalidad }: Facturacion,
+  _facturacion: Facturacion,
   parametros: Parametros,
 ): ModalidadDeFacturacion | null {
-  const pedida = parametros.modalidad;
-  if (esModalidad(pedida)) {
-    return pedida;
-  }
-  return (
-    MODALIDADES_DE_FACTURACION.find(
-      (valor) => ETIQUETAS_DE_MODALIDAD[valor] === modalidad,
-    ) ?? null
-  );
+  return esModalidad(parametros.modalidad) ? parametros.modalidad : null;
 }
+
+const TITULOS: Readonly<Record<ModalidadDeFacturacion, string>> = {
+  puntual: "Facturación puntual",
+  por_hitos: "Facturación por hitos",
+  mensual: "Facturación mensual",
+};
 
 /** `dd/mm/aaaa a dd/mm/aaaa` a la fecha final `aaaa-mm-dd`. */
 function finDeVigencia(vigencia: string | null): string | null {
@@ -136,14 +135,7 @@ function PanelDeModalidad({
       </>
     );
   })();
-  return (
-    <div
-      data-panel-de-modalidad={valor}
-      className="mt-3 rounded-tarjeta border border-borde bg-superficie-2/40 p-4"
-    >
-      {cuerpo}
-    </div>
-  );
+  return <div data-panel-de-modalidad={valor}>{cuerpo}</div>;
 }
 
 async function MensualDesplegado({
@@ -200,15 +192,23 @@ async function MensualDesplegado({
     await armado().facturacion.formularioDeModalidad(servicioId);
   const moneda = ordenTotal?.slice(0, 3) ?? null;
   return puedeElegir ? (
-    <ConfiguracionMensual
-      accion={accion}
-      moneda={moneda}
-      cuotaInicial={escrito.cuota ?? ""}
-      desdeInicial={escrito.desde ?? ""}
-      vigenciaHasta={finDeVigencia(vigencia)}
-      ordenTotal={ordenTotal}
-      cambia={hayOtra}
-    />
+    <>
+      <p className="mt-0 mb-1 text-sm text-texto-2">
+        Una cuota fija por mes mientras dure el servicio.
+      </p>
+      <p className="cifras mt-0 mb-4 text-[13px] text-texto-3">
+        OC {ordenTotal ?? "sin cargar"} · Vigencia {vigencia ?? "sin cargar"}
+      </p>
+      <ConfiguracionMensual
+        accion={accion}
+        moneda={moneda}
+        cuotaInicial={escrito.cuota ?? ""}
+        desdeInicial={escrito.desde ?? ""}
+        vigenciaHasta={finDeVigencia(vigencia)}
+        ordenTotal={ordenTotal}
+        cambia={hayOtra}
+      />
+    </>
   ) : (
     <p className="m-0 text-sm text-texto-2">
       Una cuota por mes mientras dure el servicio.
@@ -238,7 +238,10 @@ export function TarjetasDeModalidad({
   /** La lista de hitos que se muestra en la tarjeta «Por hitos». */
   readonly hitos?: ReactNode;
 }) {
-  const desplegada = modalidadDesplegada(facturacion, parametros);
+  // Cada modalidad se configura en su propia ventana (`?modalidad=`); debajo de
+  // las tarjetas no se agrega nada.
+  const pedida = modalidadDesplegada(facturacion, parametros);
+  const [cuotaVigente] = [...facturacion.cuotas].reverse();
   return (
     <>
       <ul
@@ -248,7 +251,7 @@ export function TarjetasDeModalidad({
         {MODALIDADES_DE_FACTURACION.map((valor) => {
           const elegida =
             facturacion.modalidad === ETIQUETAS_DE_MODALIDAD[valor];
-          const abierta = desplegada === valor;
+          const abierta = pedida === valor;
           const Icono = ICONOS[valor];
           const clases = `relative block h-full rounded-tarjeta border p-4 text-texto ${
             elegida
@@ -278,6 +281,13 @@ export function TarjetasDeModalidad({
               <span className="mt-2 block text-[13px] text-texto-2">
                 {DETALLES[valor]}
               </span>
+              {elegida ? (
+                <ResumenElegida
+                  valor={valor}
+                  cuota={cuotaVigente}
+                  ordenTotal={ordenTotal}
+                />
+              ) : null}
             </>
           );
           return (
@@ -299,18 +309,45 @@ export function TarjetasDeModalidad({
           );
         })}
       </ul>
-      {desplegada === null ? null : (
-        <PanelDeModalidad
-          servicioId={servicioId}
-          valor={desplegada}
-          facturacion={facturacion}
-          puedeElegir={puedeElegir}
-          vigencia={vigencia}
-          ordenTotal={ordenTotal}
-          hitos={hitos}
-          ruta={ruta}
-        />
+      {pedida === null ? null : (
+        <Ventana titulo={TITULOS[pedida]} rutaAlCerrar={ruta}>
+          <PanelDeModalidad
+            servicioId={servicioId}
+            valor={pedida}
+            facturacion={facturacion}
+            puedeElegir={puedeElegir}
+            vigencia={vigencia}
+            ordenTotal={ordenTotal}
+            hitos={hitos}
+            ruta={ruta}
+          />
+        </Ventana>
       )}
     </>
+  );
+}
+
+/** Lo elegido, en una línea dentro de su tarjeta: la cuota vigente o la factura única. */
+function ResumenElegida({
+  valor,
+  cuota,
+  ordenTotal,
+}: {
+  readonly valor: ModalidadDeFacturacion;
+  readonly cuota: Facturacion["cuotas"][number] | undefined;
+  readonly ordenTotal: string | null;
+}) {
+  const texto =
+    valor === "mensual"
+      ? cuota === undefined
+        ? "Sin cuota cargada"
+        : `${cuota.importe} por mes desde ${cuota.desde}`
+      : valor === "puntual" && ordenTotal !== null
+        ? `Factura única por ${ordenTotal}`
+        : null;
+  return texto === null ? null : (
+    <span className="cifras mt-3 block border-t border-borde pt-2 text-[13px] font-medium text-texto">
+      {texto}
+    </span>
   );
 }

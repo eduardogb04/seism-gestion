@@ -88,19 +88,22 @@ test("una operadora carga un suceso en un servicio y uno suelto, y los ve juntos
   await expect(
     page.getByRole("link", { name: "Editar", exact: true }),
   ).toHaveAttribute("href", /\/catalogo\/clientes\?editar=[0-9a-f-]{36}$/);
-  const filas = page.getByRole("table").getByRole("row");
-  await expect(filas.nth(1)).toContainText(DEL_SERVICIO);
-  await expect(filas.nth(1).getByRole("link", { name: codigo })).toBeVisible();
+  await page.getByRole("link", { name: /^Actividad/ }).click();
+  const filas = page
+    .getByRole("list", { name: "Sucesos" })
+    .getByRole("listitem");
+  await expect(filas.nth(0)).toContainText(DEL_SERVICIO);
+  await expect(filas.nth(0).getByRole("link", { name: codigo })).toBeVisible();
 
   // 3. Un suceso suelto, desde la ficha: queda arriba, sin servicio.
   await cargarSuceso(page, SUELTO);
-  await expect(filas.nth(1)).toContainText(SUELTO);
-  await expect(filas.nth(1)).toContainText("Sin servicio");
-  await expect(filas.nth(1)).toContainText(OPERADORA);
-  await expect(filas.nth(2)).toContainText(DEL_SERVICIO);
+  await expect(filas.nth(0)).toContainText(SUELTO);
+  await expect(filas.nth(0)).toContainText("Sin servicio");
+  await expect(filas.nth(0)).toContainText(OPERADORA);
+  await expect(filas.nth(1)).toContainText(DEL_SERVICIO);
 
   // 4. El servicio sigue como estaba: solo su suceso en la columna lateral.
-  await filas.nth(2).getByRole("link", { name: codigo }).click();
+  await filas.nth(1).getByRole("link", { name: codigo }).click();
   await expect(page).toHaveURL(/\/servicios\/[0-9a-f-]{36}\/[a-z-]+$/);
   const lateral = page.getByRole("complementary", {
     name: "Observaciones y sucesos",
@@ -124,10 +127,11 @@ test("una operadora anula una situación suelta desde la ficha: sigue a la vista
   await cargarSuceso(page, delServicio);
   await page.goto("/catalogo/clientes");
   await page.getByRole("link", { name: CLIENTE }).click();
+  await page.getByRole("link", { name: /^Actividad/ }).click();
   await cargarSuceso(page, suelta);
-  const filaSuelta = page.getByRole("row").filter({ hasText: suelta });
+  const filaSuelta = page.getByRole("listitem").filter({ hasText: suelta });
   const filaDelServicio = page
-    .getByRole("row")
+    .getByRole("listitem")
     .filter({ hasText: delServicio });
   await expect(filaDelServicio).toBeVisible();
   await expect(

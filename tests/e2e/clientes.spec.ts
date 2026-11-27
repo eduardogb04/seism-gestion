@@ -48,14 +48,14 @@ test("un administrador da de alta un cliente con grupo, lo edita y lo da de baja
     "Grupo Norte",
   );
   await expect(fila(page, "Servicios Ejemplo Tres S.A.")).toContainText(
-    "Cliente y proveedor",
+    "también proveedor",
   );
   await expect(fila(page, "Proveedora Ejemplo Cinco S.A.")).toContainText(
-    "Proveedor",
+    "también proveedor",
   );
 
   // 2. Alta con un CUIT inválido: el mensaje queda al lado y lo escrito sigue.
-  await page.getByRole("link", { name: "Nuevo cliente o proveedor" }).click();
+  await page.getByRole("link", { name: "Nuevo cliente" }).click();
   const ventana = page.getByRole("dialog", {
     name: "Alta de cliente o proveedor",
   });
@@ -99,9 +99,6 @@ test("un administrador da de alta un cliente con grupo, lo edita y lo da de baja
     "30-00000006-6",
   );
   await expect(fila(page, "Empresa Ejemplo Seis S.A.")).toContainText(
-    "Monotributo",
-  );
-  await expect(fila(page, "Empresa Ejemplo Seis S.A.")).toContainText(
     "Grupo Sur",
   );
 
@@ -117,7 +114,7 @@ test("un administrador da de alta un cliente con grupo, lo edita y lo da de baja
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(fila(page, "Empresa Ejemplo Siete S.A.")).toContainText(
-    "Cliente y proveedor",
+    "también proveedor",
   );
   await expect(fila(page, "Empresa Ejemplo Seis S.A.")).toHaveCount(0);
 

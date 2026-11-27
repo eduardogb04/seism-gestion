@@ -50,6 +50,7 @@ type FacturaConServicio = {
   readonly servicioCodigo: string;
   /** La razón social del cliente del servicio. */
   readonly cliente: string;
+  readonly responsableId: string;
 };
 
 export type RepositorioFacturas = Pick<

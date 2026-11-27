@@ -38,6 +38,10 @@ export type VencimientoPendiente = {
   /** Un día, `aaaa-mm-dd`. */
   readonly fecha: string;
   readonly descripcion: string;
+  /** `trabajo` o `contrato`. */
+  readonly clase: string;
+  readonly clienteNombre: string;
+  readonly responsableId: string;
 };
 
 /** Un vencimiento renovado como lo muestra el calendario, con el servicio que lo renovó. */

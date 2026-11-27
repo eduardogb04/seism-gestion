@@ -14,7 +14,10 @@ export default async function PaginaDeInicio({ searchParams }: Props) {
   const sesion = await sesionExigida();
   const [tablero, avisos, datosDelEmbudo] = await Promise.all([
     armado().tablero.tablero(await searchParams),
-    armado().calendario.avisos(),
+    armado().calendario.avisos({
+      id: sesion.usuario.id,
+      rol: sesion.usuario.rol,
+    }),
     embudo(),
   ]);
   const { email, rol } = sesion.usuario;

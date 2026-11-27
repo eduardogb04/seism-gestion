@@ -7,7 +7,10 @@
  */
 
 import { rutaDeEtapa } from "../app/servicios/[id]/rutas.ts";
-import type { EntradaDelCalendario } from "../casos-uso/calendario/calendario.ts";
+import {
+  type EntradaDelCalendario,
+  VE_TODO,
+} from "../casos-uso/calendario/calendario.ts";
 import {
   crearImporte,
   formatearImporte,
@@ -142,7 +145,7 @@ function masUrgente(a: AvisoDeServicio, b: AvisoDeServicio): AvisoDeServicio {
 /** Los avisos del calendario (lo vencido y lo que vence en el plazo de aviso), por servicio. */
 async function avisosPorServicio(): Promise<Map<string, AvisoDeServicio>> {
   const { prisma, calendario } = armado();
-  const { entradas } = await calendario.avisos();
+  const { entradas } = await calendario.avisos(VE_TODO);
   const idDeFactura = (enlace: string) =>
     /^\/servicios\/facturas\/([0-9a-f-]{36})$/.exec(enlace)?.[1];
   const facturas = entradas.flatMap((e) => {

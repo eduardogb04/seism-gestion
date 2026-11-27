@@ -210,6 +210,7 @@ export function crearRepositorioServiciosPrisma(
           id: true,
           codigo: true,
           titulo: true,
+          responsableId: true,
           fechaInicioEstimada: true,
         },
       });
@@ -229,6 +230,7 @@ export function crearRepositorioServiciosPrisma(
         select: {
           id: true,
           codigo: true,
+          responsableId: true,
           cliente: { select: { razonSocial: true } },
           cotizaciones: {
             where: { eliminadoEn: null },
@@ -238,20 +240,23 @@ export function crearRepositorioServiciosPrisma(
           },
         },
       });
-      return filas.flatMap(({ id, codigo, cliente: c, cotizaciones }) => {
-        const vigente = cotizaciones[0];
-        return vigente === undefined || vigente.vigenciaDias === null
-          ? []
-          : [
-              {
-                id,
-                codigo,
-                cliente: c.razonSocial,
-                fecha: aDia(vigente.fecha),
-                vigenciaDias: vigente.vigenciaDias,
-              },
-            ];
-      });
+      return filas.flatMap(
+        ({ id, codigo, responsableId, cliente: c, cotizaciones }) => {
+          const vigente = cotizaciones[0];
+          return vigente === undefined || vigente.vigenciaDias === null
+            ? []
+            : [
+                {
+                  id,
+                  codigo,
+                  cliente: c.razonSocial,
+                  responsableId,
+                  fecha: aDia(vigente.fecha),
+                  vigenciaDias: vigente.vigenciaDias,
+                },
+              ];
+        },
+      );
     },
 
     async eventosDe(id) {

@@ -8,6 +8,11 @@
  */
 
 import { z } from "zod";
+import {
+  DIAS_DE_AVISO_DE_RENOVACION,
+  type EtapaDeRenovacion,
+  etapaDeRenovacion,
+} from "../../dominio/calendario/renovacion.ts";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { formatearImporte } from "../../dominio/compartido/importe.ts";
@@ -67,7 +72,17 @@ export type EntradaDelCalendario = {
     readonly id: string;
     readonly codigo: string;
   } | null;
+  /** El responsable del servicio de la entrada; `null` si no es de un servicio (egresos). */
+  readonly responsableId?: string | null;
+  /** Solo en la renovación de un contrato: el aviso de 60, 45 o 30 días. */
+  readonly etapaDeRenovacion?: EtapaDeRenovacion | null;
 };
+
+/** Quién mira los avisos. */
+export type QuienMira = { readonly id: string; readonly rol: string };
+
+/** Para las vistas que no son de una persona (el calendario, las marcas por servicio): ve todo. */
+export const VE_TODO: QuienMira = { id: "", rol: "administrador" };
 
 export type Calendario = {
   readonly mes: MesElegido;
@@ -103,7 +118,7 @@ export type CasosUsoCalendario = {
     readonly tipo?: unknown;
   }): Promise<Calendario>;
   /** Cuántas entradas vencen de hoy a hoy más N días (la clave `calendario.dias_de_aviso`) y cuántas ya vencieron, de cualquier mes. */
-  avisos(): Promise<Avisos>;
+  avisos(quien: QuienMira): Promise<Avisos>;
 };
 
 type Dependencias = {
@@ -140,16 +155,23 @@ async function entradasEntre(
       desde,
       hasta,
     })) {
-      entradas.push(
-        entrada({
+      const deContrato = v.clase === "contrato";
+      entradas.push({
+        ...entrada({
           tipo: "vencimiento",
           fecha: v.fecha,
-          titulo: `${v.descripcion} · ${v.servicioCodigo}`,
+          titulo: deContrato
+            ? `Renovar contrato · ${v.servicioCodigo} · ${v.clienteNombre}`
+            : `${v.descripcion} · ${v.servicioCodigo}`,
           importe: null,
           enlace: `/servicios/${v.servicioId}`,
           vencimiento: { id: v.id, servicioId: v.servicioId },
         }),
-      );
+        responsableId: v.responsableId,
+        etapaDeRenovacion: deContrato
+          ? etapaDeRenovacion(diasDesde(hoy, v.fecha))
+          : null,
+      });
     }
     if (conRenovados) {
       for (const v of await repos.vencimientos.renovadosEntre({
@@ -173,10 +195,15 @@ async function entradasEntre(
     }
   }
   if (tipos.includes("factura")) {
-    for (const { factura, cliente, saldo } of await facturasPorCobrar(repos)) {
+    for (const {
+      factura,
+      cliente,
+      saldo,
+      responsableId,
+    } of await facturasPorCobrar(repos)) {
       if (delTramo(factura.valor.vencimiento)) {
-        entradas.push(
-          entrada({
+        entradas.push({
+          ...entrada({
             tipo: "factura",
             fecha: factura.valor.vencimiento,
             titulo: `Factura ${factura.valor.numero} · ${cliente}`,
@@ -184,7 +211,8 @@ async function entradasEntre(
             enlace: `/servicios/facturas/${factura.valor.id}`,
             vencimiento: null,
           }),
-        );
+          responsableId,
+        });
       }
     }
   }
@@ -214,8 +242,8 @@ async function entradasEntre(
       desde,
       hasta,
     })) {
-      entradas.push(
-        entrada({
+      entradas.push({
+        ...entrada({
           tipo: "inicio",
           fecha: s.fecha,
           titulo: `Inicio de ${s.codigo} · ${s.titulo}`,
@@ -223,7 +251,8 @@ async function entradasEntre(
           enlace: `/servicios/${s.id}`,
           vencimiento: null,
         }),
-      );
+        responsableId: s.responsableId,
+      });
     }
   }
   if (tipos.includes("cotizacion")) {
@@ -234,8 +263,8 @@ async function entradasEntre(
         sumarDias(emitida.fechaHora, c.vigenciaDias),
       ).slice(0, 10);
       if (delTramo(fecha)) {
-        entradas.push(
-          entrada({
+        entradas.push({
+          ...entrada({
             tipo: "cotizacion",
             fecha,
             titulo: `Cotización ${c.codigo} · ${c.cliente}`,
@@ -243,11 +272,18 @@ async function entradasEntre(
             enlace: `/servicios/${c.id}`,
             vencimiento: null,
           }),
-        );
+          responsableId: c.responsableId,
+        });
       }
     }
   }
   return entradas.sort((a, b) => a.fecha.localeCompare(b.fecha));
+}
+
+/** Los días de `hoy` a `fecha` (`aaaa-mm-dd`); negativo si ya pasó. */
+function diasDesde(hoy: FechaHora, fecha: string): number {
+  const dia = (texto: string) => Date.parse(`${texto.slice(0, 10)}T00:00:00Z`);
+  return Math.round((dia(fecha) - dia(formatearISO(hoy))) / 86_400_000);
 }
 
 async function leerDiasDeAviso(
@@ -291,19 +327,31 @@ export function crearCasosUsoCalendario({
       });
     },
 
-    async avisos() {
+    async avisos(quien) {
       const hoy = reloj.ahora();
       const dias = await leerDiasDeAviso(configuracion);
       // Una sola lectura hasta el último día del aviso: lo ya vencido y lo que vence.
-      const hasta = formatearISO(sumarDias(hoy, dias + 1)).slice(0, 10);
-      const entradas = await transaccional.ejecutar((repos) =>
-        entradasEntre(
-          repos,
-          hoy,
-          TIPOS_DE_ENTRADA,
-          { desde: DESDE_SIEMPRE, hasta },
-          false,
-        ),
+      // Las renovaciones de contrato avisan desde 60 días antes, aunque el plazo sea menor.
+      const hastaDelPlazo = formatearISO(sumarDias(hoy, dias + 1)).slice(0, 10);
+      const hasta = formatearISO(
+        sumarDias(hoy, Math.max(dias, DIAS_DE_AVISO_DE_RENOVACION) + 1),
+      ).slice(0, 10);
+      const entradas = (
+        await transaccional.ejecutar((repos) =>
+          entradasEntre(
+            repos,
+            hoy,
+            TIPOS_DE_ENTRADA,
+            { desde: DESDE_SIEMPRE, hasta },
+            false,
+          ),
+        )
+      ).filter(
+        (e) =>
+          (e.fecha < hastaDelPlazo || e.etapaDeRenovacion != null) &&
+          (quien.rol === "administrador" ||
+            e.responsableId == null ||
+            e.responsableId === quien.id),
       );
       const vencidos = entradas.filter(({ vencida }) => vencida).length;
       return {

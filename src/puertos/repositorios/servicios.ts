@@ -74,6 +74,7 @@ export type InicioEstimado = {
   readonly titulo: string;
   /** Un día, `aaaa-mm-dd`. */
   readonly fecha: string;
+  readonly responsableId: string;
 };
 
 /** Un servicio «Cotizado» cuya cotización vigente fija una vigencia. */
@@ -84,6 +85,7 @@ export type CotizacionPorVencer = {
   /** Fecha de la cotización, `aaaa-mm-dd`. */
   readonly fecha: string;
   readonly vigenciaDias: number;
+  readonly responsableId: string;
 };
 
 export type RepositorioServicios = Pick<

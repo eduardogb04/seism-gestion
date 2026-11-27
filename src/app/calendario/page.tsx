@@ -14,6 +14,7 @@ import {
   ETIQUETAS_DE_TIPO,
   TIPOS_DE_ENTRADA,
   type TipoDeEntrada,
+  VE_TODO,
 } from "../../casos-uso/calendario/calendario.ts";
 import { ROLES_QUE_ESCRIBEN_SERVICIOS } from "../../casos-uso/servicios/servicios.ts";
 import { formatearISO } from "../../dominio/compartido/reloj.ts";
@@ -63,7 +64,7 @@ export default async function Calendario({ searchParams }: Props) {
   // Lo vencido es de cualquier mes: la agenda lo junta arriba.
   let vencidas: readonly EntradaDelCalendario[];
   try {
-    vencidas = (await calendario.avisos()).entradas.filter(
+    vencidas = (await calendario.avisos(VE_TODO)).entradas.filter(
       (e) => e.vencida && tipos.includes(e.tipo),
     );
   } catch {

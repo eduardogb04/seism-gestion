@@ -92,12 +92,21 @@ export function crearRepositorioVencimientosPrisma(
           servicioId: true,
           fecha: true,
           descripcion: true,
-          servicio: { select: { codigo: true } },
+          clase: true,
+          servicio: {
+            select: {
+              codigo: true,
+              responsableId: true,
+              cliente: { select: { razonSocial: true } },
+            },
+          },
         },
       });
       return filas.map(({ servicio, fecha, ...resto }) => ({
         ...resto,
         servicioCodigo: servicio.codigo,
+        clienteNombre: servicio.cliente.razonSocial,
+        responsableId: servicio.responsableId,
         fecha: aDia(fecha),
       }));
     },
@@ -116,7 +125,14 @@ export function crearRepositorioVencimientosPrisma(
           servicioId: true,
           fecha: true,
           descripcion: true,
-          servicio: { select: { codigo: true } },
+          clase: true,
+          servicio: {
+            select: {
+              codigo: true,
+              responsableId: true,
+              cliente: { select: { razonSocial: true } },
+            },
+          },
           servicioRenovacion: { select: { id: true, codigo: true } },
         },
       });
@@ -128,6 +144,8 @@ export function crearRepositorioVencimientosPrisma(
                 {
                   ...resto,
                   servicioCodigo: servicio.codigo,
+                  clienteNombre: servicio.cliente.razonSocial,
+                  responsableId: servicio.responsableId,
                   fecha: aDia(fecha),
                   renovacion: servicioRenovacion,
                 },

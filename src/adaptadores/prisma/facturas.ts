@@ -120,6 +120,7 @@ export function crearRepositorioFacturasPrisma(
           servicio: {
             select: {
               codigo: true,
+              responsableId: true,
               cliente: { select: { razonSocial: true } },
             },
           },
@@ -130,6 +131,7 @@ export function crearRepositorioFacturasPrisma(
         factura: desdeFila(fila, paso),
         servicioCodigo: servicio.codigo,
         cliente: servicio.cliente.razonSocial,
+        responsableId: servicio.responsableId,
       }));
     },
 

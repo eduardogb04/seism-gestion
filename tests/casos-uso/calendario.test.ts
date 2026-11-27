@@ -16,7 +16,10 @@ import { crearClientePrisma } from "../../src/adaptadores/prisma/cliente.ts";
 import { crearLectorConfiguracion } from "../../src/adaptadores/prisma/configuracion.ts";
 import { crearTransaccionalPrisma } from "../../src/adaptadores/prisma/transaccion.ts";
 import { TableroDeInicio } from "../../src/app/_ui/tablero-de-inicio.tsx";
-import { crearCasosUsoCalendario } from "../../src/casos-uso/calendario/calendario.ts";
+import {
+  crearCasosUsoCalendario,
+  VE_TODO,
+} from "../../src/casos-uso/calendario/calendario.ts";
 import { crearCasosUsoVencimientos } from "../../src/casos-uso/servicios/vencimientos.ts";
 import { crearCasosUsoTablero } from "../../src/casos-uso/tablero/tablero.ts";
 import type { Actor } from "../../src/dominio/compartido/actor.ts";
@@ -408,7 +411,7 @@ describe("los avisos del inicio", () => {
       update: { valor: dias },
       create: { clave: "calendario.dias_de_aviso", valor: dias },
     });
-    return calendario().avisos();
+    return calendario().avisos(VE_TODO);
   };
 
   test("cuenta lo que vence entre hoy y hoy más N días, y lo vencido de cualquier mes", async () => {
@@ -440,7 +443,7 @@ describe("los avisos del inicio", () => {
     const html = renderToStaticMarkup(
       createElement(TableroDeInicio, {
         tablero: await crearCasosUsoTablero(dependencias()).tablero({}),
-        avisos: await calendario().avisos(),
+        avisos: await calendario().avisos(VE_TODO),
       }),
     );
     const tarjeta = (id: string) => {
@@ -551,7 +554,7 @@ describe("los vencimientos renovados", () => {
       update: { valor: "30" },
       create: { clave: "calendario.dias_de_aviso", valor: "30" },
     });
-    expect(await calendario().avisos()).toMatchObject({
+    expect(await calendario().avisos(VE_TODO)).toMatchObject({
       proximos: 3,
       vencidos: 4,
     });

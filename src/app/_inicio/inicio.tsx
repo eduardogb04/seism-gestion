@@ -28,6 +28,7 @@ import {
 } from "../../server/inicio.ts";
 import { cn } from "../_ui/cn.ts";
 import { Enlace } from "../_ui/enlace-next.ts";
+import { EtapaDeRenovacion } from "../_ui/etapa-de-renovacion.tsx";
 import {
   distancia,
   fechaCorta,
@@ -249,6 +250,7 @@ type Tarea = {
   readonly titulo: string;
   readonly detalle: string;
   readonly cuando?: string;
+  readonly etapa?: 60 | 45 | 30 | null | undefined;
   readonly urgencia: "vencida" | "pronto" | "normal";
   readonly accion: string;
   readonly enlace: string;
@@ -275,6 +277,7 @@ function tareasDe(avisos: Avisos, embudo: Embudo, sinCambio: number): Tarea[] {
       titulo: e.titulo,
       detalle: [e.importe, fechaCorta(e.fecha)].filter(Boolean).join(" · "),
       cuando: distancia(e.fecha),
+      etapa: e.etapaDeRenovacion,
       urgencia: e.vencida ? "vencida" : "pronto",
       accion,
       enlace: e.enlace,
@@ -377,6 +380,7 @@ function ParaHoy({
                   <span className="cifras block truncate text-[13px] text-texto-3">
                     {t.detalle}
                   </span>
+                  <EtapaDeRenovacion etapa={t.etapa} />
                 </span>
                 {t.cuando ? (
                   <span

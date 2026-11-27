@@ -14,6 +14,7 @@ import { useState } from "react";
 import { diasHasta } from "../_inicio/formato.ts";
 import { cn } from "./cn.ts";
 import { Enlace as Link } from "./enlace-next.ts";
+import { EtapaDeRenovacion } from "./etapa-de-renovacion.tsx";
 
 export type EntradaDeAviso = {
   readonly tipo: "vencimiento" | "factura" | "egreso" | "inicio" | "cotizacion";
@@ -22,6 +23,8 @@ export type EntradaDeAviso = {
   readonly importe: string | null;
   readonly vencida: boolean;
   readonly enlace: string;
+  readonly responsableId?: string | null | undefined;
+  readonly etapaDeRenovacion?: 60 | 45 | 30 | null | undefined;
 };
 
 export type AvisosDeLaBarra = {
@@ -59,12 +62,21 @@ export function textoDeVencimiento(dias: number): string {
 
 export function CampanaDeAvisos({
   avisos,
+  usuarioId,
+  esAdministrador,
 }: {
   readonly avisos: AvisosDeLaBarra;
+  readonly usuarioId: string;
+  readonly esAdministrador: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const [soloMios, setSoloMios] = useState(false);
+  const visibles =
+    esAdministrador && soloMios
+      ? avisos.entradas.filter((e) => e.responsableId === usuarioId)
+      : avisos.entradas;
   const total = avisos.vencidos + avisos.proximos;
-  const entradas = ordenarPorUrgencia(avisos.entradas);
+  const entradas = ordenarPorUrgencia(visibles);
   return (
     <Popover.Root open={abierto} onOpenChange={setAbierto}>
       <Popover.Trigger asChild>
@@ -95,9 +107,32 @@ export function CampanaDeAvisos({
           collisionPadding={12}
           className="menu-flotante z-50 flex max-h-[70vh] w-[min(380px,calc(100vw-24px))] flex-col rounded-[10px] border border-borde bg-superficie shadow-flota"
         >
-          <h2 className="m-0 border-b border-borde px-4 py-3 text-sm font-semibold">
-            Avisos
-          </h2>
+          <div className="flex items-center justify-between border-b border-borde px-4 py-3">
+            <h2 className="m-0 text-sm font-semibold">Avisos</h2>
+            {esAdministrador ? (
+              <div className="flex gap-0.5 rounded-md border border-borde p-0.5 text-xs">
+                {[
+                  { texto: "Míos", valor: true },
+                  { texto: "Todos", valor: false },
+                ].map(({ texto, valor }) => (
+                  <button
+                    key={texto}
+                    type="button"
+                    aria-pressed={soloMios === valor}
+                    onClick={() => setSoloMios(valor)}
+                    className={cn(
+                      "rounded px-2 py-0.5 font-medium",
+                      soloMios === valor
+                        ? "bg-superficie-2 text-texto"
+                        : "text-texto-3 hover:text-texto",
+                    )}
+                  >
+                    {texto}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {entradas.length === 0 ? (
               <p className="m-0 px-2.5 py-6 text-center text-[13px] text-texto-3">
@@ -138,6 +173,7 @@ export function CampanaDeAvisos({
                               </>
                             )}
                           </span>
+                          <EtapaDeRenovacion etapa={e.etapaDeRenovacion} />
                         </span>
                       </Link>
                     </li>

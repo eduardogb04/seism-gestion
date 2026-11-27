@@ -51,11 +51,13 @@ export function BarraLateral({
   rolTexto,
   esAdministrador,
   avisos,
+  usuarioId,
 }: {
   readonly email: string;
   readonly rolTexto: string;
   readonly esAdministrador: boolean;
   readonly avisos: AvisosDeLaBarra | null;
+  readonly usuarioId: string;
 }) {
   const { menuContraido: contraida, tema } = usePreferencias();
   const ruta = usePathname();
@@ -188,7 +190,13 @@ export function BarraLateral({
                 Ctrl K
               </kbd>
             </button>
-            {avisos === null ? null : <CampanaDeAvisos avisos={avisos} />}
+            {avisos === null ? null : (
+              <CampanaDeAvisos
+                avisos={avisos}
+                usuarioId={usuarioId}
+                esAdministrador={esAdministrador}
+              />
+            )}
           </div>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>

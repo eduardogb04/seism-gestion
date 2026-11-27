@@ -301,9 +301,13 @@ function camposDeFactura(
   anticipo = false,
   interno = false,
 ): CamposAbm {
-  return camposCompletos(ordenes, mensual, anticipo).filter(
-    ([nombre]) => !(interno && SOLO_DE_FACTURA.includes(nombre)),
-  );
+  return camposCompletos(ordenes, mensual, anticipo)
+    .filter(([nombre]) => !(interno && SOLO_DE_FACTURA.includes(nombre)))
+    .map(([nombre, campo]) =>
+      interno && nombre === "importe"
+        ? ([nombre, { tipo: "importe", etiqueta: "Importe" }] as const)
+        : ([nombre, campo] as const),
+    );
 }
 
 function camposCompletos(

@@ -7,7 +7,7 @@
 
 import type { ComprobanteInterno } from "../../../../../casos-uso/servicios/facturas.ts";
 import { armado } from "../../../../../infraestructura/arranque/armado.ts";
-import { sesionExigida } from "../../../../(auth)/sesion-actual.ts";
+import { sesionActual } from "../../../../(auth)/sesion-de-cookie.ts";
 
 const ESCAPES: Readonly<Record<string, string>> = {
   "&": "&amp;",
@@ -78,10 +78,13 @@ function pagina(c: ComprobanteInterno): string {
 }
 
 export async function GET(
-  _pedido: Request,
+  pedido: Request,
   { params }: { params: Promise<{ id: string; facturaId: string }> },
 ): Promise<Response> {
-  await sesionExigida();
+  // Sin sesión, a ingresar (un `redirect` de Next no corre dentro de un route handler).
+  if ((await sesionActual()) === null) {
+    return Response.redirect(new URL("/ingresar", pedido.url), 303);
+  }
   const { id, facturaId } = await params;
   try {
     const comprobante = await armado().facturas.comprobanteInterno(

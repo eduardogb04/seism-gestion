@@ -72,7 +72,7 @@ async function VentanaDeCarga({
           fecha: <VencimientoALosTreintaDias />,
           importe: (
             <>
-              <IvaEnVivo />
+              {interno ? null : <IvaEnVivo />}
               <CambioAutomatico />
             </>
           ),

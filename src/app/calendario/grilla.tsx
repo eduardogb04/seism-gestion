@@ -1,143 +1,117 @@
-import type {
-  EntradaDelCalendario,
-  TipoDeEntrada,
-} from "../../casos-uso/calendario/calendario.ts";
+/** La vista Mes: siete columnas de lunes a domingo, cada entrada una píldora de una línea. */
+
+import type { EntradaDelCalendario } from "../../casos-uso/calendario/calendario.ts";
 import type { DiaDeLaGrilla } from "../../casos-uso/calendario/semanas.ts";
+import { cn } from "../_ui/cn.ts";
 import { Enlace } from "../_ui/enlace-next.ts";
+import {
+  claveDeEntrada,
+  type Estado,
+  enlaceDelCalendario,
+  PUNTO_DE_TIPO,
+} from "./eventos.ts";
 
 const POR_DIA = 3;
 
 const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-/** El color de cada tipo: los de serie del tema (claro y oscuro). */
-export const BORDE_DE_TIPO: Readonly<Record<TipoDeEntrada, string>> = {
-  vencimiento: "border-serie-1",
-  factura: "border-serie-2",
-  egreso: "border-serie-3",
-  inicio: "border-serie-4",
-};
-
-/** «Renovado», atenuado, con el enlace al servicio que renovó el vencimiento. */
-function MarcaDeRenovado({
-  renovacion,
-}: {
-  readonly renovacion: NonNullable<EntradaDelCalendario["renovacion"]>;
-}) {
-  return (
-    <span className="text-texto-suave">
-      Renovado ·{" "}
-      <Enlace href={`/servicios/${renovacion.id}`}>{renovacion.codigo}</Enlace>
-    </span>
-  );
-}
-
-/** «Renovado» con su servicio; «Vencido» en rojo si su fecha ya pasó; si no, «Pendiente». */
-export function EstadoDeEntrada({
-  vencida,
-  renovacion,
-}: Pick<EntradaDelCalendario, "vencida" | "renovacion">) {
-  if (renovacion !== null) {
-    return <MarcaDeRenovado renovacion={renovacion} />;
-  }
-  return vencida ? (
-    <span className="font-semibold text-peligro">Vencido</span>
-  ) : (
-    <span className="text-texto-suave">Pendiente</span>
-  );
-}
-
-/** Abre la confirmación de cotizar la renovación de un vencimiento pendiente. */
-export function EnlaceDeRenovacion({ href }: { readonly href: string }) {
-  return (
-    <Enlace href={href} scroll={false} className="text-xs">
-      Cotizar renovación
-    </Enlace>
-  );
-}
-
 export function GrillaDelMes({
   semanas,
-  enlaceDeRenovacion,
+  estado,
+  hoy,
 }: {
-  /** El enlace que abre la renovación de un vencimiento; `null` si quien mira no puede. */
-  readonly enlaceDeRenovacion: ((vencimientoId: string) => string) | null;
   readonly semanas: readonly (readonly (DiaDeLaGrilla<EntradaDelCalendario> | null)[])[];
+  readonly estado: Estado;
+  /** `aaaa-mm-dd`. */
+  readonly hoy: string;
 }) {
   return (
-    <div className="overflow-x-auto rounded border border-borde bg-superficie">
-      <table className="w-full min-w-[56rem] table-fixed border-collapse">
-        <caption className="sr-only">Vista del mes</caption>
-        <thead>
-          <tr>
-            {DIAS.map((dia) => (
-              <th key={dia} className="bg-superficie-alta px-2 py-1 text-left">
-                {dia}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {semanas.map((semana) => (
-            <tr key={semana.find(Boolean)?.fecha}>
-              {semana.map((dia, lugar) => (
-                <td
-                  // biome-ignore lint/suspicious/noArrayIndexKey: el lugar en la semana es su identidad
-                  key={lugar}
-                  className="h-28 border-t border-l border-borde p-1 align-top first:border-l-0"
-                >
-                  {dia === null ? null : (
-                    <>
-                      <p className="text-sm text-texto-suave">{dia.dia}</p>
-                      <ul className="flex flex-col gap-1">
-                        {dia.entradas.slice(0, POR_DIA).map((entrada) => (
-                          <li key={entrada.enlace + entrada.tipo}>
-                            <a
-                              href={entrada.enlace}
-                              title={entrada.titulo}
-                              className={`block truncate border-l-4 ${BORDE_DE_TIPO[entrada.tipo]} bg-superficie-alta px-1 text-xs ${entrada.renovacion === null ? "text-texto" : "text-texto-suave"} no-underline hover:underline`}
-                            >
-                              {entrada.vencida ? (
-                                <span className="font-semibold text-peligro">
-                                  Vencido ·{" "}
-                                </span>
-                              ) : null}
-                              {entrada.titulo}
-                            </a>
-                            {entrada.renovacion === null ? null : (
-                              <span className="block text-xs">
-                                <MarcaDeRenovado
-                                  renovacion={entrada.renovacion}
-                                />
-                              </span>
-                            )}
-                            {enlaceDeRenovacion !== null &&
-                            entrada.vencimiento !== null ? (
-                              <EnlaceDeRenovacion
-                                href={enlaceDeRenovacion(
-                                  entrada.vencimiento.id,
-                                )}
-                              />
-                            ) : null}
-                          </li>
-                        ))}
-                      </ul>
-                      {dia.entradas.length > POR_DIA ? (
-                        <a
-                          href="#lista"
-                          className="text-xs"
-                          aria-label={`${dia.entradas.length - POR_DIA} entradas más el día ${dia.dia}`}
+    <div className="overflow-hidden rounded-tarjeta border border-borde bg-superficie shadow-tarjeta">
+      <div role="presentation" className="grid grid-cols-7 bg-superficie-2">
+        {DIAS.map((dia) => (
+          <p
+            key={dia}
+            className="m-0 px-2 py-2 text-xs font-medium text-texto-3"
+          >
+            {dia}
+          </p>
+        ))}
+      </div>
+      {semanas.map((semana) => (
+        <ol
+          key={semana.find(Boolean)?.fecha}
+          className="m-0 grid list-none grid-cols-7 border-t border-borde p-0"
+        >
+          {semana.map((dia, lugar) => (
+            <li
+              // biome-ignore lint/suspicious/noArrayIndexKey: el lugar en la semana es su identidad
+              key={lugar}
+              className="min-h-24 min-w-0 border-l border-borde p-1 first:border-l-0 md:min-h-28 md:p-1.5"
+            >
+              {dia === null ? null : (
+                <>
+                  <p
+                    className={cn(
+                      "cifras m-0 mb-1 grid size-6 place-items-center rounded-full text-xs",
+                      dia.fecha === hoy
+                        ? "bg-acento font-semibold text-sobre-acento"
+                        : "text-texto-2",
+                    )}
+                  >
+                    {dia.dia}
+                  </p>
+                  <ul className="m-0 flex list-none flex-col gap-1 p-0">
+                    {dia.entradas.slice(0, POR_DIA).map((entrada) => (
+                      <li key={claveDeEntrada(entrada)}>
+                        <Enlace
+                          href={enlaceDelCalendario(estado, {
+                            evento: claveDeEntrada(entrada),
+                          })}
+                          scroll={false}
+                          title={entrada.titulo}
+                          className={cn(
+                            "flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-[11px] leading-4 no-underline md:text-xs",
+                            entrada.vencida
+                              ? "bg-peligro-suave text-peligro"
+                              : "bg-superficie-2 text-texto hover:bg-superficie-3",
+                          )}
                         >
-                          +{dia.entradas.length - POR_DIA}
-                        </a>
-                      ) : null}
-                    </>
-                  )}
-                </td>
-              ))}
-            </tr>
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              "size-1.5 shrink-0 rounded-full",
+                              PUNTO_DE_TIPO[entrada.tipo],
+                            )}
+                          />
+                          <span
+                            className={cn(
+                              "truncate",
+                              entrada.renovacion !== null && "text-texto-3",
+                            )}
+                          >
+                            {entrada.titulo}
+                          </span>
+                        </Enlace>
+                      </li>
+                    ))}
+                  </ul>
+                  {dia.entradas.length > POR_DIA ? (
+                    <Enlace
+                      href={enlaceDelCalendario(
+                        { ...estado, vista: "agenda" },
+                        { ancla: `dia-${dia.fecha}` },
+                      )}
+                      className="mt-1 inline-block px-1 text-[11px] text-texto-2 md:text-xs"
+                    >
+                      +{dia.entradas.length - POR_DIA} más
+                    </Enlace>
+                  ) : null}
+                </>
+              )}
+            </li>
           ))}
-        </tbody>
-      </table>
+        </ol>
+      ))}
     </div>
   );
 }

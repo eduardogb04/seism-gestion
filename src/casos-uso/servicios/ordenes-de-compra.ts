@@ -17,6 +17,7 @@ import { z } from "zod";
 import type { Actor } from "../../dominio/compartido/actor.ts";
 import {
   crearAuditable,
+  marcarActualizado,
   marcarEliminado,
 } from "../../dominio/compartido/auditable.ts";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
@@ -26,10 +27,18 @@ import {
   crearImporte,
   formatearImporte,
 } from "../../dominio/compartido/importe.ts";
+import { aFechaCivil } from "../../dominio/compartido/reloj.ts";
 import { formatearISO } from "../../dominio/compartido/reloj.ts";
 import { importeConSigno } from "../../dominio/servicios/comprobante.ts";
-import { saldoDeOrden } from "../../dominio/servicios/orden-compra.ts";
-import type { DatosOrdenCompra } from "../../puertos/repositorios/ordenes-de-compra.ts";
+import {
+  saldoDeOrden,
+  totalDeOrden,
+} from "../../dominio/servicios/orden-compra.ts";
+import type {
+  DatosOrdenCompra,
+  OrdenCompra,
+} from "../../puertos/repositorios/ordenes-de-compra.ts";
+import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
 import {
   type ErroresPorCampo,

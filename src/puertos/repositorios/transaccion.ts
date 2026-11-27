@@ -16,6 +16,7 @@ import type { RepositorioCuotas } from "./cuotas.ts";
 import type { RepositorioDocumentos } from "./documentos.ts";
 import type { RepositorioDocumentosDeAlcance } from "./documentos-de-alcance.ts";
 import type { RepositorioFacturas } from "./facturas.ts";
+import type { RepositorioAmpliacionesOrdenCompra } from "./ampliaciones-de-oc.ts";
 import type { RepositorioOrdenesCompra } from "./ordenes-de-compra.ts";
 import type { RepositorioPagos } from "./pagos.ts";
 import type { RepositorioHitos, RepositorioRecursos } from "./planificacion.ts";
@@ -45,6 +46,8 @@ export type RepositoriosEnTransaccion = {
   /** Los documentos de alcance de un servicio (F5-01). */
   readonly documentosDeAlcance: RepositorioDocumentosDeAlcance;
   readonly ordenesCompra: RepositorioOrdenesCompra;
+  /** Las ampliaciones de las órdenes de compra (R1). */
+  readonly ampliaciones: RepositorioAmpliacionesOrdenCompra;
   readonly facturas: RepositorioFacturas;
   /** Los cobros de las facturas (F2-07). */
   readonly cobros: RepositorioCobros;

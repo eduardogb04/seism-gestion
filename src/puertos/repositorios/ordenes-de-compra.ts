@@ -11,6 +11,7 @@ import type {
   Importe,
   Moneda,
 } from "../../dominio/compartido/importe.ts";
+import type { FechaHora } from "../../dominio/compartido/reloj.ts";
 import type { RegistroDe, RepositorioDe } from "./abm.ts";
 
 export type DatosOrdenCompra = {
@@ -24,6 +25,9 @@ export type DatosOrdenCompra = {
   readonly cambio: CambioDeDocumento | null;
   readonly observaciones: string | null;
   readonly documentoId: string | null;
+  /** Cuándo la reemplazó otra (R1): sigue en la historia con sus facturas. */
+  readonly reemplazadaEn: FechaHora | null;
+  readonly reemplazadaPorId: string | null;
 };
 
 export type OrdenCompra = RegistroDe<DatosOrdenCompra>;
@@ -32,6 +36,8 @@ export type RepositorioOrdenesCompra = Pick<
   RepositorioDe<DatosOrdenCompra>,
   "buscarPorId" | "crear" | "actualizar"
 > & {
-  /** Las no anuladas de un servicio, de la más nueva a la más vieja. */
+  /** Las no anuladas de un servicio, de la más nueva a la más vieja, con las reemplazadas (la historia). */
   listarDe(servicioId: string): Promise<readonly OrdenCompra[]>;
+  /** La vigente: la no anulada y no reemplazada más nueva, o `undefined` si no hay (R1). */
+  vigenteDe(servicioId: string): Promise<OrdenCompra | undefined>;
 };

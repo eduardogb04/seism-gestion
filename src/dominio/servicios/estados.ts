@@ -83,6 +83,8 @@ const CARGAS = [
   "cotizacion",
   "ordenDeCompra",
   "anulacionDeOrdenDeCompra",
+  "ampliacionDeOrden",
+  "reemplazoDeOrden",
   "factura",
   "cobro",
   "suceso",
@@ -112,6 +114,9 @@ export const ETAPAS_DE_CARGA: Readonly<
   ordenDeCompra: ["cotizado"],
   // Cargarla pasa el servicio a «Adjudicado»: si se anulara solo en «Cotizado», no se anularía nunca.
   anulacionDeOrdenDeCompra: ["adjudicado"],
+  // Ampliar y reemplazar la orden vigente (R1): el servicio no cambia de etapa.
+  ampliacionDeOrden: ["adjudicado", "en_ejecucion"],
+  reemplazoDeOrden: ["adjudicado", "en_ejecucion"],
   factura: ["adjudicado", "en_ejecucion", "finalizado"],
   cobro: MENOS_CERRADO,
   // Las salidas del recorrido (perdido, sin respuesta, cancelado) y «Cerrado» se miran (F5-01).
@@ -237,6 +242,11 @@ export function admiteFactura(
   modalidad: ModalidadDeFacturacion,
 ): boolean {
   return ETAPAS_DE_FACTURA[modalidad].includes(estado);
+}
+
+/** Si en `estado` se carga un anticipo (R1): cualquiera sea la modalidad, y sin período. */
+export function admiteAnticipo(estado: EstadoServicio): boolean {
+  return estado === "adjudicado" || estado === "en_ejecucion";
 }
 
 /** Los días que pasó en cada etapa, en el orden del historial: el último tramo llega hasta `ahora`. */

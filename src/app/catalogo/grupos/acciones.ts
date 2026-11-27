@@ -13,6 +13,7 @@ import { redirect } from "next/navigation.js";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import type { EstadoFormulario } from "../../_ui/formulario-abm.tsx";
+import { volverEnElLugar } from "../../_ui/volver-en-el-lugar.ts";
 import { conActorDeSesion } from "../../(auth)/sesion-actual.ts";
 import { escritoEn } from "../_abm/escrito.ts";
 
@@ -40,11 +41,11 @@ export async function agregarClienteAlGrupo(
   if (!resultado.ok) {
     return { escrito, errores: {}, error: pantallaDeCodigo(resultado.codigo) };
   }
-  redirect(
-    resultado.valor.ok
-      ? `/catalogo/grupos/${grupoId}`
-      : `/catalogo/grupos/${grupoId}?mover=${clienteId}`,
-  );
+  if (!resultado.valor.ok) {
+    redirect(`/catalogo/grupos/${grupoId}?mover=${clienteId}`);
+  }
+  await volverEnElLugar(`/catalogo/grupos/${grupoId}`);
+  return { escrito, errores: {}, hecho: true };
 }
 
 /** El movimiento, ya confirmado. */
@@ -68,7 +69,8 @@ export async function moverClienteAlGrupo(
       error: pantallaDeCodigo(resultado.codigo),
     };
   }
-  redirect(`/catalogo/grupos/${grupoId}`);
+  await volverEnElLugar(`/catalogo/grupos/${grupoId}`);
+  return { escrito: {}, errores: {}, hecho: true };
 }
 
 /** El retiro, ya confirmado. */
@@ -87,5 +89,6 @@ export async function sacarClienteDelGrupo(
       error: pantallaDeCodigo(resultado.codigo),
     };
   }
-  redirect(`/catalogo/grupos/${grupoId}`);
+  await volverEnElLugar(`/catalogo/grupos/${grupoId}`);
+  return { escrito: {}, errores: {}, hecho: true };
 }

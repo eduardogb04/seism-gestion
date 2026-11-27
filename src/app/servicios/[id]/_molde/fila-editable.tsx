@@ -14,7 +14,7 @@
  */
 
 import { Check, Plus, X } from "lucide-react";
-import { type ReactNode, useActionState, useState } from "react";
+import { type ReactNode, useActionState, useEffect, useState } from "react";
 import type { EstadoFormulario } from "../../../_ui/formulario-abm.tsx";
 
 export type CampoEnLinea = {
@@ -58,6 +58,12 @@ export function FilaEditable({
     ...Object.fromEntries(campos.map(({ nombre }) => [nombre, ""])),
     ...inicial,
   });
+  // Guardó y la pantalla se refrescó en el lugar: la fila vuelve a ser texto.
+  useEffect(() => {
+    if (estado.hecho === true) {
+      alCancelar();
+    }
+  }, [estado, alCancelar]);
   const errores = Object.values(estado.errores).flat().filter(Boolean);
   return (
     <form

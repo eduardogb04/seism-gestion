@@ -75,6 +75,11 @@ export type EstadoFormulario = {
   readonly errores: ErroresPorCampo;
   /** Lo que no se arregla corrigiendo un campo: va arriba, con su código. */
   readonly error?: ErrorDeLogin;
+  /**
+   * Salió bien y la acción no navegó: la pantalla se refrescó en el lugar. El
+   * formulario avisa y, si está en una ventana, la cierra (fix 13).
+   */
+  readonly hecho?: true;
 };
 
 /** Si el campo se puede dejar vacío (`false`: obligatorio; `null`: no se marca). */
@@ -280,12 +285,19 @@ export function FormularioAbm({
     if (estado === primero.current) {
       return;
     }
+    if (estado.hecho === true) {
+      toast.success(
+        variante === "peligro" ? "Listo." : "Listo, quedó guardado.",
+      );
+      formulario.current?.closest("dialog")?.close();
+      return;
+    }
     const raiz = formulario.current;
     const objetivo =
       raiz?.querySelector<HTMLElement>('[aria-invalid="true"]') ??
       raiz?.querySelector<HTMLElement>('[role="alert"]');
     objetivo?.focus();
-  }, [estado]);
+  }, [estado, variante]);
 
   useEffect(() => {
     enviandoAhora.current = enviando;

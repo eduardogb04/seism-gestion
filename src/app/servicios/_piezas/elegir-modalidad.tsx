@@ -7,7 +7,7 @@
  * (`cambiarModalidadDeFacturacion`) con `modalidad` en el formulario.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Boton } from "../../_ui/boton.tsx";
 import type { EstadoFormulario } from "../../_ui/formulario-abm.tsx";
 import { Confirmar } from "../[id]/_molde/confirmar.tsx";
@@ -18,6 +18,13 @@ type Accion = (
 ) => Promise<EstadoFormulario>;
 
 const VACIO: EstadoFormulario = { escrito: {}, errores: {} };
+
+/** Si salió bien, cierra la ventana en la que está (la de la modalidad). */
+function cerrarSiSalio(estado: EstadoFormulario, desde: Element | null): void {
+  if (estado.hecho === true) {
+    desde?.closest("dialog")?.close();
+  }
+}
 
 function mensajeDe(estado: EstadoFormulario): string | null {
   const errores = Object.values(estado.errores).flat().filter(Boolean);
@@ -56,13 +63,15 @@ export function ElegirModalidad({
   readonly cambia: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const raiz = useRef<HTMLDivElement>(null);
   const enviar = async (formulario: FormData) => {
     formulario.set("modalidad", valor);
     const estado = await accion(VACIO, formulario);
     setError(mensajeDe(estado));
+    cerrarSiSalio(estado, raiz.current);
   };
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-3">
+    <div ref={raiz} className="mt-3 flex flex-wrap items-center gap-3">
       {cambia ? (
         <Confirmar
           titulo={`¿Cambiar la modalidad a ${texto.replace("Elegir ", "")}?`}
@@ -114,6 +123,7 @@ export function ConfiguracionMensual({
   const [cuota, setCuota] = useState(cuotaInicial);
   const [desde, setDesde] = useState(desdeInicial);
   const [error, setError] = useState<string | null>(null);
+  const raiz = useRef<HTMLDivElement>(null);
   const importe = numeroDe(cuota);
   let resumen: string | null = null;
   if (!Number.isNaN(importe) && cuota !== "") {
@@ -138,6 +148,7 @@ export function ConfiguracionMensual({
     formulario.set("desde", desde);
     const estado = await accion(VACIO, formulario);
     setError(mensajeDe(estado));
+    cerrarSiSalio(estado, raiz.current);
   };
   const campos = (
     <div className="flex flex-wrap items-end gap-3">
@@ -167,7 +178,7 @@ export function ConfiguracionMensual({
     </div>
   );
   return (
-    <div data-configuracion-mensual>
+    <div ref={raiz} data-configuracion-mensual>
       {cambia ? (
         <Confirmar
           titulo="¿Cambiar la modalidad a Mensual?"

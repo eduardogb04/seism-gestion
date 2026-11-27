@@ -8,11 +8,11 @@
  * campo, o el error con su código. Ninguna lanza un error del catálogo.
  */
 
-import { redirect } from "next/navigation.js";
 import type { Escrito } from "../../casos-uso/abm/definicion.ts";
 import { pantallaDeCodigo } from "../../casos-uso/sesion/errores.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
 import type { EstadoFormulario } from "../_ui/formulario-abm.tsx";
+import { volverEnElLugar } from "../_ui/volver-en-el-lugar.ts";
 import { conActorDeSesion } from "../(auth)/sesion-actual.ts";
 
 /** Los campos del formulario, tal cual se escribieron. Lo que agrega React (`$ACTION_...`) no es de la persona. */
@@ -43,7 +43,8 @@ export async function registrarPagoDeEgreso(
   if (!resultado.valor.ok) {
     return { escrito, errores: resultado.valor.errores };
   }
-  redirect(rutaAlVolver);
+  await volverEnElLugar(rutaAlVolver, { conParametros: true });
+  return { escrito, errores: {}, hecho: true };
 }
 
 /** La anulación, ya confirmada. */
@@ -62,5 +63,6 @@ export async function anularPagoDeEgreso(
       error: pantallaDeCodigo(resultado.codigo),
     };
   }
-  redirect(`/egresos/${egresoId}`);
+  await volverEnElLugar(`/egresos/${egresoId}`);
+  return { escrito: {}, errores: {}, hecho: true };
 }

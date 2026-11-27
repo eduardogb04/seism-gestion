@@ -14,7 +14,6 @@
  * error del catálogo.
  */
 
-import { redirect } from "next/navigation.js";
 import type { ErroresPorCampo } from "../../../casos-uso/abm/abm.ts";
 import type {
   DefinicionAbm,
@@ -27,6 +26,7 @@ import type { Actor } from "../../../dominio/compartido/actor.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import type { EntidadAbm } from "../../../puertos/repositorios/abm.ts";
 import type { EstadoFormulario } from "../../_ui/formulario-abm.tsx";
+import { volverEnElLugar } from "../../_ui/volver-en-el-lugar.ts";
 import { conActorDeSesion } from "../../(auth)/sesion-actual.ts";
 import { archivoSubidoEn, escritoEn } from "./escrito.ts";
 
@@ -61,7 +61,8 @@ async function escribir(
   if ("errores" in resultado.valor) {
     return { escrito, errores: resultado.valor.errores };
   }
-  redirect(resultado.valor.ruta);
+  await volverEnElLugar(resultado.valor.ruta, { conParametros: true });
+  return { escrito, errores: {}, hecho: true };
 }
 
 export async function crearRegistro(

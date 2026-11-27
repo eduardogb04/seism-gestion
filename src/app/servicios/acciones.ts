@@ -10,8 +10,6 @@
  * con el código del error en la URL.
  */
 
-import { refresh } from "next/cache.js";
-import { redirect } from "next/navigation.js";
 import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
 import { CLIENTES } from "../../casos-uso/abm/clientes.ts";
 import type { Ajuste } from "../../casos-uso/servicios/ajustes.ts";
@@ -21,6 +19,7 @@ import type { Actor } from "../../dominio/compartido/actor.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
 import { cotizacionDolar } from "../../server/tipo-de-cambio.ts";
 import type { EstadoFormulario } from "../_ui/formulario-abm.tsx";
+import { volverEnElLugar } from "../_ui/volver-en-el-lugar.ts";
 import { actorDesdeSesion, conActorDeSesion } from "../(auth)/sesion-actual.ts";
 import { archivoSubidoEn, escritoEn } from "../catalogo/_abm/escrito.ts";
 import { panelDeLaEtapaActual } from "./[id]/rutas.ts";
@@ -34,9 +33,8 @@ const RUTA = "/servicios";
  * historial): sin él, Next reusa el que ya tenía al navegar dentro del mismo
  * servicio.
  */
-async function volverA(ruta: string): Promise<never> {
-  refresh();
-  redirect(await panelDeLaEtapaActual(ruta));
+async function volverA(ruta: string): Promise<void> {
+  await volverEnElLugar(await panelDeLaEtapaActual(ruta));
 }
 
 type Escritura =
@@ -55,7 +53,8 @@ async function escribir(
   if (!resultado.valor.ok) {
     return { escrito, errores: resultado.valor.errores };
   }
-  return volverA(resultado.valor.ruta);
+  await volverA(resultado.valor.ruta);
+  return { escrito, errores: {}, hecho: true };
 }
 
 /** El alta lleva a la pantalla del servicio nuevo: ahí se marcan sus sitios. */
@@ -411,7 +410,7 @@ export async function ajustarCuota(
 async function enElServicio(
   id: string,
   trabajo: (actor: Actor) => Promise<void>,
-): Promise<never> {
+): Promise<void> {
   const resultado = await conActorDeSesion(trabajo);
   const ruta = `${RUTA}/${encodeURIComponent(id)}`;
   return volverA(resultado.ok ? ruta : `${ruta}?error=${resultado.codigo}`);
@@ -558,7 +557,7 @@ export async function quitarRecurso(
 export async function cotizarRenovacion(
   servicioId: string,
   id: string,
-): Promise<never> {
+): Promise<void> {
   const resultado = await conActorDeSesion((actor) =>
     armado().vencimientos.renovar(actor, id),
   );

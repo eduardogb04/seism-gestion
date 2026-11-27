@@ -12,6 +12,7 @@ export const PUNTO_DE_TIPO: Readonly<Record<TipoDeEntrada, string>> = {
   factura: "bg-etapa-adjudicado",
   egreso: "bg-etapa-salida",
   inicio: "bg-etapa-ejecucion",
+  cotizacion: "bg-etapa-cotizado",
 };
 
 export type Vista = "mes" | "agenda";

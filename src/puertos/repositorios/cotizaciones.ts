@@ -19,6 +19,8 @@ export type DatosCotizacion = {
   /** Por qué se revisó: de la segunda en adelante. */
   readonly motivo: string | null;
   readonly observaciones: string | null;
+  /** Días de vigencia desde `fecha`; `null` si no se fijó. */
+  readonly vigenciaDias: number | null;
   readonly documentoId: string;
 };
 

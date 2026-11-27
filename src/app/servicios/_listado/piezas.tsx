@@ -5,6 +5,7 @@
 
 import {
   CalendarClock,
+  FileText,
   HandCoins,
   type LucideIcon,
   PlayCircle,
@@ -86,6 +87,7 @@ const ICONO: Record<AvisoDeServicio["tipo"], LucideIcon> = {
   vencimiento: CalendarClock,
   inicio: PlayCircle,
   egreso: Wallet,
+  cotizacion: FileText,
 };
 
 /** Rojo si ya venció; ámbar si vence dentro del plazo de aviso; un inicio por venir, neutro. */

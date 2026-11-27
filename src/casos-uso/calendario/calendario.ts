@@ -14,6 +14,7 @@ import { formatearImporte } from "../../dominio/compartido/importe.ts";
 import {
   type FechaHora,
   formatearISO,
+  parsearISO,
   type Reloj,
   sumarDias,
 } from "../../dominio/compartido/reloj.ts";
@@ -33,6 +34,7 @@ export const TIPOS_DE_ENTRADA = [
   "factura",
   "egreso",
   "inicio",
+  "cotizacion",
 ] as const;
 
 export type TipoDeEntrada = (typeof TIPOS_DE_ENTRADA)[number];
@@ -42,6 +44,7 @@ export const ETIQUETAS_DE_TIPO: Readonly<Record<TipoDeEntrada, string>> = {
   factura: "Facturas por cobrar",
   egreso: "Egresos por pagar",
   inicio: "Inicios estimados",
+  cotizacion: "Cotizaciones por vencer",
 };
 
 export type EntradaDelCalendario = {
@@ -221,6 +224,27 @@ async function entradasEntre(
           vencimiento: null,
         }),
       );
+    }
+  }
+  if (tipos.includes("cotizacion")) {
+    for (const c of await repos.servicios.cotizacionesPorVencer()) {
+      const emitida = parsearISO(`${c.fecha}T00:00:00.000`);
+      if (!emitida.ok) continue;
+      const fecha = formatearISO(
+        sumarDias(emitida.fechaHora, c.vigenciaDias),
+      ).slice(0, 10);
+      if (delTramo(fecha)) {
+        entradas.push(
+          entrada({
+            tipo: "cotizacion",
+            fecha,
+            titulo: `Cotización ${c.codigo} · ${c.cliente}`,
+            importe: null,
+            enlace: `/servicios/${c.id}`,
+            vencimiento: null,
+          }),
+        );
+      }
     }
   }
   return entradas.sort((a, b) => a.fecha.localeCompare(b.fecha));

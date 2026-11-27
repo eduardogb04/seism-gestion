@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleCheck,
+  FileText,
   HandCoins,
   type LucideIcon,
   PauseCircle,
@@ -262,6 +263,7 @@ const POR_TIPO: Record<
   egreso: { Icono: Wallet, accion: "Registrar pago" },
   vencimiento: { Icono: CalendarClock, accion: "Cotizar renovación" },
   inicio: { Icono: PlayCircle, accion: "Ver servicio" },
+  cotizacion: { Icono: FileText, accion: "Ver cotización" },
 };
 
 function tareasDe(avisos: Avisos, embudo: Embudo, sinCambio: number): Tarea[] {

@@ -76,6 +76,16 @@ export type InicioEstimado = {
   readonly fecha: string;
 };
 
+/** Un servicio «Cotizado» cuya cotización vigente fija una vigencia. */
+export type CotizacionPorVencer = {
+  readonly id: string;
+  readonly codigo: string;
+  readonly cliente: string;
+  /** Fecha de la cotización, `aaaa-mm-dd`. */
+  readonly fecha: string;
+  readonly vigenciaDias: number;
+};
+
 export type RepositorioServicios = Pick<
   RepositorioDe<DatosServicio>,
   "buscarPorId" | "crear" | "actualizar"
@@ -87,6 +97,8 @@ export type RepositorioServicios = Pick<
   }>;
   /** Los no eliminados que hoy están «Adjudicado», con inicio estimado en `rango`, por fecha. */
   inicioEstimadoEntre(rango: Rango): Promise<readonly InicioEstimado[]>;
+  /** Los no eliminados hoy «Cotizado» cuya última cotización no anulada tiene vigencia. */
+  cotizacionesPorVencer(): Promise<readonly CotizacionPorVencer[]>;
   /** Los cambios de estado, del primero (el alta) al último (el estado actual). */
   eventosDe(id: string): Promise<readonly EventoServicio[]>;
   /**

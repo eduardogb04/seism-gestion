@@ -751,6 +751,8 @@ model Cotizacion {
   importeMoneda   String    @map("importe_moneda")
   motivo          String?
   observaciones   String?
+  /// Días de vigencia desde `fecha`; el calendario avisa cuando se cumplen.
+  vigenciaDias    Int?      @map("vigencia_dias")
   documentoId     String    @map("documento_id") @db.Uuid
   documento       Documento @relation(fields: [documentoId], references: [id], onDelete: Restrict)
   creadoEn        DateTime  @map("creado_en") @db.Timestamptz(3)

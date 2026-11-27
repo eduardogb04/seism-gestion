@@ -62,6 +62,9 @@ import {
 
 const esquemaId = z.uuid();
 
+/** Si el pliego no fija la vigencia, 30 días corridos desde la emisión. */
+const VIGENCIA_POR_DEFECTO = 30;
+
 const MENSAJE_FORMULARIO_VIEJO =
   "Mientras tanto se cargó otra cotización de este servicio y esta pide el motivo de la revisión: cerrá la ventana y volvé a abrirla.";
 
@@ -122,6 +125,15 @@ function camposDeCotizacion(conMotivo: boolean): CamposAbm {
   return [
     ["fecha", { tipo: "fecha", etiqueta: "Fecha" }],
     ["importe", { tipo: "importe", etiqueta: "Importe" }],
+    [
+      "vigenciaDias",
+      {
+        tipo: "numero",
+        etiqueta: "Vigencia (días)",
+        decimales: 0,
+        opcional: true,
+      },
+    ],
     ...(conMotivo
       ? ([
           ["motivo", { tipo: "textoLargo", etiqueta: "Motivo de la revisión" }],
@@ -144,6 +156,12 @@ function validacionDeCotizacion(conMotivo: boolean): z.ZodType<DatosEscritos> {
       centavos: z.bigint().positive("El importe tiene que ser mayor que cero."),
       moneda: z.enum(MONEDAS),
     }),
+    vigenciaDias: z
+      .number()
+      .int()
+      .min(1, "La vigencia tiene que ser de al menos un día.")
+      .max(3650, "La vigencia no puede pasar de 3650 días.")
+      .nullable(),
     observaciones: opcional(2000),
   });
   return conMotivo
@@ -206,7 +224,10 @@ export function crearCasosUsoCotizaciones({
           (await repos.cotizaciones.ultimaVersion(servicioId)) > 0;
         return {
           campos: camposDeCotizacion(hayAnterior),
-          escrito: { fecha: formatearISO(reloj.ahora()).slice(0, 10) },
+          escrito: {
+            fecha: formatearISO(reloj.ahora()).slice(0, 10),
+            vigenciaDias: String(VIGENCIA_POR_DEFECTO),
+          },
         };
       });
     },

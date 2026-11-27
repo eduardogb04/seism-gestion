@@ -220,6 +220,40 @@ export function crearRepositorioServiciosPrisma(
       );
     },
 
+    async cotizacionesPorVencer() {
+      const filas = await cliente.servicio.findMany({
+        where: {
+          eliminadoEn: null,
+          id: { in: await idsEnEstado(cliente, "cotizado") },
+        },
+        select: {
+          id: true,
+          codigo: true,
+          cliente: { select: { razonSocial: true } },
+          cotizaciones: {
+            where: { eliminadoEn: null },
+            orderBy: { version: "desc" },
+            take: 1,
+            select: { fecha: true, vigenciaDias: true },
+          },
+        },
+      });
+      return filas.flatMap(({ id, codigo, cliente: c, cotizaciones }) => {
+        const vigente = cotizaciones[0];
+        return vigente === undefined || vigente.vigenciaDias === null
+          ? []
+          : [
+              {
+                id,
+                codigo,
+                cliente: c.razonSocial,
+                fecha: aDia(vigente.fecha),
+                vigenciaDias: vigente.vigenciaDias,
+              },
+            ];
+      });
+    },
+
     async eventosDe(id) {
       const filas = await cliente.servicioEvento.findMany({
         where: { servicioId: id },

@@ -132,6 +132,7 @@ export async function sembrarCotizaciones(
             importe: crearImporte(centavos, "ARS"),
             motivo,
             observaciones: null,
+            vigenciaDias: null,
             documentoId,
           },
           actor,

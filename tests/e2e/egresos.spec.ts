@@ -183,7 +183,7 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
   await fila(page, /Alquiler de depósito/)
     .getByRole("link", { name: "Dar de baja" })
     .click();
-  await expect(ventana(page, "Baja de egreso")).toContainText("USD 2.500,50");
+  await expect(ventana(page, "Dar de baja")).toContainText("USD 2.500,50");
   await page.getByRole("button", { name: "Confirmar baja" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(fila(page, /Alquiler de depósito/)).toHaveCount(0);

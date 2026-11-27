@@ -41,6 +41,8 @@ function listado(
     createElement(ListadoAbm, {
       ruta: "/catalogo/inventados",
       singular: "inventado",
+      plural: "inventados",
+      titulo: "Inventados",
       cabeceras: ["Nombre", "Nota"],
       ordenes: [{ columna: "nombre", etiqueta: "Nombre" }],
       listado: LISTADO,

@@ -4,5 +4,12 @@ import { PaginaListado, type PropsListado } from "../_abm/paginas.tsx";
 
 export default async function Camiones(props: PropsListado) {
   const sesion = await sesionExigida();
-  return <PaginaListado definicion={CAMIONES} sesion={sesion} {...props} />;
+  return (
+    <PaginaListado
+      bajada="Las unidades con las que se hace el transporte: patentes, cliente y capacidad."
+      definicion={CAMIONES}
+      sesion={sesion}
+      {...props}
+    />
+  );
 }

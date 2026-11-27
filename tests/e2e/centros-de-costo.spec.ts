@@ -26,7 +26,9 @@ function fila(page: Page, texto: string) {
 }
 
 function campo(page: Page, etiqueta: string) {
-  return page.getByLabel(etiqueta, { exact: true });
+  // El nombre accesible de un campo opcional lleva «opcional» al final.
+  const literal = etiqueta.replace(/[()]/g, (c) => "\\" + c);
+  return page.getByLabel(new RegExp(`^${literal}( ?opcional)?$`));
 }
 
 test("un administrador da de alta un centro de costo, le cambia la clase y lo da de baja; un nombre repetido vuelve con lo escrito", async ({
@@ -83,9 +85,9 @@ test("un administrador da de alta un centro de costo, le cambia la clase y lo da
   await fila(page, "Viáticos")
     .getByRole("link", { name: "Dar de baja" })
     .click();
-  await expect(
-    page.getByRole("dialog", { name: "Baja de centro de costo" }),
-  ).toContainText("Viáticos");
+  await expect(page.getByRole("dialog", { name: "Dar de baja" })).toContainText(
+    "Viáticos",
+  );
   await page.getByRole("button", { name: "Confirmar baja" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(fila(page, "Viáticos")).toHaveCount(0);

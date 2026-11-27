@@ -68,7 +68,7 @@ function FilaJob({ job }: { readonly job: EstadoJob }) {
 
 function SeccionJobs({ jobs }: { readonly jobs: readonly EstadoJob[] }) {
   return (
-    <section>
+    <section className="flex flex-col gap-2">
       <h2>Jobs</h2>
       <Tabla
         cabeceras={["Job", "Estado", "Última corrida", "Resultado", "Detalle"]}
@@ -85,7 +85,7 @@ function SeccionFallidos({ salud }: { readonly salud: Salud }) {
   const { fallidos, fallidosPendientes } = salud;
   if (fallidos === null || fallidosPendientes === null) {
     return (
-      <section>
+      <section className="flex flex-col gap-2">
         <h2>Fallidos pendientes</h2>
         <p data-estado="rojo">
           <Semaforo estado="rojo" /> No se pudieron leer los fallidos.
@@ -95,7 +95,7 @@ function SeccionFallidos({ salud }: { readonly salud: Salud }) {
   }
   if (fallidosPendientes === 0 && fallidos.length === 0) {
     return (
-      <section>
+      <section className="flex flex-col gap-2">
         <h2>Fallidos pendientes</h2>
         <p data-estado="ok">
           <Semaforo estado="ok" /> No hay fallidos pendientes.
@@ -104,7 +104,7 @@ function SeccionFallidos({ salud }: { readonly salud: Salud }) {
     );
   }
   return (
-    <section>
+    <section className="flex flex-col gap-2">
       <h2>Fallidos pendientes</h2>
       <p data-estado="rojo">
         <Semaforo estado="rojo" /> Pendientes: {fallidosPendientes}
@@ -147,7 +147,7 @@ function SeccionIntegraciones({
   readonly integraciones: readonly EstadoIntegracion[];
 }) {
   return (
-    <section>
+    <section className="flex flex-col gap-2">
       <h2>Integraciones</h2>
       <Tabla
         cabeceras={[
@@ -205,8 +205,13 @@ function SeccionGastoIa({ gasto }: { readonly gasto: GastoIa }) {
 
 export function PanelSalud({ salud }: { readonly salud: Salud }) {
   return (
-    <main>
-      <h1>Salud</h1>
+    <main className="flex flex-col gap-5 [&_h1]:m-0 [&_h2]:m-0">
+      <header className="aparece">
+        <h1>Salud</h1>
+        <p className="m-0 mt-1 text-texto-2">
+          Cómo andan los jobs, las integraciones y el gasto de IA del mes.
+        </p>
+      </header>
       <SeccionJobs jobs={salud.jobs} />
       <SeccionFallidos salud={salud} />
       <SeccionIntegraciones integraciones={salud.integraciones} />

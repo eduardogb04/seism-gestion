@@ -60,7 +60,9 @@ function CabeceraOrdenable({
   texto,
   sentido,
   enlace,
+  clases,
 }: {
+  readonly clases?: string | undefined;
   readonly texto: string;
   readonly sentido: "asc" | "desc" | null;
   readonly enlace: string;
@@ -74,6 +76,7 @@ function CabeceraOrdenable({
   return (
     <th
       scope="col"
+      className={clases}
       aria-sort={sentido === null ? undefined : ARIA_SORT[sentido]}
     >
       <a
@@ -101,8 +104,14 @@ function CabeceraOrdenable({
 export function Tabla({
   cabeceras,
   titulo,
+  derecha = [],
+  ocultas = [],
   children,
 }: {
+  /** Posiciones de las columnas de cifras, alineadas a la derecha. */
+  readonly derecha?: readonly number[];
+  /** Posiciones de las columnas que se esconden bajo 1024 px. */
+  readonly ocultas?: readonly number[];
   readonly cabeceras: readonly Cabecera[];
   readonly titulo?: string | undefined;
   readonly children: ReactNode;
@@ -120,20 +129,28 @@ export function Tabla({
         <caption className="sr-only">{nombre}</caption>
         <thead>
           <tr>
-            {cabeceras.map((cabecera) =>
-              typeof cabecera === "string" ? (
-                <th key={cabecera} scope="col">
+            {cabeceras.map((cabecera, posicion) => {
+              const clases =
+                [
+                  derecha.includes(posicion) ? "text-right" : "",
+                  ocultas.includes(posicion) ? "hidden lg:table-cell" : "",
+                ]
+                  .filter((c) => c !== "")
+                  .join(" ") || undefined;
+              return typeof cabecera === "string" ? (
+                <th key={cabecera} scope="col" className={clases}>
                   {cabecera}
                 </th>
               ) : (
                 <CabeceraOrdenable
+                  clases={clases}
                   key={cabecera.texto}
                   texto={cabecera.texto}
                   sentido={cabecera.orden.sentido}
                   enlace={cabecera.orden.enlace}
                 />
-              ),
-            )}
+              );
+            })}
           </tr>
         </thead>
         <tbody>{children}</tbody>

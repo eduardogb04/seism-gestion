@@ -5,6 +5,11 @@ import { PaginaListado, type PropsListado } from "../_abm/paginas.tsx";
 export default async function CentrosDeCosto(props: PropsListado) {
   const sesion = await sesionExigida();
   return (
-    <PaginaListado definicion={CENTROS_DE_COSTO} sesion={sesion} {...props} />
+    <PaginaListado
+      bajada="A dónde se imputan los egresos para saber cuánto cuesta cada parte del negocio."
+      definicion={CENTROS_DE_COSTO}
+      sesion={sesion}
+      {...props}
+    />
   );
 }

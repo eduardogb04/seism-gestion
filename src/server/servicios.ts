@@ -133,6 +133,7 @@ const QUE: Record<EntradaDelCalendario["tipo"], (titulo: string) => string> = {
   inicio: () => "Inicio estimado",
   cotizacion: () => "Cotización por vencer",
   egreso: (titulo) => titulo,
+  ajuste: () => "Ajuste por validar",
 };
 
 function masUrgente(a: AvisoDeServicio, b: AvisoDeServicio): AvisoDeServicio {

@@ -17,7 +17,13 @@ import { Enlace as Link } from "./enlace-next.ts";
 import { EtapaDeRenovacion } from "./etapa-de-renovacion.tsx";
 
 export type EntradaDeAviso = {
-  readonly tipo: "vencimiento" | "factura" | "egreso" | "inicio" | "cotizacion";
+  readonly tipo:
+    | "vencimiento"
+    | "factura"
+    | "egreso"
+    | "inicio"
+    | "cotizacion"
+    | "ajuste";
   readonly fecha: string;
   readonly titulo: string;
   readonly importe: string | null;
@@ -40,6 +46,7 @@ const ICONO: Record<EntradaDeAviso["tipo"], LucideIcon> = {
   egreso: Wallet,
   inicio: Play,
   cotizacion: FileText,
+  ajuste: FileText,
 };
 
 /** Lo vencido primero (lo más viejo arriba), después lo próximo por fecha. */

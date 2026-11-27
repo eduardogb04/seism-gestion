@@ -95,6 +95,7 @@ const CARGAS = [
   "cuota",
   "vencimiento",
   "ajuste",
+  "ajusteDeFacturacion",
 ] as const;
 
 /**
@@ -133,6 +134,8 @@ export const ETAPAS_DE_CARGA: Readonly<
   vencimiento: ["finalizado"],
   // Las notas de crédito y de débito y la factura adicional (F6-03): alta y anulación.
   ajuste: ["finalizado"],
+  // Proponer, validar y anular un recargo o un descuento (R5).
+  ajusteDeFacturacion: ["en_ejecucion", "finalizado"],
 };
 
 /** Cómo se le factura a un servicio (F3-03, ADR 0041); no es la modalidad del contrato (`Servicio.modalidad`). */

@@ -10,6 +10,7 @@
 import type { Auditoria } from "../auditoria.ts";
 import type { Secuencias } from "../secuencias.ts";
 import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
+import type { RepositorioAjustesFacturacion } from "./ajustes-facturacion.ts";
 import type { RepositorioAmpliacionesOrdenCompra } from "./ampliaciones-de-oc.ts";
 import type { RepositorioCobros } from "./cobros.ts";
 import type { RepositorioCotizaciones } from "./cotizaciones.ts";
@@ -48,6 +49,8 @@ export type RepositoriosEnTransaccion = {
   readonly ordenesCompra: RepositorioOrdenesCompra;
   /** Las ampliaciones de las órdenes de compra (R1). */
   readonly ampliaciones: RepositorioAmpliacionesOrdenCompra;
+  /** Los ajustes de facturación propuestos y su validación (R5). */
+  readonly ajustesFacturacion: RepositorioAjustesFacturacion;
   readonly facturas: RepositorioFacturas;
   /** Los cobros de las facturas (F2-07). */
   readonly cobros: RepositorioCobros;

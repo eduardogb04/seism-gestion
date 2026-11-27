@@ -26,12 +26,14 @@ import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
 import {
+  crearImporte,
   formatearImporte,
   formatearMonto,
   type Importe,
   type Moneda,
 } from "../../dominio/compartido/importe.ts";
 import type { FechaHora, Reloj } from "../../dominio/compartido/reloj.ts";
+import { descuentosAprobados } from "../../dominio/servicios/ajuste-facturacion.ts";
 import { sumaEn } from "../../dominio/servicios/avance.ts";
 import {
   cuentaParaLaOrden,
@@ -49,7 +51,6 @@ import {
   MODALIDADES_DE_FACTURACION,
   type ModalidadDeFacturacion,
 } from "../../dominio/servicios/estados.ts";
-import { saldoDeOrden } from "../../dominio/servicios/orden-compra.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
 import type { CuotaGuardada } from "../../puertos/repositorios/cuotas.ts";
 import type {
@@ -74,6 +75,7 @@ import { mesDe, primerDia } from "../tablero/mes.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import { exigirEtapa, historialDe } from "./ciclo.ts";
 import { comprobanteDe, conCobrosDe } from "./cobranza.ts";
+import { cuentasDeAjustes } from "./cuentas-de-ajustes.ts";
 import { totalConAmpliaciones } from "./ordenes-de-compra.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
@@ -361,23 +363,19 @@ export function crearCasosUsoFacturacion({
         const cuotas = await repos.cuotas.listarDe(servicioId);
         const quien = await nombresDeActores(repos);
         const hoy = reloj.ahora();
-        const cuenta =
-          orden === undefined
+        const { cuenta, saldo, paraCuentas } = await cuentasDeAjustes(
+          repos,
+          servicioId,
+        );
+        // Lo que queda por facturar baja con los descuentos aprobados (R5).
+        const aDescontar = descuentosAprobados(
+          paraCuentas,
+          total?.moneda ?? "ARS",
+        ).reduce((suma, { centavos }) => suma + centavos, 0n);
+        const totalNeto =
+          total === null
             ? null
-            : saldoDeOrden(
-                total ?? orden.valor.importe,
-                vigentes
-                  .filter(
-                    (factura) =>
-                      (factura.valor.ordenCompraId === null ||
-                        factura.valor.ordenCompraId === orden.valor.id) &&
-                      cuentaParaLaOrden(comprobanteDe(factura), comprobantes),
-                  )
-                  .map(({ valor }) => ({
-                    importe: importeConSigno(valor.tipo, valor.importe),
-                  })),
-              );
-        const saldo = cuenta?.saldo ?? null;
+            : crearImporte(total.centavos - aDescontar, total.moneda);
         return {
           modalidad:
             modalidadFacturacion === null
@@ -398,7 +396,7 @@ export function crearCasosUsoFacturacion({
           lineas: devengadoPorMoneda({
             modalidad: modalidadFacturacion,
             estado,
-            orden: total,
+            orden: totalNeto,
             facturas: sinIva,
             cuotas: cuotasDelDominio(cuotas),
             fecha: hoy,

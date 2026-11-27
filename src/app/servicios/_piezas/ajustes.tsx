@@ -70,10 +70,11 @@ export function Ajustes({
   readonly anular: (id: string) => Accion;
 }) {
   return (
-    <Parte enSeccion={enSeccion} titulo="Ajustes">
+    <Parte enSeccion={enSeccion} titulo="Notas de crédito y de débito">
       {puedeEscribir ? (
         <p className="mb-3 flex flex-wrap gap-3">
-          {AJUSTES.map((ajuste) => (
+          {/* La factura adicional sale de un recargo aprobado (R5), no de un botón suelto. */}
+          {AJUSTES.filter((ajuste) => ajuste !== "adicional").map((ajuste) => (
             <Enlace
               key={ajuste}
               href={`${ruta}?ajuste=${ajuste}`}
@@ -87,7 +88,7 @@ export function Ajustes({
         </p>
       ) : null}
       {ajustes.length === 0 ? (
-        <p>No hay notas ni facturas adicionales.</p>
+        <p>No hay notas ni facturas adicionales cargadas.</p>
       ) : (
         <Tabla
           cabeceras={puedeEscribir ? [...CABECERAS, "Acciones"] : CABECERAS}
@@ -173,7 +174,9 @@ export async function AjustesDelServicio({
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const ajustes = await armado().ajustes.listar(servicioId);
-  const pedido = AJUSTES.find((ajuste) => ajuste === parametros.ajuste);
+  const pedido = AJUSTES.find(
+    (ajuste) => ajuste !== "adicional" && ajuste === parametros.ajuste,
+  );
   const aAnular = parametros.anularAjuste;
   return (
     <Ajustes

@@ -13,6 +13,7 @@ export const PUNTO_DE_TIPO: Readonly<Record<TipoDeEntrada, string>> = {
   egreso: "bg-etapa-salida",
   inicio: "bg-etapa-ejecucion",
   cotizacion: "bg-etapa-cotizado",
+  ajuste: "bg-etapa-salida",
 };
 
 export type Vista = "mes" | "agenda";

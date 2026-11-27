@@ -40,6 +40,7 @@ export const TIPOS_DE_ENTRADA = [
   "egreso",
   "inicio",
   "cotizacion",
+  "ajuste",
 ] as const;
 
 export type TipoDeEntrada = (typeof TIPOS_DE_ENTRADA)[number];
@@ -50,6 +51,7 @@ export const ETIQUETAS_DE_TIPO: Readonly<Record<TipoDeEntrada, string>> = {
   egreso: "Egresos por pagar",
   inicio: "Inicios estimados",
   cotizacion: "Cotizaciones por vencer",
+  ajuste: "Ajustes por validar",
 };
 
 export type EntradaDelCalendario = {
@@ -76,6 +78,8 @@ export type EntradaDelCalendario = {
   readonly responsableId?: string | null;
   /** Solo en la renovación de un contrato: el aviso de 60, 45 o 30 días. */
   readonly etapaDeRenovacion?: EtapaDeRenovacion | null;
+  /** Solo lo ve un administrador (los ajustes por validar). */
+  readonly soloAdministrador?: boolean;
 };
 
 /** Quién mira los avisos. */
@@ -277,6 +281,27 @@ async function entradasEntre(
       }
     }
   }
+  if (tipos.includes("ajuste")) {
+    for (const {
+      ajuste,
+      servicioCodigo,
+    } of await repos.ajustesFacturacion.pendientes()) {
+      const fecha = formatearISO(ajuste.creadoEn).slice(0, 10);
+      if (delTramo(fecha)) {
+        entradas.push({
+          ...entrada({
+            tipo: "ajuste",
+            fecha,
+            titulo: `Validar ajuste · ${servicioCodigo} · ${ajuste.valor.concepto}`,
+            importe: formatearImporte(ajuste.valor.importe),
+            enlace: `/servicios/${ajuste.valor.servicioId}`,
+            vencimiento: null,
+          }),
+          soloAdministrador: true,
+        });
+      }
+    }
+  }
   return entradas.sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
 
@@ -350,8 +375,8 @@ export function crearCasosUsoCalendario({
         (e) =>
           (e.fecha < hastaDelPlazo || e.etapaDeRenovacion != null) &&
           (quien.rol === "administrador" ||
-            e.responsableId == null ||
-            e.responsableId === quien.id),
+            (e.soloAdministrador !== true &&
+              (e.responsableId == null || e.responsableId === quien.id))),
       );
       const vencidos = entradas.filter(({ vencida }) => vencida).length;
       return {

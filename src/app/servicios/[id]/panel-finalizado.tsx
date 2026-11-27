@@ -17,6 +17,10 @@ import {
 } from "./_molde/panel-de-etapa.tsx";
 import { ACCIONES_DE_HITOS } from "./acciones-de-planificacion.ts";
 import {
+  AjustesDeFacturacion,
+  DE_AJUSTES_DE_FACTURACION,
+} from "./ajustes-de-facturacion.tsx";
+import {
   type DatosDePanel,
   dias,
   diasEnEtapa,
@@ -161,6 +165,14 @@ export async function PanelFinalizado({
           sinFilasNoSeDibuja={false}
         />
         <AjustesDelServicio enSeccion {...propias} />
+      </Seccion>
+      <Seccion
+        clave="finalizado.ajustes"
+        titulo="Ajustes"
+        parametros={parametros}
+        abreCon={DE_AJUSTES_DE_FACTURACION}
+      >
+        <AjustesDeFacturacion enSeccion {...propias} />
       </Seccion>
       <Seccion
         clave="finalizado.vencimientos"

@@ -43,6 +43,10 @@ import {
   crearCasosUsoAjustes,
 } from "../../casos-uso/servicios/ajustes.ts";
 import {
+  type CasosUsoAjustesDeFacturacion,
+  crearCasosUsoAjustesDeFacturacion,
+} from "../../casos-uso/servicios/ajustes-facturacion.ts";
+import {
   type CasosUsoCobros,
   crearCasosUsoCobros,
 } from "../../casos-uso/servicios/cobros.ts";
@@ -134,6 +138,8 @@ export type Armado = {
   readonly facturas: CasosUsoFacturas;
   /** Las notas de crédito y de débito y la factura adicional (F6-03). */
   readonly ajustes: CasosUsoAjustes;
+  /** Los recargos y descuentos propuestos y su validación (R5). */
+  readonly ajustesDeFacturacion: CasosUsoAjustesDeFacturacion;
   /** Los cobros de las facturas, el avance y *Por cobrar* (F2-07). */
   readonly cobros: CasosUsoCobros;
   /** El registro de sucesos de un servicio (F3-01). */
@@ -218,6 +224,13 @@ function armar(): Armado {
       nuevaClave: nuevaClaveDocumento,
     }),
     facturas: crearCasosUsoFacturas({
+      transaccional,
+      reloj,
+      generadorId,
+      almacen,
+      nuevaClave: nuevaClaveDocumento,
+    }),
+    ajustesDeFacturacion: crearCasosUsoAjustesDeFacturacion({
       transaccional,
       reloj,
       generadorId,

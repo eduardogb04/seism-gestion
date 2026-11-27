@@ -77,6 +77,7 @@ const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   ampliacionDeOrden: ["adjudicado", "en_ejecucion"],
   reemplazoDeOrden: ["adjudicado", "en_ejecucion"],
   anticipo: ["adjudicado", "en_ejecucion"],
+  ajusteDeFacturacion: ["en_ejecucion", "finalizado"],
   factura: ["adjudicado", "en_ejecucion", "finalizado"],
   cobro: MENOS_CERRADO,
   suceso: ["creado", "cotizado", "adjudicado", "en_ejecucion", "finalizado"],

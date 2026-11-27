@@ -544,6 +544,7 @@ model Servicio {
   documentos    ServicioDocumento[]
   ordenesCompra OrdenCompra[]
   facturas      Factura[]
+  ajustesFacturacion AjusteFacturacion[]
   egresos       Egreso[]
   sucesos       ServicioSuceso[]
   cuotas        ServicioCuota[]
@@ -754,6 +755,7 @@ model Documento {
   cobros                 Cobro[]
   deServicios            ServicioDocumento[]
   ampliacionOrdenCompras AmpliacionOrdenCompra[]
+  ajustesFacturacion     AjusteFacturacion[]
 
   @@map("documentos")
 }
@@ -862,6 +864,40 @@ model AmpliacionOrdenCompra {
   @@map("ampliaciones_de_oc")
 }
 
+// Un ajuste de facturación propuesto (R5, SYSTEM_SPEC §5.4): un recargo o un descuento sobre lo
+// facturado, que un administrador aprueba o rechaza. El importe es sin IVA, en la moneda de la
+// orden de compra vigente; si hay cantidad numérica y precio unitario, es su producto. Aprobado,
+// el recargo se factura como adicional y el descuento baja lo que queda por facturar; `facturaId`
+// liga la factura adicional o la nota de crédito que salió de él. Se anula con baja lógica.
+model AjusteFacturacion {
+  id                     String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId             String     @map("servicio_id") @db.Uuid
+  servicio               Servicio   @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  clase                  String
+  concepto               String
+  cantidad               String?
+  precioUnitarioCentavos BigInt?    @map("precio_unitario_centavos")
+  importeCentavos        BigInt     @map("importe_centavos")
+  importeMoneda          String     @map("importe_moneda")
+  motivo                 String
+  documentoId            String?    @map("documento_id") @db.Uuid
+  documento              Documento? @relation(fields: [documentoId], references: [id], onDelete: Restrict)
+  estado                 String     @default("pendiente")
+  resueltoEn             DateTime?  @map("resuelto_en") @db.Timestamptz(3)
+  resueltoPor            String?    @map("resuelto_por") @db.Uuid
+  motivoRechazo          String?    @map("motivo_rechazo")
+  facturaId              String?    @map("factura_id") @db.Uuid
+  factura                Factura?   @relation(fields: [facturaId], references: [id], onDelete: Restrict)
+  creadoEn               DateTime   @map("creado_en") @db.Timestamptz(3)
+  creadoPor              Json       @map("creado_por") @db.JsonB
+  actualizadoEn          DateTime   @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor         Json       @map("actualizado_por") @db.JsonB
+  eliminadoEn            DateTime?  @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor           Json?      @map("eliminado_por") @db.JsonB
+
+  @@map("ajustes_facturacion")
+}
+
 // Una factura de un servicio. El importe es **sin IVA**: el IVA y el total se
 // calculan siempre con `src/dominio/servicios/factura.ts` y no se guardan. La
 // alícuota va en milésimas (210, 105 o 0). El número es único entre las
@@ -895,6 +931,7 @@ model Factura {
   comprobanteAsociadoId String?      @map("comprobante_asociado_id") @db.Uuid
   comprobanteAsociado   Factura?     @relation("ComprobanteAsociado", fields: [comprobanteAsociadoId], references: [id], onDelete: Restrict)
   asociados             Factura[]    @relation("ComprobanteAsociado")
+  ajustesFacturacion    AjusteFacturacion[]
   // Las notas y la adicional se anulan con un motivo.
   motivoAnulacion       String?      @map("motivo_anulacion")
   creadoEn              DateTime     @map("creado_en") @db.Timestamptz(3)

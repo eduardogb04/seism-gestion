@@ -23,7 +23,11 @@ import {
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
-import { formatearImporte, MONEDAS } from "../../dominio/compartido/importe.ts";
+import {
+  formatearImporte,
+  formatearMonto,
+  MONEDAS,
+} from "../../dominio/compartido/importe.ts";
 import { formatearISO } from "../../dominio/compartido/reloj.ts";
 import {
   admiteNotaDeCredito,
@@ -67,6 +71,13 @@ import {
   importeMayorQueCero,
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
+import {
+  ajusteVigente,
+  cuentasDeAjustes,
+  desligarAjuste,
+  importeAFacturar,
+  ligarAjuste,
+} from "./cuentas-de-ajustes.ts";
 import {
   alicuotaElegida,
   exigirSinCobrosNiCreditos,
@@ -113,6 +124,7 @@ export type CasosUsoAjustes = {
   formulario(
     servicioId: string,
     ajuste: Ajuste,
+    desdeAjusteId?: string,
   ): Promise<{ readonly campos: CamposAbm; readonly escrito: Escrito }>;
   /** `archivo` es `null` si no se eligió ninguno: el documento es opcional. */
   crear(
@@ -121,6 +133,7 @@ export type CasosUsoAjustes = {
     ajuste: Ajuste,
     escrito: Escrito,
     archivo: ArchivoSubido | null,
+    desdeAjusteId?: string,
   ): Promise<ResultadoDeAjuste>;
   /** La anula con el motivo de `escrito.motivo`. `DOM-0009` si no es un ajuste vigente. */
   marcarAnulado(
@@ -271,25 +284,47 @@ export function crearCasosUsoAjustes({
       });
     },
 
-    formulario(servicioId, ajuste) {
+    formulario(servicioId, ajuste, desdeAjusteId) {
       return transaccional.ejecutar(async (repos) => {
         const asociables = await asociablesDe(repos, servicioId);
         const [primero] = asociables;
+        // Desde un ajuste aprobado, el importe viene de él (recargo) o es el exceso a acreditar (descuento).
+        const deAjuste =
+          desdeAjusteId === undefined
+            ? null
+            : importeAFacturar(
+                await cuentasDeAjustes(repos, servicioId),
+                await ajusteVigente(repos, desdeAjusteId),
+              );
         return {
           campos: camposDe(ajuste, campoAsociado(ajuste, asociables)),
           escrito: {
             fecha: formatearISO(reloj.ahora()).slice(0, 10),
             alicuota: String(ALICUOTA_POR_DEFECTO),
-            [nombreDeMoneda("importe")]:
-              primero?.saldo.total.moneda ?? MONEDAS[0],
+            ...(deAjuste === null
+              ? {
+                  [nombreDeMoneda("importe")]:
+                    primero?.saldo.total.moneda ?? MONEDAS[0],
+                }
+              : {
+                  importe: formatearMonto(deAjuste),
+                  [nombreDeMoneda("importe")]: deAjuste.moneda,
+                }),
           },
         };
       });
     },
 
-    crear(actor, servicioId, ajuste, escrito, archivo) {
+    crear(actor, servicioId, ajuste, escrito, archivo, desdeAjusteId) {
       return transaccional.ejecutar(async (repos) => {
         await exigirParaEscribir(actor, repos, servicioId);
+        // La adicional sale solo de un recargo aprobado (R5).
+        if (ajuste === "adicional" && desdeAjusteId === undefined) {
+          throw nuevoError(catalogo.DOM_0009, {
+            entidad: "Ajuste propuesto",
+            id: "",
+          });
+        }
         const asociables = await asociablesDe(repos, servicioId);
         const campos = camposDe(ajuste, campoAsociado(ajuste, asociables));
         const tipo = TIPO_DE_AJUSTE[ajuste];
@@ -359,11 +394,12 @@ export function crearCasosUsoAjustes({
           adjuntos,
           adjunto.archivo,
         );
+        const facturaId = identificadorDesde<string>(generadorId.generar());
         await repos.facturas.crear(
           actor,
           crearAuditable(
             {
-              id: identificadorDesde<string>(generadorId.generar()),
+              id: facturaId,
               servicioId,
               ordenCompraId: asociado?.valor.ordenCompraId ?? null,
               numero: datos.numero,
@@ -387,6 +423,17 @@ export function crearCasosUsoAjustes({
             reloj,
           ),
         );
+        if (desdeAjusteId !== undefined) {
+          await ligarAjuste(
+            actor,
+            repos,
+            reloj,
+            servicioId,
+            desdeAjusteId,
+            facturaId,
+            ajuste === "adicional" ? "recargo" : "descuento",
+          );
+        }
         await cerrarSiEstaCobrado(actor, repos, reloj, servicioId);
         return { ok: true };
       });
@@ -427,6 +474,7 @@ export function crearCasosUsoAjustes({
           throw nuevoError(catalogo.DOM_0009, { entidad: "Ajuste", id });
         }
         await repos.facturas.actualizar(actor, anulado.valor, "eliminar");
+        await desligarAjuste(actor, repos, reloj, servicioId, id);
         await bajaDeAdjuntoOpcional(
           actor,
           repos,

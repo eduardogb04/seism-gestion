@@ -24,6 +24,10 @@ import {
   ACCIONES_DE_RECURSOS,
 } from "./acciones-de-planificacion.ts";
 import {
+  AjustesDeFacturacion,
+  DE_AJUSTES_DE_FACTURACION,
+} from "./ajustes-de-facturacion.tsx";
+import {
   type DatosDePanel,
   dias,
   diasEnEtapa,
@@ -329,6 +333,15 @@ export async function PanelEnEjecucion({
           sinFilasNoSeDibuja={false}
         />
         <HistorialDeCuota cuotas={facturacion.cuotas} />
+      </Seccion>
+      <Seccion
+        clave="en_ejecucion.ajustes"
+        titulo="Ajustes"
+        abiertaPorDefecto={false}
+        parametros={parametros}
+        abreCon={DE_AJUSTES_DE_FACTURACION}
+      >
+        <AjustesDeFacturacion enSeccion {...propias} />
       </Seccion>
       <Seccion
         clave="en_ejecucion.vencimientos"

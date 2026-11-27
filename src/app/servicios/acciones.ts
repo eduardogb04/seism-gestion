@@ -343,6 +343,81 @@ export async function cargarAjuste(
   });
 }
 
+/** Emitir la factura adicional de un recargo aprobado o la nota de crédito de un descuento aprobado (R5): se liga al ajuste. */
+export async function cargarAjusteDesde(
+  servicioId: string,
+  ajuste: Ajuste,
+  ajusteId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().ajustes.crear(
+      actor,
+      servicioId,
+      ajuste,
+      escritoEn(formulario),
+      archivo,
+      ajusteId,
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
+/** Proponer un recargo o un descuento (R5). */
+export async function proponerAjusteDeFacturacion(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargado = await armado().ajustesDeFacturacion.proponer(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+      archivo,
+    );
+    return cargado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargado;
+  });
+}
+
+/** Aprobar un ajuste propuesto (solo administrador). */
+export async function aprobarAjusteDeFacturacion(
+  servicioId: string,
+  id: string,
+): Promise<void> {
+  return enElServicio(servicioId, (actor) =>
+    armado().ajustesDeFacturacion.aprobar(actor, id),
+  );
+}
+
+/** Rechazar un ajuste propuesto, con el motivo del formulario (solo administrador). */
+export async function rechazarAjusteDeFacturacion(
+  servicioId: string,
+  id: string,
+  formulario: FormData,
+): Promise<void> {
+  return enElServicio(servicioId, async (actor) => {
+    await armado().ajustesDeFacturacion.rechazar(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+  });
+}
+
+/** Anular un ajuste propuesto todavía pendiente (quien lo cargó). */
+export async function anularAjusteDeFacturacion(
+  servicioId: string,
+  id: string,
+): Promise<void> {
+  return enElServicio(servicioId, (actor) =>
+    armado().ajustesDeFacturacion.anular(actor, id),
+  );
+}
+
 /** Anular un ajuste, con el motivo. */
 export async function anularAjuste(
   servicioId: string,

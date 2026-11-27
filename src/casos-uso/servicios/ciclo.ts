@@ -9,6 +9,7 @@ import type { Actor } from "../../dominio/compartido/actor.ts";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import type { Reloj } from "../../dominio/compartido/reloj.ts";
+import { quedaPorFacturar } from "../../dominio/servicios/ajuste-facturacion.ts";
 import { todoCobrado } from "../../dominio/servicios/cobro.ts";
 import {
   admiteCarga,
@@ -24,6 +25,7 @@ import {
 } from "../../dominio/servicios/estados.ts";
 import type { RepositoriosEnTransaccion } from "../../puertos/repositorios/transaccion.ts";
 import { conCobrosDe } from "./cobranza.ts";
+import { cuentasDeAjustes } from "./cuentas-de-ajustes.ts";
 
 export async function historialDe(
   repos: RepositoriosEnTransaccion,
@@ -143,7 +145,11 @@ export async function exigirEtapaDeFactura(
   }
 }
 
-/** Un servicio finalizado con al menos un comprobante con saldo y todos en cero, con las notas de crédito restadas, pasa a «Cerrado». */
+/**
+ * Un servicio finalizado con al menos un comprobante con saldo y todos en cero, con las notas de
+ * crédito restadas, y sin nada por facturar (saldo de la orden con descuentos en cero o menos y
+ * ningún recargo aprobado sin facturar, R5), pasa a «Cerrado».
+ */
 export async function cerrarSiEstaCobrado(
   actor: Actor,
   repos: RepositoriosEnTransaccion,
@@ -151,7 +157,11 @@ export async function cerrarSiEstaCobrado(
   id: string,
 ): Promise<void> {
   const facturas = await conCobrosDe(repos, await repos.facturas.listarDe(id));
-  if (todoCobrado(facturas.map(({ saldo }) => saldo))) {
+  if (!todoCobrado(facturas.map(({ saldo }) => saldo))) {
+    return;
+  }
+  const { saldo, paraCuentas } = await cuentasDeAjustes(repos, id);
+  if (!quedaPorFacturar(saldo, paraCuentas)) {
     await cambiarPorCausa(
       actor,
       repos,

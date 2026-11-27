@@ -140,6 +140,7 @@ export function importeAFacturar(
     )
     .reverse();
   for (const otro of sinLigar) {
+    // biome-ignore lint/complexity/useMathMinMax: Math.min no admite bigint
     const parte =
       exceso < otro.valor.importe.centavos
         ? exceso

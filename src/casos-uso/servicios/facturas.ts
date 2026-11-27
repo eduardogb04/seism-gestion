@@ -148,6 +148,8 @@ export type FacturaListada = {
   /** Calculado, no guardado: lo que se cobra. */
   readonly total: string;
   readonly documento: DocumentoListado | null;
+  /** Un anticipo: va con una etiqueta en la lista. */
+  readonly anticipo: boolean;
   /** El email de quien la cargó. */
   readonly quien: string;
 };
@@ -167,7 +169,10 @@ export type CasosUsoFacturas = {
   /** Una factura vigente con su servicio y sus cambios. `DOM-0009` si no existe o está anulada. */
   ver(id: string): Promise<DetalleDeFactura>;
   /** El formulario de la próxima: las órdenes de compra del servicio, el 21 % y la fecha de hoy; en mensual, el período y su cuota. */
-  formulario(servicioId: string): Promise<{
+  formulario(
+    servicioId: string,
+    anticipo?: boolean,
+  ): Promise<{
     readonly campos: CamposAbm;
     readonly escrito: Escrito;
   }>;
@@ -202,6 +207,7 @@ type DatosEscritos = Omit<
   | "periodo"
   | "tipo"
   | "adicional"
+  | "anticipo"
   | "comprobanteAsociadoId"
   | "motivoAnulacion"
 >;
@@ -252,9 +258,10 @@ export function vencimientoNoAnterior(
 function camposDeFactura(
   ordenes: readonly OpcionAbm[],
   mensual: boolean,
+  anticipo = false,
 ): CamposAbm {
   return [
-    ...(mensual
+    ...(mensual && !anticipo
       ? [
           [
             "periodo",
@@ -298,12 +305,15 @@ const VALIDACION: z.ZodType<DatosEscritos> = z
   })
   .superRefine(vencimientoNoAnterior);
 
-/** Las órdenes de compra vigentes del servicio, para elegir a cuál corresponde la factura. */
+/** Las órdenes de compra no reemplazadas del servicio, para elegir a cuál corresponde la factura. */
 async function ordenesParaElegir(
   repos: RepositoriosEnTransaccion,
   servicioId: string,
 ) {
-  return (await repos.ordenesCompra.listarDe(servicioId)).map(({ valor }) => ({
+  const sinReemplazar = (await repos.ordenesCompra.listarDe(servicioId)).filter(
+    ({ valor }) => valor.reemplazadaEn === null,
+  );
+  return sinReemplazar.map(({ valor }) => ({
     valor: valor.id,
     etiqueta: `${valor.numero} · ${formatearImporte(valor.importe)}`,
     moneda: valor.importe.moneda,
@@ -357,6 +367,7 @@ function filaDeFactura(
     iva: formatearImporte(ivaDe(valor.importe, valor.alicuota)),
     total: formatearImporte(totalConIva(valor.importe, valor.alicuota)),
     documento,
+    anticipo: valor.anticipo,
     quien,
   };
 }
@@ -470,18 +481,20 @@ export function crearCasosUsoFacturas({
       });
     },
 
-    formulario(servicioId) {
+    formulario(servicioId, anticipo = false) {
       return transaccional.ejecutar(async (repos) => {
         const { valor } = await servicioVigente(repos, servicioId);
         const ordenes = await ordenesParaElegir(repos, servicioId);
         const [masNueva] = ordenes;
         const hoy = reloj.ahora();
-        const mensual = valor.modalidadFacturacion === "mensual";
+        const mensual = valor.modalidadFacturacion === "mensual" && !anticipo;
         const delMes = mensual
           ? await facturaDelMes(repos, servicioId, hoy)
           : null;
         return {
-          campos: camposDeFactura(ordenes, mensual),
+          campos: camposDeFactura(ordenes, mensual, anticipo).filter(
+            ([nombre]) => !(anticipo && nombre === "ordenCompraId"),
+          ),
           escrito: {
             fecha: formatearISO(hoy).slice(0, 10),
             vencimiento: formatearISO(
@@ -515,16 +528,26 @@ export function crearCasosUsoFacturas({
           repos,
           servicioId,
         );
-        await exigirEtapaDeFactura(
-          repos,
-          servicioId,
-          servicio.modalidadFacturacion,
-        );
-        const mensual = servicio.modalidadFacturacion === "mensual";
+        const anticipo = escrito.anticipo === "1";
+        if (anticipo) {
+          await exigirEtapa(repos, servicioId, "anticipo");
+        } else {
+          await exigirEtapaDeFactura(
+            repos,
+            servicioId,
+            servicio.modalidadFacturacion,
+          );
+        }
+        const mensual =
+          servicio.modalidadFacturacion === "mensual" && !anticipo;
+        const ordenes = await ordenesParaElegir(repos, servicioId);
         const validado = validarEscrito(
-          camposDeFactura(await ordenesParaElegir(repos, servicioId), mensual),
+          camposDeFactura(ordenes, mensual, anticipo),
           VALIDACION,
-          escrito,
+          // Un anticipo va siempre contra la orden vigente, si hay.
+          anticipo
+            ? { ...escrito, ordenCompraId: ordenes[0]?.valor ?? "" }
+            : escrito,
         );
         const adjunto = validarAdjuntoOpcional(archivo);
         const repetido =
@@ -560,6 +583,7 @@ export function crearCasosUsoFacturas({
               documentoId,
               tipo: "factura",
               adicional: false,
+              anticipo,
               comprobanteAsociadoId: null,
               motivoAnulacion: null,
               id,

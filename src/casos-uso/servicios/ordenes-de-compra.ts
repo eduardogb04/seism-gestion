@@ -17,6 +17,7 @@ import { z } from "zod";
 import type { Actor } from "../../dominio/compartido/actor.ts";
 import {
   crearAuditable,
+  marcarActualizado,
   marcarEliminado,
 } from "../../dominio/compartido/auditable.ts";
 import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
@@ -28,9 +29,18 @@ import {
 } from "../../dominio/compartido/importe.ts";
 import { formatearISO } from "../../dominio/compartido/reloj.ts";
 import { importeConSigno } from "../../dominio/servicios/comprobante.ts";
-import { saldoDeOrden } from "../../dominio/servicios/orden-compra.ts";
-import type { DatosOrdenCompra } from "../../puertos/repositorios/ordenes-de-compra.ts";
-import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
+import {
+  saldoDeOrden,
+  totalDeOrden,
+} from "../../dominio/servicios/orden-compra.ts";
+import type {
+  DatosOrdenCompra,
+  OrdenCompra,
+} from "../../puertos/repositorios/ordenes-de-compra.ts";
+import type {
+  RepositoriosEnTransaccion,
+  Transaccional,
+} from "../../puertos/repositorios/transaccion.ts";
 import {
   type ErroresPorCampo,
   nombresDeActores,
@@ -68,6 +78,7 @@ import {
   type ResultadoDeCambio,
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
+import { sincronizarRenovacionDeContrato } from "./generacion-de-vencimientos.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
   servicioVigente,
@@ -84,14 +95,34 @@ type ResultadoDeOrden =
   | { readonly ok: true; readonly id: string }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
+/** Una ampliación de una orden de compra, como se ve debajo de ella. */
+export type AmpliacionListada = {
+  readonly id: string;
+  readonly numero: string;
+  /** dd/mm/aaaa. */
+  readonly fecha: string;
+  /** Lo que suma, sin IVA, en la moneda de la orden: `ARS 1.000,00`. */
+  readonly importe: string;
+  /** dd/mm/aaaa si cambió el fin del servicio, `null` si no. */
+  readonly nuevaFechaFin: string | null;
+  readonly observaciones: string;
+  readonly documento: DocumentoListado | null;
+};
+
 /** Una orden de compra como se ve en la tabla del servicio. */
 export type OrdenListada = {
   readonly id: string;
   readonly numero: string;
   /** dd/mm/aaaa. */
   readonly fecha: string;
-  /** Sin IVA: `ARS 12.500,00`. */
+  /** Sin IVA y con las ampliaciones: `ARS 12.500,00`. */
   readonly total: string;
+  /** Sin IVA, antes de las ampliaciones. */
+  readonly importeOriginal: string;
+  /** Las ampliaciones vigentes, la más nueva primero. */
+  readonly ampliaciones: readonly AmpliacionListada[];
+  /** dd/mm/aaaa si otra orden la reemplazó: queda en la historia, sin ampliar ni anular. */
+  readonly reemplazadaEl: string | null;
   /** Las facturas en la moneda de la orden, sin IVA. */
   readonly facturado: string;
   /** El total menos lo facturado; con signo menos si se facturó de más. */
@@ -123,6 +154,28 @@ export type CasosUsoOrdenesDeCompra = {
     escrito: Escrito,
     archivo: ArchivoSubido | null,
   ): Promise<ResultadoDeOrden>;
+  /** Carga una orden nueva que reemplaza a la vigente: la anterior queda en la historia con sus facturas. */
+  reemplazar(
+    actor: Actor,
+    servicioId: string,
+    escrito: Escrito,
+    archivo: ArchivoSubido | null,
+  ): Promise<ResultadoDeOrden>;
+  /** El formulario de una ampliación de la orden: trae la fecha de hoy y la moneda de la orden. */
+  formularioDeAmpliacion(ordenId: string): Promise<{
+    readonly numero: string;
+    readonly campos: CamposAbm;
+    readonly escrito: Escrito;
+  }>;
+  /** Suma importe a la orden vigente; si trae nueva fecha de fin, mueve la vigencia del servicio. */
+  ampliar(
+    actor: Actor,
+    ordenId: string,
+    escrito: Escrito,
+    archivo: ArchivoSubido | null,
+  ): Promise<ResultadoDeOrden>;
+  /** Anula una ampliación (baja lógica, con su documento); la fecha de fin no se revierte. */
+  anularAmpliacion(actor: Actor, id: string): Promise<void>;
   /** El formulario para completar o cambiar su tipo de cambio, con lo que ya tiene. */
   formularioDeCambio(id: string): Promise<{
     readonly numero: string;
@@ -148,7 +201,71 @@ const CAMPOS: CamposAbm = [
 ];
 
 /** Lo que se escribe en el formulario: la cabecera sin lo que pone el sistema. */
-type DatosEscritos = Omit<DatosOrdenCompra, "servicioId" | "documentoId">;
+type DatosEscritos = Omit<
+  DatosOrdenCompra,
+  "servicioId" | "documentoId" | "reemplazadaEn" | "reemplazadaPorId"
+>;
+
+const CAMPOS_DE_AMPLIACION: CamposAbm = [
+  ["numero", { tipo: "texto", etiqueta: "Número" }],
+  ["fecha", { tipo: "fecha", etiqueta: "Fecha" }],
+  ["importe", { tipo: "importe", etiqueta: "Monto adicional sin IVA" }],
+  [
+    "nuevaFechaFin",
+    { tipo: "fecha", etiqueta: "Nueva fecha de fin", opcional: true },
+  ],
+  ["observaciones", { tipo: "textoLargo", etiqueta: "Observaciones" }],
+];
+
+type AmpliacionEscrita = {
+  readonly numero: string;
+  readonly fecha: string;
+  readonly importe: {
+    readonly centavos: bigint;
+    readonly moneda: "ARS" | "USD";
+  };
+  readonly nuevaFechaFin: string | null;
+  readonly observaciones: string | null;
+};
+
+const VALIDACION_DE_AMPLIACION: z.ZodType<AmpliacionEscrita> = z.object({
+  numero: obligatorio("el número", 40),
+  fecha: z.string(),
+  importe: importeMayorQueCero,
+  nuevaFechaFin: z.string().nullable(),
+  observaciones: opcional(2000),
+});
+
+/** El total de la orden: su importe más sus ampliaciones vigentes. */
+export async function totalConAmpliaciones(
+  repos: RepositoriosEnTransaccion,
+  orden: OrdenCompra,
+) {
+  const ampliaciones = await repos.ampliaciones.listarDe([orden.valor.id]);
+  return totalDeOrden(
+    orden.valor.importe,
+    ampliaciones.map(({ valor }) => ({
+      importe: crearImporte(valor.importeCentavos, orden.valor.importe.moneda),
+    })),
+  );
+}
+
+async function ordenVigenteDe(
+  repos: RepositoriosEnTransaccion,
+  id: string,
+): Promise<OrdenCompra> {
+  const orden = esquemaId.safeParse(id).success
+    ? await repos.ordenesCompra.buscarPorId(id)
+    : null;
+  if (
+    orden === null ||
+    orden.eliminadoEn !== undefined ||
+    orden.valor.reemplazadaEn !== null
+  ) {
+    throw nuevoError(catalogo.DOM_0009, { entidad: "Orden de compra", id });
+  }
+  return orden;
+}
 
 const VALIDACION: z.ZodType<DatosEscritos> = z.object({
   numero: obligatorio("el número", 40),
@@ -163,6 +280,105 @@ export function crearCasosUsoOrdenesDeCompra({
   ...adjuntos
 }: Dependencias): CasosUsoOrdenesDeCompra {
   const { reloj, generadorId } = adjuntos;
+  /** La carga normal (Cotizado → Adjudicado) o el reemplazo de la vigente, que no cambia la etapa. */
+  function cargar(
+    actor: Actor,
+    servicioId: string,
+    escrito: Escrito,
+    archivo: ArchivoSubido | null,
+    reemplaza: boolean,
+  ): Promise<ResultadoDeOrden> {
+    return transaccional.ejecutar(async (repos) => {
+      await exigirRol(
+        repos.usuarios,
+        actor,
+        ROLES_QUE_ESCRIBEN_SERVICIOS,
+        catalogo.AUT_0009,
+      );
+      await servicioVigenteBloqueado(repos, servicioId);
+      await exigirEtapa(
+        repos,
+        servicioId,
+        reemplaza ? "reemplazoDeOrden" : "ordenDeCompra",
+      );
+      const anterior = reemplaza
+        ? await repos.ordenesCompra.vigenteDe(servicioId)
+        : undefined;
+      if (reemplaza && anterior === undefined) {
+        throw nuevoError(catalogo.DOM_0009, {
+          entidad: "Orden de compra",
+          id: servicioId,
+        });
+      }
+      const validado = validarEscrito(CAMPOS, VALIDACION, escrito);
+      const adjunto = validarAdjuntoOpcional(archivo);
+      if (!validado.ok || !adjunto.ok) {
+        return {
+          ok: false,
+          errores: {
+            ...(validado.ok ? {} : validado.errores),
+            ...(adjunto.ok ? {} : { archivo: adjunto.mensaje }),
+          },
+        };
+      }
+      const documentoId = await guardarAdjuntoOpcional(
+        actor,
+        repos,
+        adjuntos,
+        adjunto.archivo,
+      );
+      const id = identificadorDesde<string>(generadorId.generar());
+      await repos.ordenesCompra.crear(
+        actor,
+        crearAuditable(
+          {
+            ...validado.datos,
+            servicioId,
+            documentoId,
+            reemplazadaEn: null,
+            reemplazadaPorId: null,
+            id,
+          },
+          actor,
+          reloj,
+        ),
+      );
+      if (anterior !== undefined) {
+        const marcada = marcarActualizado(
+          anterior,
+          {
+            ...anterior.valor,
+            reemplazadaEn: reloj.ahora(),
+            reemplazadaPorId: id,
+          },
+          actor,
+          reloj,
+        );
+        if (!marcada.ok) {
+          throw nuevoError(catalogo.DOM_0009, {
+            entidad: "Orden de compra",
+            id: anterior.valor.id,
+          });
+        }
+        await repos.ordenesCompra.actualizar(
+          actor,
+          marcada.valor,
+          "actualizar",
+        );
+      } else {
+        await cambiarPorCausa(
+          actor,
+          repos,
+          reloj,
+          servicioId,
+          "ordenDeCompra",
+          `Orden de compra ${validado.datos.numero} cargada`,
+        );
+      }
+      return { ok: true, id };
+    });
+  }
+
   return {
     listar(servicioId) {
       return transaccional.ejecutar(async (repos) => {
@@ -174,9 +390,24 @@ export function crearCasosUsoOrdenesDeCompra({
           ordenes.map(({ valor }) => valor.documentoId),
         );
         const quien = await nombresDeActores(repos);
+        const deLaOrden = await repos.ampliaciones.listarDe(
+          ordenes.map(({ valor }) => valor.id),
+        );
+        const documentoDeAmpliacion = await documentosListados(
+          repos,
+          deLaOrden.map(({ valor }) => valor.documentoId),
+        );
         return ordenes.map(({ valor, creadoPor }) => {
+          const ampliaciones = deLaOrden.filter(
+            ({ valor: a }) => a.ordenCompraId === valor.id,
+          );
           const { total, facturado, saldo, otraMoneda } = saldoDeOrden(
-            valor.importe,
+            totalDeOrden(
+              valor.importe,
+              ampliaciones.map(({ valor: a }) => ({
+                importe: crearImporte(a.importeCentavos, valor.importe.moneda),
+              })),
+            ),
             deLaFactura
               .filter(
                 ({ valor: factura }) => factura.ordenCompraId === valor.id,
@@ -191,6 +422,23 @@ export function crearCasosUsoOrdenesDeCompra({
             numero: valor.numero,
             fecha: diaConBarras(valor.fecha),
             total: formatearImporte(total),
+            importeOriginal: formatearImporte(valor.importe),
+            ampliaciones: ampliaciones.map(({ valor: a }) => ({
+              id: a.id,
+              numero: a.numero,
+              fecha: diaConBarras(a.fecha),
+              importe: formatearImporte(
+                crearImporte(a.importeCentavos, valor.importe.moneda),
+              ),
+              nuevaFechaFin:
+                a.nuevaFechaFin === null ? null : diaConBarras(a.nuevaFechaFin),
+              observaciones: a.observaciones ?? "",
+              documento: documentoDeAmpliacion(a.documentoId),
+            })),
+            reemplazadaEl:
+              valor.reemplazadaEn === null
+                ? null
+                : diaConBarras(formatearISO(valor.reemplazadaEn).slice(0, 10)),
             facturado: formatearImporte(facturado),
             saldo: formatearImporte(saldo),
             aviso:
@@ -224,6 +472,28 @@ export function crearCasosUsoOrdenesDeCompra({
     },
 
     crear(actor, servicioId, escrito, archivo) {
+      return cargar(actor, servicioId, escrito, archivo, false);
+    },
+
+    reemplazar(actor, servicioId, escrito, archivo) {
+      return cargar(actor, servicioId, escrito, archivo, true);
+    },
+
+    formularioDeAmpliacion(ordenId) {
+      return transaccional.ejecutar(async (repos) => {
+        const orden = await ordenVigenteDe(repos, ordenId);
+        return {
+          numero: orden.valor.numero,
+          campos: CAMPOS_DE_AMPLIACION,
+          escrito: {
+            fecha: formatearISO(reloj.ahora()).slice(0, 10),
+            [nombreDeMoneda("importe")]: orden.valor.importe.moneda,
+          },
+        };
+      });
+    },
+
+    ampliar(actor, ordenId, escrito, archivo) {
       return transaccional.ejecutar(async (repos) => {
         await exigirRol(
           repos.usuarios,
@@ -231,15 +501,29 @@ export function crearCasosUsoOrdenesDeCompra({
           ROLES_QUE_ESCRIBEN_SERVICIOS,
           catalogo.AUT_0009,
         );
-        await servicioVigenteBloqueado(repos, servicioId);
-        await exigirEtapa(repos, servicioId, "ordenDeCompra");
-        const validado = validarEscrito(CAMPOS, VALIDACION, escrito);
+        const orden = await ordenVigenteDe(repos, ordenId);
+        const { servicioId } = orden.valor;
+        const servicio = await servicioVigenteBloqueado(repos, servicioId);
+        await exigirEtapa(repos, servicioId, "ampliacionDeOrden");
+        const validado = validarEscrito(
+          CAMPOS_DE_AMPLIACION,
+          VALIDACION_DE_AMPLIACION,
+          escrito,
+        );
         const adjunto = validarAdjuntoOpcional(archivo);
-        if (!validado.ok || !adjunto.ok) {
+        const laMoneda =
+          validado.ok &&
+          validado.datos.importe.moneda !== orden.valor.importe.moneda;
+        if (!validado.ok || !adjunto.ok || laMoneda) {
           return {
             ok: false,
             errores: {
               ...(validado.ok ? {} : validado.errores),
+              ...(laMoneda
+                ? {
+                    importe: `Tiene que ser en la moneda de la orden (${orden.valor.importe.moneda}).`,
+                  }
+                : {}),
               ...(adjunto.ok ? {} : { archivo: adjunto.mensaje }),
             },
           };
@@ -251,23 +535,76 @@ export function crearCasosUsoOrdenesDeCompra({
           adjunto.archivo,
         );
         const id = identificadorDesde<string>(generadorId.generar());
-        await repos.ordenesCompra.crear(
+        const { importe, ...datos } = validado.datos;
+        await repos.ampliaciones.crear(
           actor,
           crearAuditable(
-            { ...validado.datos, servicioId, documentoId, id },
+            {
+              ...datos,
+              importeCentavos: importe.centavos,
+              ordenCompraId: ordenId,
+              documentoId,
+              id,
+            },
             actor,
             reloj,
           ),
         );
-        await cambiarPorCausa(
+        // La nueva fecha de fin mueve la vigencia del servicio; anular la ampliación no la revierte.
+        const fin = validado.datos.nuevaFechaFin;
+        if (fin !== null && fin !== servicio.valor.vigenciaHasta) {
+          const movido = marcarActualizado(
+            servicio,
+            { ...servicio.valor, vigenciaHasta: fin },
+            actor,
+            reloj,
+          );
+          if (!movido.ok) {
+            throw nuevoError(catalogo.DOM_0009, {
+              entidad: "Servicio",
+              id: servicioId,
+            });
+          }
+          await repos.servicios.actualizar(actor, movido.valor, "actualizar");
+          await sincronizarRenovacionDeContrato(
+            actor,
+            repos,
+            reloj,
+            generadorId,
+            servicioId,
+            fin,
+          );
+        }
+        return { ok: true, id };
+      });
+    },
+
+    anularAmpliacion(actor, id) {
+      return transaccional.ejecutar(async (repos) => {
+        await exigirRol(
+          repos.usuarios,
+          actor,
+          ROLES_QUE_ESCRIBEN_SERVICIOS,
+          catalogo.AUT_0009,
+        );
+        const actual = esquemaId.safeParse(id).success
+          ? await repos.ampliaciones.buscarPorId(id)
+          : null;
+        const eliminada =
+          actual === null ? null : marcarEliminado(actual, actor, reloj);
+        if (actual === null || eliminada === null || !eliminada.ok) {
+          throw nuevoError(catalogo.DOM_0009, { entidad: "Ampliación", id });
+        }
+        const orden = await ordenVigenteDe(repos, actual.valor.ordenCompraId);
+        await servicioVigenteBloqueado(repos, orden.valor.servicioId);
+        await exigirEtapa(repos, orden.valor.servicioId, "ampliacionDeOrden");
+        await repos.ampliaciones.actualizar(actor, eliminada.valor, "eliminar");
+        await bajaDeAdjuntoOpcional(
           actor,
           repos,
           reloj,
-          servicioId,
-          "ordenDeCompra",
-          `Orden de compra ${validado.datos.numero} cargada`,
+          actual.valor.documentoId,
         );
-        return { ok: true, id };
       });
     },
 
@@ -321,7 +658,12 @@ export function crearCasosUsoOrdenesDeCompra({
           : null;
         const eliminada =
           actual === null ? null : marcarEliminado(actual, actor, reloj);
-        if (actual === null || eliminada === null || !eliminada.ok) {
+        if (
+          actual === null ||
+          actual.valor.reemplazadaEn !== null ||
+          eliminada === null ||
+          !eliminada.ok
+        ) {
           throw nuevoError(catalogo.DOM_0009, {
             entidad: "Orden de compra",
             id,
@@ -349,6 +691,26 @@ export function crearCasosUsoOrdenesDeCompra({
           reloj,
           actual.valor.documentoId,
         );
+        // La que esta había reemplazado vuelve a ser la vigente.
+        for (const { valor, ...anterior } of await repos.ordenesCompra.listarDe(
+          actual.valor.servicioId,
+        )) {
+          if (valor.reemplazadaPorId === id) {
+            const vuelta = marcarActualizado(
+              { valor, ...anterior },
+              { ...valor, reemplazadaEn: null, reemplazadaPorId: null },
+              actor,
+              reloj,
+            );
+            if (vuelta.ok) {
+              await repos.ordenesCompra.actualizar(
+                actor,
+                vuelta.valor,
+                "actualizar",
+              );
+            }
+          }
+        }
         // Sin orden vigente vuelve a «Cotizado» (F3-03, ADR 0041); la modalidad y las cuotas quedan.
         if (
           (await repos.ordenesCompra.listarDe(actual.valor.servicioId))

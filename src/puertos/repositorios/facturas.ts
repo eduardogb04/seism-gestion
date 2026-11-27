@@ -36,6 +36,8 @@ export type DatosFactura = {
   readonly tipo: TipoDeComprobante;
   /** Una factura por un servicio extra: no consume la orden de compra. */
   readonly adicional: boolean;
+  /** Un anticipo (R1): factura sin período, en cualquier modalidad; descuenta de la orden vigente. */
+  readonly anticipo: boolean;
   /** El comprobante al que corresponde la nota: obligatorio en la de crédito. */
   readonly comprobanteAsociadoId: string | null;
   /** Con el que se anuló una nota o una adicional. */

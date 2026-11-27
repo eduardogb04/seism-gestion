@@ -74,6 +74,7 @@ import { mesDe, primerDia } from "../tablero/mes.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import { exigirEtapa, historialDe } from "./ciclo.ts";
 import { comprobanteDe, conCobrosDe } from "./cobranza.ts";
+import { totalConAmpliaciones } from "./ordenes-de-compra.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
   servicioVigente,
@@ -244,7 +245,7 @@ async function monedaDeLaOrden(
   repos: RepositoriosEnTransaccion,
   servicioId: string,
 ): Promise<Moneda | null> {
-  const [orden] = await repos.ordenesCompra.listarDe(servicioId);
+  const orden = await repos.ordenesCompra.vigenteDe(servicioId);
   return orden?.valor.importe.moneda ?? null;
 }
 
@@ -346,7 +347,9 @@ export function crearCasosUsoFacturacion({
         const estado = cicloServicio.estadoActual(
           await historialDe(repos, servicioId),
         );
-        const [orden] = await repos.ordenesCompra.listarDe(servicioId);
+        const orden = await repos.ordenesCompra.vigenteDe(servicioId);
+        const total =
+          orden === undefined ? null : await totalConAmpliaciones(repos, orden);
         const vigentes = await repos.facturas.listarDe(servicioId);
         const facturas = await conCobrosDe(repos, vigentes);
         const comprobantes = vigentes.map(comprobanteDe);
@@ -362,8 +365,17 @@ export function crearCasosUsoFacturacion({
           orden === undefined
             ? null
             : saldoDeOrden(
-                orden.valor.importe,
-                sinIva.map((importe) => ({ importe })),
+                total ?? orden.valor.importe,
+                vigentes
+                  .filter(
+                    (factura) =>
+                      (factura.valor.ordenCompraId === null ||
+                        factura.valor.ordenCompraId === orden.valor.id) &&
+                      cuentaParaLaOrden(comprobanteDe(factura), comprobantes),
+                  )
+                  .map(({ valor }) => ({
+                    importe: importeConSigno(valor.tipo, valor.importe),
+                  })),
               );
         const saldo = cuenta?.saldo ?? null;
         return {
@@ -386,7 +398,7 @@ export function crearCasosUsoFacturacion({
           lineas: devengadoPorMoneda({
             modalidad: modalidadFacturacion,
             estado,
-            orden: orden?.valor.importe ?? null,
+            orden: total,
             facturas: sinIva,
             cuotas: cuotasDelDominio(cuotas),
             fecha: hoy,

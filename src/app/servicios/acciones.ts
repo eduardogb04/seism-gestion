@@ -177,6 +177,56 @@ export async function cargarOrdenDeCompra(
   });
 }
 
+/** Cargar una orden que reemplaza a la vigente. */
+export async function reemplazarOrdenDeCompra(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargada = await armado().ordenesDeCompra.reemplazar(
+      actor,
+      servicioId,
+      escritoEn(formulario),
+      archivo,
+    );
+    return cargada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargada;
+  });
+}
+
+/** Ampliar la orden de compra vigente. */
+export async function ampliarOrdenDeCompra(
+  servicioId: string,
+  ordenId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargada = await armado().ordenesDeCompra.ampliar(
+      actor,
+      ordenId,
+      escritoEn(formulario),
+      archivo,
+    );
+    return cargada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargada;
+  });
+}
+
+/** Anular una ampliación, ya confirmada. */
+export async function anularAmpliacionDeOrden(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    await armado().ordenesDeCompra.anularAmpliacion(actor, id);
+    return { ok: true, ruta: `${RUTA}/${servicioId}` };
+  });
+}
+
 /** Completar o cambiar el tipo de cambio de una orden de compra. */
 export async function guardarCambioDeOrdenDeCompra(
   servicioId: string,
@@ -219,6 +269,24 @@ export async function cargarFactura(
       actor,
       servicioId,
       escritoEn(formulario),
+      archivo,
+    );
+    return cargada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargada;
+  });
+}
+
+/** Cargar un anticipo: una factura sin período, contra la orden vigente. */
+export async function cargarAnticipo(
+  servicioId: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const archivo = await archivoSubidoEn(formulario);
+  return escribir(formulario, async (actor) => {
+    const cargada = await armado().facturas.crear(
+      actor,
+      servicioId,
+      { ...escritoEn(formulario), anticipo: "1" },
       archivo,
     );
     return cargada.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : cargada;

@@ -16,6 +16,7 @@ import {
   importeDeColumnas,
 } from "./abm/egresos.ts";
 import { crearEscrituraPrisma, desdeFila } from "./abm/repositorio.ts";
+import { aFechaHora, aInstante } from "./conversiones.ts";
 import type {
   OrdenCompra as FilaOrdenCompra,
   Prisma,
@@ -40,6 +41,7 @@ const paso = {
     cambioNumerador,
     cambioDenominador,
     cambioFuente,
+    reemplazadaEn,
     ...resto
   }: DatosDeFila): DatosOrdenCompra {
     return {
@@ -51,12 +53,20 @@ const paso = {
         cambioDenominador,
         cambioFuente,
       ),
+      reemplazadaEn: reemplazadaEn === null ? null : aFechaHora(reemplazadaEn),
     };
   },
 
-  aFila({ fecha, importe, cambio, ...resto }: DatosOrdenCompra): DatosDeFila {
+  aFila({
+    fecha,
+    importe,
+    cambio,
+    reemplazadaEn,
+    ...resto
+  }: DatosOrdenCompra): DatosDeFila {
     return {
       ...resto,
+      reemplazadaEn: reemplazadaEn === null ? null : aInstante(reemplazadaEn),
       fecha: deDia(fecha),
       importeCentavos: importe.centavos,
       importeMoneda: importe.moneda,
@@ -83,6 +93,14 @@ export function crearRepositorioOrdenesCompraPrisma(
         orderBy: [{ fecha: "desc" }, { creadoEn: "desc" }, { id: "desc" }],
       });
       return filas.map((fila) => desdeFila(fila, paso));
+    },
+
+    async vigenteDe(servicioId) {
+      const fila = await cliente.ordenCompra.findFirst({
+        where: { servicioId, eliminadoEn: null, reemplazadaEn: null },
+        orderBy: [{ fecha: "desc" }, { creadoEn: "desc" }, { id: "desc" }],
+      });
+      return fila === null ? undefined : desdeFila(fila, paso);
     },
   };
 }

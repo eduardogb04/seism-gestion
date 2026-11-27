@@ -69,6 +69,7 @@ function mesesDesde(desde: string): number | null {
 /** Los parámetros de las ventanas de facturas, cobros y cuota: abren la sección «Facturas y cobros». */
 const DE_FACTURACION = [
   "factura",
+  "anticipo",
   "anularFactura",
   "cambioFactura",
   "cobrar",
@@ -323,6 +324,7 @@ export async function PanelEnEjecucion({
           ruta={ruta}
           puedeFacturar={puedeEscribir}
           puedeCobrar={puedeEscribir}
+          ofrecerAnticipo={puedeEscribir}
           parametros={parametros}
           sinFilasNoSeDibuja={false}
         />
@@ -362,7 +364,13 @@ export async function PanelEnEjecucion({
         resumen={orden?.numero}
         abiertaPorDefecto={false}
         parametros={parametros}
-        abreCon={["anularOrden", "cambioOrden"]}
+        abreCon={[
+          "anularOrden",
+          "cambioOrden",
+          "ampliar",
+          "reemplazar",
+          "anularAmpliacion",
+        ]}
       >
         <OrdenesDeCompra enSeccion {...propias} />
       </Seccion>

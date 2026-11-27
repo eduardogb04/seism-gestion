@@ -224,30 +224,30 @@ model Grupo {
 // (Prisma no declara índices sobre expresiones). La condición frente al IVA y
 // la provincia son texto: su lista vive en la definición del ABM.
 model Cliente {
-  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  razonSocial      String     @map("razon_social")
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  razonSocial      String           @map("razon_social")
   cuit             String
-  condicionIva     String     @map("condicion_iva")
+  condicionIva     String           @map("condicion_iva")
   domicilio        String
   localidad        String
   provincia        String
-  codigoPostal     String     @map("codigo_postal")
-  esCliente        Boolean    @map("es_cliente")
-  esProveedor      Boolean    @map("es_proveedor")
-  nombreCorto      String?    @map("nombre_corto")
-  grupoId          String?    @map("grupo_id") @db.Uuid
-  grupo            Grupo?     @relation(fields: [grupoId], references: [id], onDelete: Restrict)
-  contactoNombre   String?    @map("contacto_nombre")
-  contactoTelefono String?    @map("contacto_telefono")
-  contactoEmail    String?    @map("contacto_email")
-  emailFacturacion String?    @map("email_facturacion")
+  codigoPostal     String           @map("codigo_postal")
+  esCliente        Boolean          @map("es_cliente")
+  esProveedor      Boolean          @map("es_proveedor")
+  nombreCorto      String?          @map("nombre_corto")
+  grupoId          String?          @map("grupo_id") @db.Uuid
+  grupo            Grupo?           @relation(fields: [grupoId], references: [id], onDelete: Restrict)
+  contactoNombre   String?          @map("contacto_nombre")
+  contactoTelefono String?          @map("contacto_telefono")
+  contactoEmail    String?          @map("contacto_email")
+  emailFacturacion String?          @map("email_facturacion")
   observaciones    String?
-  creadoEn         DateTime   @map("creado_en") @db.Timestamptz(3)
-  creadoPor        Json       @map("creado_por") @db.JsonB
-  actualizadoEn    DateTime   @map("actualizado_en") @db.Timestamptz(3)
-  actualizadoPor   Json       @map("actualizado_por") @db.JsonB
-  eliminadoEn      DateTime?  @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor     Json?      @map("eliminado_por") @db.JsonB
+  creadoEn         DateTime         @map("creado_en") @db.Timestamptz(3)
+  creadoPor        Json             @map("creado_por") @db.JsonB
+  actualizadoEn    DateTime         @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor   Json             @map("actualizado_por") @db.JsonB
+  eliminadoEn      DateTime?        @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor     Json?            @map("eliminado_por") @db.JsonB
   sitios           Sitio[]
   egresos          Egreso[]
   camiones         Camion[]
@@ -660,31 +660,31 @@ model ServicioRecurso {
 // De la clase `contrato` hay a lo sumo uno pendiente por servicio:
 // `servicios_vencimientos_contrato_unico`, solo en la migración.
 model ServicioVencimiento {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  servicioId     String    @map("servicio_id") @db.Uuid
-  servicio       Servicio  @relation("VencimientosDelServicio", fields: [servicioId], references: [id], onDelete: Restrict)
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId           String    @map("servicio_id") @db.Uuid
+  servicio             Servicio  @relation("VencimientosDelServicio", fields: [servicioId], references: [id], onDelete: Restrict)
   // El servicio que cotiza la renovación (F4-07); solo si el vencimiento está renovado.
-  servicioRenovacionId String? @map("servicio_renovacion_id") @db.Uuid
-  servicioRenovacion Servicio? @relation("RenovacionDeVencimiento", fields: [servicioRenovacionId], references: [id], onDelete: Restrict)
-  sitioId        String?   @map("sitio_id") @db.Uuid
-  sitio          Sitio?    @relation(fields: [sitioId], references: [id], onDelete: Restrict)
-  camionId       String?   @map("camion_id") @db.Uuid
-  camion         Camion?   @relation(fields: [camionId], references: [id], onDelete: Restrict)
-  fecha          DateTime  @db.Date
-  descripcion    String
+  servicioRenovacionId String?   @map("servicio_renovacion_id") @db.Uuid
+  servicioRenovacion   Servicio? @relation("RenovacionDeVencimiento", fields: [servicioRenovacionId], references: [id], onDelete: Restrict)
+  sitioId              String?   @map("sitio_id") @db.Uuid
+  sitio                Sitio?    @relation(fields: [sitioId], references: [id], onDelete: Restrict)
+  camionId             String?   @map("camion_id") @db.Uuid
+  camion               Camion?   @relation(fields: [camionId], references: [id], onDelete: Restrict)
+  fecha                DateTime  @db.Date
+  descripcion          String
   // `trabajo` (lo terminado, F4-02) o `contrato` (la renovación de la vigencia, F4-03).
-  clase          String    @default("trabajo")
+  clase                String    @default("trabajo")
   // `calculado` o `manual`.
-  origen         String
+  origen               String
   // `pendiente`, `renovado` o `descartado`.
-  estado         String
-  motivoDescarte String?   @map("motivo_descarte")
-  creadoEn       DateTime  @map("creado_en") @db.Timestamptz(3)
-  creadoPor      Json      @map("creado_por") @db.JsonB
-  actualizadoEn  DateTime  @map("actualizado_en") @db.Timestamptz(3)
-  actualizadoPor Json      @map("actualizado_por") @db.JsonB
-  eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
+  estado               String
+  motivoDescarte       String?   @map("motivo_descarte")
+  creadoEn             DateTime  @map("creado_en") @db.Timestamptz(3)
+  creadoPor            Json      @map("creado_por") @db.JsonB
+  actualizadoEn        DateTime  @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor       Json      @map("actualizado_por") @db.JsonB
+  eliminadoEn          DateTime? @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor         Json?     @map("eliminado_por") @db.JsonB
 
   @@index([servicioId])
   @@index([fecha])
@@ -747,12 +747,13 @@ model Documento {
   eliminadoEn    DateTime? @map("eliminado_en") @db.Timestamptz(3)
   eliminadoPor   Json?     @map("eliminado_por") @db.JsonB
 
-  cotizaciones  Cotizacion[]
-  ordenesCompra OrdenCompra[]
-  facturas      Factura[]
-  egresos       Egreso[]
-  cobros        Cobro[]
-  deServicios   ServicioDocumento[]
+  cotizaciones           Cotizacion[]
+  ordenesCompra          OrdenCompra[]
+  facturas               Factura[]
+  egresos                Egreso[]
+  cobros                 Cobro[]
+  deServicios            ServicioDocumento[]
+  ampliacionOrdenCompras AmpliacionOrdenCompra[]
 
   @@map("documentos")
 }
@@ -807,29 +808,58 @@ model Cotizacion {
 // fija el total contra el que se factura. El importe es sin IVA; el documento
 // es opcional.
 model OrdenCompra {
-  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  servicioId        String     @map("servicio_id") @db.Uuid
-  servicio          Servicio   @relation(fields: [servicioId], references: [id], onDelete: Restrict)
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  servicioId        String        @map("servicio_id") @db.Uuid
+  servicio          Servicio      @relation(fields: [servicioId], references: [id], onDelete: Restrict)
   numero            String
-  fecha             DateTime   @db.Date
-  importeCentavos   BigInt     @map("importe_centavos")
-  importeMoneda     String     @map("importe_moneda")
-  cambioNumerador   BigInt?    @map("cambio_numerador")
-  cambioDenominador BigInt?    @map("cambio_denominador")
-  cambioFuente      String?    @map("cambio_fuente")
+  fecha             DateTime      @db.Date
+  importeCentavos   BigInt        @map("importe_centavos")
+  importeMoneda     String        @map("importe_moneda")
+  cambioNumerador   BigInt?       @map("cambio_numerador")
+  cambioDenominador BigInt?       @map("cambio_denominador")
+  cambioFuente      String?       @map("cambio_fuente")
   observaciones     String?
-  documentoId       String?    @map("documento_id") @db.Uuid
-  documento         Documento? @relation(fields: [documentoId], references: [id], onDelete: Restrict)
-  creadoEn          DateTime   @map("creado_en") @db.Timestamptz(3)
-  creadoPor         Json       @map("creado_por") @db.JsonB
-  actualizadoEn     DateTime   @map("actualizado_en") @db.Timestamptz(3)
-  actualizadoPor    Json       @map("actualizado_por") @db.JsonB
-  eliminadoEn       DateTime?  @map("eliminado_en") @db.Timestamptz(3)
-  eliminadoPor      Json?      @map("eliminado_por") @db.JsonB
+  documentoId       String?       @map("documento_id") @db.Uuid
+  documento         Documento?    @relation(fields: [documentoId], references: [id], onDelete: Restrict)
+  creadoEn          DateTime      @map("creado_en") @db.Timestamptz(3)
+  creadoPor         Json          @map("creado_por") @db.JsonB
+  actualizadoEn     DateTime      @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor    Json          @map("actualizado_por") @db.JsonB
+  eliminadoEn       DateTime?     @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor      Json?         @map("eliminado_por") @db.JsonB
+  // Reemplazo (R1): la orden vigente es la no eliminada y no reemplazada.
+  reemplazadaEn     DateTime?     @map("reemplazada_en") @db.Timestamptz(3)
+  reemplazadaPorId  String?       @map("reemplazada_por_id") @db.Uuid
+  reemplazadaPor    OrdenCompra?  @relation("Reemplazo", fields: [reemplazadaPorId], references: [id], onDelete: Restrict)
+  reemplaza         OrdenCompra[] @relation("Reemplazo")
 
-  facturas Factura[]
+  facturas     Factura[]
+  ampliaciones AmpliacionOrdenCompra[]
 
   @@map("ordenes_de_compra")
+}
+
+// Una ampliación de una orden de compra (R1): suma importe (en la moneda de la orden) y,
+// si trae nueva fecha de fin, corre la vigencia del servicio. Se anula con baja lógica.
+model AmpliacionOrdenCompra {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordenCompraId   String      @map("orden_compra_id") @db.Uuid
+  ordenCompra     OrdenCompra @relation(fields: [ordenCompraId], references: [id], onDelete: Restrict)
+  numero          String
+  fecha           DateTime    @db.Date
+  importeCentavos BigInt      @map("importe_centavos")
+  nuevaFechaFin   DateTime?   @map("nueva_fecha_fin") @db.Date
+  documentoId     String?     @map("documento_id") @db.Uuid
+  documento       Documento?  @relation(fields: [documentoId], references: [id], onDelete: Restrict)
+  observaciones   String?
+  creadoEn        DateTime    @map("creado_en") @db.Timestamptz(3)
+  creadoPor       Json        @map("creado_por") @db.JsonB
+  actualizadoEn   DateTime    @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor  Json        @map("actualizado_por") @db.JsonB
+  eliminadoEn     DateTime?   @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor    Json?       @map("eliminado_por") @db.JsonB
+
+  @@map("ampliaciones_de_oc")
 }
 
 // Una factura de un servicio. El importe es **sin IVA**: el IVA y el total se
@@ -860,6 +890,8 @@ model Factura {
   // nota de crédito apunta siempre a su comprobante; la de débito, si corresponde a uno.
   tipo                  String       @default("factura")
   adicional             Boolean      @default(false)
+  // Un anticipo (R1): factura de monto libre en Adjudicado o En ejecución, sin período.
+  anticipo              Boolean      @default(false)
   comprobanteAsociadoId String?      @map("comprobante_asociado_id") @db.Uuid
   comprobanteAsociado   Factura?     @relation("ComprobanteAsociado", fields: [comprobanteAsociadoId], references: [id], onDelete: Restrict)
   asociados             Factura[]    @relation("ComprobanteAsociado")

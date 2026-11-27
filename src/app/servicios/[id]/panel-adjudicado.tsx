@@ -48,6 +48,7 @@ function cantidad(numero: number, singular: string, plural: string): string {
 /** Los parámetros de las ventanas de facturas, cobros y vencimientos: abren la sección «Facturación». */
 const DE_FACTURACION = [
   "factura",
+  "anticipo",
   "anularFactura",
   "cambioFactura",
   "cobrar",
@@ -268,7 +269,13 @@ export async function PanelAdjudicado({
         titulo="Orden de compra"
         resumen={orden?.numero}
         parametros={parametros}
-        abreCon={["anularOrden", "cambioOrden"]}
+        abreCon={[
+          "anularOrden",
+          "cambioOrden",
+          "ampliar",
+          "reemplazar",
+          "anularAmpliacion",
+        ]}
       >
         <OrdenesDeCompra enSeccion {...propias} />
       </Seccion>
@@ -285,6 +292,7 @@ export async function PanelAdjudicado({
           ruta={ruta}
           puedeFacturar={puedeEscribir}
           puedeCobrar={puedeEscribir}
+          ofrecerAnticipo={puedeEscribir}
           parametros={parametros}
           sinFilasNoSeDibuja={!(puedeEscribir && facturacion.admiteFactura)}
         />

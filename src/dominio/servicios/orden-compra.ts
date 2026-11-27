@@ -45,3 +45,17 @@ export function saldoDeOrden<
     otraMoneda,
   };
 }
+
+/** El total de una orden: su importe original más las ampliaciones vigentes (en la moneda de la orden). */
+export function totalDeOrden<M extends Moneda>(
+  importe: Importe<M>,
+  ampliaciones: readonly { readonly importe: Importe<Moneda> }[],
+): Importe<M> {
+  let total = importe;
+  for (const ampliacion of ampliaciones) {
+    if (ampliacion.importe.moneda === importe.moneda) {
+      total = sumarEnMoneda(total, ampliacion.importe as Importe<M>);
+    }
+  }
+  return total;
+}

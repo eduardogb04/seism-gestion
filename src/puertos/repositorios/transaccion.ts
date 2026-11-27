@@ -10,6 +10,7 @@
 import type { Auditoria } from "../auditoria.ts";
 import type { Secuencias } from "../secuencias.ts";
 import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
+import type { RepositorioAmpliacionesOrdenCompra } from "./ampliaciones-de-oc.ts";
 import type { RepositorioCobros } from "./cobros.ts";
 import type { RepositorioCotizaciones } from "./cotizaciones.ts";
 import type { RepositorioCuotas } from "./cuotas.ts";
@@ -45,6 +46,8 @@ export type RepositoriosEnTransaccion = {
   /** Los documentos de alcance de un servicio (F5-01). */
   readonly documentosDeAlcance: RepositorioDocumentosDeAlcance;
   readonly ordenesCompra: RepositorioOrdenesCompra;
+  /** Las ampliaciones de las órdenes de compra (R1). */
+  readonly ampliaciones: RepositorioAmpliacionesOrdenCompra;
   readonly facturas: RepositorioFacturas;
   /** Los cobros de las facturas (F2-07). */
   readonly cobros: RepositorioCobros;

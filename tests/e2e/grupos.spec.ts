@@ -167,7 +167,7 @@ test("una operadora da de alta, edita y da de baja un grupo en ventanas sobre el
   await fila(page, "Grupo Oeste")
     .getByRole("link", { name: "Dar de baja" })
     .click();
-  await expect(ventana(page, "Baja de grupo")).toContainText("Grupo Oeste");
+  await expect(ventana(page, "Dar de baja")).toContainText("Grupo Oeste");
   await listadoDetras(page);
   await expect(page.getByRole("link", { name: "Cancelar" })).toBeFocused();
   await page.getByRole("link", { name: "Cancelar" }).click();
@@ -229,7 +229,7 @@ test.describe("con JavaScript apagado", () => {
     await fila(page, "Grupo Sin Script")
       .getByRole("link", { name: "Dar de baja" })
       .click();
-    await expect(ventana(page, "Baja de grupo")).toContainText(
+    await expect(ventana(page, "Dar de baja")).toContainText(
       "Grupo Sin Script",
     );
     await listadoDetras(page);

@@ -28,7 +28,9 @@ function fila(page: Page, texto: string) {
 }
 
 function campo(page: Page, etiqueta: string) {
-  return page.getByLabel(etiqueta, { exact: true });
+  // El nombre accesible de un campo opcional lleva «opcional» al final.
+  const literal = etiqueta.replace(/[()]/g, (c) => "\\" + c);
+  return page.getByLabel(new RegExp(`^${literal}( opcional)?$`));
 }
 
 test("un administrador da de alta un sitio, cambia su cantidad de tanques y ve el cambio en el historial; después lo da de baja", async ({
@@ -108,7 +110,7 @@ test("un administrador da de alta un sitio, cambia su cantidad de tanques y ve e
   await fila(page, "Sitio de Humo Ejemplo")
     .getByRole("link", { name: "Dar de baja" })
     .click();
-  const baja = page.getByRole("dialog", { name: "Baja de sitio" });
+  const baja = page.getByRole("dialog", { name: "Dar de baja" });
   await expect(baja).toContainText("Sitio de Humo Ejemplo");
   await page.getByRole("button", { name: "Confirmar baja" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);

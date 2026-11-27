@@ -29,7 +29,9 @@ function fila(page: Page, texto: string) {
 }
 
 function campo(page: Page, etiqueta: string) {
-  return page.getByLabel(etiqueta, { exact: true });
+  // El nombre accesible de un campo opcional lleva «opcional» al final.
+  const literal = etiqueta.replace(/[()]/g, (c) => "\\" + c);
+  return page.getByLabel(new RegExp(`^${literal}( opcional)?$`));
 }
 
 test("un administrador da de alta un tipo de servicio con su regla de vencimiento, lo edita para dejarlo inactivo y lo da de baja; un nombre repetido o el plazo de antiguos sin el corte vuelven con lo escrito", async ({
@@ -53,7 +55,7 @@ test("un administrador da de alta un tipo de servicio con su regla de vencimient
     "Recurrente",
   );
   await expect(fila(page, "Servicio de operación / alquiler")).toContainText(
-    "Sí",
+    "Activo",
   );
 
   // 2. Alta: «Activo» viene marcado. Un nombre repetido vuelve con lo escrito.
@@ -96,7 +98,7 @@ test("un administrador da de alta un tipo de servicio con su regla de vencimient
   await expect(fila(page, "Capacitación de operarios")).toContainText(
     "Recurrente",
   );
-  await expect(fila(page, "Capacitación de operarios")).toContainText("Sí");
+  await expect(fila(page, "Capacitación de operarios")).toContainText("Activo");
 
   // 3. Edición: trae los plazos; desmarca «Activo» y el listado lo muestra en No.
   await fila(page, "Capacitación de operarios")
@@ -111,15 +113,17 @@ test("un administrador da de alta un tipo de servicio con su regla de vencimient
   await campo(page, "Activo").uncheck();
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(fila(page, "Capacitación de operarios")).toContainText("No");
+  await expect(fila(page, "Capacitación de operarios")).toContainText(
+    "Inactivo",
+  );
 
   // 4. Baja, con su confirmación.
   await fila(page, "Capacitación de operarios")
     .getByRole("link", { name: "Dar de baja" })
     .click();
-  await expect(
-    page.getByRole("dialog", { name: "Baja de tipo de servicio" }),
-  ).toContainText("Capacitación de operarios");
+  await expect(page.getByRole("dialog", { name: "Dar de baja" })).toContainText(
+    "Capacitación de operarios",
+  );
   await page.getByRole("button", { name: "Confirmar baja" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(fila(page, "Capacitación de operarios")).toHaveCount(0);

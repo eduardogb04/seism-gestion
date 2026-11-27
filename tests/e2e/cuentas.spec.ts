@@ -26,7 +26,9 @@ function fila(page: Page, texto: string) {
 }
 
 function campo(page: Page, etiqueta: string) {
-  return page.getByLabel(etiqueta, { exact: true });
+  // El nombre accesible de un campo opcional lleva «opcional» al final.
+  const literal = etiqueta.replace(/[()]/g, (c) => "\\" + c);
+  return page.getByLabel(new RegExp(`^${literal}( opcional)?$`));
 }
 
 test("un administrador da de alta una cuenta, la edita para dejarla inactiva y la da de baja; un nombre repetido vuelve con lo escrito", async ({
@@ -51,7 +53,7 @@ test("un administrador da de alta una cuenta, la edita para dejarla inactiva y l
     "Dólares",
   );
   await expect(fila(page, "Caja")).toContainText("Efectivo");
-  await expect(fila(page, "Caja")).toContainText("Sí");
+  await expect(fila(page, "Caja")).toContainText("Activo");
 
   // 2. Alta: «Activa» viene marcada. Un nombre repetido vuelve con lo escrito.
   await page.getByRole("link", { name: "Nueva cuenta" }).click();
@@ -74,7 +76,7 @@ test("un administrador da de alta una cuenta, la edita para dejarla inactiva y l
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(fila(page, "Caja chica en dólares")).toContainText("Dólares");
-  await expect(fila(page, "Caja chica en dólares")).toContainText("Sí");
+  await expect(fila(page, "Caja chica en dólares")).toContainText("Activo");
 
   // 3. Edición: desmarca «Activa» y el listado la muestra en No.
   await fila(page, "Caja chica en dólares")
@@ -84,15 +86,15 @@ test("un administrador da de alta una cuenta, la edita para dejarla inactiva y l
   await campo(page, "Activa").uncheck();
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(fila(page, "Caja chica en dólares")).toContainText("No");
+  await expect(fila(page, "Caja chica en dólares")).toContainText("Inactivo");
 
   // 4. Baja, con su confirmación.
   await fila(page, "Caja chica en dólares")
     .getByRole("link", { name: "Dar de baja" })
     .click();
-  await expect(
-    page.getByRole("dialog", { name: "Baja de cuenta" }),
-  ).toContainText("Caja chica en dólares");
+  await expect(page.getByRole("dialog", { name: "Dar de baja" })).toContainText(
+    "Caja chica en dólares",
+  );
   await page.getByRole("button", { name: "Confirmar baja" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(fila(page, "Caja chica en dólares")).toHaveCount(0);

@@ -27,7 +27,9 @@ function fila(page: Page, texto: string) {
 }
 
 function campo(page: Page, etiqueta: string) {
-  return page.getByLabel(etiqueta, { exact: true });
+  // El nombre accesible de un campo opcional lleva «opcional» al final.
+  const literal = etiqueta.replace(/[()]/g, (c) => "\\" + c);
+  return page.getByLabel(new RegExp(`^${literal}( opcional)?$`));
 }
 
 test("un administrador da de alta un cliente con grupo, lo edita y lo da de baja; el grupo en uso no se puede dar de baja", async ({
@@ -38,9 +40,10 @@ test("un administrador da de alta un cliente con grupo, lo edita y lo da de baja
 
   // 1. El menú y la semilla: CUIT con formato, grupo y tipo.
   const menu = page.getByRole("navigation", { name: "Secciones" });
-  await expect(
-    menu.getByRole("link", { name: "Clientes y proveedores" }),
-  ).toHaveAttribute("aria-current", "page");
+  await expect(menu.getByRole("link", { name: "Clientes" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   await expect(fila(page, "Empresa Ejemplo Uno S.A.")).toContainText(
     "30-00000001-5",
   );
@@ -126,7 +129,7 @@ test("un administrador da de alta un cliente con grupo, lo edita y lo da de baja
   await page.getByRole("button", { name: "Confirmar baja" }).click();
   await expect(
     page
-      .getByRole("dialog", { name: "Baja de grupo" })
+      .getByRole("dialog", { name: "Dar de baja" })
       .locator("[data-codigo-error]"),
   ).toHaveText(/DOM-0010/);
   await page.goto("/catalogo/grupos");
@@ -138,7 +141,7 @@ test("un administrador da de alta un cliente con grupo, lo edita y lo da de baja
     .getByRole("link", { name: "Dar de baja" })
     .click();
   const baja = page.getByRole("dialog", {
-    name: "Baja de cliente o proveedor",
+    name: "Dar de baja",
   });
   await expect(baja).toContainText("Empresa Ejemplo Siete S.A.");
   await expect(baja).toContainText("30-00000006-6");

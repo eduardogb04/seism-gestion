@@ -8,6 +8,7 @@
  * `rolesQueEscriben`; lo que protege es el caso de uso, no esto.
  */
 
+import { Pencil, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { OpcionesPorCampo } from "../../../casos-uso/abm/abm.ts";
 import {
@@ -16,6 +17,7 @@ import {
   type DefinicionAbm,
   type Escrito,
   escritoDe,
+  textoDeCampo,
   textosDe,
   valoresDeAlta,
 } from "../../../casos-uso/abm/definicion.ts";
@@ -27,15 +29,15 @@ import {
 import type { SesionValida } from "../../../casos-uso/sesion/sesion.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import type { EntidadAbm } from "../../../puertos/repositorios/abm.ts";
-import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { Cambios } from "../../_ui/cambios.tsx";
-import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import {
+  AccionDeFila,
   consultaDe,
   enlace,
   ListadoAbm,
+  type TipoDeColumna,
   type VentanaPedida,
   vistaDe,
 } from "../../_ui/listado-abm.tsx";
@@ -78,6 +80,28 @@ export function ventanaPedida(
   return null;
 }
 
+/** Cómo se dibuja cada columna del listado, según el tipo del campo que muestra. */
+function tiposDe<E extends EntidadAbm>(
+  definicion: DefinicionAbm<E>,
+): readonly TipoDeColumna[] {
+  const campos = Object.fromEntries(camposDe(definicion));
+  return definicion.listado.map((columna) => {
+    if (typeof columna !== "string") {
+      return "calculada";
+    }
+    const campo = campos[columna];
+    if (campo?.tipo === "numero" || campo?.tipo === "importe") {
+      return "cifra";
+    }
+    if (campo?.tipo === "fecha") {
+      return "cifra";
+    }
+    return campo?.tipo === "siNo" && columna.startsWith("activ")
+      ? "estado"
+      : "texto";
+  });
+}
+
 /** El campo de archivo del formulario, si la definición adjunta uno. */
 function archivoDe<E extends EntidadAbm>(definicion: DefinicionAbm<E>) {
   const campo = camposDe(definicion).find(
@@ -112,6 +136,7 @@ export async function ContenidoDeVentana<E extends EntidadAbm>({
     editar: `Edición de ${singular}`,
     baja: `Baja de ${singular}`,
   };
+  let titulo = titulos[pedida.clave];
   let contenido: ReactNode;
   try {
     if (pedida.clave === "nuevo") {
@@ -132,6 +157,14 @@ export async function ContenidoDeVentana<E extends EntidadAbm>({
     } else {
       const { valor } = await armado().abm.obtener(definicion, pedida.valor);
       const textos = escritoDe(definicion, valor);
+      if (pedida.clave === "baja") {
+        const primera = definicion.listado[0];
+        const nombre =
+          typeof primera === "string"
+            ? textoDeCampo(definicion, primera, valor, etiquetasDe(elegibles))
+            : undefined;
+        titulo = `¿Dar de baja "${nombre || singular}"?`;
+      }
       contenido =
         pedida.clave === "editar" ? (
           <>
@@ -150,7 +183,7 @@ export async function ContenidoDeVentana<E extends EntidadAbm>({
           </>
         ) : (
           <>
-            <p>Confirmá la baja de {singular}:</p>
+            <p>Se da de baja este {singular}:</p>
             <dl className="my-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
               {textosDe(definicion, valor, etiquetasDe(elegibles)).map(
                 ([etiqueta, texto]) => (
@@ -180,7 +213,7 @@ export async function ContenidoDeVentana<E extends EntidadAbm>({
     contenido = <ErrorEnPantalla error={pantallaDeCodigo(codigo)} />;
   }
   return (
-    <Ventana titulo={titulos[pedida.clave]} rutaAlCerrar={rutaAlCerrar}>
+    <Ventana titulo={titulo} rutaAlCerrar={rutaAlCerrar}>
       {contenido}
     </Ventana>
   );
@@ -189,10 +222,13 @@ export async function ContenidoDeVentana<E extends EntidadAbm>({
 export async function PaginaListado<E extends EntidadAbm>({
   definicion,
   sesion,
+  bajada,
   searchParams,
 }: {
   readonly definicion: DefinicionAbm<E>;
   readonly sesion: SesionValida;
+  /** Una frase corta que dice para qué sirve el padrón. */
+  readonly bajada?: string;
 } & PropsListado) {
   const parametros = await searchParams;
   const listado = await armado().abm.listar(definicion, parametros);
@@ -203,12 +239,15 @@ export async function PaginaListado<E extends EntidadAbm>({
   const puedeEscribir = definicion.rolesQueEscriben.includes(rol);
   return (
     <Marco email={email} rol={rol} rutaActual={definicion.ruta}>
-      <main>
-        <h1>{definicion.plural}</h1>
+      <main className="flex flex-col gap-5">
         <ListadoAbm
           ruta={ruta}
           singular={definicion.singular}
+          plural={definicion.plural}
+          titulo={definicion.plural}
+          bajada={bajada}
           cabeceras={cabecerasDe(definicion)}
+          tipos={tiposDe(definicion)}
           ordenes={definicion.orden.map((columna) => ({
             columna,
             etiqueta: definicion.campos[columna].etiqueta,
@@ -220,29 +259,25 @@ export async function PaginaListado<E extends EntidadAbm>({
             puedeEscribir
               ? (id, deLaVista) => (
                   <>
-                    <Enlace
+                    <AccionDeFila
                       href={enlace(ruta, deLaVista, {
                         clave: "editar",
                         valor: id,
                       })}
-                      scroll={false}
-                      className={clasesDeBoton(
-                        "fantasma",
-                        "h-8 px-2.5 text-[13px]",
-                      )}
+                      texto="Editar"
                     >
-                      Editar
-                    </Enlace>
-                    <Enlace
+                      <Pencil aria-hidden="true" className="size-4" />
+                    </AccionDeFila>
+                    <AccionDeFila
                       href={enlace(ruta, deLaVista, {
                         clave: "baja",
                         valor: id,
                       })}
-                      scroll={false}
-                      className={clasesDeBoton("discreto")}
+                      texto="Dar de baja"
+                      peligro
                     >
-                      Dar de baja
-                    </Enlace>
+                      <Trash2 aria-hidden="true" className="size-4" />
+                    </AccionDeFila>
                   </>
                 )
               : null

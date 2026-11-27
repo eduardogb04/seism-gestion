@@ -4,5 +4,12 @@ import { PaginaListado, type PropsListado } from "../_abm/paginas.tsx";
 
 export default async function Grupos(props: PropsListado) {
   const sesion = await sesionExigida();
-  return <PaginaListado definicion={GRUPOS} sesion={sesion} {...props} />;
+  return (
+    <PaginaListado
+      bajada="Los grupos económicos que reúnen a varios clientes."
+      definicion={GRUPOS}
+      sesion={sesion}
+      {...props}
+    />
+  );
 }

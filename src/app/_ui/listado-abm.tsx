@@ -7,16 +7,10 @@
  * `baja`) que abre la ventana, sin perder la búsqueda, el orden ni la página.
  */
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  Inbox,
-  Plus,
-  Search,
-  SearchX,
-} from "lucide-react";
+import { Inbox, Plus, Search, SearchX } from "lucide-react";
 import type { ReactNode } from "react";
 import type { FiltroListado } from "../../casos-uso/abm/abm.ts";
+import { ListaDeTarjetas, Paginas, TarjetaDeFila } from "../_plata/piezas.tsx";
 import { Boton, clasesDeBoton } from "./boton.tsx";
 import { CLASES_DE_CONTROL } from "./campo-texto.tsx";
 import { cn } from "./cn.ts";
@@ -111,10 +105,12 @@ export function textoDeNuevo(singular: string): string {
 /** Lo que se ve cuando el listado no tiene nada: ícono, una frase y qué hacer. */
 function EstadoVacio({
   filtrado,
+  plural,
   limpiar,
   nuevo,
 }: {
   readonly filtrado: boolean;
+  readonly plural: string;
   readonly limpiar: string;
   readonly nuevo: ReactNode;
 }) {
@@ -130,12 +126,14 @@ function EstadoVacio({
       <p data-total-del-listado className="m-0 text-[15px] font-medium">
         {filtrado
           ? "No encontramos nada con esa búsqueda."
-          : "No hay nada para mostrar."}
+          : `Todavía no hay ${plural.toLowerCase()}.`}
       </p>
       <p className="mt-1 mb-5 max-w-sm text-texto-2">
         {filtrado
           ? "Probá con otras palabras o sacá los filtros."
-          : "Todavía no se cargó nada acá."}
+          : nuevo === null
+            ? "Todavía no se cargó nada acá."
+            : "Cargá el primero."}
       </p>
       {filtrado ? (
         <Enlace href={limpiar} className={clasesDeBoton("secundario")}>
@@ -203,20 +201,77 @@ export function BuscadorDeListado({
   );
 }
 
+/** Cómo se dibuja cada columna del listado: `calculada` se resuelve mirando sus celdas. */
+export type TipoDeColumna = "texto" | "cifra" | "estado" | "calculada";
+
+const ES_NUMERO = /^[\d.,]+(\s\S+)?$/;
+
+/** Un botón de ícono de una fila: lleva a la ventana de edición o de baja. */
+export function AccionDeFila({
+  href,
+  texto,
+  peligro = false,
+  children,
+}: {
+  readonly href: string;
+  readonly texto: string;
+  readonly peligro?: boolean;
+  readonly children: ReactNode;
+}) {
+  return (
+    <Enlace
+      href={href}
+      scroll={false}
+      aria-label={texto}
+      title={texto}
+      className={cn(
+        "presionable grid size-8 place-items-center rounded-md text-texto-2 no-underline hover:bg-superficie-3",
+        peligro ? "hover:text-peligro" : "hover:text-texto",
+      )}
+    >
+      {children}
+    </Enlace>
+  );
+}
+
+/** Activo o inactivo, como una etiqueta chica. */
+function ChipDeEstado({ activo }: { readonly activo: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+        activo ? "bg-exito-suave text-exito" : "bg-superficie-3 text-texto-2",
+      )}
+    >
+      {activo ? "Activo" : "Inactivo"}
+    </span>
+  );
+}
+
 export function ListadoAbm({
   ruta,
   singular,
+  plural,
+  titulo,
+  bajada,
   cabeceras,
+  tipos,
   ordenes,
   listado,
   puedeEscribir,
   acciones,
   rutaDeFila,
-  sinCortar,
 }: {
   readonly ruta: string;
   readonly singular: string;
+  readonly plural: string;
+  /** El título de la pantalla. */
+  readonly titulo: string;
+  /** Una frase corta debajo del título. */
+  readonly bajada?: string | undefined;
   readonly cabeceras: readonly string[];
+  /** Cómo se dibuja cada columna; las que faltan, como texto. */
+  readonly tipos?: readonly TipoDeColumna[];
   /** Las columnas por las que se ordena: `etiqueta` es la cabecera que se toca para ordenar. */
   readonly ordenes: readonly {
     readonly columna: string;
@@ -224,12 +279,10 @@ export function ListadoAbm({
   }[];
   readonly listado: ListadoVisible;
   readonly puedeEscribir: boolean;
-  /** Lo que se puede hacer con cada registro; `null`: el listado no lleva esa columna. */
+  /** Los íconos de lo que se puede hacer con cada registro; `null`: el listado no lleva esa columna. */
   readonly acciones: ((id: string, vista: Vista) => ReactNode) | null;
   /** A dónde lleva la primera celda de cada fila; sin esto, es texto. */
   readonly rutaDeFila?: ((id: string) => string) | undefined;
-  /** La cabecera de una columna cuyo texto no se parte en dos renglones (un código). */
-  readonly sinCortar?: string;
 }) {
   const {
     registros,
@@ -243,7 +296,9 @@ export function ListadoAbm({
     filtros,
   } = listado;
   const vista = vistaDe(listado);
-  const nuevo = puedeEscribir ? (
+  const filtrado =
+    buscar !== "" || filtros.some(({ elegido }) => elegido !== "");
+  const boton = (
     <Enlace
       href={enlace(ruta, vista, { clave: "nuevo", valor: "1" })}
       scroll={false}
@@ -252,13 +307,40 @@ export function ListadoAbm({
       <Plus aria-hidden="true" />
       {textoDeNuevo(singular)}
     </Enlace>
-  ) : null;
-  const filtrado =
-    buscar !== "" || filtros.some(({ elegido }) => elegido !== "");
+  );
+  const vacioSinFiltro = total === 0 && !filtrado;
+  const columnas = cabeceras.map((cabecera, posicion) => {
+    const pedido = tipos?.[posicion] ?? "texto";
+    const llenas = registros
+      .map(({ valor }) => celdas[valor.id]?.[posicion] ?? "")
+      .filter((texto) => texto !== "");
+    const tipo: Exclude<TipoDeColumna, "calculada"> =
+      pedido !== "calculada"
+        ? pedido
+        : llenas.length > 0 && llenas.every((t) => ES_NUMERO.test(t))
+          ? "cifra"
+          : "texto";
+    return { cabecera, tipo, secundaria: posicion >= 4 };
+  });
+  const vinculo = (id: string) => rutaDeFila?.(id) ?? null;
+  const aPagina = (numero: number) =>
+    enlace(ruta, { ...vista, pagina: numero });
+  const posicionDeEstado = columnas.findIndex(({ tipo }) => tipo === "estado");
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <search className="min-w-0 flex-1">
+      <header className="aparece flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="m-0 text-[24px] leading-8 font-semibold tracking-tight">
+            {titulo}
+          </h1>
+          {bajada === undefined ? null : (
+            <p className="m-0 mt-1 text-texto-2">{bajada}</p>
+          )}
+        </div>
+        {puedeEscribir && !vacioSinFiltro ? boton : null}
+      </header>
+      {vacioSinFiltro ? null : (
+        <search>
           <BuscadorDeListado
             ruta={ruta}
             buscar={buscar}
@@ -267,121 +349,176 @@ export function ListadoAbm({
             direccion={direccion}
           />
         </search>
-        {nuevo}
-      </div>
+      )}
       {total === 0 ? (
         <EstadoVacio
           filtrado={filtrado}
+          plural={plural}
           limpiar={enlace(ruta, {
             ...vista,
             buscar: "",
             filtros: {},
             pagina: 1,
           })}
-          nuevo={nuevo}
+          nuevo={puedeEscribir ? boton : null}
         />
       ) : (
         <>
-          <Tabla
-            cabeceras={[
-              ...cabeceras.map((texto) => {
-                const columna = ordenes.find(
-                  ({ etiqueta }) => etiqueta === texto,
-                )?.columna;
-                if (columna === undefined) {
-                  return texto;
-                }
-                return cabeceraOrdenable(
-                  texto,
-                  columna,
-                  { orden, direccion },
-                  (ordenNuevo, direccionNueva) =>
-                    enlace(ruta, {
-                      ...vista,
-                      orden: ordenNuevo,
-                      direccion: direccionNueva,
-                      pagina: 1,
-                    }),
-                );
-              }),
-              ...(acciones === null ? [] : ["Acciones"]),
-            ]}
-          >
-            {registros.map(({ valor }) => {
-              return (
-                <tr
-                  key={valor.id}
-                  className={
-                    rutaDeFila === undefined
-                      ? undefined
-                      : CLASES_DE_FILA_ENLAZADA
+          <div className="hidden md:block">
+            <Tabla
+              titulo={titulo}
+              derecha={columnas.flatMap(({ tipo }, i) =>
+                tipo === "cifra" ? [i] : [],
+              )}
+              ocultas={columnas.flatMap(({ secundaria }, i) =>
+                secundaria ? [i] : [],
+              )}
+              cabeceras={[
+                ...cabeceras.map((texto) => {
+                  const columna = ordenes.find(
+                    ({ etiqueta }) => etiqueta === texto,
+                  )?.columna;
+                  if (columna === undefined) {
+                    return texto;
                   }
-                >
-                  {(celdas[valor.id] ?? []).map((texto, posicion) => (
-                    <td
-                      key={cabeceras[posicion]}
-                      className={
-                        cabeceras[posicion] === sinCortar
-                          ? "whitespace-nowrap"
-                          : "whitespace-pre-line"
-                      }
-                    >
-                      {posicion === 0 && rutaDeFila !== undefined ? (
-                        <Enlace
-                          href={rutaDeFila(valor.id)}
-                          className={CLASES_DE_ENLACE_DE_FILA}
+                  return cabeceraOrdenable(
+                    texto,
+                    columna,
+                    { orden, direccion },
+                    (ordenNuevo, direccionNueva) =>
+                      enlace(ruta, {
+                        ...vista,
+                        orden: ordenNuevo,
+                        direccion: direccionNueva,
+                        pagina: 1,
+                      }),
+                  );
+                }),
+                ...(acciones === null ? [] : ["Acciones"]),
+              ]}
+            >
+              {registros.map(({ valor }) => {
+                const destino = vinculo(valor.id);
+                return (
+                  <tr
+                    key={valor.id}
+                    className={
+                      destino === null ? undefined : CLASES_DE_FILA_ENLAZADA
+                    }
+                  >
+                    {(celdas[valor.id] ?? []).map((texto, posicion) => {
+                      const { tipo, secundaria } = columnas[posicion] ?? {
+                        tipo: "texto",
+                        secundaria: false,
+                      };
+                      return (
+                        <td
+                          key={cabeceras[posicion]}
+                          className={cn(
+                            "whitespace-nowrap",
+                            posicion === 0 ? "w-full max-w-0" : "text-texto-2",
+                            tipo === "cifra" && "cifras text-right",
+                            secundaria && "hidden lg:table-cell",
+                          )}
                         >
-                          {texto}
-                        </Enlace>
-                      ) : (
-                        texto
-                      )}
-                    </td>
-                  ))}
-                  {acciones === null ? null : (
-                    <td className={CLASES_DE_ACCIONES}>
-                      <div className="flex justify-end gap-1">
+                          {tipo === "estado" ? (
+                            <ChipDeEstado activo={texto === "Sí"} />
+                          ) : posicion === 0 && destino !== null ? (
+                            <Enlace
+                              href={destino}
+                              title={texto}
+                              className={cn(
+                                CLASES_DE_ENLACE_DE_FILA,
+                                "block truncate",
+                              )}
+                            >
+                              {texto}
+                            </Enlace>
+                          ) : texto === "" ? (
+                            <span className="text-texto-3">—</span>
+                          ) : (
+                            <span
+                              title={texto}
+                              className={cn(
+                                "block truncate",
+                                posicion === 0
+                                  ? "font-medium text-texto"
+                                  : "max-w-64",
+                                tipo === "cifra" && "ml-auto",
+                              )}
+                            >
+                              {texto}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    {acciones === null ? null : (
+                      <td
+                        className={cn(CLASES_DE_ACCIONES, "whitespace-nowrap")}
+                      >
+                        <div className="flex justify-end gap-0.5">
+                          {acciones(valor.id, vista)}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </Tabla>
+          </div>
+          <ListaDeTarjetas>
+            {registros.map(({ valor }) => {
+              const textos = celdas[valor.id] ?? [];
+              return (
+                <TarjetaDeFila
+                  key={valor.id}
+                  href={vinculo(valor.id)}
+                  titulo={<span className="block truncate">{textos[0]}</span>}
+                  derecha={
+                    posicionDeEstado < 0 ? undefined : (
+                      <ChipDeEstado
+                        activo={textos[posicionDeEstado] === "Sí"}
+                      />
+                    )
+                  }
+                  accion={
+                    acciones === null ? undefined : (
+                      <div className="flex justify-end gap-0.5">
                         {acciones(valor.id, vista)}
                       </div>
-                    </td>
-                  )}
-                </tr>
+                    )
+                  }
+                >
+                  <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-texto-2">
+                    {columnas
+                      .map(({ cabecera, tipo }, posicion) => ({
+                        cabecera,
+                        tipo,
+                        posicion,
+                        texto: textos[posicion] ?? "",
+                      }))
+                      .filter(
+                        ({ tipo, texto, posicion }) =>
+                          posicion > 0 && tipo !== "estado" && texto !== "",
+                      )
+                      .slice(0, 3)
+                      .map(({ cabecera, texto }) => (
+                        <span key={cabecera} className="min-w-0 truncate">
+                          <span className="text-texto-3">{cabecera}</span>{" "}
+                          {texto}
+                        </span>
+                      ))}
+                  </span>
+                </TarjetaDeFila>
               );
             })}
-          </Tabla>
-          <nav
-            aria-label="Páginas del listado"
-            className="mt-3 flex flex-wrap items-center justify-between gap-3"
-          >
-            <span
-              data-total-del-listado
-              className="cifras text-[13px] text-texto-2"
-            >
-              {`Página ${pagina} de ${paginas} · ${total} en total`}
-            </span>
-            {paginas > 1 ? (
-              <span className="flex gap-2">
-                {pagina > 1 ? (
-                  <Enlace
-                    href={enlace(ruta, { ...vista, pagina: pagina - 1 })}
-                    className={clasesDeBoton("secundario", "h-8 px-2.5")}
-                  >
-                    <ChevronLeft aria-hidden="true" />
-                    Anterior
-                  </Enlace>
-                ) : null}
-                {pagina < paginas ? (
-                  <Enlace
-                    href={enlace(ruta, { ...vista, pagina: pagina + 1 })}
-                    className={clasesDeBoton("secundario", "h-8 px-2.5")}
-                  >
-                    Siguiente
-                    <ChevronRight aria-hidden="true" />
-                  </Enlace>
-                ) : null}
-              </span>
-            ) : null}
-          </nav>
+          </ListaDeTarjetas>
+          <Paginas
+            texto={`Página ${pagina} de ${paginas} · ${total} en total`}
+            anterior={pagina > 1 ? aPagina(pagina - 1) : null}
+            siguiente={pagina < paginas ? aPagina(pagina + 1) : null}
+          />
         </>
       )}
     </>

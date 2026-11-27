@@ -258,9 +258,9 @@ test("una operadora paga un egreso en dos partes y otro en dólares desde una cu
   await page.goto("/catalogo/cuentas");
   await fila(page, /^Caja/).getByRole("link", { name: "Dar de baja" }).click();
   await page.getByRole("button", { name: "Confirmar baja" }).click();
-  await expect(
-    page.getByRole("dialog", { name: "Baja de cuenta" }),
-  ).toContainText("DOM-0010");
+  await expect(page.getByRole("dialog", { name: "Dar de baja" })).toContainText(
+    "DOM-0010",
+  );
 
   await abrirEgreso(page, "Notebook para el equipo");
   await fila(page, /05\/10\/2026/)

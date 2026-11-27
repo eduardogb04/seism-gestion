@@ -132,6 +132,7 @@ const QUE: Record<EntradaDelCalendario["tipo"], (titulo: string) => string> = {
   vencimiento: (titulo) => titulo.split(" · ")[0] ?? "Vencimiento",
   inicio: () => "Inicio estimado",
   cotizacion: () => "Cotización por vencer",
+  cuota: () => "Cuota a facturar",
   egreso: (titulo) => titulo,
 };
 

@@ -266,6 +266,7 @@ const POR_TIPO: Record<
   vencimiento: { Icono: CalendarClock, accion: "Cotizar renovación" },
   inicio: { Icono: PlayCircle, accion: "Ver servicio" },
   cotizacion: { Icono: FileText, accion: "Ver cotización" },
+  cuota: { Icono: HandCoins, accion: "Facturar cuota" },
 };
 
 function tareasDe(avisos: Avisos, embudo: Embudo, sinCambio: number): Tarea[] {

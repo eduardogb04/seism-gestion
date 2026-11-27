@@ -624,3 +624,31 @@ export async function facturaDelMes(
 /** `agosto de 2031` de un período `aaaa-mm-01`. */
 export const nombreDelPeriodo = (periodo: string): string =>
   nombreDelMes(primerDiaDe(periodo));
+
+/**
+ * La próxima cuota mensual a facturar de un servicio «En ejecución» a `hoy`
+ * (R6), con su día y su importe sin IVA. `inicioReal` es el cargado; si falta
+ * se lee del historial. `null` si no hay (ver `proximaCuota`).
+ */
+export async function proximaCuotaDe(
+  repos: RepositoriosEnTransaccion,
+  servicioId: string,
+  inicioReal: string | null,
+  hoy: FechaHora,
+): Promise<{
+  readonly dia: FechaHora;
+  readonly importe: Importe<Moneda>;
+} | null> {
+  const servicio = await servicioVigente(repos, servicioId);
+  const historial = await historialDe(repos, servicioId);
+  const orden = await repos.ordenesCompra.vigenteDe(servicioId);
+  return proximaCuota({
+    modalidad: servicio.valor.modalidadFacturacion,
+    estado: cicloServicio.estadoActual(historial),
+    orden:
+      orden === undefined ? null : await totalConAmpliaciones(repos, orden),
+    cuotas: cuotasDelDominio(await repos.cuotas.listarDe(servicioId)),
+    inicioReal: inicioRealFechaHora(inicioRealDe(inicioReal, historial)),
+    fecha: hoy,
+  });
+}

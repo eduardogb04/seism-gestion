@@ -141,7 +141,8 @@ export function proximaCuota(
       return {
         dia,
         importe: crearImporte(
-          BigInt(Math.min(Number(queda), Number(importe.centavos))),
+          // biome-ignore lint/complexity/useMathMinMax: son bigint, sin Math.min
+          queda < importe.centavos ? queda : importe.centavos,
           importe.moneda,
         ),
       };

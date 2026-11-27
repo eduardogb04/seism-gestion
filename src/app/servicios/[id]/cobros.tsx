@@ -8,7 +8,6 @@ import type {
   CobranzaDeFactura,
   CobroVisible,
 } from "../../../casos-uso/servicios/cobros.ts";
-import type { FacturaListada } from "../../../casos-uso/servicios/facturas.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
 import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { EnlaceDeDescarga } from "../../_ui/enlace-de-descarga.tsx";
@@ -116,41 +115,24 @@ export function TablaDeCobros({
   );
 }
 
-export function Cobros({
+/** Las ventanas de cobrar (`?cobrar=<factura>`) y de anular un cobro (`?anularCobro=<id>`) sobre la pantalla del servicio. */
+export function VentanasDeCobro({
   servicioId,
   ruta,
   puedeEscribir,
   parametros,
-  facturas,
   cobranza,
 }: {
   readonly servicioId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
-  readonly facturas: readonly FacturaListada[];
   readonly cobranza: readonly CobranzaDeFactura[];
 }) {
   const aCobrar = parametros.cobrar;
   const aAnular = parametros.anularCobro;
   return (
     <>
-      {facturas.map((factura) => {
-        const cobros =
-          cobranza.find(({ facturaId }) => facturaId === factura.id)?.cobros ??
-          [];
-        return cobros.length === 0 ? null : (
-          <div key={factura.id} className="mt-4">
-            <h3 className="mb-2 text-lg font-semibold">
-              Cobros de la factura {factura.numero}
-            </h3>
-            <TablaDeCobros
-              cobros={cobros}
-              rutaParaAnular={puedeEscribir ? ruta : null}
-            />
-          </div>
-        );
-      })}
       {puedeEscribir && typeof aCobrar === "string" ? (
         <VentanaDeCobro facturaId={aCobrar} rutaAlCerrar={ruta} />
       ) : null}

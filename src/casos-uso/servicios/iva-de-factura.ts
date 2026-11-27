@@ -7,12 +7,16 @@
 
 import { formatearImporte } from "../../dominio/compartido/importe.ts";
 import {
+  ALICUOTA_POR_DEFECTO,
   ALICUOTAS_IVA,
   type AlicuotaIva,
   ivaDe,
   totalConIva,
 } from "../../dominio/servicios/factura.ts";
 import { type Escrito, leerImporte } from "../abm/definicion.ts";
+
+/** La alícuota con que se carga toda factura: ya no se elige. */
+export const ALICUOTA_DE_FACTURA = ALICUOTA_POR_DEFECTO;
 
 /** `210` es «21 %», `105` es «10,5 %». */
 export function etiquetaDeAlicuota(alicuota: AlicuotaIva): string {

@@ -213,6 +213,8 @@ type FilaPorCobrar = {
   readonly saldo: string;
   /** `10 días`, o vacío si no está vencida. */
   readonly atraso: string;
+  /** El documento de la factura, si se subió uno. */
+  readonly documentoId: string | null;
 };
 
 export type CasosUsoCobros = {
@@ -496,6 +498,7 @@ export function crearCasosUsoCobros({
               total: formatearImporte(saldo.total),
               saldo: formatearImporte(saldo.saldo),
               atraso: atrasoDe(hoy, factura.valor.vencimiento),
+              documentoId: factura.valor.documentoId,
             }),
           ),
           saldos: sumaPorMoneda(pendientes.map(({ saldo }) => saldo.saldo)).map(

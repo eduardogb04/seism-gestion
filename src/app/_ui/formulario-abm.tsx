@@ -55,6 +55,12 @@ import { ErrorEnPantalla } from "./error-en-pantalla.tsx";
 import { Selector } from "./selector.tsx";
 
 const EscritoEnVivo = createContext<Escrito>({});
+const ErroresEnVivo = createContext<ErroresPorCampo>({});
+
+/** Los errores por campo con que volvió el formulario: para un control propio que va dentro de él. */
+export function useErroresDelFormulario(): ErroresPorCampo {
+  return useContext(ErroresEnVivo);
+}
 
 /**
  * Lo escrito en el formulario que contiene a quien la llama, al día con cada
@@ -233,6 +239,7 @@ export function FormularioAbm({
   inicial,
   archivo,
   children,
+  despuesDe,
   enviar: { texto, variante },
   rutaAlCancelar,
 }: {
@@ -254,6 +261,8 @@ export function FormularioAbm({
     | undefined;
   /** Algo más después de los campos (F2-06): una vista de lo que se calcula con ellos. */
   readonly children?: ReactNode;
+  /** Algo más justo debajo de un campo, por su nombre: lo que se calcula con él o un control propio. */
+  readonly despuesDe?: Readonly<Record<string, ReactNode>> | undefined;
   readonly enviar: {
     readonly texto: string;
     readonly variante: VarianteDeBoton;
@@ -327,36 +336,42 @@ export function FormularioAbm({
       {estado.error === undefined ? null : (
         <ErrorEnPantalla error={estado.error} />
       )}
-      <div className="flex flex-col gap-4">
-        {campos
-          .filter(
-            ([, campo]) =>
-              campo.tipo !== "archivo" &&
-              (campo.tipo !== "tipoDeCambio" || seOfreceElCambio(campo, vivo)),
-          )
-          .map(([nombre, campo], posicion) => (
-            <div key={nombre}>
-              <Control
-                nombre={nombre}
-                campo={campo}
-                elegibles={elegibles[nombre] ?? []}
-                estado={estado}
-                alAbrir={posicion === 0}
-              />
-            </div>
-          ))}
-        {archivo === undefined ? null : (
-          <div>
-            <CampoArchivo
-              etiqueta={archivo.etiqueta}
-              name={archivo.nombre}
-              accept={archivo.accept}
-              error={estado.errores[archivo.nombre]}
-            />
+      <EscritoEnVivo value={vivo}>
+        <ErroresEnVivo value={estado.errores}>
+          <div className="flex flex-col gap-4">
+            {campos
+              .filter(
+                ([, campo]) =>
+                  campo.tipo !== "archivo" &&
+                  (campo.tipo !== "tipoDeCambio" ||
+                    seOfreceElCambio(campo, vivo)),
+              )
+              .map(([nombre, campo], posicion) => (
+                <div key={nombre}>
+                  <Control
+                    nombre={nombre}
+                    campo={campo}
+                    elegibles={elegibles[nombre] ?? []}
+                    estado={estado}
+                    alAbrir={posicion === 0}
+                  />
+                  {despuesDe?.[nombre]}
+                </div>
+              ))}
+            {archivo === undefined ? null : (
+              <div>
+                <CampoArchivo
+                  etiqueta={archivo.etiqueta}
+                  name={archivo.nombre}
+                  accept={archivo.accept}
+                  error={estado.errores[archivo.nombre]}
+                />
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <EscritoEnVivo value={vivo}>{children}</EscritoEnVivo>
+          {children}
+        </ErroresEnVivo>
+      </EscritoEnVivo>
       <div className="flex flex-wrap items-center gap-2 border-t border-borde pt-4 in-[.ventana]:sticky in-[.ventana]:bottom-0 in-[.ventana]:-mx-5 in-[.ventana]:-mb-6 in-[.ventana]:bg-superficie/95 in-[.ventana]:px-5 in-[.ventana]:pb-5 in-[.ventana]:backdrop-blur-sm">
         <Boton variante={variante} type="submit" cargando={enviando}>
           {enviando ? "Guardando…" : texto}

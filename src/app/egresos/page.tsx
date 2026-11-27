@@ -12,6 +12,7 @@ import { EGRESOS } from "../../casos-uso/abm/egresos.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
 import { hoyISO } from "../_inicio/formato.ts";
 import { EncabezadoDePlata } from "../_plata/encabezado-de-plata.tsx";
+import { centavosDe, montoDe } from "../_plata/importes-escritos.ts";
 import {
   Importe,
   ListaDeTarjetas,
@@ -23,6 +24,7 @@ import {
 import { clasesDeBoton } from "../_ui/boton.tsx";
 import { cn } from "../_ui/cn.ts";
 import { Enlace } from "../_ui/enlace-next.ts";
+import { IconoDeDocumento } from "../_ui/icono-de-documento.tsx";
 import {
   BuscadorDeListado,
   consultaDe,
@@ -46,23 +48,6 @@ import {
 } from "../catalogo/_abm/paginas.tsx";
 
 const { ruta } = EGRESOS;
-
-/** Los centavos de un texto `ARS 1.234,56`. */
-function centavosDe(texto: string): bigint {
-  const digitos = texto.replace(/[^\d-]/g, "");
-  return BigInt(digitos === "" ? "0" : digitos);
-}
-
-/** `1234567n` como `12.345,67`. */
-function montoDe(centavos: bigint): string {
-  const negativo = centavos < 0n;
-  const positivo = negativo ? -centavos : centavos;
-  const enteros = (positivo / 100n)
-    .toString()
-    .replace(/\B(?=([0-9]{3})+$)/g, ".");
-  const decimales = (positivo % 100n).toString().padStart(2, "0");
-  return `${negativo ? "-" : ""}${enteros},${decimales}`;
-}
 
 function BotonDeIcono({
   href,
@@ -140,6 +125,7 @@ export default async function Egresos({ searchParams }: PropsListado) {
       sinCambio: cambio === SIN_CAMBIO,
       vence,
       conSaldo,
+      documentoId: valor.comprobanteId,
       vencido:
         conSaldo && valor.vencimiento !== null && valor.vencimiento < hoy,
     };
@@ -157,26 +143,33 @@ export default async function Egresos({ searchParams }: PropsListado) {
     cabeceraOrdenable(texto, columna, { orden, direccion }, (o, d) =>
       enlace(ruta, { ...vista, orden: o, direccion: d, pagina: 1 }),
     );
+  const conAcciones =
+    puedeEscribir || filas.some((f) => f.documentoId !== null);
   const acciones = (fila: (typeof filas)[number]) =>
-    puedeEscribir ? (
-      <div className="flex justify-end gap-0.5">
-        <BotonDeIcono href={conVentana("editar", fila.id)} texto="Editar">
-          <Pencil aria-hidden="true" className="size-4" />
-        </BotonDeIcono>
-        <BotonDeIcono
-          href={conVentana("baja", fila.id)}
-          texto="Dar de baja"
-          peligro
-        >
-          <Trash2 aria-hidden="true" className="size-4" />
-        </BotonDeIcono>
-        {fila.conSaldo ? (
-          <BotonDeIcono
-            href={`${enlace(ruta, vista)}&pagar=${fila.id}`}
-            texto="Registrar pago"
-          >
-            <HandCoins aria-hidden="true" className="size-4" />
-          </BotonDeIcono>
+    conAcciones ? (
+      <div className="flex items-center justify-end gap-0.5">
+        <IconoDeDocumento id={fila.documentoId} />
+        {puedeEscribir ? (
+          <>
+            <BotonDeIcono href={conVentana("editar", fila.id)} texto="Editar">
+              <Pencil aria-hidden="true" className="size-4" />
+            </BotonDeIcono>
+            <BotonDeIcono
+              href={conVentana("baja", fila.id)}
+              texto="Dar de baja"
+              peligro
+            >
+              <Trash2 aria-hidden="true" className="size-4" />
+            </BotonDeIcono>
+            {fila.conSaldo ? (
+              <BotonDeIcono
+                href={`${enlace(ruta, vista)}&pagar=${fila.id}`}
+                texto="Registrar pago"
+              >
+                <HandCoins aria-hidden="true" className="size-4" />
+              </BotonDeIcono>
+            ) : null}
+          </>
         ) : null}
       </div>
     ) : undefined;
@@ -229,7 +222,7 @@ export default async function Egresos({ searchParams }: PropsListado) {
                   ordenable("Concepto", "concepto"),
                   "Vence",
                   ordenable("Importe", "importe"),
-                  ...(puedeEscribir ? ["Acciones"] : []),
+                  ...(conAcciones ? ["Acciones"] : []),
                 ]}
               >
                 {filas.map((fila) => (
@@ -263,7 +256,7 @@ export default async function Egresos({ searchParams }: PropsListado) {
                       <Importe texto={fila.importe} />
                       {fila.sinCambio ? <SinCambio /> : null}
                     </td>
-                    {puedeEscribir ? (
+                    {conAcciones ? (
                       <td
                         className={cn(CLASES_DE_ACCIONES, "whitespace-nowrap")}
                       >

@@ -63,6 +63,7 @@ const esquemaFacturaDeLaLista = z.object({
   alicuota,
   tipo: z.enum(TIPOS_DE_COMPROBANTE),
   adicional: z.boolean(),
+  documento_id: z.uuid().nullable(),
 });
 
 const esquemaCobroDeLaLista = z.object({
@@ -284,7 +285,7 @@ export function crearRepositorioTableroPrisma(
         await cliente.$queryRaw`
           SELECT f.id, s.id AS servicio_id, s.codigo AS servicio, f.numero, f.fecha,
                  f.importe_moneda AS moneda, ${IMPORTE_CON_SIGNO} AS importe_centavos, f.alicuota_iva AS alicuota,
-                 f.tipo, f.adicional
+                 f.tipo, f.adicional, f.documento_id
             FROM facturas f
             JOIN servicios s ON s.id = f.servicio_id
            WHERE f.eliminado_en IS NULL AND f.fecha >= ${desde}::date AND f.fecha < ${hasta}::date
@@ -301,6 +302,7 @@ export function crearRepositorioTableroPrisma(
         alicuota: fila.alicuota,
         tipo: fila.tipo,
         adicional: fila.adicional,
+        documentoId: fila.documento_id,
       }));
     },
 

@@ -72,6 +72,8 @@ export type ListadoDeFacturas = Encabezado & {
     readonly tipo: string;
     /** Todavía no se cobró entera: se le ofrece cobrar. */
     readonly conSaldo: boolean;
+    /** El documento que respalda la factura, si se subió uno. */
+    readonly documentoId: string | null;
     readonly servicioId: string;
     readonly servicio: string;
     readonly numero: string;
@@ -183,6 +185,7 @@ export function armarListadosDelTablero({
             facturaId: factura.id,
             tipo: tipoVisible(factura),
             conSaldo: conSaldo.has(factura.id),
+            documentoId: factura.documentoId,
             servicioId: factura.servicioId,
             servicio: factura.servicio,
             numero: factura.numero,

@@ -13,11 +13,8 @@ import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
 import type { FacturaListada } from "../../../casos-uso/servicios/facturas.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import { clasesDeBoton } from "../../_ui/boton.tsx";
-import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
-import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import {
   anularFactura,
@@ -25,14 +22,14 @@ import {
   guardarCambioDeFactura,
 } from "../acciones.ts";
 import { Parte } from "./_molde/parte.tsx";
+import { VentanaDelCambio } from "./cambio-del-comprobante.tsx";
 import {
-  textoDelEnlaceDeCambio,
-  VentanaDelCambio,
-} from "./cambio-del-comprobante.tsx";
-import { Cobros } from "./cobros.tsx";
+  CambioAutomatico,
+  VencimientoALosTreintaDias,
+} from "./campos-de-factura.tsx";
+import { VentanasDeCobro } from "./cobros.tsx";
+import { FacturasYCobros } from "./facturas-y-cobros.tsx";
 import { IvaEnVivo } from "./iva-en-vivo.tsx";
-
-const CABECERAS = ["Número", "Vencimiento", "Total con IVA", "Saldo"];
 
 async function VentanaDeCarga({
   servicioId,
@@ -46,9 +43,18 @@ async function VentanaDeCarga({
     <Ventana titulo="Nueva factura" rutaAlCerrar={rutaAlCerrar}>
       <FormularioAbm
         accion={cargarFactura.bind(null, servicioId)}
-        campos={campos}
+        campos={campos.filter(([n]) => n !== "alicuota" && n !== "cambio")}
         elegibles={{}}
         inicial={{ escrito, errores: {} }}
+        despuesDe={{
+          fecha: <VencimientoALosTreintaDias />,
+          importe: (
+            <>
+              <IvaEnVivo />
+              <CambioAutomatico />
+            </>
+          ),
+        }}
         archivo={{
           nombre: "archivo",
           etiqueta: "Documento (opcional)",
@@ -56,9 +62,7 @@ async function VentanaDeCarga({
         }}
         enviar={{ texto: "Cargar", variante: "primario" }}
         rutaAlCancelar={rutaAlCerrar}
-      >
-        <IvaEnVivo />
-      </FormularioAbm>
+      />
     </Ventana>
   );
 }
@@ -145,73 +149,19 @@ export async function Facturas({
           <p>Todavía no hay facturas cargadas.</p>
         )
       ) : (
-        <Tabla
-          cabeceras={
-            puedeFacturar || puedeCobrar
-              ? [...CABECERAS, "Acciones"]
-              : CABECERAS
-          }
-        >
-          {facturas.map((factura) => {
-            const cobro = cobranza.find(
-              ({ facturaId }) => facturaId === factura.id,
-            );
-            return (
-              <tr key={factura.id}>
-                <td>
-                  <Enlace href={`/servicios/facturas/${factura.id}`}>
-                    {factura.numero}
-                  </Enlace>
-                </td>
-                <td>{factura.vencimiento}</td>
-                <td>{factura.total}</td>
-                <td>{cobro?.saldo}</td>
-                {puedeFacturar || puedeCobrar ? (
-                  <td>
-                    <div className="flex flex-wrap items-center gap-3">
-                      {puedeCobrar && !cobro?.cobrada ? (
-                        <Enlace
-                          href={`${ruta}?cobrar=${factura.id}`}
-                          scroll={false}
-                          className={clasesDeBoton("primario")}
-                          data-carga="cobro"
-                        >
-                          Registrar cobro
-                        </Enlace>
-                      ) : null}
-                      {puedeFacturar &&
-                      textoDelEnlaceDeCambio(factura.cambio) !== null ? (
-                        <Enlace
-                          href={`${ruta}?cambioFactura=${factura.id}`}
-                          scroll={false}
-                          data-carga="factura"
-                        >
-                          {textoDelEnlaceDeCambio(factura.cambio)}
-                        </Enlace>
-                      ) : null}
-                      {puedeFacturar ? (
-                        <Enlace
-                          href={`${ruta}?anularFactura=${factura.id}`}
-                          scroll={false}
-                          data-carga="factura"
-                        >
-                          Anular
-                        </Enlace>
-                      ) : null}
-                    </div>
-                  </td>
-                ) : null}
-              </tr>
-            );
-          })}
-        </Tabla>
+        <FacturasYCobros
+          facturas={facturas}
+          cobranza={cobranza}
+          ruta={ruta}
+          puedeFacturar={puedeFacturar}
+          puedeCobrar={puedeCobrar}
+        />
       )}
-      <Cobros
+      <VentanasDeCobro
         servicioId={servicioId}
         ruta={ruta}
         puedeEscribir={puedeCobrar}
         parametros={parametros}
-        facturas={facturas}
         cobranza={cobranza}
       />
       {puedeFacturar && typeof parametros.factura === "string" ? (

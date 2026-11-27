@@ -60,6 +60,7 @@ export default async function PorCobrar({ searchParams }: Props) {
       href: `/servicios/${fila.servicioId}`,
     },
     vence: fila.vencimiento,
+    documentoId: fila.documentoId,
     atraso: fila.atraso,
     total: fila.total,
     saldo: fila.saldo,

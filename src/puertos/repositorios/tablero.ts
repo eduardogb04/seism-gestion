@@ -55,6 +55,8 @@ export type FacturaDeLaLista = {
   readonly alicuota: AlicuotaIva;
   readonly tipo: TipoDeComprobante;
   readonly adicional: boolean;
+  /** El documento que respalda la factura, si se subió uno. */
+  readonly documentoId: string | null;
 };
 
 export type CobroDeLaLista = {

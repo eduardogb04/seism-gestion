@@ -6,6 +6,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../_ui/cn.ts";
 import { Enlace } from "../_ui/enlace-next.ts";
+import { IconoDeDocumento } from "../_ui/icono-de-documento.tsx";
 import {
   CLASES_DE_ACCIONES,
   CLASES_DE_ENLACE_DE_FILA,
@@ -38,6 +39,8 @@ export type FilaPorVencer = {
   readonly total: string;
   readonly saldo: string;
   readonly accion: ReactNode;
+  /** El documento que respalda el comprobante, si hay. */
+  readonly documentoId?: string | null;
 };
 
 export type Grupo = {
@@ -75,13 +78,16 @@ export function PorVencer({
   if (visibles.length === 0) {
     return <Vacio titulo={vacio} />;
   }
+  const conDocumento = visibles.some(({ filas }) =>
+    filas.some(({ documentoId }) => documentoId != null),
+  );
   const columnas: Cabecera[] = [
     cabeceras.principal,
     ...(conServicio ? [cabeceras.servicio] : []),
     cabeceras.vence,
     "Total",
     "Saldo",
-    ...(conAccion ? ["Acciones"] : []),
+    ...(conAccion || conDocumento ? ["Acciones"] : []),
   ];
   return (
     <div className="flex flex-col gap-6">
@@ -151,9 +157,12 @@ export function PorVencer({
                   <td className="text-right whitespace-nowrap">
                     <Importe texto={fila.saldo} />
                   </td>
-                  {conAccion ? (
+                  {conAccion || conDocumento ? (
                     <td className={cn(CLASES_DE_ACCIONES, "text-right")}>
-                      {fila.accion}
+                      <div className="flex items-center justify-end gap-1">
+                        <IconoDeDocumento id={fila.documentoId} />
+                        {fila.accion}
+                      </div>
                     </td>
                   ) : null}
                 </tr>
@@ -177,7 +186,15 @@ export function PorVencer({
                   </span>
                 }
                 derecha={<Importe texto={fila.saldo} />}
-                accion={fila.accion}
+                accion={
+                  fila.documentoId == null &&
+                  fila.accion == null ? undefined : (
+                    <div className="flex items-center gap-1">
+                      <IconoDeDocumento id={fila.documentoId} />
+                      {fila.accion}
+                    </div>
+                  )
+                }
               >
                 {fila.tercero === "" ? null : (
                   <span className="truncate text-[13px] text-texto-2">

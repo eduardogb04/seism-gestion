@@ -641,6 +641,7 @@ describe("cargar una factura", () => {
 
     expect(escrito).toEqual({
       fecha: "2031-07-09",
+      vencimiento: "2031-08-08",
       alicuota: "210",
       importeMoneda: "USD",
     });

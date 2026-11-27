@@ -21,6 +21,7 @@ import {
 import { clasesDeBoton } from "../../_ui/boton.tsx";
 import { cn } from "../../_ui/cn.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
+import { IconoDeDocumento } from "../../_ui/icono-de-documento.tsx";
 import { Marco } from "../../_ui/marco.tsx";
 import {
   CLASES_DE_ACCIONES,
@@ -74,6 +75,14 @@ export default async function Ingresos({ searchParams }: Props) {
     );
   const derecha =
     "[&_th:nth-child(5)]:text-right [&_th:nth-child(6)]:text-right [&_th:nth-child(7)]:text-right";
+  const conAcciones =
+    puedeEscribir || filas.some((f) => f.documentoId !== null);
+  const acciones = (fila: (typeof filas)[number]) => (
+    <div className="flex items-center justify-end gap-1">
+      <IconoDeDocumento id={fila.documentoId} />
+      {puedeEscribir && fila.conSaldo ? botonDeCobro(fila.facturaId) : null}
+    </div>
+  );
   const botonDeCobro = (facturaId: string) => (
     <Enlace
       href={enlace(orden, direccion, facturaId)}
@@ -131,7 +140,7 @@ export default async function Ingresos({ searchParams }: Props) {
                   "Sin IVA",
                   "IVA",
                   "Total",
-                  ...(puedeEscribir ? ["Acciones"] : []),
+                  ...(conAcciones ? ["Acciones"] : []),
                 ]}
               >
                 {filas.map((fila) => (
@@ -168,9 +177,9 @@ export default async function Ingresos({ searchParams }: Props) {
                     <td className="text-right whitespace-nowrap">
                       <Importe texto={fila.total} />
                     </td>
-                    {puedeEscribir ? (
+                    {conAcciones ? (
                       <td className={cn(CLASES_DE_ACCIONES, "text-right")}>
-                        {fila.conSaldo ? botonDeCobro(fila.facturaId) : null}
+                        {acciones(fila)}
                       </td>
                     ) : null}
                   </tr>
@@ -189,8 +198,9 @@ export default async function Ingresos({ searchParams }: Props) {
                   }
                   derecha={<Importe texto={fila.total} />}
                   accion={
-                    puedeEscribir && fila.conSaldo
-                      ? botonDeCobro(fila.facturaId)
+                    (puedeEscribir && fila.conSaldo) ||
+                    fila.documentoId !== null
+                      ? acciones(fila)
                       : undefined
                   }
                 >

@@ -37,7 +37,11 @@ import {
   MONEDA_CON_CAMBIO,
   MONEDAS,
 } from "../../dominio/compartido/importe.ts";
-import { esDiaValido, formatearISO } from "../../dominio/compartido/reloj.ts";
+import {
+  esDiaValido,
+  formatearISO,
+  sumarDias,
+} from "../../dominio/compartido/reloj.ts";
 import {
   admiteAnulacion,
   tieneSaldo,
@@ -105,6 +109,9 @@ import {
 } from "./servicios.ts";
 
 const esquemaId = z.uuid();
+
+/** Los días entre la fecha de la factura y su vencimiento, si no se elige otro. */
+export const DIAS_AL_VENCIMIENTO = 30;
 
 const MENSAJE_NUMERO_REPETIDO = "Ya hay una factura vigente con ese número.";
 
@@ -477,6 +484,9 @@ export function crearCasosUsoFacturas({
           campos: camposDeFactura(ordenes, mensual),
           escrito: {
             fecha: formatearISO(hoy).slice(0, 10),
+            vencimiento: formatearISO(
+              sumarDias(hoy, DIAS_AL_VENCIMIENTO),
+            ).slice(0, 10),
             alicuota: String(ALICUOTA_POR_DEFECTO),
             // La factura no hereda la moneda de su orden: se propone la de la última.
             [nombreDeMoneda("importe")]: masNueva?.moneda ?? MONEDAS[0],

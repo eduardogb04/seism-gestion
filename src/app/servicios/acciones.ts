@@ -19,8 +19,9 @@ import type { OrigenDeAnulacion } from "../../casos-uso/servicios/sucesos.ts";
 import { pantallaDeCodigo } from "../../casos-uso/sesion/errores.ts";
 import type { Actor } from "../../dominio/compartido/actor.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
+import { cotizacionDolar } from "../../server/tipo-de-cambio.ts";
 import type { EstadoFormulario } from "../_ui/formulario-abm.tsx";
-import { conActorDeSesion } from "../(auth)/sesion-actual.ts";
+import { actorDesdeSesion, conActorDeSesion } from "../(auth)/sesion-actual.ts";
 import { archivoSubidoEn, escritoEn } from "../catalogo/_abm/escrito.ts";
 import { panelDeLaEtapaActual } from "./[id]/rutas.ts";
 
@@ -620,4 +621,27 @@ export async function descartarVencimiento(
       ? { ok: true, ruta: `${RUTA}/${servicioId}` }
       : descartado;
   });
+}
+
+/** La cotización del dólar para el formulario de una factura: texto listo para el campo, o `null` si no se pudo traer. */
+export async function traerCotizacion(fuente: "billete" | "divisa"): Promise<{
+  readonly valor: string;
+  readonly fecha: string;
+  readonly fuente: string;
+} | null> {
+  await actorDesdeSesion();
+  const cotizacion = await cotizacionDolar(
+    fuente === "divisa" ? "divisa" : "billete",
+  );
+  return cotizacion === null
+    ? null
+    : {
+        valor: new Intl.NumberFormat("es-AR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 4,
+          useGrouping: false,
+        }).format(cotizacion.valor),
+        fecha: cotizacion.fecha,
+        fuente: cotizacion.fuente,
+      };
 }

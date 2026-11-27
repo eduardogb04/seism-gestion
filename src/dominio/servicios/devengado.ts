@@ -6,8 +6,9 @@
  * - Puntual: nada hasta «Finalizado»; desde ahí, el total de la orden.
  * - Por hitos (libre): lo devengado es lo facturado, y lo que falta facturar es
  *   el saldo de la orden (`saldoDeOrden`), no devengado − facturado.
- * - Mensual: la cuota vigente de cada mes, desde el de inicio hasta el de la
- *   fecha inclusive, con tope en el total de la orden.
+ * - Mensual: la cuota n (1, 2, …) se devenga el día del inicio real más n
+ *   meses (mismo día del mes; si el mes no lo tiene, el último), con la cuota
+ *   vigente en ese mes y tope en el total de la orden. Sin inicio real, nada.
  *
  * Fuera de por hitos, lo que falta facturar es devengado − facturado, y si se
  * facturó de más queda negativo: no se recorta.
@@ -19,7 +20,11 @@ import {
   MONEDAS,
   type Moneda,
 } from "../compartido/importe.ts";
-import { type FechaHora, sumarMeses } from "../compartido/reloj.ts";
+import {
+  diferenciaEnDias,
+  type FechaHora,
+  sumarMeses,
+} from "../compartido/reloj.ts";
 import { restarEnMoneda } from "../compartido/saldo.ts";
 import { sumaEn } from "./avance.ts";
 import type { EstadoServicio, ModalidadDeFacturacion } from "./estados.ts";
@@ -38,8 +43,10 @@ export interface DatosDevengado {
   readonly orden: Importe<Moneda> | null;
   /** Lo facturado que consume la orden, sin IVA y con signo: las facturas no adicionales y sus notas (F6-03). */
   readonly facturas: readonly Importe<Moneda>[];
-  /** En el orden en que se cargaron: la primera es la inicial y su mes, el de inicio. */
+  /** En el orden en que se cargaron: la primera es la inicial. */
   readonly cuotas: readonly Cuota[];
+  /** El día en que empezó la ejecución (R6); `null` mientras no empezó. */
+  readonly inicioReal: FechaHora | null;
   readonly fecha: FechaHora;
 }
 
@@ -74,24 +81,74 @@ export function cuotaDelMes(
   return vigente?.importe ?? null;
 }
 
-/** Las cuotas de cada mes, del de inicio al de `fecha` inclusive. */
-function cuotasHasta(
+/** Lo más que se cuentan cuotas: cien años, para que un dato roto no cuelgue el cálculo. */
+const MAXIMO_DE_CUOTAS = 1200;
+
+/** Cada cuota mensual con el día en que se devenga: la n, a n meses del inicio real. */
+function cuotasDevengadas(
   cuotas: readonly Cuota[],
+  inicio: FechaHora,
   fecha: FechaHora,
-): readonly Importe<Moneda>[] {
+): readonly { readonly dia: FechaHora; readonly importe: Importe<Moneda> }[] {
   const [inicial] = cuotas;
-  const meses: Importe<Moneda>[] = [];
-  for (
-    let mes = inicial?.desde;
-    mes !== undefined && indiceDeMes(mes) <= indiceDeMes(fecha);
-    mes = sumarMeses(mes, 1)
-  ) {
-    const importe = cuotaDelMes(cuotas, mes);
-    if (importe !== null) {
-      meses.push(importe);
+  const devengadas: { dia: FechaHora; importe: Importe<Moneda> }[] = [];
+  for (let n = 1; inicial !== undefined && n <= MAXIMO_DE_CUOTAS; n += 1) {
+    const dia = sumarMeses(inicio, n);
+    if (diferenciaEnDias(fecha, dia) < 0) {
+      break;
     }
+    devengadas.push({
+      dia,
+      importe: cuotaDelMes(cuotas, dia) ?? inicial.importe,
+    });
   }
-  return meses;
+  return devengadas;
+}
+
+/**
+ * La próxima cuota mensual a facturar: la primera que se devenga hoy o
+ * después, con el tope de lo que le queda a la orden. `null` si no es mensual,
+ * no está en ejecución, no tiene inicio real o la orden ya no admite más.
+ */
+export function proximaCuota(
+  datos: Pick<
+    DatosDevengado,
+    "modalidad" | "estado" | "orden" | "cuotas" | "inicioReal" | "fecha"
+  >,
+): { readonly dia: FechaHora; readonly importe: Importe<Moneda> } | null {
+  const { modalidad, estado, orden, cuotas, inicioReal, fecha } = datos;
+  const [inicial] = cuotas;
+  if (
+    modalidad !== "mensual" ||
+    estado !== "en_ejecucion" ||
+    inicioReal === null ||
+    inicial === undefined
+  ) {
+    return null;
+  }
+  let acumulado = 0n;
+  for (let n = 1; n <= MAXIMO_DE_CUOTAS; n += 1) {
+    const dia = sumarMeses(inicioReal, n);
+    const importe = cuotaDelMes(cuotas, dia) ?? inicial.importe;
+    const queda =
+      orden?.moneda === importe.moneda
+        ? orden.centavos - acumulado
+        : importe.centavos;
+    if (queda <= 0n) {
+      return null;
+    }
+    if (diferenciaEnDias(dia, fecha) >= 0) {
+      return {
+        dia,
+        importe: crearImporte(
+          BigInt(Math.min(Number(queda), Number(importe.centavos))),
+          importe.moneda,
+        ),
+      };
+    }
+    acumulado += importe.centavos;
+  }
+  return null;
 }
 
 function devengadoEn(
@@ -99,7 +156,7 @@ function devengadoEn(
   datos: DatosDevengado,
   facturado: Importe<Moneda>,
 ): Importe<Moneda> {
-  const { modalidad, estado, orden, cuotas, fecha } = datos;
+  const { modalidad, estado, orden, cuotas, inicioReal, fecha } = datos;
   const deLaOrden = orden?.moneda === moneda ? orden : null;
   switch (modalidad) {
     case "puntual":
@@ -110,7 +167,14 @@ function devengadoEn(
     case "por_hitos":
       return facturado;
     case "mensual": {
-      const suma = sumaEn(moneda, cuotasHasta(cuotas, fecha));
+      const suma = sumaEn(
+        moneda,
+        inicioReal === null
+          ? []
+          : cuotasDevengadas(cuotas, inicioReal, fecha).map(
+              ({ importe }) => importe,
+            ),
+      );
       return deLaOrden !== null && suma.centavos > deLaOrden.centavos
         ? deLaOrden
         : suma;

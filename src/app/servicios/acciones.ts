@@ -489,9 +489,9 @@ export async function cambiarEstadoDeServicio(
   id: string,
   formulario: FormData,
 ): Promise<void> {
-  const { a = "", nota = "" } = escritoEn(formulario);
+  const { a = "", nota = "", inicioReal = "" } = escritoEn(formulario);
   return enElServicio(id, (actor) =>
-    armado().servicios.cambiarEstado(actor, id, a, nota),
+    armado().servicios.cambiarEstado(actor, id, a, nota, inicioReal),
   );
 }
 

@@ -263,6 +263,12 @@
     "queHacer": "Registrá el cobro en el comprobante asociado.",
     "tipo": "persona"
   },
+  "DOM_0047": {
+    "codigo": "DOM-0047",
+    "descripcion": "La fecha de inicio real no sirve: tiene que ser un día que exista y no puede ser posterior a hoy. No se guardó nada.",
+    "queHacer": "Elegí el día en que empezó la ejecución, de hoy hacia atrás, y volvé a iniciarla.",
+    "tipo": "persona"
+  },
   "IA_0001": {
     "codigo": "IA-0001",
     "descripcion": "Se llegó al tope de gasto mensual de la IA: esta vez no se le preguntó y la operación sigue sin su propuesta.",

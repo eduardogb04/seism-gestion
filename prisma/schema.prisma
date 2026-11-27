@@ -531,6 +531,8 @@ model Servicio {
   observaciones       String?
   // Cuándo se espera empezar (F3-02); no es la vigencia del contrato recurrente.
   fechaInicioEstimada DateTime?    @map("fecha_inicio_estimada") @db.Date
+  // El día en que empezó la ejecución (R6): se pide al pasar a «En ejecución».
+  fechaInicioReal     DateTime?    @map("fecha_inicio_real") @db.Date
   creadoEn            DateTime     @map("creado_en") @db.Timestamptz(3)
   creadoPor           Json         @map("creado_por") @db.JsonB
   actualizadoEn       DateTime     @map("actualizado_en") @db.Timestamptz(3)

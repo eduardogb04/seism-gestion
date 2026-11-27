@@ -31,7 +31,12 @@ import {
   type Importe,
   type Moneda,
 } from "../../dominio/compartido/importe.ts";
-import type { FechaHora, Reloj } from "../../dominio/compartido/reloj.ts";
+import {
+  type FechaHora,
+  formatearISO,
+  parsearISO,
+  type Reloj,
+} from "../../dominio/compartido/reloj.ts";
 import { sumaEn } from "../../dominio/servicios/avance.ts";
 import {
   cuentaParaLaOrden,
@@ -42,10 +47,12 @@ import {
   cuotaDelMes,
   devengadoPorMoneda,
   periodoAFacturar,
+  proximaCuota,
 } from "../../dominio/servicios/devengado.ts";
 import {
   admiteFactura,
   cicloServicio,
+  inicioRealDe,
   MODALIDADES_DE_FACTURACION,
   type ModalidadDeFacturacion,
 } from "../../dominio/servicios/estados.ts";
@@ -140,6 +147,11 @@ export type Facturacion = {
   /** `octubre de 2026`: el mes del reloj, al que se calcula lo devengado. */
   readonly alMes: string;
   readonly lineas: readonly LineaDeFacturacion[];
+  /** La próxima cuota mensual a facturar (R6): `dd/mm` y su importe sin IVA; `null` si no hay. */
+  readonly proximaCuota: {
+    readonly fecha: string;
+    readonly importe: string;
+  } | null;
 };
 
 export type CasosUsoFacturacion = {
@@ -232,6 +244,25 @@ function primerDiaDe(dia: string): FechaHora {
     throw nuevoError(catalogo.INF_0001, { motivo: "un día que no es un día" });
   }
   return mes;
+}
+
+/** El inicio real (`aaaa-mm-dd`) como fecha del dominio. */
+function inicioRealFechaHora(dia: string | null): FechaHora | null {
+  const leido = dia === null ? null : parsearISO(`${dia}T00:00:00.000`);
+  return leido?.ok ? leido.fechaHora : null;
+}
+
+/** `dd/mm` de la fecha y el importe de la próxima cuota, listos para mostrar. */
+function deLaProxima(
+  cuota: ReturnType<typeof proximaCuota>,
+): Facturacion["proximaCuota"] {
+  if (cuota === null) {
+    return null;
+  }
+  const [, mes = "", dia = ""] = formatearISO(cuota.dia)
+    .slice(0, 10)
+    .split("-");
+  return { fecha: `${dia}/${mes}`, importe: formatearImporte(cuota.importe) };
 }
 
 const cuotasDelDominio = (cuotas: readonly CuotaGuardada[]): readonly Cuota[] =>
@@ -344,8 +375,10 @@ export function crearCasosUsoFacturacion({
       return transaccional.ejecutar(async (repos) => {
         const servicio = await servicioVigente(repos, servicioId);
         const { modalidadFacturacion } = servicio.valor;
-        const estado = cicloServicio.estadoActual(
-          await historialDe(repos, servicioId),
+        const historial = await historialDe(repos, servicioId);
+        const estado = cicloServicio.estadoActual(historial);
+        const inicioReal = inicioRealFechaHora(
+          inicioRealDe(servicio.valor.fechaInicioReal, historial),
         );
         const orden = await repos.ordenesCompra.vigenteDe(servicioId);
         const total =
@@ -395,12 +428,23 @@ export function crearCasosUsoFacturacion({
             quien: quien(creadoPor),
           })),
           alMes: nombreDelMes(hoy),
+          proximaCuota: deLaProxima(
+            proximaCuota({
+              modalidad: modalidadFacturacion,
+              estado,
+              orden: total,
+              cuotas: cuotasDelDominio(cuotas),
+              inicioReal,
+              fecha: hoy,
+            }),
+          ),
           lineas: devengadoPorMoneda({
             modalidad: modalidadFacturacion,
             estado,
             orden: total,
             facturas: sinIva,
             cuotas: cuotasDelDominio(cuotas),
+            inicioReal,
             fecha: hoy,
           }).map(({ moneda, devengado, porFacturar }) => ({
             moneda,

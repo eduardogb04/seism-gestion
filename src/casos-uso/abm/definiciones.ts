@@ -18,6 +18,7 @@ import { type ColumnaAbm, camposDe, type DefinicionAbm } from "./definicion.ts";
 import { EGRESOS } from "./egresos.ts";
 import { GRUPOS } from "./grupos.ts";
 import { PLANTILLAS_DE_HITOS } from "./plantillas-de-hitos.ts";
+import { PLANTILLAS_DE_RECURSOS } from "./plantillas-de-recursos.ts";
 import { SITIOS } from "./sitios.ts";
 import { TIPOS_DE_SERVICIO } from "./tipos-de-servicio.ts";
 
@@ -31,6 +32,7 @@ export const DEFINICIONES: { readonly [E in EntidadAbm]: DefinicionAbm<E> } = {
   Cuenta: CUENTAS,
   Egreso: EGRESOS,
   PlantillaHitos: PLANTILLAS_DE_HITOS,
+  PlantillaRecursos: PLANTILLAS_DE_RECURSOS,
 };
 
 const esquemaEntidad = z

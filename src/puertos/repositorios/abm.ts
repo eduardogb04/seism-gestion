@@ -117,6 +117,13 @@ type EntidadesAbm = {
     /** Los hitos, en orden. */
     readonly hitos: readonly string[];
   };
+  readonly PlantillaRecursos: {
+    readonly nombre: string;
+    /** `null`: genérica, sirve para cualquier tipo de servicio. */
+    readonly tipoServicioId: string | null;
+    /** Los recursos, en orden: una línea `tipo | descripción | cantidad` cada uno. */
+    readonly recursos: readonly string[];
+  };
 };
 
 export type EntidadAbm = keyof EntidadesAbm;

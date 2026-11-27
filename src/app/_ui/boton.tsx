@@ -1,5 +1,5 @@
-import { LoaderCircle } from "lucide-react";
 import type { ComponentProps } from "react";
+import { BotonConEstado } from "./boton-con-estado.tsx";
 import { cn } from "./cn.ts";
 
 export type VarianteDeBoton =
@@ -49,16 +49,13 @@ export function Boton({
   readonly cargando?: boolean;
 } & Omit<ComponentProps<"button">, "className">) {
   return (
-    <button
-      className={clasesDeBoton(variante)}
-      disabled={disabled === true || cargando}
-      aria-busy={cargando || undefined}
+    <BotonConEstado
+      clases={clasesDeBoton(variante)}
+      cargando={cargando}
+      disabled={disabled}
       {...resto}
     >
-      {cargando ? (
-        <LoaderCircle aria-hidden="true" className="motion-safe:animate-spin" />
-      ) : null}
       {children}
-    </button>
+    </BotonConEstado>
   );
 }

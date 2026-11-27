@@ -28,7 +28,9 @@ export function Marco({
         esAdministrador={rol === "administrador"}
       />
       <div className="min-w-0 flex-1">
-        <ViewTransition>
+        {/* Solo anima al entrar o salir de una pantalla: un refresco de datos
+            después de guardar no hace el fundido de todo el contenido (fix 13). */}
+        <ViewTransition update="none">
           <div className="mx-auto w-full max-w-[1280px] px-4 py-6 md:px-8 md:py-8">
             {children}
           </div>

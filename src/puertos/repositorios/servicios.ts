@@ -39,6 +39,8 @@ export type DatosServicio = {
   readonly fechaInicioEstimada: string | null;
   /** El día en que empezó la ejecución, `aaaa-mm-dd` (R6); nulo hasta que pasa a «En ejecución». */
   readonly fechaInicioReal: string | null;
+  /** Si se factura desde el sistema (R8); no: sale un comprobante interno. */
+  readonly llevaFactura: boolean;
 };
 
 export type Servicio = RegistroDe<DatosServicio>;

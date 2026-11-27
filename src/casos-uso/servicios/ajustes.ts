@@ -81,12 +81,15 @@ import {
 import {
   alicuotaElegida,
   exigirSinCobrosNiCreditos,
+  numeroInterno,
   tipoVisible,
+  VALIDACION_INTERNA,
   vencimientoNoAnterior,
 } from "./facturas.ts";
 import { OPCIONES_DE_ALICUOTA } from "./iva-de-factura.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
+  servicioVigente,
   servicioVigenteBloqueado,
 } from "./servicios.ts";
 import { CAMPOS_DE_ANULACION } from "./sucesos.ts";
@@ -155,9 +158,19 @@ const esquemaId = z.uuid();
 
 /** Si la fila es una nota o una factura adicional. */
 const esAjuste = ({ valor }: Factura) =>
-  valor.tipo !== "factura" || valor.adicional;
+  (valor.tipo !== "factura" && valor.tipo !== "interno") || valor.adicional;
 
-function camposDe(ajuste: Ajuste, asociables: CampoAbm): CamposAbm {
+function camposDe(
+  ajuste: Ajuste,
+  asociables: CampoAbm,
+  interno = false,
+): CamposAbm {
+  return camposCompletos(ajuste, asociables).filter(
+    ([nombre]) => !(interno && (nombre === "numero" || nombre === "alicuota")),
+  );
+}
+
+function camposCompletos(ajuste: Ajuste, asociables: CampoAbm): CamposAbm {
   return [
     ...(ajuste === "adicional" ? [] : [[CAMPO_ASOCIADO, asociables] as const]),
     ["numero", { tipo: "texto", etiqueta: "Número" }],
@@ -252,7 +265,7 @@ export function crearCasosUsoAjustes({
     actor: Actor,
     repos: RepositoriosEnTransaccion,
     servicioId: string,
-  ): Promise<void> {
+  ) {
     await exigirRol(
       repos.usuarios,
       actor,
@@ -260,8 +273,9 @@ export function crearCasosUsoAjustes({
       catalogo.AUT_0009,
     );
     // Con la fila del servicio tomada, el saldo del asociado no cambia mientras se decide.
-    await servicioVigenteBloqueado(repos, servicioId);
+    const servicio = await servicioVigenteBloqueado(repos, servicioId);
     await exigirEtapa(repos, servicioId, "ajuste");
+    return servicio.valor;
   }
 
   return {
@@ -286,6 +300,8 @@ export function crearCasosUsoAjustes({
 
     formulario(servicioId, ajuste, desdeAjusteId) {
       return transaccional.ejecutar(async (repos) => {
+        const interno = !(await servicioVigente(repos, servicioId)).valor
+          .llevaFactura;
         const asociables = await asociablesDe(repos, servicioId);
         const [primero] = asociables;
         // Desde un ajuste aprobado, el importe viene de él (recargo) o es el exceso a acreditar (descuento).
@@ -297,7 +313,7 @@ export function crearCasosUsoAjustes({
                 await ajusteVigente(repos, desdeAjusteId),
               );
         return {
-          campos: camposDe(ajuste, campoAsociado(ajuste, asociables)),
+          campos: camposDe(ajuste, campoAsociado(ajuste, asociables), interno),
           escrito: {
             fecha: formatearISO(reloj.ahora()).slice(0, 10),
             alicuota: String(ALICUOTA_POR_DEFECTO),
@@ -317,7 +333,19 @@ export function crearCasosUsoAjustes({
 
     crear(actor, servicioId, ajuste, escrito, archivo, desdeAjusteId) {
       return transaccional.ejecutar(async (repos) => {
-        await exigirParaEscribir(actor, repos, servicioId);
+        const { llevaFactura } = await exigirParaEscribir(
+          actor,
+          repos,
+          servicioId,
+        );
+        const interno = !llevaFactura;
+        // Sin factura no hay notas de crédito ni de débito (R8).
+        if (interno && ajuste !== "adicional") {
+          throw nuevoError(catalogo.DOM_0018, {
+            id: servicioId,
+            carga: "ajuste",
+          });
+        }
         // La adicional sale solo de un recargo aprobado (R5).
         if (ajuste === "adicional" && desdeAjusteId === undefined) {
           throw nuevoError(catalogo.DOM_0009, {
@@ -326,8 +354,12 @@ export function crearCasosUsoAjustes({
           });
         }
         const asociables = await asociablesDe(repos, servicioId);
-        const campos = camposDe(ajuste, campoAsociado(ajuste, asociables));
-        const tipo = TIPO_DE_AJUSTE[ajuste];
+        const campos = camposDe(
+          ajuste,
+          campoAsociado(ajuste, asociables),
+          interno,
+        );
+        const tipo = interno ? "interno" : TIPO_DE_AJUSTE[ajuste];
         const escritoAsociado = (escrito[CAMPO_ASOCIADO] ?? "").trim();
         const asociadoId =
           ajuste === "adicional" || escritoAsociado === ""
@@ -339,9 +371,11 @@ export function crearCasosUsoAjustes({
 
         const validado = validarEscrito(
           campos,
-          ajuste === "nota_credito"
-            ? VALIDACION_DE_CREDITO
-            : VALIDACION_CON_VENCIMIENTO,
+          interno
+            ? VALIDACION_INTERNA
+            : ajuste === "nota_credito"
+              ? VALIDACION_DE_CREDITO
+              : VALIDACION_CON_VENCIMIENTO,
           escrito,
         );
         const adjunto = validarAdjuntoOpcional(archivo);
@@ -379,6 +413,7 @@ export function crearCasosUsoAjustes({
         }
         if (
           validado.ok &&
+          !interno &&
           (await repos.facturas.existeNumero(validado.datos.numero, tipo))
         ) {
           errores.numero = `Ya hay una ${tipoVisible({ tipo, adicional: false }).toLowerCase()} vigente con ese número.`;
@@ -402,7 +437,9 @@ export function crearCasosUsoAjustes({
               id: facturaId,
               servicioId,
               ordenCompraId: asociado?.valor.ordenCompraId ?? null,
-              numero: datos.numero,
+              numero: interno
+                ? await numeroInterno(repos, reloj)
+                : datos.numero,
               fecha: datos.fecha,
               vencimiento: datos.vencimiento,
               importe: datos.importe,

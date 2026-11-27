@@ -83,7 +83,6 @@ import { exigirRol } from "../usuarios/reglas.ts";
 import { exigirEtapa, historialDe } from "./ciclo.ts";
 import { comprobanteDe, conCobrosDe } from "./cobranza.ts";
 import { cuentasDeAjustes } from "./cuentas-de-ajustes.ts";
-import { totalConAmpliaciones } from "./ordenes-de-compra.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
   servicioVigente,
@@ -278,8 +277,7 @@ async function monedaDeLaOrden(
   repos: RepositoriosEnTransaccion,
   servicioId: string,
 ): Promise<Moneda | null> {
-  const orden = await repos.ordenesCompra.vigenteDe(servicioId);
-  return orden?.valor.importe.moneda ?? null;
+  return (await cuentasDeAjustes(repos, servicioId)).total?.moneda ?? null;
 }
 
 type CuotaLeida =
@@ -382,9 +380,6 @@ export function crearCasosUsoFacturacion({
         const inicioReal = inicioRealFechaHora(
           inicioRealDe(servicio.valor.fechaInicioReal, historial),
         );
-        const orden = await repos.ordenesCompra.vigenteDe(servicioId);
-        const total =
-          orden === undefined ? null : await totalConAmpliaciones(repos, orden);
         const vigentes = await repos.facturas.listarDe(servicioId);
         const facturas = await conCobrosDe(repos, vigentes);
         const comprobantes = vigentes.map(comprobanteDe);
@@ -396,7 +391,7 @@ export function crearCasosUsoFacturacion({
         const cuotas = await repos.cuotas.listarDe(servicioId);
         const quien = await nombresDeActores(repos);
         const hoy = reloj.ahora();
-        const { cuenta, saldo, paraCuentas } = await cuentasDeAjustes(
+        const { cuenta, saldo, paraCuentas, total } = await cuentasDeAjustes(
           repos,
           servicioId,
         );
@@ -639,12 +634,11 @@ export async function proximaCuotaDe(
 } | null> {
   const servicio = await servicioVigente(repos, servicioId);
   const historial = await historialDe(repos, servicioId);
-  const orden = await repos.ordenesCompra.vigenteDe(servicioId);
+  const { total } = await cuentasDeAjustes(repos, servicioId);
   return proximaCuota({
     modalidad: servicio.valor.modalidadFacturacion,
     estado: cicloServicio.estadoActual(historial),
-    orden:
-      orden === undefined ? null : await totalConAmpliaciones(repos, orden),
+    orden: total,
     cuotas: cuotasDelDominio(await repos.cuotas.listarDe(servicioId)),
     inicioReal: inicioRealFechaHora(inicioRealDe(inicioReal, historial)),
     fecha: hoy,

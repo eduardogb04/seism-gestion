@@ -7,7 +7,7 @@
  * `<details>`.
  */
 
-import { Ban, ChevronRight } from "lucide-react";
+import { Ban, ChevronRight, FileDown } from "lucide-react";
 import type { ReactNode } from "react";
 import type {
   CobranzaDeFactura,
@@ -164,7 +164,13 @@ function FilaDeFactura({
               </Enlace>
             </span>
             <span className="text-[12px] text-texto-3">
-              {factura.tipo} · <span className="cifras">{factura.fecha}</span>
+              {factura.interno ? "Comprobante" : factura.tipo} ·{" "}
+              <span className="cifras">{factura.fecha}</span>
+              {factura.interno ? (
+                <span className="ml-1.5 rounded bg-superficie-2 px-1.5 text-[11px] text-texto-2">
+                  Interno
+                </span>
+              ) : null}
               {factura.anticipo ? (
                 <span className="ml-1.5 rounded bg-superficie-2 px-1.5 text-[11px] text-texto-2">
                   Anticipo
@@ -192,6 +198,17 @@ function FilaDeFactura({
           </span>
           <span className="col-span-2 col-start-2 row-start-3 flex items-center justify-end gap-1 sm:col-span-1 sm:col-start-auto sm:row-start-auto">
             <IconoDeDocumento id={factura.documento?.id} />
+            {factura.interno ? (
+              <Enlace
+                href={`${ruta.split("/").slice(0, 3).join("/")}/comprobante/${factura.id}`}
+                target="_blank"
+                aria-label="Descargar comprobante"
+                title="Descargar comprobante"
+                className="presionable relative z-10 grid size-8 place-items-center rounded-md text-texto-2 no-underline hover:bg-superficie-3 hover:text-texto pointer-coarse:size-11"
+              >
+                <FileDown aria-hidden="true" className="size-4" />
+              </Enlace>
+            ) : null}
             {puedeCobrar && conSaldo ? (
               <Enlace
                 href={`${ruta}?cobrar=${factura.id}`}
@@ -228,11 +245,13 @@ function FilaDeFactura({
                 className="[&>span:last-child]:font-normal [&>span:last-child]:text-texto-2"
               />
             </Dato>
-            <Dato titulo={`Sin IVA · IVA ${factura.alicuota}`}>
-              <span className="cifras">
-                {factura.sinIva} · {factura.iva}
-              </span>
-            </Dato>
+            {factura.interno ? null : (
+              <Dato titulo={`Sin IVA · IVA ${factura.alicuota}`}>
+                <span className="cifras">
+                  {factura.sinIva} · {factura.iva}
+                </span>
+              </Dato>
+            )}
             {cobranza === undefined ? null : (
               <Dato titulo="Cobrado · retenido">
                 <span className="cifras">

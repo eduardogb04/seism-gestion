@@ -32,6 +32,7 @@ import { catalogo } from "../../dominio/compartido/errores/catalogo.ts";
 import { nuevoError } from "../../dominio/compartido/errores/error-sistema.ts";
 import { identificadorDesde } from "../../dominio/compartido/identificador.ts";
 import {
+  crearImporte,
   formatearImporte,
   formatearMonto,
   MONEDA_CON_CAMBIO,
@@ -40,6 +41,7 @@ import {
 import {
   esDiaValido,
   formatearISO,
+  type Reloj,
   sumarDias,
 } from "../../dominio/compartido/reloj.ts";
 import {
@@ -100,6 +102,7 @@ import {
   type ResultadoDeCambio,
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
+import { cuentasDeAjustes } from "./cuentas-de-ajustes.ts";
 import { facturaDelMes, nombreDelPeriodo } from "./facturacion.ts";
 import { etiquetaDeAlicuota, OPCIONES_DE_ALICUOTA } from "./iva-de-factura.ts";
 import {
@@ -150,6 +153,8 @@ export type FacturaListada = {
   readonly documento: DocumentoListado | null;
   /** Un anticipo: va con una etiqueta en la lista. */
   readonly anticipo: boolean;
+  /** Un comprobante interno de un servicio sin factura (R8): sin IVA, se descarga aparte. */
+  readonly interno: boolean;
   /** El email de quien la cargó. */
   readonly quien: string;
 };
@@ -163,7 +168,33 @@ export type DetalleDeFactura = FacturaListada & {
   readonly cambios: readonly CambioAbm[];
 };
 
+/** Lo que muestra el comprobante interno imprimible (R8), todo ya escrito. */
+export type ComprobanteInterno = {
+  readonly numero: string;
+  readonly fecha: string;
+  readonly vencimiento: string;
+  readonly cliente: string;
+  readonly servicioCodigo: string;
+  readonly servicioTitulo: string;
+  /** Lo cotizado (cotización vigente); vacío si no hay. */
+  readonly cotizado: string;
+  readonly ajustes: readonly {
+    readonly concepto: string;
+    /** `+ ARS 1.000,00` o `− ARS 1.000,00`. */
+    readonly importe: string;
+  }[];
+  /** Cotizado más recargos menos descuentos aprobados; vacío si no hay cotización. */
+  readonly totalDelServicio: string;
+  /** Lo que se cobra con este comprobante. */
+  readonly total: string;
+};
+
 export type CasosUsoFacturas = {
+  /** El comprobante interno vigente para imprimirlo. `DOM-0009` si no existe, está anulado o no es interno. */
+  comprobanteInterno(
+    servicioId: string,
+    id: string,
+  ): Promise<ComprobanteInterno>;
   /** Las no anuladas, la más nueva primero. */
   listar(servicioId: string): Promise<readonly FacturaListada[]>;
   /** Una factura vigente con su servicio y sus cambios. `DOM-0009` si no existe o está anulada. */
@@ -175,6 +206,8 @@ export type CasosUsoFacturas = {
   ): Promise<{
     readonly campos: CamposAbm;
     readonly escrito: Escrito;
+    /** El servicio no lleva factura: se emite un comprobante interno (R8). */
+    readonly interno: boolean;
   }>;
   /** `archivo` es `null` si no se eligió ninguno: el documento es opcional. */
   crear(
@@ -224,6 +257,10 @@ export function tipoVisible({
       return "Nota de débito";
     case "nota_credito":
       return "Nota de crédito";
+    case "interno":
+      return adicional
+        ? "Comprobante interno adicional"
+        : "Comprobante interno";
   }
 }
 
@@ -255,10 +292,24 @@ export function vencimientoNoAnterior(
   }
 }
 
+/** Los campos de un comprobante interno (R8): sin número (lo da la secuencia), sin IVA y sin orden de compra. */
+const SOLO_DE_FACTURA = ["numero", "alicuota", "ordenCompraId"];
+
 function camposDeFactura(
   ordenes: readonly OpcionAbm[],
   mensual: boolean,
   anticipo = false,
+  interno = false,
+): CamposAbm {
+  return camposCompletos(ordenes, mensual, anticipo).filter(
+    ([nombre]) => !(interno && SOLO_DE_FACTURA.includes(nombre)),
+  );
+}
+
+function camposCompletos(
+  ordenes: readonly OpcionAbm[],
+  mensual: boolean,
+  anticipo: boolean,
 ): CamposAbm {
   return [
     ...(mensual && !anticipo
@@ -304,6 +355,35 @@ const VALIDACION: z.ZodType<DatosEscritos> = z
     ordenCompraId: z.string().nullable(),
   })
   .superRefine(vencimientoNoAnterior);
+
+/** La validación de un comprobante interno: lo de la factura menos lo que pone el sistema (R8). */
+export const VALIDACION_INTERNA: z.ZodType<DatosEscritos> = z
+  .object({
+    fecha: z.string(),
+    vencimiento: z.string(),
+    importe: importeMayorQueCero,
+    cambio: cambioDeDocumento,
+  })
+  .superRefine(vencimientoNoAnterior)
+  .transform((datos) => ({
+    ...datos,
+    numero: "",
+    alicuota: 0,
+    ordenCompraId: null,
+  }));
+
+/** El prefijo de la numeración propia del comprobante interno. */
+export const PREFIJO_DE_INTERNO = "CI";
+
+/** El próximo número del comprobante interno del año: `CI-2026-0001`. */
+export async function numeroInterno(
+  repos: RepositoriosEnTransaccion,
+  reloj: Reloj,
+): Promise<string> {
+  const { anio } = reloj.ahora();
+  const siguiente = await repos.secuencias.siguiente(PREFIJO_DE_INTERNO, anio);
+  return `${PREFIJO_DE_INTERNO}-${anio}-${String(siguiente).padStart(4, "0")}`;
+}
 
 /** Las órdenes de compra no reemplazadas del servicio, para elegir a cuál corresponde la factura. */
 async function ordenesParaElegir(
@@ -368,6 +448,7 @@ function filaDeFactura(
     total: formatearImporte(totalConIva(valor.importe, valor.alicuota)),
     documento,
     anticipo: valor.anticipo,
+    interno: valor.tipo === "interno",
     quien,
   };
 }
@@ -453,6 +534,59 @@ export function crearCasosUsoFacturas({
       });
     },
 
+    comprobanteInterno(servicioId, id) {
+      return transaccional.ejecutar(async (repos) => {
+        const factura = await facturaVigente(repos, id);
+        const { valor } = factura;
+        if (valor.tipo !== "interno" || valor.servicioId !== servicioId) {
+          throw nuevoError(catalogo.DOM_0009, { entidad: "Factura", id });
+        }
+        const servicio = await servicioVigente(repos, servicioId);
+        const [cliente] = await repos
+          .abm("Cliente")
+          .buscarPorIds([servicio.valor.clienteId]);
+        const cotizacion = (await repos.cotizaciones.listarDe(servicioId))[0];
+        const aprobados = (
+          await repos.ajustesFacturacion.listarDe(servicioId)
+        ).filter(
+          ({ valor: ajuste }) =>
+            ajuste.estado === "aprobado" &&
+            ajuste.importe.moneda === cotizacion?.valor.importe.moneda,
+        );
+        const neto = aprobados.reduce(
+          (suma, { valor: ajuste }) =>
+            suma +
+            (ajuste.clase === "recargo"
+              ? ajuste.importe.centavos
+              : -ajuste.importe.centavos),
+          cotizacion?.valor.importe.centavos ?? 0n,
+        );
+        return {
+          numero: valor.numero,
+          fecha: diaConBarras(valor.fecha),
+          vencimiento: diaConBarras(valor.vencimiento),
+          cliente: cliente?.valor.razonSocial ?? "",
+          servicioCodigo: servicio.valor.codigo,
+          servicioTitulo: servicio.valor.titulo,
+          cotizado:
+            cotizacion === undefined
+              ? ""
+              : formatearImporte(cotizacion.valor.importe),
+          ajustes: aprobados.map(({ valor: ajuste }) => ({
+            concepto: ajuste.concepto,
+            importe: `${ajuste.clase === "recargo" ? "+" : "−"} ${formatearImporte(ajuste.importe)}`,
+          })),
+          totalDelServicio:
+            cotizacion === undefined
+              ? ""
+              : formatearImporte(
+                  crearImporte(neto, cotizacion.valor.importe.moneda),
+                ),
+          total: formatearImporte(valor.importe),
+        };
+      });
+    },
+
     ver(id) {
       return transaccional.ejecutar(async (repos) => {
         const factura = await facturaVigente(repos, id);
@@ -484,15 +618,25 @@ export function crearCasosUsoFacturas({
     formulario(servicioId, anticipo = false) {
       return transaccional.ejecutar(async (repos) => {
         const { valor } = await servicioVigente(repos, servicioId);
+        const interno = !valor.llevaFactura;
         const ordenes = await ordenesParaElegir(repos, servicioId);
         const [masNueva] = ordenes;
+        // Sin factura, el importe viene de lo que queda por emitir y la moneda es la de la cotización.
+        const cuentas = interno
+          ? await cuentasDeAjustes(repos, servicioId)
+          : null;
+        const aEmitir =
+          cuentas?.saldo != null && cuentas.saldo.centavos > 0n && !anticipo
+            ? cuentas.saldo
+            : null;
         const hoy = reloj.ahora();
         const mensual = valor.modalidadFacturacion === "mensual" && !anticipo;
         const delMes = mensual
           ? await facturaDelMes(repos, servicioId, hoy)
           : null;
         return {
-          campos: camposDeFactura(ordenes, mensual, anticipo).filter(
+          interno,
+          campos: camposDeFactura(ordenes, mensual, anticipo, interno).filter(
             ([nombre]) => !(anticipo && nombre === "ordenCompraId"),
           ),
           escrito: {
@@ -502,7 +646,14 @@ export function crearCasosUsoFacturas({
             ).slice(0, 10),
             alicuota: String(ALICUOTA_POR_DEFECTO),
             // La factura no hereda la moneda de su orden: se propone la de la última.
-            [nombreDeMoneda("importe")]: masNueva?.moneda ?? MONEDAS[0],
+            [nombreDeMoneda("importe")]:
+              cuentas?.total?.moneda ?? masNueva?.moneda ?? MONEDAS[0],
+            ...(aEmitir === null
+              ? {}
+              : {
+                  importe: formatearMonto(aEmitir),
+                  [nombreDeMoneda("importe")]: aEmitir.moneda,
+                }),
             ...(delMes === null ? {} : { periodo: delMes.periodo }),
             ...(delMes === null || delMes.cuota === null
               ? {}
@@ -540,10 +691,11 @@ export function crearCasosUsoFacturas({
         }
         const mensual =
           servicio.modalidadFacturacion === "mensual" && !anticipo;
+        const interno = !servicio.llevaFactura;
         const ordenes = await ordenesParaElegir(repos, servicioId);
         const validado = validarEscrito(
-          camposDeFactura(ordenes, mensual, anticipo),
-          VALIDACION,
+          camposDeFactura(ordenes, mensual, anticipo, interno),
+          interno ? VALIDACION_INTERNA : VALIDACION,
           // Un anticipo va siempre contra la orden vigente, si hay.
           anticipo
             ? { ...escrito, ordenCompraId: ordenes[0]?.valor ?? "" }
@@ -552,6 +704,7 @@ export function crearCasosUsoFacturas({
         const adjunto = validarAdjuntoOpcional(archivo);
         const repetido =
           validado.ok &&
+          !interno &&
           (await repos.facturas.existeNumero(validado.datos.numero, "factura"));
         if (!validado.ok || !adjunto.ok || repetido) {
           return {
@@ -575,13 +728,14 @@ export function crearCasosUsoFacturas({
           crearAuditable(
             {
               ...validado.datos,
+              ...(interno ? { numero: await numeroInterno(repos, reloj) } : {}),
               // Ya validado como día por el campo `fecha`: se guarda su mes.
               periodo: mensual
                 ? `${(escrito.periodo ?? "").slice(0, 7)}-01`
                 : null,
               servicioId,
               documentoId,
-              tipo: "factura",
+              tipo: interno ? "interno" : "factura",
               adicional: false,
               anticipo,
               comprobanteAsociadoId: null,
@@ -642,7 +796,11 @@ export function crearCasosUsoFacturas({
           throw nuevoError(catalogo.DOM_0009, { entidad: "Factura", id });
         }
         const { servicioId } = actual.valor;
-        if (actual.valor.tipo !== "factura" || actual.valor.adicional) {
+        if (
+          (actual.valor.tipo !== "factura" &&
+            actual.valor.tipo !== "interno") ||
+          actual.valor.adicional
+        ) {
           throw nuevoError(catalogo.DOM_0045, { id });
         }
         // Con la fila del servicio tomada, un cobro o una nota de crédito de esta factura no se carga a la vez.

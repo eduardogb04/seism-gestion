@@ -73,7 +73,13 @@ export async function cuentasDeAjustes(
   const ajustes = await repos.ajustesFacturacion.listarDe(servicioId);
   const cargados = ajustes.flatMap((ajuste) => paraCuentas(ajuste) ?? []);
   const orden = await repos.ordenesCompra.vigenteDe(servicioId);
-  if (orden === undefined) {
+  // Sin factura no hay orden de compra: se compara contra la cotización vigente (R8).
+  const servicio = await repos.servicios.buscarPorId(servicioId);
+  const cotizacion =
+    orden === undefined && servicio?.valor.llevaFactura === false
+      ? (await repos.cotizaciones.listarDe(servicioId))[0]
+      : undefined;
+  if (orden === undefined && cotizacion === undefined) {
     return {
       total: null,
       cuenta: null,
@@ -82,10 +88,16 @@ export async function cuentasDeAjustes(
       paraCuentas: cargados,
     };
   }
-  const moneda = orden.valor.importe.moneda;
-  const ampliaciones = await repos.ampliaciones.listarDe([orden.valor.id]);
+  const ordenId = orden?.valor.id ?? null;
+  const base = orden?.valor.importe ?? cotizacion?.valor.importe;
+  if (base === undefined) {
+    throw new Error("cuentasDeAjustes: sin orden ni cotización");
+  }
+  const moneda = base.moneda;
+  const ampliaciones =
+    ordenId === null ? [] : await repos.ampliaciones.listarDe([ordenId]);
   const total = totalDeOrden(
-    orden.valor.importe,
+    base,
     ampliaciones.map(({ valor }) => ({
       importe: crearImporte(valor.importeCentavos, moneda),
     })),
@@ -98,7 +110,7 @@ export async function cuentasDeAjustes(
       .filter(
         (factura) =>
           (factura.valor.ordenCompraId === null ||
-            factura.valor.ordenCompraId === orden.valor.id) &&
+            factura.valor.ordenCompraId === ordenId) &&
           cuentaParaLaOrden(comprobanteDe(factura), comprobantes),
       )
       .map(({ valor }) => ({

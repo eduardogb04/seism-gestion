@@ -71,6 +71,7 @@ import {
 } from "./cuentas-de-ajustes.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
+  servicioVigente,
   servicioVigenteBloqueado,
 } from "./servicios.ts";
 
@@ -110,6 +111,8 @@ export type AjustesDelServicio = {
   readonly ajustes: readonly AjustePropuesto[];
   /** Si en la etapa actual del servicio se emiten las facturas adicionales y las notas de crédito. */
   readonly admiteEmitir: boolean;
+  /** Servicio sin factura (R8): el recargo sale como comprobante interno y el descuento no emite nada. */
+  readonly interno: boolean;
 };
 
 type Resultado =
@@ -233,6 +236,8 @@ export function crearCasosUsoAjustesDeFacturacion({
     listar(servicioId) {
       return transaccional.ejecutar(async (repos) => {
         const cuentas = await cuentasDeAjustes(repos, servicioId);
+        const interno = !(await servicioVigente(repos, servicioId)).valor
+          .llevaFactura;
         const quien = await nombresDeActores(repos);
         const numeros = new Map<string, string>(
           (await repos.facturas.listarDe(servicioId)).map(({ valor }) => [
@@ -245,12 +250,14 @@ export function crearCasosUsoAjustesDeFacturacion({
         );
         return {
           admiteEmitir: admiteCarga(estado, "ajuste"),
+          interno,
           ajustes: cuentas.ajustes.map((ajuste) => {
             const { valor } = ajuste;
             const aFacturar = importeAFacturar(cuentas, ajuste);
             const porEmitir =
               valor.estado === "aprobado" &&
               valor.facturaId === null &&
+              !(interno && valor.clase === "descuento") &&
               aFacturar.centavos > 0n
                 ? {
                     tipo:
@@ -289,9 +296,9 @@ export function crearCasosUsoAjustesDeFacturacion({
 
     formulario(servicioId) {
       return transaccional.ejecutar(async (repos) => {
-        const orden = await repos.ordenesCompra.vigenteDe(servicioId);
+        const { total } = await cuentasDeAjustes(repos, servicioId);
         return {
-          campos: camposDe(orden?.valor.importe.moneda ?? null),
+          campos: camposDe(total?.moneda ?? null),
           escrito: { clase: "recargo" },
         };
       });
@@ -307,8 +314,8 @@ export function crearCasosUsoAjustesDeFacturacion({
         );
         await servicioVigenteBloqueado(repos, servicioId);
         await exigirEtapa(repos, servicioId);
-        const orden = await repos.ordenesCompra.vigenteDe(servicioId);
-        const moneda = orden?.valor.importe.moneda ?? null;
+        const moneda =
+          (await cuentasDeAjustes(repos, servicioId)).total?.moneda ?? null;
         const validado = validarEscrito(camposDe(moneda), VALIDACION, escrito);
         const adjunto = validarAdjuntoOpcional(archivo);
         const errores: Record<string, string> = validado.ok
@@ -321,7 +328,7 @@ export function crearCasosUsoAjustesDeFacturacion({
         let directo: Importe<Moneda> | null = null;
         if (moneda === null) {
           errores.importe =
-            "Cargá antes la orden de compra: el ajuste va en su moneda.";
+            "Cargá antes la orden de compra (o la cotización, si no lleva factura): el ajuste va en su moneda.";
         } else if (validado.ok) {
           for (const campo of ["precioUnitario", "importe"] as const) {
             const texto = validado.datos[campo];

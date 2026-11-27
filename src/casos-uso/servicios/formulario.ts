@@ -26,6 +26,9 @@ export const ETIQUETAS_DE_ESTADO: Readonly<Record<EstadoServicio, string>> = {
 
 /** El botón de un cambio de estado que pide la persona (F3-01). */
 export function botonDeCambio(destino: EstadoServicio): string {
+  if (destino === "adjudicado") {
+    return "El cliente aceptó";
+  }
   if (destino === "en_ejecucion") {
     return "Iniciar ejecución";
   }
@@ -81,6 +84,10 @@ export function camposDeServicio(
       { tipo: "opcion", etiqueta: "Responsable", opciones: responsables },
     ],
     ["fechaPedido", { tipo: "fecha", etiqueta: "Fecha de pedido" }],
+    [
+      "llevaFactura",
+      { tipo: "siNo", etiqueta: "Lleva factura", marcadaAlCrear: true },
+    ],
     ...(edicion
       ? ([
           [
@@ -117,6 +124,7 @@ export const VALIDACION: z.ZodType<
     modalidad: z.string(),
     responsableId: z.string(),
     fechaPedido: z.string(),
+    llevaFactura: z.boolean(),
     fechaInicioEstimada: z.string().nullable().default(null),
     vigenciaDesde: z.string().nullable(),
     vigenciaHasta: z.string().nullable(),

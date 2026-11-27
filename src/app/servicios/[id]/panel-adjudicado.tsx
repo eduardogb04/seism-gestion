@@ -179,7 +179,9 @@ export async function PanelAdjudicado({
               ...(facturacion.admiteFactura
                 ? [
                     {
-                      texto: "Emitir factura",
+                      texto: servicio.llevaFactura
+                        ? "Emitir factura"
+                        : "Emitir comprobante",
                       href: `${ruta}?factura=1`,
                       Icono: Receipt,
                       carga: "factura",

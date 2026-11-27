@@ -42,6 +42,7 @@ function Fila({
   esAdministrador,
   usuarioId,
   admiteEmitir,
+  interno,
 }: {
   readonly ajuste: AjustePropuesto;
   readonly servicioId: string;
@@ -50,6 +51,7 @@ function Fila({
   readonly esAdministrador: boolean;
   readonly usuarioId: string;
   readonly admiteEmitir: boolean;
+  readonly interno: boolean;
 }) {
   const estado = ESTADOS[ajuste.estado];
   const pendiente = ajuste.estado === "pendiente";
@@ -106,7 +108,9 @@ function Fila({
               data-carga="ajuste"
             >
               {emitir.tipo === "adicional"
-                ? "Facturar"
+                ? interno
+                  ? "Emitir comprobante"
+                  : "Facturar"
                 : "Emitir nota de crédito"}{" "}
               <span className="cifras">{emitir.importe}</span>
             </Enlace>
@@ -138,7 +142,7 @@ export async function AjustesDeFacturacion({
   const sesion = await sesionActual();
   const esAdministrador = sesion?.usuario.rol === "administrador";
   const usuarioId = sesion?.usuario.id ?? "";
-  const { ajustes, admiteEmitir } =
+  const { ajustes, admiteEmitir, interno } =
     await armado().ajustesDeFacturacion.listar(servicioId);
   const deRecargo =
     typeof parametros.facturarAjuste === "string"
@@ -196,6 +200,7 @@ export async function AjustesDeFacturacion({
               esAdministrador={esAdministrador}
               usuarioId={usuarioId}
               admiteEmitir={admiteEmitir}
+              interno={interno}
             />
           ))}
         </ul>
@@ -221,7 +226,9 @@ export async function AjustesDeFacturacion({
         <Ventana
           titulo={
             emitido.ajuste === "adicional"
-              ? "Factura adicional"
+              ? interno
+                ? "Comprobante interno adicional"
+                : "Factura adicional"
               : "Nota de crédito"
           }
           rutaAlCerrar={ruta}
@@ -244,7 +251,9 @@ export async function AjustesDeFacturacion({
             enviar={{ texto: "Cargar", variante: "primario" }}
             rutaAlCancelar={ruta}
           >
-            {emitido.ajuste === "nota_credito" ? null : <IvaEnVivo />}
+            {emitido.ajuste === "nota_credito" || interno ? null : (
+              <IvaEnVivo />
+            )}
           </FormularioAbm>
         </Ventana>
       )}

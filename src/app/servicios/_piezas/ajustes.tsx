@@ -173,6 +173,11 @@ export async function AjustesDelServicio({
   readonly puedeEscribir: boolean;
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
+  // Sin factura no hay notas de crédito ni de débito (R8).
+  const { interno } = await armado().ajustesDeFacturacion.listar(servicioId);
+  if (interno) {
+    return null;
+  }
   const ajustes = await armado().ajustes.listar(servicioId);
   const pedido = AJUSTES.find(
     (ajuste) => ajuste !== "adicional" && ajuste === parametros.ajuste,

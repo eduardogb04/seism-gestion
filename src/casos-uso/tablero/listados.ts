@@ -46,6 +46,7 @@ const TIPOS_DEL_FILTRO = [
   "adicional",
   "nota_debito",
   "nota_credito",
+  "interno",
 ] as const;
 
 type TipoDelFiltro = (typeof TIPOS_DEL_FILTRO)[number];

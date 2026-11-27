@@ -100,6 +100,7 @@ const CARGAS = [
   "vencimiento",
   "ajuste",
   "ajusteDeFacturacion",
+  "llevaFactura",
 ] as const;
 
 /**
@@ -140,6 +141,8 @@ export const ETAPAS_DE_CARGA: Readonly<
   ajuste: ["finalizado"],
   // Proponer, validar y anular un recargo o un descuento (R5).
   ajusteDeFacturacion: ["en_ejecucion", "finalizado"],
+  // Cambiar «lleva factura» (R8): solo antes de adjudicar.
+  llevaFactura: ["creado", "cotizado"],
 };
 
 /** Cómo se le factura a un servicio (F3-03, ADR 0041); no es la modalidad del contrato (`Servicio.modalidad`). */
@@ -194,8 +197,14 @@ function esAutomatica(de: EstadoServicio, a: EstadoServicio): boolean {
 /** A qué estados puede pasarlo la persona desde `estado`. */
 export function transicionesManualesDesde(
   estado: EstadoServicio,
+  llevaFactura = true,
 ): readonly EstadoServicio[] {
-  return TRANSICIONES[estado].filter((a) => !esAutomatica(estado, a));
+  return TRANSICIONES[estado].filter(
+    (a) =>
+      !esAutomatica(estado, a) ||
+      // Sin factura no hay orden de compra que adjudique: «El cliente aceptó» lo pasa a mano (R8).
+      (!llevaFactura && estado === "cotizado" && a === "adjudicado"),
+  );
 }
 
 /** Un cambio que la persona no puede pedir: no es manual desde ahí (`DOM-0011`) o le falta el motivo (`DOM-0017`). */
@@ -212,9 +221,10 @@ export function pedirCambio(
   historial: HistorialServicio,
   a: EstadoServicio,
   marca: MarcaServicio,
+  llevaFactura = true,
 ): Resultado<HistorialServicio, CambioRechazado> {
   const de = cicloServicio.estadoActual(historial);
-  if (!transicionesManualesDesde(de).includes(a)) {
+  if (!transicionesManualesDesde(de, llevaFactura).includes(a)) {
     return { ok: false, error: { codigo: catalogo.DOM_0011.codigo, de, a } };
   }
   if (PIDEN_MOTIVO.includes(a) && (marca.origen ?? "").trim() === "") {

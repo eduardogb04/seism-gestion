@@ -71,13 +71,19 @@ export async function pedirCambioDeEstado(
   id: string,
   destino: EstadoServicio,
   nota: string | null,
+  llevaFactura = true,
 ): Promise<void> {
   const historial = await historialDe(repos, id);
-  const resultado = pedirCambio(historial, destino, {
-    en: reloj.ahora(),
-    actor,
-    origen: nota,
-  });
+  const resultado = pedirCambio(
+    historial,
+    destino,
+    {
+      en: reloj.ahora(),
+      actor,
+      origen: nota,
+    },
+    llevaFactura,
+  );
   if (!resultado.ok) {
     const { codigo, de, a } = resultado.error;
     throw nuevoError(

@@ -29,6 +29,8 @@ export const TIPOS_DE_COMPROBANTE = [
   "factura",
   "nota_debito",
   "nota_credito",
+  // El comprobante interno de un servicio sin factura (R8): se cobra como una factura, sin IVA.
+  "interno",
 ] as const;
 
 export type TipoDeComprobante = (typeof TIPOS_DE_COMPROBANTE)[number];
@@ -111,7 +113,10 @@ export function cuentaParaLaOrden(
   const vistos = new Set<string>();
   while (actual !== undefined && !vistos.has(actual.id)) {
     if (actual.asociadoId === null) {
-      return actual.tipo === "factura" && !actual.adicional;
+      return (
+        (actual.tipo === "factura" || actual.tipo === "interno") &&
+        !actual.adicional
+      );
     }
     vistos.add(actual.id);
     const asociadoId: string = actual.asociadoId;

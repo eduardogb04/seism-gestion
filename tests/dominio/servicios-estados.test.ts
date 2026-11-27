@@ -87,6 +87,7 @@ const ETAPAS: Readonly<Record<Carga, readonly EstadoServicio[]>> = {
   cuota: ["adjudicado", "en_ejecucion"],
   vencimiento: ["finalizado"],
   ajuste: ["finalizado"],
+  llevaFactura: ["creado", "cotizado"],
 };
 
 const CARGAS: readonly Carga[] = [
@@ -448,6 +449,18 @@ describe("propiedad del recorrido (1000 corridas como mínimo)", () => {
         );
       }),
       { ...base, numRuns: Math.max(1000, base.numRuns ?? 0) },
+    );
+  });
+});
+
+describe("servicio sin factura (R8)", () => {
+  test("«El cliente aceptó» pasa a mano de Cotizado a Adjudicado solo sin factura", () => {
+    expect(transicionesManualesDesde("cotizado", false)).toContain(
+      "adjudicado",
+    );
+    expect(transicionesManualesDesde("cotizado")).not.toContain("adjudicado");
+    expect(transicionesManualesDesde("creado", false)).toEqual(
+      transicionesManualesDesde("creado"),
     );
   });
 });

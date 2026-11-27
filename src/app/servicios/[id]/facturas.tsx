@@ -43,13 +43,21 @@ async function VentanaDeCarga({
   readonly rutaAlCerrar: string;
   readonly anticipo: boolean;
 }) {
-  const { campos, escrito } = await armado().facturas.formulario(
+  const { campos, escrito, interno } = await armado().facturas.formulario(
     servicioId,
     anticipo,
   );
   return (
     <Ventana
-      titulo={anticipo ? "Facturar anticipo" : "Nueva factura"}
+      titulo={
+        anticipo
+          ? interno
+            ? "Anticipo (comprobante interno)"
+            : "Facturar anticipo"
+          : interno
+            ? "Nuevo comprobante interno"
+            : "Nueva factura"
+      }
       rutaAlCerrar={rutaAlCerrar}
     >
       <FormularioAbm
@@ -95,7 +103,9 @@ function VentanaDeAnulacion({
       titulo={
         factura === undefined
           ? "Anular factura"
-          : `¿Anular la factura ${factura.numero}?`
+          : factura.interno
+            ? `¿Anular el comprobante ${factura.numero}?`
+            : `¿Anular la factura ${factura.numero}?`
       }
       rutaAlCerrar={rutaAlCerrar}
     >
@@ -104,8 +114,9 @@ function VentanaDeAnulacion({
       ) : (
         <>
           <p className="mb-4">
-            Confirmá que anulás la factura {factura.numero}. Su número queda
-            libre.
+            Confirmá que anulás{" "}
+            {factura.interno ? "el comprobante" : "la factura"} {factura.numero}
+            . Su número queda libre.
           </p>
           <FormularioAbm
             accion={anularFactura.bind(null, servicioId, factura.id)}

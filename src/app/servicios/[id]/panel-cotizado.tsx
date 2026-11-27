@@ -78,7 +78,9 @@ export async function PanelCotizado({
       bajada={
         soloLectura
           ? `Estuvo ${dias(diasEnEtapa(servicio, "cotizado"))} en «Cotizado».`
-          : `Cotizado hace ${dias(desdeQueSeCotizo)}. Cuando llegue la orden de compra, cargala y el servicio pasa a «Adjudicado».`
+          : servicio.llevaFactura
+            ? `Cotizado hace ${dias(desdeQueSeCotizo)}. Cuando llegue la orden de compra, cargala y el servicio pasa a «Adjudicado».`
+            : `Cotizado hace ${dias(desdeQueSeCotizo)}. Servicio sin factura: cuando el cliente acepte, marcalo y pasa a «Adjudicado».`
       }
       metricas={[
         {
@@ -105,7 +107,9 @@ export async function PanelCotizado({
       ]}
       principal={
         puedeEscribir && principal !== null
-          ? { ...principal, carga: "ordenDeCompra" }
+          ? servicio.llevaFactura
+            ? { ...principal, carga: "ordenDeCompra" }
+            : principal
           : null
       }
       secundarias={
@@ -178,7 +182,7 @@ export async function PanelCotizado({
               rutaAlCerrar={ruta}
             />
           ) : null}
-          {typeof parametros.orden === "string" ? (
+          {servicio.llevaFactura && typeof parametros.orden === "string" ? (
             <VentanaDeOrden servicioId={servicio.id} rutaAlCerrar={ruta} />
           ) : null}
         </>

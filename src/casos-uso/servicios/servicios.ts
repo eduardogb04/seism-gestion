@@ -77,6 +77,7 @@ import {
   type CamposAbm,
   diaConBarras,
   type Escrito,
+  MARCADA,
   type OpcionAbm,
   type ValoresAbm,
 } from "../abm/definicion.ts";
@@ -184,6 +185,8 @@ export type DetalleDeServicio = {
   readonly estado: string;
   /** El estado como valor, para decidir qué etapa se dibuja. */
   readonly etapa: EstadoServicio;
+  /** Si se factura desde el sistema (R8); no: comprobante interno y sin orden de compra. */
+  readonly llevaFactura: boolean;
   /** Los estados por los que pasó, en orden y sin repetir; el actual incluido. */
   readonly recorridas: readonly EstadoServicio[];
   /** Cada dato con su etiqueta, en el orden en que se muestra. */
@@ -560,6 +563,7 @@ export function crearCasosUsoServicios({
           id === undefined ? null : await servicioVigente(repos, id);
         const guardado: ValoresAbm = actual?.valor ?? {
           modalidad: "puntual",
+          llevaFactura: true,
         };
         const campos = camposDeServicio(
           await responsables(repos, actual?.valor.responsableId),
@@ -571,6 +575,9 @@ export function crearCasosUsoServicios({
           escrito: Object.fromEntries(
             campos.flatMap(([nombre]) => {
               const valor = guardado[nombre];
+              if (typeof valor === "boolean") {
+                return valor ? [[nombre, MARCADA]] : [];
+              }
               return typeof valor === "string" ? [[nombre, valor]] : [];
             }),
           ),
@@ -615,6 +622,7 @@ export function crearCasosUsoServicios({
           titulo: valor.titulo,
           estado: ETIQUETAS_DE_ESTADO[estado],
           etapa: estado,
+          llevaFactura: valor.llevaFactura,
           recorridas: [...new Set(historial.eventos.map(({ a }) => a))],
           datos: [
             ["Cliente", cliente?.valor.razonSocial ?? ""],
@@ -659,7 +667,10 @@ export function crearCasosUsoServicios({
               dias: dias[posicion] ?? 0,
             }))
             .reverse(),
-          transiciones: transicionesManualesDesde(estado).map((destino) => ({
+          transiciones: transicionesManualesDesde(
+            estado,
+            valor.llevaFactura,
+          ).map((destino) => ({
             valor: destino,
             etiqueta: botonDeCambio(destino),
           })),
@@ -704,6 +715,9 @@ export function crearCasosUsoServicios({
           leido.datos.fechaInicioEstimada !== actual.valor.fechaInicioEstimada
         ) {
           await exigirEtapa(repos, id, "planificacion");
+        }
+        if (leido.datos.llevaFactura !== actual.valor.llevaFactura) {
+          await exigirEtapa(repos, id, "llevaFactura");
         }
         const nuevo = { ...actual.valor, ...leido.datos };
         const guardado: ValoresAbm = actual.valor;
@@ -794,6 +808,7 @@ export function crearCasosUsoServicios({
           id,
           destino.data,
           leida.data === "" ? null : leida.data,
+          servicio.valor.llevaFactura,
         );
         // Sin escribir nada: el error deshace el evento que recién agregó el cambio.
         if (

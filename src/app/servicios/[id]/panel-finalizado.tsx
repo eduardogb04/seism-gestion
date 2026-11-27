@@ -84,7 +84,9 @@ export async function PanelFinalizado({
       ...(puedeEscribir && facturacion.admiteFactura
         ? {
             accion: {
-              texto: "Emitir factura",
+              texto: servicio.llevaFactura
+                ? "Emitir factura"
+                : "Emitir comprobante",
               href: `${ruta}?factura=1`,
               carga: "factura",
             },

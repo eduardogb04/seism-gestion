@@ -101,6 +101,7 @@ import {
   guardarAdjuntoOpcional,
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
+import { cuentasDeAjustes } from "./cuentas-de-ajustes.ts";
 import { totalConAmpliaciones } from "./ordenes-de-compra.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
@@ -444,9 +445,17 @@ export function crearCasosUsoCobros({
           repos,
           await repos.facturas.listarDe(servicioId),
         );
+        // Sin orden (servicio sin factura, R8), el total es la cotización vigente.
+        const { total: sinOrden } = await cuentasDeAjustes(repos, servicioId);
         return {
           servicio: avancePorMoneda(
-            ordenes.map(({ valor }) => totales.get(valor.id) ?? valor.importe),
+            ordenes.length === 0
+              ? sinOrden === null
+                ? []
+                : [sinOrden]
+              : ordenes.map(
+                  ({ valor }) => totales.get(valor.id) ?? valor.importe,
+                ),
             facturas.map(paraAvance),
           ).map(lineaDeAvance),
           ordenes: Object.fromEntries(

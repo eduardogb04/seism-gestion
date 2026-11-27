@@ -52,11 +52,18 @@ export function accionPrincipalDe(
         Icono: FileText,
       };
     case "cotizado":
-      return {
-        texto: "Cargar orden de compra",
-        href: `${ruta}?orden=1`,
-        Icono: FileCheck,
-      };
+      // Sin factura no se pide orden de compra: el cliente acepta y se pasa a mano (R8).
+      return servicio.llevaFactura
+        ? {
+            texto: "Cargar orden de compra",
+            href: `${ruta}?orden=1`,
+            Icono: FileCheck,
+          }
+        : {
+            texto: "El cliente aceptó",
+            href: `${ruta}?pasar=adjudicado`,
+            Icono: CircleCheckBig,
+          };
     case "adjudicado":
       return ofrece(servicio, "en_ejecucion")
         ? {
@@ -68,7 +75,9 @@ export function accionPrincipalDe(
     case "en_ejecucion":
       if (facturable) {
         return {
-          texto: "Emitir factura",
+          texto: servicio.llevaFactura
+            ? "Emitir factura"
+            : "Emitir comprobante",
           href: `${ruta}?factura=1`,
           Icono: Receipt,
           carga: "factura",

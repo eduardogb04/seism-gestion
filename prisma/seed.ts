@@ -1204,6 +1204,7 @@ async function sembrarServicios(
             modalidadFacturacion: demo.facturacion,
             fechaInicioEstimada: null,
             fechaInicioReal: null,
+            llevaFactura: true,
           },
           actor,
           RelojFijo(ahora),

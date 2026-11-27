@@ -202,10 +202,13 @@ export async function PaginaListado<E extends EntidadAbm>({
   sesion,
   searchParams,
   extras,
+  encabezado,
 }: {
   readonly definicion: DefinicionAbm<E>;
   readonly sesion: SesionValida;
   readonly extras?: ExtrasDelListado;
+  /** Reemplaza al título y al botón de alta de la pantalla (Plata). */
+  readonly encabezado?: ReactNode;
 } & PropsListado) {
   const parametros = await searchParams;
   const listado = await armado().abm.listar(definicion, parametros);
@@ -220,9 +223,12 @@ export async function PaginaListado<E extends EntidadAbm>({
       : null;
   return (
     <Marco email={email} rol={rol} rutaActual={definicion.ruta}>
-      <main>
-        <h1>{definicion.plural}</h1>
+      <main
+        className={encabezado === undefined ? undefined : "flex flex-col gap-5"}
+      >
+        {encabezado ?? <h1>{definicion.plural}</h1>}
         <ListadoAbm
+          sinBotonNuevo={encabezado !== undefined}
           ruta={ruta}
           singular={definicion.singular}
           cabeceras={cabecerasDe(definicion)}

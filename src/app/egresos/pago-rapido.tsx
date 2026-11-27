@@ -16,7 +16,7 @@ export const pagoRapido: ExtrasDelListado = async (listado, parametros) => {
         <Enlace
           href={`${enlace(EGRESOS.ruta, vista)}&pagar=${id}`}
           scroll={false}
-          className={clasesDeBoton("primario")}
+          className={clasesDeBoton("secundario", "h-8 px-2.5 text-[13px]")}
         >
           Registrar pago
         </Enlace>

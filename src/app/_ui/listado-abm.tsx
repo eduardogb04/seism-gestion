@@ -158,6 +158,7 @@ export function ListadoAbm({
   acciones,
   rutaDeFila,
   sinCortar,
+  sinBotonNuevo = false,
 }: {
   readonly ruta: string;
   readonly singular: string;
@@ -175,6 +176,8 @@ export function ListadoAbm({
   readonly rutaDeFila?: ((id: string) => string) | undefined;
   /** La cabecera de una columna cuyo texto no se parte en dos renglones (un código). */
   readonly sinCortar?: string;
+  /** El alta se ofrece en otro lugar de la pantalla. */
+  readonly sinBotonNuevo?: boolean;
 }) {
   const {
     registros,
@@ -188,16 +191,17 @@ export function ListadoAbm({
     filtros,
   } = listado;
   const vista = vistaDe(listado);
-  const nuevo = puedeEscribir ? (
-    <Enlace
-      href={enlace(ruta, vista, { clave: "nuevo", valor: "1" })}
-      scroll={false}
-      className={clasesDeBoton("primario")}
-    >
-      <Plus aria-hidden="true" />
-      {textoDeNuevo(singular)}
-    </Enlace>
-  ) : null;
+  const nuevo =
+    puedeEscribir && !sinBotonNuevo ? (
+      <Enlace
+        href={enlace(ruta, vista, { clave: "nuevo", valor: "1" })}
+        scroll={false}
+        className={clasesDeBoton("primario")}
+      >
+        <Plus aria-hidden="true" />
+        {textoDeNuevo(singular)}
+      </Enlace>
+    ) : null;
   const filtrado =
     buscar !== "" || filtros.some(({ elegido }) => elegido !== "");
   return (

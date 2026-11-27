@@ -69,7 +69,7 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
   await page.goto("/egresos");
 
   // 1. El listado de la semilla: lo más nuevo primero, el importe con su moneda.
-  await expect(page.getByRole("heading", { name: "Egresos" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Plata" })).toBeVisible();
   const menu = page.getByRole("navigation", { name: "Secciones" });
   await expect(menu.getByRole("link", { name: "Egresos" })).toHaveAttribute(
     "aria-current",
@@ -86,7 +86,7 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
   await expect(fila(page, /Honorarios contables/)).toContainText("30/09/2026");
 
   // 2. Alta con el monto mal escrito: el mensaje al lado del campo y lo escrito conservado.
-  await page.getByRole("link", { name: "Nuevo egreso" }).click();
+  await page.getByRole("link", { name: "Registrar egreso" }).click();
   await expect(ventana(page, "Alta de egreso")).toBeVisible();
   await expect(page.getByLabel("Fecha", { exact: true })).toHaveAttribute(
     "type",
@@ -235,7 +235,7 @@ test("un egreso de proyecto pide servicio y se guarda con su comprobante; uno de
 }) => {
   await entrarComo(page, OPERADORA);
   await page.goto("/egresos");
-  await page.getByRole("link", { name: "Nuevo egreso" }).click();
+  await page.getByRole("link", { name: "Registrar egreso" }).click();
   const alta = ventana(page, "Alta de egreso");
   await alta.getByLabel("Fecha", { exact: true }).fill("2026-08-10");
   await alta.getByLabel("Concepto").fill("Repuestos para tanque");
@@ -280,7 +280,7 @@ test("un egreso de proyecto pide servicio y se guarda con su comprobante; uno de
   await fila(page, /Operación de tanques — ejemplo/)
     .getByRole("link", { name: "Ver" })
     .click();
-  await expect(page.getByRole("heading", { name: "Egresos" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Plata" })).toBeVisible();
   await expect(fila(page, /Repuestos para tanque/)).toContainText(
     "ARS 7.500,00",
   );
@@ -301,7 +301,7 @@ test("un egreso de proyecto pide servicio y se guarda con su comprobante; uno de
 
   // 4. De administración: con servicio se rechaza; sin servicio se guarda.
   await page.goto("/egresos");
-  await page.getByRole("link", { name: "Nuevo egreso" }).click();
+  await page.getByRole("link", { name: "Registrar egreso" }).click();
   const otro = ventana(page, "Alta de egreso");
   await otro.getByLabel("Fecha", { exact: true }).fill("2026-08-11");
   await otro.getByLabel("Concepto").fill("Papelería de oficina");

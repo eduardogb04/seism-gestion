@@ -560,6 +560,23 @@ export async function cargarRecurso(
   });
 }
 
+/** Cambiar un recurso, en el lugar. */
+export async function editarRecurso(
+  servicioId: string,
+  id: string,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  return escribir(formulario, async (actor) => {
+    const guardado = await armado().planificacion.guardarRecurso(
+      actor,
+      id,
+      escritoEn(formulario),
+    );
+    return guardado.ok ? { ok: true, ruta: `${RUTA}/${servicioId}` } : guardado;
+  });
+}
+
 /** Quitar un recurso de la lista. */
 export async function quitarRecurso(
   servicioId: string,

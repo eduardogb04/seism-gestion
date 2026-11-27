@@ -6,6 +6,7 @@ import {
   cambiarRealizadoDeHito,
   cargarHito,
   cargarRecurso,
+  editarRecurso,
   quitarHito,
   quitarRecurso,
 } from "../acciones.ts";
@@ -21,4 +22,5 @@ export const ACCIONES_DE_HITOS = {
 export const ACCIONES_DE_RECURSOS = {
   cargar: cargarRecurso,
   quitar: quitarRecurso,
+  editar: editarRecurso,
 };

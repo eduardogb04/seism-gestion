@@ -98,6 +98,8 @@ export type DetalleDePlanificacion = {
     /** dd/mm/aaaa; vacío si no se cargó. */
     readonly desde: string;
     readonly hasta: string;
+    /** Lo guardado, tal cual, para editarlo en el lugar. */
+    readonly escrito: Readonly<Record<string, string>>;
   }[];
   /** Las plantillas que se pueden aplicar: primero las del tipo del servicio y después las genéricas. */
   readonly plantillas: readonly {
@@ -152,6 +154,8 @@ export type CasosUsoPlanificacion = {
     servicioId: string,
     escrito: Escrito,
   ): Promise<Resultado>;
+  /** Cambia los datos del recurso, con las mismas reglas que el alta. */
+  guardarRecurso(actor: Actor, id: string, escrito: Escrito): Promise<Resultado>;
   marcarEliminadoRecurso(actor: Actor, id: string): Promise<void>;
 };
 
@@ -404,6 +408,14 @@ export function crearCasosUsoPlanificacion({
             cantidad: recurso.cantidad ?? "",
             desde: aTexto(recurso.desde),
             hasta: aTexto(recurso.hasta),
+            escrito: {
+              tipo: recurso.tipo,
+              camionId: recurso.camionId ?? "",
+              descripcion: recurso.descripcion ?? "",
+              cantidad: recurso.cantidad ?? "",
+              desde: recurso.desde ?? "",
+              hasta: recurso.hasta ?? "",
+            },
           })),
           plantillas: planificable
             ? await plantillasOfrecidas(repos, servicio.valor.tipoServicioId)
@@ -577,6 +589,50 @@ export function crearCasosUsoPlanificacion({
             reloj,
           ),
         );
+        return { ok: true };
+      });
+    },
+
+    guardarRecurso(actor, id, escrito) {
+      return transaccional.ejecutar(async (repos) => {
+        const actual = await vigentePorId(
+          repos.recursos.buscarPorId,
+          "Recurso",
+          id,
+        );
+        await prepararEscritura(
+          repos,
+          actor,
+          actual.valor.servicioId,
+          "planificacion",
+        );
+        const validado = validarEscrito(
+          CAMPOS_DE_RECURSO,
+          VALIDACION_DE_RECURSO,
+          escrito,
+        );
+        if (!validado.ok) {
+          return validado;
+        }
+        const errores = await relacionesRotas(
+          repos,
+          CAMPOS_DE_RECURSO,
+          validado.datos,
+          {},
+        );
+        if (Object.keys(errores).length > 0) {
+          return { ok: false, errores };
+        }
+        const cambiado = marcarActualizado(
+          actual,
+          { ...actual.valor, ...validado.datos },
+          actor,
+          reloj,
+        );
+        if (!cambiado.ok) {
+          throw nuevoError(catalogo.DOM_0009, { entidad: "Recurso", id });
+        }
+        await repos.recursos.actualizar(actor, cambiado.valor, "actualizar");
         return { ok: true };
       });
     },

@@ -11,6 +11,7 @@ import type { DetalleDePlanificacion } from "../../src/casos-uso/servicios/plani
 
 const ACCIONES = {
   cargar: async () => ({ escrito: {}, errores: {} }),
+  editar: async () => ({ escrito: {}, errores: {} }),
   quitar: async () => undefined,
 };
 
@@ -43,6 +44,7 @@ const persona = {
   cantidad: "",
   desde: "",
   hasta: "",
+  escrito: {},
 } as const;
 const material = {
   id: "dos",
@@ -52,6 +54,7 @@ const material = {
   cantidad: "20 metros",
   desde: "",
   hasta: "",
+  escrito: {},
 } as const;
 
 describe("recursos agrupados", () => {

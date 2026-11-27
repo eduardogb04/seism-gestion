@@ -13,7 +13,10 @@ import {
   FormularioAbm,
 } from "../../_ui/formulario-abm.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
-import { AgregarEnLinea } from "../[id]/_molde/fila-editable.tsx";
+import {
+  AgregarEnLinea,
+  type CampoEnLinea,
+} from "../[id]/_molde/fila-editable.tsx";
 import { Parte } from "../[id]/_molde/parte.tsx";
 import { FilaDeRecurso } from "./fila-de-recurso.tsx";
 
@@ -24,6 +27,12 @@ export type AccionesDeRecursos = {
     formulario: FormData,
   ) => Promise<EstadoFormulario>;
   readonly quitar: (servicioId: string, id: string) => Promise<void>;
+  readonly editar: (
+    servicioId: string,
+    id: string,
+    previo: EstadoFormulario,
+    formulario: FormData,
+  ) => Promise<EstadoFormulario>;
 };
 
 /** El tipo con el que nace la fila (el valor, no un actor). */
@@ -82,6 +91,39 @@ export async function RecursosAgrupados({
     ? ((await armado().planificacion.formularioDeRecurso()).elegibles
         .camionId ?? [])
     : [];
+  // Los mismos campos sirven para agregar y para editar en el lugar.
+  const camposEnLinea: readonly CampoEnLinea[] = [
+    {
+      nombre: "tipo",
+      etiqueta: "Tipo",
+      tipo: "opcion",
+      requerido: true,
+      ancho: 7,
+      opciones: [
+        { valor: "persona", texto: "Persona" },
+        { valor: "camion", texto: "Camión" },
+        { valor: "equipo", texto: "Equipo" },
+        { valor: "material", texto: "Material" },
+      ],
+    },
+    {
+      nombre: "camionId",
+      etiqueta: "Camión",
+      tipo: "opcion",
+      requerido: true,
+      soloSi: { campo: "tipo", valor: "camion" },
+      opciones: camiones,
+    },
+    {
+      nombre: "descripcion",
+      etiqueta: "Persona o descripción",
+      ancho: 12,
+      crece: true,
+    },
+    { nombre: "cantidad", etiqueta: "Cantidad", ancho: 5 },
+    { nombre: "desde", etiqueta: "Desde", tipo: "fecha", ancho: 9 },
+    { nombre: "hasta", etiqueta: "Hasta", tipo: "fecha", ancho: 9 },
+  ];
   return (
     <Parte enSeccion={enSeccion} titulo="Recursos">
       {recursos.length === 0 ? (
@@ -118,6 +160,13 @@ export async function RecursosAgrupados({
                         ? acciones.quitar.bind(null, servicioId, recurso.id)
                         : null
                     }
+                    campos={camposEnLinea}
+                    inicial={recurso.escrito}
+                    editar={
+                      puedeCargar
+                        ? acciones.editar.bind(null, servicioId, recurso.id)
+                        : null
+                    }
                   />
                 ))}
               </ul>
@@ -129,38 +178,7 @@ export async function RecursosAgrupados({
         <AgregarEnLinea
           texto="Agregar recurso"
           inicial={INICIAL_DE_RECURSO}
-          campos={[
-            {
-              nombre: "tipo",
-              etiqueta: "Tipo",
-              tipo: "opcion",
-              requerido: true,
-              ancho: 7,
-              opciones: [
-                { valor: "persona", texto: "Persona" },
-                { valor: "camion", texto: "Camión" },
-                { valor: "equipo", texto: "Equipo" },
-                { valor: "material", texto: "Material" },
-              ],
-            },
-            {
-              nombre: "camionId",
-              etiqueta: "Camión",
-              tipo: "opcion",
-              requerido: true,
-              soloSi: { campo: "tipo", valor: "camion" },
-              opciones: camiones,
-            },
-            {
-              nombre: "descripcion",
-              etiqueta: "Persona o descripción",
-              ancho: 12,
-              crece: true,
-            },
-            { nombre: "cantidad", etiqueta: "Cantidad", ancho: 5 },
-            { nombre: "desde", etiqueta: "Desde", tipo: "fecha", ancho: 9 },
-            { nombre: "hasta", etiqueta: "Hasta", tipo: "fecha", ancho: 9 },
-          ]}
+          campos={camposEnLinea}
           accion={acciones.cargar.bind(null, servicioId)}
         />
       ) : null}

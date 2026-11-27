@@ -15,8 +15,8 @@ import {
   deDia,
   importeDeColumnas,
 } from "./abm/egresos.ts";
-import { aFechaHora, aInstante } from "./conversiones.ts";
 import { crearEscrituraPrisma, desdeFila } from "./abm/repositorio.ts";
+import { aFechaHora, aInstante } from "./conversiones.ts";
 import type {
   OrdenCompra as FilaOrdenCompra,
   Prisma,

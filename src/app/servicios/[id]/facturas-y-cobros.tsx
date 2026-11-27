@@ -165,6 +165,11 @@ function FilaDeFactura({
             </span>
             <span className="text-[12px] text-texto-3">
               {factura.tipo} · <span className="cifras">{factura.fecha}</span>
+              {factura.anticipo ? (
+                <span className="ml-1.5 rounded bg-superficie-2 px-1.5 text-[11px] text-texto-2">
+                  Anticipo
+                </span>
+              ) : null}
             </span>
           </span>
           <span className="cifras col-span-2 col-start-2 row-start-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] whitespace-nowrap text-texto-2 sm:col-span-1 sm:col-start-auto sm:row-start-auto">

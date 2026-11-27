@@ -1034,3 +1034,124 @@ describe("el detalle de una factura (F3-07)", () => {
     });
   });
 });
+
+describe("ampliar, reemplazar y anticipo (R1)", () => {
+  function escritoDeAmpliacion(cambios: Escrito = {}): Escrito {
+    return {
+      numero: "AMP-1",
+      fecha: "2031-07-05",
+      importe: "500,00",
+      importeMoneda: "ARS",
+      nuevaFechaFin: "",
+      observaciones: "",
+      ...cambios,
+    };
+  }
+
+  test("el total de la orden suma las ampliaciones y el saldo sale de ese total", async () => {
+    const orden = await cargarOrden({ importe: "1.000,00" });
+    await cargarFactura({ importe: "900,00", ordenCompraId: orden });
+    const ampliada = await ordenes().ampliar(
+      admin,
+      orden,
+      escritoDeAmpliacion(),
+      null,
+    );
+    expect(ampliada.ok).toBe(true);
+
+    const [listada] = await ordenes().listar(servicioId);
+    expect(listada).toMatchObject({
+      total: "ARS 1.500,00",
+      importeOriginal: "ARS 1.000,00",
+      facturado: "ARS 900,00",
+      saldo: "ARS 600,00",
+    });
+    expect(listada?.ampliaciones).toHaveLength(1);
+
+    if (ampliada.ok) {
+      await ordenes().anularAmpliacion(admin, ampliada.id);
+    }
+    const [sin] = await ordenes().listar(servicioId);
+    expect(sin).toMatchObject({ total: "ARS 1.000,00", saldo: "ARS 100,00" });
+  });
+
+  test("una ampliación en otra moneda se rechaza", async () => {
+    const orden = await cargarOrden();
+    const resultado = await ordenes().ampliar(
+      admin,
+      orden,
+      escritoDeAmpliacion({ importeMoneda: "USD", cambio: "1.000,00" }),
+      null,
+    );
+    expect(resultado.ok).toBe(false);
+  });
+
+  test("reemplazar deja la anterior en la historia y el saldo cuenta solo las facturas de la vigente", async () => {
+    const vieja = await cargarOrden({
+      numero: "OC-VIEJA",
+      importe: "1.000,00",
+    });
+    await cargarFactura({ importe: "700,00", ordenCompraId: vieja });
+    const nueva = await ordenes().reemplazar(
+      admin,
+      servicioId,
+      escritoDeOrden({ numero: "OC-NUEVA", importe: "2.000,00" }),
+      null,
+    );
+    expect(nueva.ok).toBe(true);
+    expect(await estado()).toBe("adjudicado");
+
+    const listadas = await ordenes().listar(servicioId);
+    const vigente = listadas.find(({ numero }) => numero === "OC-NUEVA");
+    const anterior = listadas.find(({ numero }) => numero === "OC-VIEJA");
+    expect(vigente).toMatchObject({
+      saldo: "ARS 2.000,00",
+      reemplazadaEl: null,
+    });
+    expect(anterior?.reemplazadaEl).not.toBeNull();
+    expect(anterior).toMatchObject({ facturado: "ARS 700,00" });
+
+    // Anular la vigente (sin facturas) devuelve la anterior a vigente.
+    if (nueva.ok) {
+      await ordenes().marcarEliminado(admin, nueva.id);
+    }
+    const [restaurada] = await ordenes().listar(servicioId);
+    expect(restaurada).toMatchObject({
+      numero: "OC-VIEJA",
+      reemplazadaEl: null,
+    });
+  });
+
+  test("un anticipo descuenta de la orden vigente, sin período, y vale en Adjudicado", async () => {
+    const orden = await cargarOrden({ importe: "1.000,00" });
+    await llevarA("adjudicado");
+    const anticipo = await facturas().crear(
+      admin,
+      servicioId,
+      escritoDeFactura({ importe: "300,00", anticipo: "1" }),
+      null,
+    );
+    expect(anticipo.ok).toBe(true);
+    const [listada] = await ordenes().listar(servicioId);
+    expect(listada).toMatchObject({
+      id: orden,
+      facturado: "ARS 300,00",
+      saldo: "ARS 700,00",
+    });
+    const lista = await facturas().listar(servicioId);
+    expect(lista[0]?.anticipo).toBe(true);
+  });
+
+  test("un anticipo fuera de Adjudicado y En ejecución se rechaza", async () => {
+    await cargarOrden();
+    await llevarA("finalizado");
+    await expect(
+      facturas().crear(
+        admin,
+        servicioId,
+        escritoDeFactura({ anticipo: "1" }),
+        null,
+      ),
+    ).rejects.toMatchObject({ codigo: catalogo.DOM_0018.codigo });
+  });
+});

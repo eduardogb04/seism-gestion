@@ -7,6 +7,7 @@
 
 import type { Transaccional } from "../../puertos/repositorios/transaccion.ts";
 import { repositorioAbmPrisma } from "./abm/tablas.ts";
+import { crearRepositorioAmpliacionesOrdenCompraPrisma } from "./ampliaciones-de-oc.ts";
 import { crearAuditoriaPrisma } from "./auditoria.ts";
 import { crearRepositorioCobrosPrisma } from "./cobros.ts";
 import { crearRepositorioCotizacionesPrisma } from "./cotizaciones.ts";
@@ -15,7 +16,6 @@ import { crearRepositorioDocumentosPrisma } from "./documentos.ts";
 import { crearRepositorioDocumentosDeAlcancePrisma } from "./documentos-de-alcance.ts";
 import { crearRepositorioFacturasPrisma } from "./facturas.ts";
 import type { PrismaClient } from "./generado/client.ts";
-import { crearRepositorioAmpliacionesOrdenCompraPrisma } from "./ampliaciones-de-oc.ts";
 import { crearRepositorioOrdenesCompraPrisma } from "./ordenes-de-compra.ts";
 import { crearRepositorioPagosPrisma } from "./pagos.ts";
 import {

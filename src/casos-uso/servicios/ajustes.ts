@@ -376,6 +376,7 @@ export function crearCasosUsoAjustes({
                 asociado?.valor.alicuota ??
                 ALICUOTA_POR_DEFECTO,
               periodo: null,
+              anticipo: false,
               documentoId,
               tipo,
               adicional: ajuste === "adicional",

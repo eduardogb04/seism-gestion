@@ -101,6 +101,7 @@ import {
   guardarAdjuntoOpcional,
   validarAdjuntoOpcional,
 } from "./comprobantes.ts";
+import { totalConAmpliaciones } from "./ordenes-de-compra.ts";
 import {
   ROLES_QUE_ESCRIBEN_SERVICIOS,
   servicioVigente,
@@ -435,20 +436,24 @@ export function crearCasosUsoCobros({
       return transaccional.ejecutar(async (repos) => {
         await servicioVigente(repos, servicioId);
         const ordenes = await repos.ordenesCompra.listarDe(servicioId);
+        const totales = new Map<string, Importe<Moneda>>();
+        for (const orden of ordenes) {
+          totales.set(orden.valor.id, await totalConAmpliaciones(repos, orden));
+        }
         const facturas = await conCobrosDe(
           repos,
           await repos.facturas.listarDe(servicioId),
         );
         return {
           servicio: avancePorMoneda(
-            ordenes.map(({ valor }) => valor.importe),
+            ordenes.map(({ valor }) => totales.get(valor.id) ?? valor.importe),
             facturas.map(paraAvance),
           ).map(lineaDeAvance),
           ordenes: Object.fromEntries(
             ordenes.map(({ valor: orden }) => [
               orden.id,
               avancePorMoneda(
-                [orden.importe],
+                [totales.get(orden.id) ?? orden.importe],
                 facturas
                   .filter(
                     ({ factura }) => factura.valor.ordenCompraId === orden.id,

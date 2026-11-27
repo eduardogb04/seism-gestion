@@ -85,6 +85,7 @@ const CARGAS = [
   "anulacionDeOrdenDeCompra",
   "ampliacionDeOrden",
   "reemplazoDeOrden",
+  "anticipo",
   "factura",
   "cobro",
   "suceso",
@@ -117,6 +118,7 @@ export const ETAPAS_DE_CARGA: Readonly<
   // Ampliar y reemplazar la orden vigente (R1): el servicio no cambia de etapa.
   ampliacionDeOrden: ["adjudicado", "en_ejecucion"],
   reemplazoDeOrden: ["adjudicado", "en_ejecucion"],
+  anticipo: ["adjudicado", "en_ejecucion"],
   factura: ["adjudicado", "en_ejecucion", "finalizado"],
   cobro: MENOS_CERRADO,
   // Las salidas del recorrido (perdido, sin respuesta, cancelado) y «Cerrado» se miran (F5-01).

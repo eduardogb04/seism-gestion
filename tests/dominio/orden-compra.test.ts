@@ -6,7 +6,10 @@ import {
   MONEDAS,
   type Moneda,
 } from "../../src/dominio/compartido/importe.ts";
-import { saldoDeOrden } from "../../src/dominio/servicios/orden-compra.ts";
+import {
+  saldoDeOrden,
+  totalDeOrden,
+} from "../../src/dominio/servicios/orden-compra.ts";
 import { propiedad } from "./_arnes/propiedad.ts";
 
 /**
@@ -132,5 +135,24 @@ describe("saldoDeOrden: propiedades", () => {
         return antes - despues === nueva;
       },
     );
+  });
+});
+
+describe("totalDeOrden (R1)", () => {
+  it("suma las ampliaciones al importe y el saldo se calcula sobre ese total", () => {
+    const original = crearImporte(100_000n, "ARS");
+    const total = totalDeOrden(original, [
+      { importe: crearImporte(25_000n, "ARS") },
+      { importe: crearImporte(5_000n, "ARS") },
+    ]);
+    expect(total.centavos).toBe(130_000n);
+    expect(
+      saldoDeOrden(total, [factura("F1", 90_000n, "ARS")]).saldo.centavos,
+    ).toBe(40_000n);
+  });
+
+  it("sin ampliaciones es el importe original", () => {
+    const original = crearImporte(100_000n, "USD");
+    expect(totalDeOrden(original, []).centavos).toBe(100_000n);
   });
 });

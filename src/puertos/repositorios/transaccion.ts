@@ -10,13 +10,13 @@
 import type { Auditoria } from "../auditoria.ts";
 import type { Secuencias } from "../secuencias.ts";
 import type { EntidadAbm, RepositorioAbm } from "./abm.ts";
+import type { RepositorioAmpliacionesOrdenCompra } from "./ampliaciones-de-oc.ts";
 import type { RepositorioCobros } from "./cobros.ts";
 import type { RepositorioCotizaciones } from "./cotizaciones.ts";
 import type { RepositorioCuotas } from "./cuotas.ts";
 import type { RepositorioDocumentos } from "./documentos.ts";
 import type { RepositorioDocumentosDeAlcance } from "./documentos-de-alcance.ts";
 import type { RepositorioFacturas } from "./facturas.ts";
-import type { RepositorioAmpliacionesOrdenCompra } from "./ampliaciones-de-oc.ts";
 import type { RepositorioOrdenesCompra } from "./ordenes-de-compra.ts";
 import type { RepositorioPagos } from "./pagos.ts";
 import type { RepositorioHitos, RepositorioRecursos } from "./planificacion.ts";

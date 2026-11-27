@@ -13,11 +13,14 @@ import { ACEPTA } from "../../../casos-uso/documentos/documentos.ts";
 import type { FacturaListada } from "../../../casos-uso/servicios/facturas.ts";
 import { pantallaDeCodigo } from "../../../casos-uso/sesion/errores.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
+import { clasesDeBoton } from "../../_ui/boton.tsx";
+import { Enlace } from "../../_ui/enlace-next.ts";
 import { ErrorEnPantalla } from "../../_ui/error-en-pantalla.tsx";
 import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import {
   anularFactura,
+  cargarAnticipo,
   cargarFactura,
   guardarCambioDeFactura,
 } from "../acciones.ts";
@@ -34,15 +37,26 @@ import { IvaEnVivo } from "./iva-en-vivo.tsx";
 async function VentanaDeCarga({
   servicioId,
   rutaAlCerrar,
+  anticipo,
 }: {
   readonly servicioId: string;
   readonly rutaAlCerrar: string;
+  readonly anticipo: boolean;
 }) {
-  const { campos, escrito } = await armado().facturas.formulario(servicioId);
+  const { campos, escrito } = await armado().facturas.formulario(
+    servicioId,
+    anticipo,
+  );
   return (
-    <Ventana titulo="Nueva factura" rutaAlCerrar={rutaAlCerrar}>
+    <Ventana
+      titulo={anticipo ? "Facturar anticipo" : "Nueva factura"}
+      rutaAlCerrar={rutaAlCerrar}
+    >
       <FormularioAbm
-        accion={cargarFactura.bind(null, servicioId)}
+        accion={(anticipo ? cargarAnticipo : cargarFactura).bind(
+          null,
+          servicioId,
+        )}
         campos={campos.filter(([n]) => n !== "alicuota" && n !== "cambio")}
         elegibles={{}}
         inicial={{ escrito, errores: {} }}
@@ -115,6 +129,7 @@ export async function Facturas({
   puedeCobrar,
   parametros,
   sinFilasNoSeDibuja,
+  ofrecerAnticipo = false,
 }: {
   /** Dentro de una `Seccion` del molde: sin título propio. */
   readonly enSeccion?: boolean;
@@ -127,9 +142,11 @@ export async function Facturas({
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
   /** La etapa no ofrece cargar facturas: sin ninguna, la sección no se dibuja. */
   readonly sinFilasNoSeDibuja: boolean;
+  /** Adjudicado o en ejecución: se ofrece cargar un anticipo, sin importar la modalidad. */
+  readonly ofrecerAnticipo?: boolean;
 }) {
   const facturas = await armado().facturas.listar(servicioId);
-  if (sinFilasNoSeDibuja && facturas.length === 0) {
+  if (sinFilasNoSeDibuja && facturas.length === 0 && !ofrecerAnticipo) {
     return null;
   }
   const cobranza = await armado().cobros.cobranza(servicioId);
@@ -138,6 +155,18 @@ export async function Facturas({
   const facturaACambiar = facturas.find(({ id }) => id === aCambiar);
   return (
     <Parte enSeccion={enSeccion} titulo="Facturas">
+      {ofrecerAnticipo ? (
+        <div className="mb-2">
+          <Enlace
+            href={`${ruta}?anticipo=1`}
+            scroll={false}
+            className={clasesDeBoton("secundario", "h-8 px-2.5 text-[13px]")}
+            data-carga="anticipo"
+          >
+            Anticipo
+          </Enlace>
+        </div>
+      ) : null}
       {facturas.length === 0 ? (
         enSeccion ? (
           <p className="m-0 text-[13px] text-texto-3">
@@ -165,7 +194,14 @@ export async function Facturas({
         cobranza={cobranza}
       />
       {puedeFacturar && typeof parametros.factura === "string" ? (
-        <VentanaDeCarga servicioId={servicioId} rutaAlCerrar={ruta} />
+        <VentanaDeCarga
+          servicioId={servicioId}
+          rutaAlCerrar={ruta}
+          anticipo={false}
+        />
+      ) : null}
+      {ofrecerAnticipo && typeof parametros.anticipo === "string" ? (
+        <VentanaDeCarga servicioId={servicioId} rutaAlCerrar={ruta} anticipo />
       ) : null}
       {puedeFacturar && typeof aCambiar === "string" ? (
         <VentanaDelCambio

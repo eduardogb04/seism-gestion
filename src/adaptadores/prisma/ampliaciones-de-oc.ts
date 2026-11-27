@@ -14,9 +14,6 @@ import type {
   Prisma,
 } from "./generado/client.ts";
 
-/** La moneda de la orden se resuelve en el caso de uso: la fila solo guarda centavos. */
-const MONEDA_PENDIENTE = MONEDAS[0];
-
 type DatosDeFila = Omit<
   FilaAmpliacion,
   | "id"
@@ -68,7 +65,10 @@ export function crearRepositorioAmpliacionesOrdenCompraPrisma(
 
     async listarDe(ordenCompraIds) {
       const filas = await cliente.ampliacionOrdenCompra.findMany({
-        where: { ordenCompraId: { in: [...ordenCompraIds] }, eliminadoEn: null },
+        where: {
+          ordenCompraId: { in: [...ordenCompraIds] },
+          eliminadoEn: null,
+        },
         orderBy: [{ fecha: "desc" }, { creadoEn: "desc" }, { id: "desc" }],
       });
       return filas.map((fila) => desdeFila(fila, paso));

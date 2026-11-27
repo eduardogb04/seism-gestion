@@ -105,6 +105,7 @@ export async function sembrarCobros(
           documentoId: null,
           tipo: "factura",
           adicional: false,
+          anticipo: false,
           comprobanteAsociadoId: null,
           motivoAnulacion: null,
         },

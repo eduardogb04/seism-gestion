@@ -72,6 +72,8 @@ export async function sembrarCuotas(
           cambio: null,
           observaciones: null,
           documentoId: null,
+          reemplazadaEn: null,
+          reemplazadaPorId: null,
         },
         actor,
         ahora,

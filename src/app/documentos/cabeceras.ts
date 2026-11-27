@@ -33,13 +33,20 @@ function disposicionDeAdjunto(nombre: string): string {
   return `attachment; filename="${ascii}"; filename*=UTF-8''${codificado}`;
 }
 
+/** Lo que el navegador puede mostrar sin riesgo en una pestaña: PDF e imágenes. */
+const SE_PUEDE_VER = ["application/pdf", "image/png", "image/jpeg"];
+
 export function cabecerasDeDescarga(
   nombre: string,
   tipoMime: string,
+  verEnLinea = false,
 ): Record<string, string> {
   return {
     "Content-Type": tipoMime,
-    "Content-Disposition": disposicionDeAdjunto(nombre),
+    "Content-Disposition":
+      verEnLinea && SE_PUEDE_VER.includes(tipoMime)
+        ? "inline"
+        : disposicionDeAdjunto(nombre),
     "X-Content-Type-Options": "nosniff",
     "Cache-Control": "private, no-store",
   };

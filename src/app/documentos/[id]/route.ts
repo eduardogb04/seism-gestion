@@ -12,7 +12,7 @@ import { sesionActual } from "../../(auth)/sesion-de-cookie.ts";
 import { cabecerasDeDescarga } from "../cabeceras.ts";
 
 export async function GET(
-  _pedido: Request,
+  pedido: Request,
   { params }: { readonly params: Promise<{ readonly id: string }> },
 ): Promise<Response> {
   if ((await sesionActual()) === null) {
@@ -22,7 +22,11 @@ export async function GET(
   try {
     const { nombre, tipoMime, bytes } = await armado().documentos.descargar(id);
     return new Response(Buffer.from(bytes), {
-      headers: cabecerasDeDescarga(nombre, tipoMime),
+      headers: cabecerasDeDescarga(
+        nombre,
+        tipoMime,
+        new URL(pedido.url).searchParams.get("ver") === "1",
+      ),
     });
   } catch (error) {
     const codigo = codigoDeError(error);

@@ -266,21 +266,24 @@ export async function PanelAdjudicado({
           {listaDeHitos}
         </Seccion>
       )}
-      <Seccion
-        clave="adjudicado.orden"
-        titulo="Orden de compra"
-        resumen={orden?.numero}
-        parametros={parametros}
-        abreCon={[
-          "anularOrden",
-          "cambioOrden",
-          "ampliar",
-          "reemplazar",
-          "anularAmpliacion",
-        ]}
-      >
-        <OrdenesDeCompra enSeccion {...propias} />
-      </Seccion>
+      {/* Sin factura no hay orden de compra (§5.1). */}
+      {servicio.llevaFactura ? (
+        <Seccion
+          clave="adjudicado.orden"
+          titulo="Orden de compra"
+          resumen={orden?.numero}
+          parametros={parametros}
+          abreCon={[
+            "anularOrden",
+            "cambioOrden",
+            "ampliar",
+            "reemplazar",
+            "anularAmpliacion",
+          ]}
+        >
+          <OrdenesDeCompra enSeccion {...propias} />
+        </Seccion>
+      ) : null}
       <Seccion
         clave="adjudicado.facturacion"
         titulo="Facturación y cobros"

@@ -382,22 +382,25 @@ export async function PanelEnEjecucion({
           acciones={ACCIONES_DE_RECURSOS}
         />
       </Seccion>
-      <Seccion
-        clave="en_ejecucion.orden"
-        titulo="Orden de compra"
-        resumen={orden?.numero}
-        abiertaPorDefecto={false}
-        parametros={parametros}
-        abreCon={[
-          "anularOrden",
-          "cambioOrden",
-          "ampliar",
-          "reemplazar",
-          "anularAmpliacion",
-        ]}
-      >
-        <OrdenesDeCompra enSeccion {...propias} />
-      </Seccion>
+      {/* Sin factura no hay orden de compra (§5.1). */}
+      {servicio.llevaFactura ? (
+        <Seccion
+          clave="en_ejecucion.orden"
+          titulo="Orden de compra"
+          resumen={orden?.numero}
+          abiertaPorDefecto={false}
+          parametros={parametros}
+          abreCon={[
+            "anularOrden",
+            "cambioOrden",
+            "ampliar",
+            "reemplazar",
+            "anularAmpliacion",
+          ]}
+        >
+          <OrdenesDeCompra enSeccion {...propias} />
+        </Seccion>
+      ) : null}
       <Seccion
         clave="en_ejecucion.egresos"
         titulo="Egresos"

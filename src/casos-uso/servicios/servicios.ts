@@ -38,6 +38,7 @@ import {
   PREFIJO_DE_CODIGO,
   transicionesManualesDesde,
 } from "../../dominio/servicios/estados.ts";
+import { recursoDeLinea } from "../../dominio/servicios/recurso-de-plantilla.ts";
 import type { GeneradorId } from "../../puertos/generador-id.ts";
 import {
   type DatosServicio,
@@ -300,6 +301,77 @@ function etiquetaDe(opciones: readonly OpcionAbm[], valor: string): string {
 }
 
 /**
+ * Crea como recursos del servicio los de las líneas de una plantilla de
+ * recursos (`tipo | descripción | cantidad`), sin fechas. Los usa aplicar la
+ * plantilla a mano y el alta del servicio, dentro de la transacción de quien llama.
+ */
+export async function agregarRecursosDeLineas(
+  actor: Actor,
+  repos: RepositoriosEnTransaccion,
+  reloj: Reloj,
+  generadorId: GeneradorId,
+  servicioId: string,
+  lineas: readonly string[],
+): Promise<void> {
+  for (const linea of lineas) {
+    const recurso = recursoDeLinea(linea);
+    if (recurso === null) {
+      continue;
+    }
+    await repos.recursos.crear(
+      actor,
+      crearAuditable(
+        {
+          servicioId,
+          id: identificadorDesde<string>(generadorId.generar()),
+          tipo: recurso.tipo,
+          camionId: null,
+          descripcion: recurso.descripcion,
+          cantidad: recurso.cantidad,
+          desde: null,
+          hasta: null,
+        },
+        actor,
+        reloj,
+      ),
+    );
+  }
+}
+
+/** Un servicio nuevo nace con los recursos de las plantillas propias de su tipo (las genéricas no). */
+async function copiarRecursosDelTipo(
+  actor: Actor,
+  repos: RepositoriosEnTransaccion,
+  reloj: Reloj,
+  generadorId: GeneradorId,
+  servicioId: string,
+  tipoServicioId: string,
+): Promise<void> {
+  const { registros } = await repos.abm("PlantillaRecursos").listar({
+    buscaEn: [],
+    filtros: [],
+    marcadas: [],
+    mes: null,
+    orden: "nombre",
+    direccion: "asc",
+    saltear: 0,
+    cantidad: TODAS,
+  });
+  for (const { valor } of registros) {
+    if (valor.tipoServicioId === tipoServicioId) {
+      await agregarRecursosDeLineas(
+        actor,
+        repos,
+        reloj,
+        generadorId,
+        servicioId,
+        valor.recursos,
+      );
+    }
+  }
+}
+
+/**
  * El alta de un servicio dentro de la transacción de quien llama: la del
  * formulario y la de la renovación de un vencimiento (F4-07) son esta misma.
  */
@@ -344,6 +416,14 @@ export async function altaDeServicio(
       actor,
       enEsteInstante,
     ),
+  );
+  await copiarRecursosDelTipo(
+    actor,
+    repos,
+    enEsteInstante,
+    generadorId,
+    id,
+    leido.datos.tipoServicioId,
   );
   const [alta] = cicloServicio.crear(ESTADO_INICIAL, {
     en: ahora,

@@ -8,10 +8,12 @@
 
 import type { DetalleDePlanificacion } from "../../../casos-uso/servicios/planificacion.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
+import { Boton } from "../../_ui/boton.tsx";
 import {
   type EstadoFormulario,
   FormularioAbm,
 } from "../../_ui/formulario-abm.tsx";
+import { Selector } from "../../_ui/selector.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
 import {
   AgregarEnLinea,
@@ -33,6 +35,11 @@ export type AccionesDeRecursos = {
     previo: EstadoFormulario,
     formulario: FormData,
   ) => Promise<EstadoFormulario>;
+  /** La plantilla elegida viene en el campo `plantilla` del formulario. */
+  readonly aplicarPlantilla: (
+    servicioId: string,
+    formulario: FormData,
+  ) => Promise<void>;
 };
 
 /** El tipo con el que nace la fila (el valor, no un actor). */
@@ -71,7 +78,7 @@ async function VentanaDeRecurso({
 export async function RecursosAgrupados({
   enSeccion,
   servicioId,
-  detalle: { recursos, planificable },
+  detalle: { recursos, plantillasDeRecursos, planificable },
   acciones,
   ruta,
   puedeEscribir,
@@ -175,12 +182,38 @@ export async function RecursosAgrupados({
         })
       )}
       {puedeCargar ? (
-        <AgregarEnLinea
-          texto="Agregar recurso"
-          inicial={INICIAL_DE_RECURSO}
-          campos={camposEnLinea}
-          accion={acciones.cargar.bind(null, servicioId)}
-        />
+        <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0 flex-[1_1_16rem]">
+            <AgregarEnLinea
+              texto="Agregar recurso"
+              inicial={INICIAL_DE_RECURSO}
+              campos={camposEnLinea}
+              accion={acciones.cargar.bind(null, servicioId)}
+            />
+          </div>
+          {plantillasDeRecursos.length === 0 ? null : (
+            <form
+              action={acciones.aplicarPlantilla.bind(null, servicioId)}
+              className="flex flex-wrap items-end gap-2"
+            >
+              <Selector
+                etiqueta="Plantilla"
+                name="plantilla"
+                opciones={plantillasDeRecursos.map(({ id, nombre }) => ({
+                  valor: id,
+                  texto: nombre,
+                }))}
+              />
+              <Boton
+                variante="secundario"
+                type="submit"
+                data-carga="planificacion"
+              >
+                Aplicar plantilla
+              </Boton>
+            </form>
+          )}
+        </div>
       ) : null}
       {puedeCargar && typeof parametros.recurso === "string" ? (
         <VentanaDeRecurso

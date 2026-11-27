@@ -340,6 +340,7 @@ model TipoServicio {
 
   servicios  Servicio[]
   plantillas PlantillaHitos[]
+  plantillasRecursos PlantillaRecursos[]
 
   @@map("tipos_servicio")
 }
@@ -376,6 +377,42 @@ model PlantillaHitosItem {
 
   @@index([plantillaId])
   @@map("plantillas_hitos_items")
+}
+
+// Una plantilla de recursos (R3, SYSTEM_SPEC §7.1), hermana de la de hitos: sin tipo de servicio es
+// genérica; la de un tipo se copia sola a los servicios nuevos de ese tipo. Sin camiones (son de cada
+// cliente). El nombre único (sin distinguir mayúsculas, entre las no eliminadas) es
+// `plantillas_recursos_nombre_unico`, solo en la migración.
+model PlantillaRecursos {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre         String
+  tipoServicioId String?       @map("tipo_servicio_id") @db.Uuid
+  tipoServicio   TipoServicio? @relation(fields: [tipoServicioId], references: [id], onDelete: Restrict)
+  creadoEn       DateTime      @map("creado_en") @db.Timestamptz(3)
+  creadoPor      Json          @map("creado_por") @db.JsonB
+  actualizadoEn  DateTime      @map("actualizado_en") @db.Timestamptz(3)
+  actualizadoPor Json          @map("actualizado_por") @db.JsonB
+  eliminadoEn    DateTime?     @map("eliminado_en") @db.Timestamptz(3)
+  eliminadoPor   Json?         @map("eliminado_por") @db.JsonB
+
+  items PlantillaRecursosItem[]
+
+  @@index([tipoServicioId])
+  @@map("plantillas_recursos")
+}
+
+// Un recurso de una plantilla: su lugar (`orden`, desde 1), su tipo (persona, equipo o material), su descripción y, si es material, la cantidad.
+model PlantillaRecursosItem {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  plantillaId String            @map("plantilla_id") @db.Uuid
+  plantilla   PlantillaRecursos @relation(fields: [plantillaId], references: [id], onDelete: Restrict)
+  orden       Int
+  tipo        String
+  descripcion String
+  cantidad    String?
+
+  @@index([plantillaId])
+  @@map("plantillas_recursos_items")
 }
 
 model Cuenta {

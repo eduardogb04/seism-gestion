@@ -57,6 +57,7 @@ import { obligatorio, opcional } from "../abm/validaciones.ts";
 import { exigirRol } from "../usuarios/reglas.ts";
 import { exigirEtapa, historialDe } from "./ciclo.ts";
 import {
+  agregarRecursosDeLineas,
   ROLES_QUE_ESCRIBEN_SERVICIOS,
   servicioVigente,
   servicioVigenteBloqueado,
@@ -106,6 +107,11 @@ export type DetalleDePlanificacion = {
     readonly id: string;
     readonly nombre: string;
   }[];
+  /** Las plantillas de recursos que se pueden aplicar: primero las del tipo del servicio y después las genéricas. */
+  readonly plantillasDeRecursos: readonly {
+    readonly id: string;
+    readonly nombre: string;
+  }[];
   /** ¿La etapa actual admite cargar hitos y recursos? */
   readonly planificable: boolean;
   /** ¿Admite tildar hitos? */
@@ -138,6 +144,15 @@ export type CasosUsoPlanificacion = {
     servicioId: string,
     plantillaId: string,
   ): Promise<void>;
+  /**
+   * Copia los recursos de la plantilla al final de los del servicio, como
+   * recursos propios y sin fechas: cambiar la plantilla después no los toca.
+   */
+  crearRecursosDePlantilla(
+    actor: Actor,
+    servicioId: string,
+    plantillaId: string,
+  ): Promise<void>;
   /** Tilda el hito (con la fecha de hoy y quien lo tilda) o lo destilda. */
   cambiarRealizadoDeHito(
     actor: Actor,
@@ -155,7 +170,11 @@ export type CasosUsoPlanificacion = {
     escrito: Escrito,
   ): Promise<Resultado>;
   /** Cambia los datos del recurso, con las mismas reglas que el alta. */
-  guardarRecurso(actor: Actor, id: string, escrito: Escrito): Promise<Resultado>;
+  guardarRecurso(
+    actor: Actor,
+    id: string,
+    escrito: Escrito,
+  ): Promise<Resultado>;
   marcarEliminadoRecurso(actor: Actor, id: string): Promise<void>;
 };
 
@@ -267,8 +286,9 @@ function exigirNoRealizado(hito: Hito["valor"]): void {
 async function plantillasOfrecidas(
   repos: RepositoriosEnTransaccion,
   tipoServicioId: string,
+  entidad: "PlantillaHitos" | "PlantillaRecursos" = "PlantillaHitos",
 ) {
-  const { registros } = await repos.abm("PlantillaHitos").listar({
+  const { registros } = await repos.abm(entidad).listar({
     buscaEn: [],
     filtros: [],
     marcadas: [],
@@ -420,6 +440,13 @@ export function crearCasosUsoPlanificacion({
           plantillas: planificable
             ? await plantillasOfrecidas(repos, servicio.valor.tipoServicioId)
             : [],
+          plantillasDeRecursos: planificable
+            ? await plantillasOfrecidas(
+                repos,
+                servicio.valor.tipoServicioId,
+                "PlantillaRecursos",
+              )
+            : [],
           planificable,
           tildable: admiteCarga(estado, "tildarHito"),
         };
@@ -518,6 +545,25 @@ export function crearCasosUsoPlanificacion({
           plantillaId,
         );
         await agregarHitos(actor, repos, servicioId, plantilla.valor.hitos);
+      });
+    },
+
+    crearRecursosDePlantilla(actor, servicioId, plantillaId) {
+      return transaccional.ejecutar(async (repos) => {
+        await prepararEscritura(repos, actor, servicioId, "planificacion");
+        const plantilla = await vigentePorId(
+          repos.abm("PlantillaRecursos").buscarPorId,
+          "PlantillaRecursos",
+          plantillaId,
+        );
+        await agregarRecursosDeLineas(
+          actor,
+          repos,
+          reloj,
+          generadorId,
+          servicioId,
+          plantilla.valor.recursos,
+        );
       });
     },
 

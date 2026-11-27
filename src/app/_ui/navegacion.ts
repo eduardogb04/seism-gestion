@@ -89,6 +89,11 @@ export const GRUPOS: readonly Grupo[] = [
         ruta: "/catalogo/plantillas-de-hitos",
         Icono: ListChecks,
       },
+      {
+        texto: "Plantillas de recursos",
+        ruta: "/catalogo/plantillas-de-recursos",
+        Icono: ListChecks,
+      },
       { texto: "Cuentas", ruta: "/catalogo/cuentas", Icono: Landmark },
       {
         texto: "Centros de costo",

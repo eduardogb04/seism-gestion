@@ -16,6 +16,10 @@ import {
   tablaDePlantillas,
 } from "./plantillas-de-hitos.ts";
 import {
+  CONVERSION_PLANTILLA_DE_RECURSOS,
+  tablaDePlantillasDeRecursos,
+} from "./plantillas-de-recursos.ts";
+import {
   crearRepositorioAbmPrisma,
   crearRepositorioConConversion,
 } from "./repositorio.ts";
@@ -52,6 +56,13 @@ const REPOSITORIOS: {
       "PlantillaHitos",
       tablaDePlantillas(cliente.plantillaHitos),
       CONVERSION_PLANTILLA,
+    ),
+  PlantillaRecursos: (cliente) =>
+    crearRepositorioConConversion(
+      cliente,
+      "PlantillaRecursos",
+      tablaDePlantillasDeRecursos(cliente.plantillaRecursos),
+      CONVERSION_PLANTILLA_DE_RECURSOS,
     ),
 };
 

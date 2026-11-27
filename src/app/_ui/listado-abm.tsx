@@ -148,6 +148,61 @@ function EstadoVacio({
   );
 }
 
+/** El buscador y los filtros de un listado: un formulario `GET` que conserva el orden. */
+export function BuscadorDeListado({
+  ruta,
+  buscar,
+  filtros,
+  orden,
+  direccion,
+}: {
+  readonly ruta: string;
+  readonly buscar: string;
+  readonly filtros: readonly FiltroListado[];
+  readonly orden: string;
+  readonly direccion: "asc" | "desc";
+}) {
+  return (
+    <form action={ruta} className="flex flex-wrap items-end gap-2">
+      <div className="relative w-full sm:w-72">
+        <label htmlFor="buscar-en-listado" className="sr-only">
+          Buscar
+        </label>
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-texto-3"
+        />
+        <input
+          id="buscar-en-listado"
+          type="search"
+          name="buscar"
+          defaultValue={buscar}
+          placeholder="Buscar…"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="search"
+          className={cn(CLASES_DE_CONTROL, "pl-9")}
+        />
+      </div>
+      {filtros.map(({ columna, etiqueta, opciones, elegido }) => (
+        <Selector
+          key={columna}
+          etiqueta={etiqueta}
+          etiquetaOculta
+          name={columna}
+          defaultValue={elegido}
+          opciones={[{ valor: "", texto: `${etiqueta}: todos` }, ...opciones]}
+        />
+      ))}
+      <input type="hidden" name="orden" value={orden} />
+      <input type="hidden" name="direccion" value={direccion} />
+      <Boton variante="secundario" type="submit">
+        Buscar
+      </Boton>
+    </form>
+  );
+}
+
 export function ListadoAbm({
   ruta,
   singular,
@@ -158,7 +213,6 @@ export function ListadoAbm({
   acciones,
   rutaDeFila,
   sinCortar,
-  sinBotonNuevo = false,
 }: {
   readonly ruta: string;
   readonly singular: string;
@@ -176,8 +230,6 @@ export function ListadoAbm({
   readonly rutaDeFila?: ((id: string) => string) | undefined;
   /** La cabecera de una columna cuyo texto no se parte en dos renglones (un código). */
   readonly sinCortar?: string;
-  /** El alta se ofrece en otro lugar de la pantalla. */
-  readonly sinBotonNuevo?: boolean;
 }) {
   const {
     registros,
@@ -191,63 +243,29 @@ export function ListadoAbm({
     filtros,
   } = listado;
   const vista = vistaDe(listado);
-  const nuevo =
-    puedeEscribir && !sinBotonNuevo ? (
-      <Enlace
-        href={enlace(ruta, vista, { clave: "nuevo", valor: "1" })}
-        scroll={false}
-        className={clasesDeBoton("primario")}
-      >
-        <Plus aria-hidden="true" />
-        {textoDeNuevo(singular)}
-      </Enlace>
-    ) : null;
+  const nuevo = puedeEscribir ? (
+    <Enlace
+      href={enlace(ruta, vista, { clave: "nuevo", valor: "1" })}
+      scroll={false}
+      className={clasesDeBoton("primario")}
+    >
+      <Plus aria-hidden="true" />
+      {textoDeNuevo(singular)}
+    </Enlace>
+  ) : null;
   const filtrado =
     buscar !== "" || filtros.some(({ elegido }) => elegido !== "");
   return (
     <>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <search className="min-w-0 flex-1">
-          <form action={ruta} className="flex flex-wrap items-end gap-2">
-            <div className="relative w-full sm:w-72">
-              <label htmlFor="buscar-en-listado" className="sr-only">
-                Buscar
-              </label>
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-texto-3"
-              />
-              <input
-                id="buscar-en-listado"
-                type="search"
-                name="buscar"
-                defaultValue={buscar}
-                placeholder="Buscar…"
-                autoComplete="off"
-                spellCheck={false}
-                enterKeyHint="search"
-                className={cn(CLASES_DE_CONTROL, "pl-9")}
-              />
-            </div>
-            {filtros.map(({ columna, etiqueta, opciones, elegido }) => (
-              <Selector
-                key={columna}
-                etiqueta={etiqueta}
-                etiquetaOculta
-                name={columna}
-                defaultValue={elegido}
-                opciones={[
-                  { valor: "", texto: `${etiqueta}: todos` },
-                  ...opciones,
-                ]}
-              />
-            ))}
-            <input type="hidden" name="orden" value={orden} />
-            <input type="hidden" name="direccion" value={direccion} />
-            <Boton variante="secundario" type="submit">
-              Buscar
-            </Boton>
-          </form>
+          <BuscadorDeListado
+            ruta={ruta}
+            buscar={buscar}
+            filtros={filtros}
+            orden={orden}
+            direccion={direccion}
+          />
         </search>
         {nuevo}
       </div>

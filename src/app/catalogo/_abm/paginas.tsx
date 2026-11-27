@@ -36,9 +36,7 @@ import {
   consultaDe,
   enlace,
   ListadoAbm,
-  type ListadoVisible,
   type VentanaPedida,
-  type Vista,
   vistaDe,
 } from "../../_ui/listado-abm.tsx";
 import { Marco } from "../../_ui/marco.tsx";
@@ -56,15 +54,6 @@ export type PropsListado = {
   readonly searchParams: Promise<Parametros>;
 };
 
-/** Lo que una pantalla suma al listado de su ABM (F3-07): una acción por fila y la ventana que esa acción abre. */
-export type ExtrasDelListado = (
-  listado: ListadoVisible,
-  parametros: Parametros,
-) => Promise<{
-  readonly acciones: (id: string, vista: Vista) => ReactNode;
-  readonly ventana: ReactNode;
-}>;
-
 /** Lo que se muestra de cada registro que se puede elegir, por id. */
 function etiquetasDe(elegibles: OpcionesPorCampo): ReadonlyMap<string, string> {
   return new Map(
@@ -77,7 +66,7 @@ function etiquetasDe(elegibles: OpcionesPorCampo): ReadonlyMap<string, string> {
 const VENTANAS = ["baja", "editar", "nuevo"] as const;
 
 /** La ventana que pide la URL; si piden más de una, gana la primera de `VENTANAS`. */
-function ventanaPedida(
+export function ventanaPedida(
   parametros: Awaited<PropsListado["searchParams"]>,
 ): VentanaPedida | null {
   for (const clave of VENTANAS) {
@@ -99,7 +88,7 @@ function archivoDe<E extends EntidadAbm>(definicion: DefinicionAbm<E>) {
     : { nombre: CAMPO_ARCHIVO, etiqueta: campo.etiqueta, accept: ACEPTA };
 }
 
-async function ContenidoDeVentana<E extends EntidadAbm>({
+export async function ContenidoDeVentana<E extends EntidadAbm>({
   definicion,
   pedida,
   vuelta,
@@ -201,14 +190,9 @@ export async function PaginaListado<E extends EntidadAbm>({
   definicion,
   sesion,
   searchParams,
-  extras,
-  encabezado,
 }: {
   readonly definicion: DefinicionAbm<E>;
   readonly sesion: SesionValida;
-  readonly extras?: ExtrasDelListado;
-  /** Reemplaza al título y al botón de alta de la pantalla (Plata). */
-  readonly encabezado?: ReactNode;
 } & PropsListado) {
   const parametros = await searchParams;
   const listado = await armado().abm.listar(definicion, parametros);
@@ -217,18 +201,11 @@ export async function PaginaListado<E extends EntidadAbm>({
   const { email, rol } = sesion.usuario;
   const { ruta } = definicion;
   const puedeEscribir = definicion.rolesQueEscriben.includes(rol);
-  const sumado =
-    puedeEscribir && extras !== undefined
-      ? await extras(listado, parametros)
-      : null;
   return (
     <Marco email={email} rol={rol} rutaActual={definicion.ruta}>
-      <main
-        className={encabezado === undefined ? undefined : "flex flex-col gap-5"}
-      >
-        {encabezado ?? <h1>{definicion.plural}</h1>}
+      <main>
+        <h1>{definicion.plural}</h1>
         <ListadoAbm
-          sinBotonNuevo={encabezado !== undefined}
           ruta={ruta}
           singular={definicion.singular}
           cabeceras={cabecerasDe(definicion)}
@@ -266,14 +243,12 @@ export async function PaginaListado<E extends EntidadAbm>({
                     >
                       Dar de baja
                     </Enlace>
-                    {sumado?.acciones(id, deLaVista)}
                   </>
                 )
               : null
           }
         />
       </main>
-      {sumado?.ventana}
       {pedida === null ? null : (
         <ContenidoDeVentana
           definicion={definicion}

@@ -83,7 +83,7 @@ export function CampanaDeAvisos({
         <button
           type="button"
           title="Avisos"
-          aria-label={`Avisos: ${total} pendientes`}
+          aria-label={`Avisos: ${total} ${total === 1 ? "pendiente" : "pendientes"}`}
           className="presionable relative inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-borde bg-superficie text-texto-2 shadow-tarjeta hover:border-borde-fuerte hover:text-texto"
         >
           <Bell aria-hidden="true" className="size-4" />

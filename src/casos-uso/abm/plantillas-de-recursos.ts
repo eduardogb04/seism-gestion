@@ -25,8 +25,9 @@ export const PLANTILLAS_DE_RECURSOS: DefinicionAbm<"PlantillaRecursos"> = {
     },
     recursos: {
       tipo: "lista",
-      etiqueta: "Recursos (tipo | descripción | cantidad)",
+      etiqueta: "Recursos",
       elemento: "recurso",
+      editor: "recursos",
     },
   },
   validacion: z.object({

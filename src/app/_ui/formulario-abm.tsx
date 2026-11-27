@@ -42,6 +42,7 @@ import {
 import type { ErrorDeLogin } from "../../casos-uso/sesion/errores.ts";
 import { Boton, clasesDeBoton, type VarianteDeBoton } from "./boton.tsx";
 import { CampoLista, controlDe } from "./campo-lista.tsx";
+import { CampoRecursos } from "./campo-recursos.tsx";
 import {
   CampoArchivo,
   CampoCambio,
@@ -210,7 +211,14 @@ function Control({
         />
       );
     case "lista":
-      return (
+      return campo.editor === "recursos" ? (
+        <CampoRecursos
+          etiqueta={comunes.etiqueta}
+          name={nombre}
+          defaultValue={comunes.defaultValue}
+          error={comunes.error}
+        />
+      ) : (
         <CampoLista
           etiqueta={comunes.etiqueta}
           elemento={campo.elemento}

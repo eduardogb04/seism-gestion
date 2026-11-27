@@ -12,6 +12,8 @@
 
 import type { ErroresPorCampo } from "../../casos-uso/abm/abm.ts";
 import { CLIENTES } from "../../casos-uso/abm/clientes.ts";
+import { MARCADA } from "../../casos-uso/abm/definicion.ts";
+import { TIPOS_DE_SERVICIO } from "../../casos-uso/abm/tipos-de-servicio.ts";
 import type { Ajuste } from "../../casos-uso/servicios/ajustes.ts";
 import type { OrigenDeAnulacion } from "../../casos-uso/servicios/sucesos.ts";
 import { pantallaDeCodigo } from "../../casos-uso/sesion/errores.ts";
@@ -66,6 +68,39 @@ export async function crearServicio(
     const creado = await armado().servicios.crear(actor, escritoEn(formulario));
     return creado.ok ? { ok: true, ruta: `${RUTA}/${creado.id}` } : creado;
   });
+}
+
+export type ResultadoDeTipoNuevo =
+  | { readonly ok: true; readonly id: string; readonly nombre: string }
+  | { readonly ok: false; readonly mensaje: string };
+
+/** Da de alta un tipo de servicio desde el alta de un servicio, sin salir de ella (SYSTEM_SPEC 7.1). */
+export async function crearTipoDeServicio(
+  nombre: string,
+  modalidad: string,
+): Promise<ResultadoDeTipoNuevo> {
+  const resultado = await conActorDeSesion((actor) =>
+    armado().abm.crear(actor, TIPOS_DE_SERVICIO, {
+      nombre,
+      modalidad,
+      activo: MARCADA,
+    }),
+  );
+  if (!resultado.ok) {
+    return { ok: false, mensaje: pantallaDeCodigo(resultado.codigo).mensaje };
+  }
+  const creado = resultado.valor;
+  return creado.ok
+    ? {
+        ok: true,
+        id: creado.registro.valor.id,
+        nombre: creado.registro.valor.nombre,
+      }
+    : {
+        ok: false,
+        mensaje:
+          Object.values(creado.errores)[0] ?? "No se pudo crear el tipo.",
+      };
 }
 
 export async function guardarServicio(

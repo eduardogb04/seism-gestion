@@ -19,6 +19,7 @@ import { usePathname } from "next/navigation.js";
 import { DropdownMenu } from "radix-ui";
 import { useEffect, useState, useTransition } from "react";
 import { contraerMenu, elegirTema } from "./acciones-de-preferencias.ts";
+import { type AvisosDeLaBarra, CampanaDeAvisos } from "./campana-de-avisos.tsx";
 import { cn } from "./cn.ts";
 import { Enlace as Link } from "./enlace-next.ts";
 import { ALTAS, rutaActiva, seccionesVisibles } from "./navegacion.ts";
@@ -49,10 +50,12 @@ export function BarraLateral({
   email,
   rolTexto,
   esAdministrador,
+  avisos,
 }: {
   readonly email: string;
   readonly rolTexto: string;
   readonly esAdministrador: boolean;
+  readonly avisos: AvisosDeLaBarra | null;
 }) {
   const { menuContraido: contraida, tema } = usePreferencias();
   const ruta = usePathname();
@@ -169,21 +172,24 @@ export function BarraLateral({
 
         {/* Buscar y Nuevo */}
         <div className="flex flex-col gap-2 px-3 pb-3 group-data-[compacta=si]/barra:items-center group-data-[compacta=si]/barra:px-0">
-          <button
-            type="button"
-            onClick={abrirPaleta}
-            title="Buscar (Ctrl K)"
-            aria-label="Búsqueda global (Ctrl K)"
-            className="presionable flex h-9 items-center gap-2 rounded-md border border-borde bg-superficie px-2.5 text-texto-3 shadow-tarjeta hover:border-borde-fuerte hover:text-texto-2 group-data-[compacta=si]/barra:size-9 group-data-[compacta=si]/barra:justify-center group-data-[compacta=si]/barra:px-0"
-          >
-            <Search aria-hidden="true" className="size-4 shrink-0" />
-            <span className="group-data-[compacta=si]/barra:sr-only">
-              Buscar…
-            </span>
-            <kbd className="ml-auto rounded border border-borde bg-superficie-2 px-1.5 font-sans text-[11px] text-texto-3 group-data-[compacta=si]/barra:hidden">
-              Ctrl K
-            </kbd>
-          </button>
+          <div className="flex gap-2 group-data-[compacta=si]/barra:flex-col">
+            <button
+              type="button"
+              onClick={abrirPaleta}
+              title="Buscar (Ctrl K)"
+              aria-label="Búsqueda global (Ctrl K)"
+              className="presionable flex h-9 items-center gap-2 rounded-md border border-borde bg-superficie px-2.5 text-texto-3 shadow-tarjeta hover:border-borde-fuerte hover:text-texto-2 group-data-[compacta=si]/barra:size-9 group-data-[compacta=si]/barra:justify-center group-data-[compacta=si]/barra:px-0 flex-1"
+            >
+              <Search aria-hidden="true" className="size-4 shrink-0" />
+              <span className="group-data-[compacta=si]/barra:sr-only">
+                Buscar…
+              </span>
+              <kbd className="ml-auto rounded border border-borde bg-superficie-2 px-1.5 font-sans text-[11px] text-texto-3 group-data-[compacta=si]/barra:hidden">
+                Ctrl K
+              </kbd>
+            </button>
+            {avisos === null ? null : <CampanaDeAvisos avisos={avisos} />}
+          </div>
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button

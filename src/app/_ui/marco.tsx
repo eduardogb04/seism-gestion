@@ -7,10 +7,11 @@
 
 import { type ReactNode, ViewTransition } from "react";
 import { ETIQUETAS_ROL } from "../../casos-uso/usuarios/roles.ts";
+import { armado } from "../../infraestructura/arranque/armado.ts";
 import type { Rol } from "../../puertos/repositorios/usuarios.ts";
 import { BarraLateral } from "./barra-lateral.tsx";
 
-export function Marco({
+export async function Marco({
   email,
   rol,
   children,
@@ -20,12 +21,32 @@ export function Marco({
   readonly rutaActual?: string;
   readonly children: ReactNode;
 }) {
+  // Si los avisos fallan, la barra se dibuja igual, sin campana.
+  const avisos = await armado()
+    .calendario.avisos()
+    .then(({ dias, vencidos, proximos, entradas }) => ({
+      dias,
+      vencidos,
+      proximos,
+      entradas: entradas.map(
+        ({ tipo, fecha, titulo, importe, vencida, enlace }) => ({
+          tipo,
+          fecha,
+          titulo,
+          importe,
+          vencida,
+          enlace,
+        }),
+      ),
+    }))
+    .catch(() => null);
   return (
     <div className="min-h-dvh md:flex">
       <BarraLateral
         email={email}
         rolTexto={ETIQUETAS_ROL[rol]}
         esAdministrador={rol === "administrador"}
+        avisos={avisos}
       />
       <div className="min-w-0 flex-1">
         {/* Solo anima al entrar o salir de una pantalla: un refresco de datos

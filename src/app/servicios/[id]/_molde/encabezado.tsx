@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   Building2,
   CalendarRange,
+  HardHat,
   MapPin,
   RefreshCcw,
 } from "lucide-react";
@@ -132,6 +133,15 @@ export function EncabezadoDelServicio({
               ? sitios.join(" · ")
               : `${sitios.length} sitios`}
         </li>
+        {servicio.diaDeObra === null ? null : (
+          <li className="inline-flex min-w-0 items-center gap-1.5">
+            <HardHat aria-hidden="true" className="size-3.5 text-texto-3" />
+            En obra · día {servicio.diaDeObra}
+            <span className="text-xs text-texto-3">
+              desde el {servicio.inicioReal}
+            </span>
+          </li>
+        )}
         {contratacion === "" ? null : (
           <li className="inline-flex min-w-0 items-center gap-1.5">
             <CalendarRange

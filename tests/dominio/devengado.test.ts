@@ -24,6 +24,7 @@ import {
   type DatosDevengado,
   devengadoPorMoneda,
   periodoAFacturar,
+  proximaCuota,
 } from "../../src/dominio/servicios/devengado.ts";
 import {
   admiteFactura,
@@ -64,6 +65,7 @@ const BASE: DatosDevengado = {
   orden: ars(1000),
   facturas: [],
   cuotas: [],
+  inicioReal: null,
   fecha: dia(2031, 7, 15),
 };
 
@@ -125,63 +127,105 @@ describe("por hitos (libre)", () => {
 });
 
 describe("mensual", () => {
-  const INICIO = dia(2031, 5);
+  // La cuota n se devenga a n meses del inicio real: 15/05, 15/06 y 15/07.
+  const INICIO = dia(2031, 4, 15);
+  const DESDE = dia(2031, 4);
 
-  test("suma la cuota de cada mes desde el inicio hasta el mes de la fecha, inclusive", () => {
-    const cuotas = [cuota(INICIO, ars(100))];
-    expect(lineas({ modalidad: "mensual", cuotas })).toEqual(["ARS 300/0/300"]);
-    expect(
-      lineas({ modalidad: "mensual", cuotas, fecha: dia(2031, 5, 1) }),
-    ).toEqual(["ARS 100/0/100"]);
+  test("la primera cuota se devenga a los 30 días del inicio, no en el mes calendario del inicio", () => {
+    const cuotas = [cuota(DESDE, ars(100))];
+    const datos = { modalidad: "mensual", cuotas, inicioReal: INICIO } as const;
+    expect(lineas({ ...datos, fecha: dia(2031, 5, 14) })).toEqual([
+      "ARS 0/0/0",
+    ]);
+    expect(lineas({ ...datos, fecha: dia(2031, 5, 15) })).toEqual([
+      "ARS 100/0/100",
+    ]);
+    expect(lineas(datos)).toEqual(["ARS 300/0/300"]);
   });
 
-  test("antes del mes de inicio no devenga nada", () => {
+  test("inicio anterior a hoy: cuenta las cuotas ya cumplidas", () => {
     expect(
       lineas({
         modalidad: "mensual",
-        cuotas: [cuota(INICIO, ars(100))],
-        fecha: dia(2031, 4, 30),
+        cuotas: [cuota(dia(2031, 1), ars(50))],
+        inicioReal: dia(2031, 1, 10),
+        fecha: dia(2031, 7, 15),
+      }),
+    ).toEqual(["ARS 300/0/300"]);
+  });
+
+  test("inicio el 31/01: las cuotas caen el 28/02 (último día) y el 31/03", () => {
+    const datos = {
+      modalidad: "mensual",
+      orden: null,
+      cuotas: [cuota(dia(2031, 1), ars(100))],
+      inicioReal: dia(2031, 1, 31),
+    } as const;
+    expect(lineas({ ...datos, fecha: dia(2031, 2, 27) })).toEqual([
+      "ARS 0/0/0",
+    ]);
+    expect(lineas({ ...datos, fecha: dia(2031, 2, 28) })).toEqual([
+      "ARS 100/0/100",
+    ]);
+    expect(lineas({ ...datos, fecha: dia(2031, 3, 30) })).toEqual([
+      "ARS 100/0/100",
+    ]);
+    expect(lineas({ ...datos, fecha: dia(2031, 3, 31) })).toEqual([
+      "ARS 200/0/200",
+    ]);
+  });
+
+  test("sin inicio real (todavía en Adjudicado) no devenga nada", () => {
+    expect(
+      lineas({
+        modalidad: "mensual",
+        cuotas: [cuota(DESDE, ars(100))],
+        inicioReal: null,
       }),
     ).toEqual(["ARS 0/0/0"]);
   });
 
-  test("un ajuste rige desde su mes en adelante y no cambia los meses de antes", () => {
-    const cuotas = [cuota(INICIO, ars(100)), cuota(dia(2031, 7), ars(150))];
-    expect(
-      lineas({ modalidad: "mensual", cuotas, fecha: dia(2031, 6, 30) }),
-    ).toEqual(["ARS 200/0/200"]);
-    expect(
-      lineas({ modalidad: "mensual", cuotas, fecha: dia(2031, 8, 3) }),
-    ).toEqual(["ARS 500/0/500"]);
+  test("un ajuste rige desde su mes en adelante y no cambia las cuotas de antes", () => {
+    const cuotas = [cuota(DESDE, ars(100)), cuota(dia(2031, 7), ars(150))];
+    const datos = { modalidad: "mensual", cuotas, inicioReal: INICIO } as const;
+    expect(lineas({ ...datos, fecha: dia(2031, 6, 30) })).toEqual([
+      "ARS 200/0/200",
+    ]);
+    expect(lineas({ ...datos, fecha: dia(2031, 8, 3) })).toEqual([
+      "ARS 350/0/350",
+    ]);
   });
 
   test("dos ajustes del mismo mes: vale el último cargado", () => {
     const cuotas = [
-      cuota(INICIO, ars(100)),
+      cuota(DESDE, ars(100)),
       cuota(dia(2031, 6), ars(150)),
       cuota(dia(2031, 6), ars(120)),
     ];
     expect(cuotaDelMes(cuotas, dia(2031, 6))).toEqual(ars(120));
-    expect(lineas({ modalidad: "mensual", cuotas })).toEqual(["ARS 340/0/340"]);
+    expect(
+      lineas({ modalidad: "mensual", cuotas, inicioReal: INICIO }),
+    ).toEqual(["ARS 340/0/340"]);
   });
 
   test("la cuota de un mes es la del ajuste de mes más cercano anterior o igual, aunque se haya cargado antes que otro de un mes previo", () => {
     const cuotas = [
-      cuota(INICIO, ars(100)),
+      cuota(DESDE, ars(100)),
       cuota(dia(2031, 9), ars(300)),
       cuota(dia(2031, 8), ars(200)),
     ];
     expect(cuotaDelMes(cuotas, dia(2031, 7))).toEqual(ars(100));
     expect(cuotaDelMes(cuotas, dia(2031, 8))).toEqual(ars(200));
     expect(cuotaDelMes(cuotas, dia(2031, 10))).toEqual(ars(300));
-    expect(cuotaDelMes(cuotas, dia(2031, 4))).toBeNull();
+    expect(cuotaDelMes(cuotas, dia(2031, 3))).toBeNull();
   });
 
   test("tiene como tope el total de la orden de compra", () => {
     expect(
       lineas({
         modalidad: "mensual",
-        cuotas: [cuota(INICIO, ars(400))],
+        cuotas: [cuota(DESDE, ars(400))],
+        inicioReal: INICIO,
         facturas: [ars(400)],
       }),
     ).toEqual(["ARS 1000/400/600"]);
@@ -192,7 +236,8 @@ describe("mensual", () => {
       lineas({
         modalidad: "mensual",
         orden: null,
-        cuotas: [cuota(INICIO, ars(400))],
+        cuotas: [cuota(DESDE, ars(400))],
+        inicioReal: INICIO,
       }),
     ).toEqual(["ARS 1200/0/1200"]);
   });
@@ -203,9 +248,62 @@ describe("mensual", () => {
         modalidad: "mensual",
         orden: null,
         cuotas: [cuota(dia(2031, 11), ars(100))],
+        inicioReal: dia(2031, 11, 5),
         fecha: dia(2032, 2, 29),
       }),
-    ).toEqual(["ARS 400/0/400"]);
+    ).toEqual(["ARS 300/0/300"]);
+  });
+});
+
+describe("la próxima cuota", () => {
+  const INICIO = dia(2031, 1, 31);
+  const datos = {
+    modalidad: "mensual",
+    estado: "en_ejecucion",
+    orden: ars(1000),
+    cuotas: [cuota(dia(2031, 1), ars(100))],
+    inicioReal: INICIO,
+    fecha: dia(2031, 2, 1),
+  } as const;
+  const fechaDe = (f: FechaHora | undefined) =>
+    f === undefined ? "" : `${f.anio}-${f.mes}-${f.dia}`;
+
+  test("la primera es a un mes del inicio, con el último día si el mes es más corto", () => {
+    const proxima = proximaCuota(datos);
+    expect(fechaDe(proxima?.dia)).toBe("2031-2-28");
+    expect(proxima?.importe).toEqual(ars(100));
+  });
+
+  test("el día de la cuota cuenta como próxima; al día siguiente, la que sigue", () => {
+    expect(
+      fechaDe(proximaCuota({ ...datos, fecha: dia(2031, 2, 28) })?.dia),
+    ).toBe("2031-2-28");
+    expect(
+      fechaDe(proximaCuota({ ...datos, fecha: dia(2031, 3, 1) })?.dia),
+    ).toBe("2031-3-31");
+  });
+
+  test("con un ajuste, la próxima trae la cuota vigente en su mes", () => {
+    const cuotas = [...datos.cuotas, cuota(dia(2031, 3), ars(150))];
+    expect(
+      proximaCuota({ ...datos, cuotas, fecha: dia(2031, 3, 1) })?.importe,
+    ).toEqual(ars(150));
+  });
+
+  test("tope de la orden: la última cuota es lo que queda y después no hay más", () => {
+    const orden = ars(250);
+    expect(
+      proximaCuota({ ...datos, orden, fecha: dia(2031, 4, 1) })?.importe,
+    ).toEqual(ars(50));
+    expect(
+      proximaCuota({ ...datos, orden, fecha: dia(2031, 6, 1) }),
+    ).toBeNull();
+  });
+
+  test("no hay si no es mensual, no está en ejecución o no tiene inicio real", () => {
+    expect(proximaCuota({ ...datos, modalidad: "puntual" })).toBeNull();
+    expect(proximaCuota({ ...datos, estado: "adjudicado" })).toBeNull();
+    expect(proximaCuota({ ...datos, inicioReal: null })).toBeNull();
   });
 });
 
@@ -353,6 +451,7 @@ describe("propiedades", () => {
           estado: c.estado,
           orden: c.orden,
           facturas: c.facturas,
+          inicioReal: c.inicio,
           fecha: finDelMes,
         } as const;
         expect(
@@ -393,6 +492,7 @@ describe("propiedades", () => {
           orden: c.orden,
           facturas: c.facturas,
           cuotas: [cuota(c.inicio, c.inicial), ...desdeElInicio],
+          inicioReal: c.inicio,
           fecha: c.fecha,
         }).find(({ moneda }) => moneda === c.orden.moneda);
         expect(linea).toBeDefined();
@@ -419,6 +519,7 @@ describe("propiedades", () => {
           { maxLength: 4 },
         ),
       ),
+      inicioReal: fc.option(mesArbitrario, { nil: null }),
       fecha: mesArbitrario,
     });
 

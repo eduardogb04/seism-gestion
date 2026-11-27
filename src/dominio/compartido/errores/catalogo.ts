@@ -301,6 +301,14 @@ export const catalogo = definirCatalogo({
     queHacer:
       "Abrí los ajustes del servicio en la etapa «Finalizado» y anulalo desde ahí, escribiendo el motivo.",
   },
+  DOM_0047: {
+    codigo: "DOM-0047",
+    tipo: "persona",
+    descripcion:
+      "La fecha de inicio real no sirve: tiene que ser un día que exista y no puede ser posterior a hoy. No se guardó nada.",
+    queHacer:
+      "Elegí el día en que empezó la ejecución, de hoy hacia atrás, y volvé a iniciarla.",
+  },
   DOM_0046: {
     codigo: "DOM-0046",
     tipo: "persona",

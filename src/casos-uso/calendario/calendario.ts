@@ -31,6 +31,7 @@ import type {
 } from "../../puertos/repositorios/transaccion.ts";
 import { estaVencido, TODAS } from "../compartido/movimientos.ts";
 import { facturasPorCobrar } from "../servicios/cobros.ts";
+import { proximaCuotaDe } from "../servicios/facturacion.ts";
 import { elegirMes, type MesElegido, mesDe } from "../tablero/mes.ts";
 import { armarSemanas, type DiaDeLaGrilla } from "./semanas.ts";
 
@@ -41,6 +42,7 @@ export const TIPOS_DE_ENTRADA = [
   "inicio",
   "cotizacion",
   "ajuste",
+  "cuota",
 ] as const;
 
 export type TipoDeEntrada = (typeof TIPOS_DE_ENTRADA)[number];
@@ -52,6 +54,7 @@ export const ETIQUETAS_DE_TIPO: Readonly<Record<TipoDeEntrada, string>> = {
   inicio: "Inicios estimados",
   cotizacion: "Cotizaciones por vencer",
   ajuste: "Ajustes por validar",
+  cuota: "Cuotas a facturar",
 };
 
 export type EntradaDelCalendario = {
@@ -298,6 +301,26 @@ async function entradasEntre(
             vencimiento: null,
           }),
           soloAdministrador: true,
+        });
+      }
+    }
+  }
+  if (tipos.includes("cuota")) {
+    for (const s of await repos.servicios.mensualesEnEjecucion()) {
+      const proxima = await proximaCuotaDe(repos, s.id, s.fechaInicioReal, hoy);
+      if (proxima === null) continue;
+      const fecha = formatearISO(proxima.dia).slice(0, 10);
+      if (delTramo(fecha)) {
+        entradas.push({
+          ...entrada({
+            tipo: "cuota",
+            fecha,
+            titulo: `Cuota a facturar · ${s.codigo} · ${s.titulo}`,
+            importe: formatearImporte(proxima.importe),
+            enlace: `/servicios/${s.id}`,
+            vencimiento: null,
+          }),
+          responsableId: s.responsableId,
         });
       }
     }

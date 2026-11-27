@@ -109,6 +109,7 @@ export function crearRepositorioServiciosPrisma(
           vigenciaDesde,
           vigenciaHasta,
           fechaInicioEstimada,
+          fechaInicioReal,
           facturacion,
           ...resto
         }) => ({
@@ -118,12 +119,14 @@ export function crearRepositorioServiciosPrisma(
           vigenciaDesde: diaONada(vigenciaDesde),
           vigenciaHasta: diaONada(vigenciaHasta),
           fechaInicioEstimada: diaONada(fechaInicioEstimada),
+          fechaInicioReal: diaONada(fechaInicioReal),
         }),
         aFila: ({
           fechaPedido,
           vigenciaDesde,
           vigenciaHasta,
           fechaInicioEstimada,
+          fechaInicioReal,
           modalidadFacturacion,
           ...resto
         }) => ({
@@ -133,6 +136,7 @@ export function crearRepositorioServiciosPrisma(
           vigenciaDesde: fechaONada(vigenciaDesde),
           vigenciaHasta: fechaONada(vigenciaHasta),
           fechaInicioEstimada: fechaONada(fechaInicioEstimada),
+          fechaInicioReal: fechaONada(fechaInicioReal),
         }),
       },
     ),
@@ -219,6 +223,29 @@ export function crearRepositorioServiciosPrisma(
           ? []
           : [{ ...resto, fecha: aDia(fechaInicioEstimada) }],
       );
+    },
+
+    async mensualesEnEjecucion() {
+      const filas = await cliente.servicio.findMany({
+        where: {
+          eliminadoEn: null,
+          facturacion: "mensual",
+          id: { in: await idsEnEstado(cliente, "en_ejecucion") },
+        },
+        orderBy: { codigo: "asc" },
+        select: {
+          id: true,
+          codigo: true,
+          titulo: true,
+          responsableId: true,
+          fechaInicioReal: true,
+        },
+      });
+      return filas.map(({ fechaInicioReal, ...resto }) => ({
+        ...resto,
+        fechaInicioReal:
+          fechaInicioReal === null ? null : aDia(fechaInicioReal),
+      }));
     },
 
     async cotizacionesPorVencer() {

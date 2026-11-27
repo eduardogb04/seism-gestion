@@ -158,7 +158,16 @@ export async function PanelEnEjecucion({
           `Estuvo ${dias(desdeQueInicio)} en «En ejecución».`
         ) : (
           <span className="inline-flex flex-wrap items-center gap-x-2">
-            <span>En obra hace {dias(desdeQueInicio)}.</span>
+            {servicio.diaDeObra === null ? (
+              <span>En obra hace {dias(desdeQueInicio)}.</span>
+            ) : (
+              <span>
+                En obra · día {servicio.diaDeObra}{" "}
+                <span className="text-xs text-texto-3">
+                  desde el {servicio.inicioReal}
+                </span>
+              </span>
+            )}
             <span className="inline-flex items-center gap-1.5">
               Responsable: <Persona quien={responsable} chica />
             </span>
@@ -176,7 +185,9 @@ export async function PanelEnEjecucion({
                 : `${hechos.length} de ${detalle.hitos.length}`,
           detalle:
             meses !== null
-              ? `Desde ${facturacion.cuotas[0]?.desde ?? ""}`
+              ? facturacion.proximaCuota === null
+                ? `Desde ${facturacion.cuotas[0]?.desde ?? ""}`
+                : `Próxima cuota: ${facturacion.proximaCuota.fecha} · ${facturacion.proximaCuota.importe}`
               : "hitos hechos",
         },
         {

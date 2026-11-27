@@ -23,7 +23,8 @@ export type EntradaDeAviso = {
     | "egreso"
     | "inicio"
     | "cotizacion"
-    | "ajuste";
+    | "ajuste"
+    | "cuota";
   readonly fecha: string;
   readonly titulo: string;
   readonly importe: string | null;
@@ -47,6 +48,7 @@ const ICONO: Record<EntradaDeAviso["tipo"], LucideIcon> = {
   inicio: Play,
   cotizacion: FileText,
   ajuste: FileText,
+  cuota: Receipt,
 };
 
 /** Lo vencido primero (lo más viejo arriba), después lo próximo por fecha. */

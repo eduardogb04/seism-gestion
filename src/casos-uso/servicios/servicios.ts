@@ -27,7 +27,15 @@ import {
   generarCodigoLegible,
   identificadorDesde,
 } from "../../dominio/compartido/identificador.ts";
-import { type Reloj, RelojFijo } from "../../dominio/compartido/reloj.ts";
+import {
+  diferenciaEnDias,
+  esDiaValido,
+  type FechaHora,
+  formatearISO,
+  parsearISO,
+  type Reloj,
+  RelojFijo,
+} from "../../dominio/compartido/reloj.ts";
 import {
   admiteBaja,
   cicloServicio,
@@ -35,6 +43,7 @@ import {
   ESTADO_INICIAL,
   ESTADOS_SERVICIO,
   type EstadoServicio,
+  inicioRealDe,
   PREFIJO_DE_CODIGO,
   transicionesManualesDesde,
 } from "../../dominio/servicios/estados.ts";
@@ -190,9 +199,28 @@ export type DetalleDeServicio = {
     readonly marcado: boolean;
   }[];
   readonly admiteBaja: boolean;
+  /** El inicio real, `dd/mm/aaaa`, si ya empezó la ejecución (R6). */
+  readonly inicioReal: string | null;
+  /** «Día N» de la obra, contando el del inicio como el 1; solo en «En ejecución». */
+  readonly diaDeObra: number | null;
   /** El servicio que este renueva (F4-07), si nació de cotizar la renovación de un vencimiento. */
   readonly renueva: { readonly id: string; readonly codigo: string } | null;
 };
+
+/** El día N de la obra: el del inicio es el 1. Solo mientras está «En ejecución». */
+function diaDeObra(
+  estado: EstadoServicio,
+  inicioReal: string | null,
+  hoy: FechaHora,
+): number | null {
+  if (estado !== "en_ejecucion" || inicioReal === null) {
+    return null;
+  }
+  const inicio = parsearISO(`${inicioReal}T00:00:00.000`);
+  return inicio.ok
+    ? Math.max(1, diferenciaEnDias(hoy, inicio.fechaHora) + 1)
+    : null;
+}
 
 export type CasosUsoServicios = {
   listar(
@@ -210,11 +238,13 @@ export type CasosUsoServicios = {
   ): Promise<ResultadoDeServicio>;
   /** La baja lógica: solo de un servicio que sigue «Creado». */
   marcarEliminado(actor: Actor, id: string): Promise<void>;
+  /** `inicioReal` (`aaaa-mm-dd`) solo se pide al pasar a «En ejecución». */
   cambiarEstado(
     actor: Actor,
     id: string,
     a: string,
     nota: string,
+    inicioReal?: string,
   ): Promise<void>;
   /** Reemplaza los sitios que abarca: todos tienen que ser sitios vigentes de su cliente. */
   guardarSitios(
@@ -269,7 +299,10 @@ async function responsables(
 type Leido =
   | {
       readonly ok: true;
-      readonly datos: Omit<DatosServicio, "codigo" | "modalidadFacturacion">;
+      readonly datos: Omit<
+        DatosServicio,
+        "codigo" | "modalidadFacturacion" | "fechaInicioReal"
+      >;
     }
   | { readonly ok: false; readonly errores: ErroresPorCampo };
 
@@ -410,6 +443,7 @@ export async function altaDeServicio(
         ...leido.datos,
         // Se elige en «Adjudicado» (F3-03).
         modalidadFacturacion: null,
+        fechaInicioReal: null,
         codigo: codigo.codigo,
         id,
       },
@@ -550,6 +584,7 @@ export function crearCasosUsoServicios({
         const historial = await historialDe(repos, id);
         const estado = cicloServicio.estadoActual(historial);
         const dias = diasPorEtapa(historial, reloj.ahora());
+        const inicioReal = inicioRealDe(valor.fechaInicioReal, historial);
         const quien = await nombresDeActores(repos);
         const [cliente] = await repos
           .abm("Cliente")
@@ -634,6 +669,8 @@ export function crearCasosUsoServicios({
             marcado: marcados.has(sitio.id),
           })),
           admiteBaja: admiteBaja(estado),
+          inicioReal: inicioReal === null ? null : diaConBarras(inicioReal),
+          diaDeObra: diaDeObra(estado, inicioReal, reloj.ahora()),
           renueva:
             original === null
               ? null
@@ -736,7 +773,7 @@ export function crearCasosUsoServicios({
       });
     },
 
-    cambiarEstado(actor, id, a, nota) {
+    cambiarEstado(actor, id, a, nota, inicioReal = "") {
       return transaccional.ejecutar(async (repos) => {
         await exigirRol(
           repos.usuarios,
@@ -764,6 +801,29 @@ export function crearCasosUsoServicios({
           servicio.valor.modalidadFacturacion === null
         ) {
           throw nuevoError(catalogo.DOM_0038, { id });
+        }
+        if (destino.data === "en_ejecucion") {
+          // De hoy hacia atrás: ISO de día contra ISO de día se compara como texto.
+          if (
+            !esDiaValido(inicioReal) ||
+            inicioReal > formatearISO(reloj.ahora()).slice(0, 10)
+          ) {
+            throw nuevoError(catalogo.DOM_0047, { id, inicioReal });
+          }
+          const conInicio = marcarActualizado(
+            servicio,
+            { ...servicio.valor, fechaInicioReal: inicioReal },
+            actor,
+            reloj,
+          );
+          if (!conInicio.ok) {
+            throw nuevoError(catalogo.DOM_0009, { entidad: "Servicio", id });
+          }
+          await repos.servicios.actualizar(
+            actor,
+            conInicio.valor,
+            "actualizar",
+          );
         }
         if (destino.data === "finalizado") {
           await generarVencimientos(actor, repos, reloj, generadorId, servicio);

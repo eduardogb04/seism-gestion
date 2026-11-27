@@ -18,7 +18,11 @@ import {
   type Resultado,
   type Transiciones,
 } from "../compartido/historial.ts";
-import { diferenciaEnDias, type FechaHora } from "../compartido/reloj.ts";
+import {
+  diferenciaEnDias,
+  type FechaHora,
+  formatearISO,
+} from "../compartido/reloj.ts";
 
 /** El prefijo del código legible de un servicio: `SRV-2026-014`. */
 export const PREFIJO_DE_CODIGO = "SRV";
@@ -263,6 +267,22 @@ export function diasPorEtapa(
   return eventos.map(({ en }, posicion) =>
     diferenciaEnDias(eventos[posicion + 1]?.en ?? ahora, en),
   );
+}
+
+/**
+ * El día (`aaaa-mm-dd`) en que empezó la ejecución (R6): el que se cargó al
+ * iniciarla o, en los servicios que ya estaban en ejecución sin fecha, el del
+ * último paso a «En ejecución» del historial. `null` si nunca estuvo.
+ */
+export function inicioRealDe(
+  guardado: string | null,
+  historial: HistorialServicio,
+): string | null {
+  if (guardado !== null) {
+    return guardado;
+  }
+  const paso = historial.eventos.findLast(({ a }) => a === "en_ejecucion");
+  return paso === undefined ? null : formatearISO(paso.en).slice(0, 10);
 }
 
 /** Un servicio que ya avanzó no se da de baja: se cancela o se cierra. */

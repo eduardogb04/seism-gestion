@@ -267,6 +267,7 @@ const POR_TIPO: Record<
   inicio: { Icono: PlayCircle, accion: "Ver servicio" },
   cotizacion: { Icono: FileText, accion: "Ver cotización" },
   ajuste: { Icono: FileText, accion: "Validar ajuste" },
+  cuota: { Icono: HandCoins, accion: "Facturar cuota" },
 };
 
 function tareasDe(avisos: Avisos, embudo: Embudo, sinCambio: number): Tarea[] {

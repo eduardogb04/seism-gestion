@@ -19,6 +19,9 @@ export function VentanaDeTransicion({
   readonly destino: string;
   readonly rutaAlCerrar: string;
 }) {
+  const hoy = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
   const opcion = transiciones.find(({ valor }) => valor === destino);
   return opcion === undefined ? null : (
     <Ventana titulo={opcion.etiqueta} rutaAlCerrar={rutaAlCerrar}>
@@ -26,6 +29,16 @@ export function VentanaDeTransicion({
         action={cambiarEstadoDeServicio.bind(null, id)}
         className="flex flex-col gap-3"
       >
+        {destino === "en_ejecucion" ? (
+          <CampoTexto
+            etiqueta="Fecha de inicio real"
+            type="date"
+            name="inicioReal"
+            required
+            defaultValue={hoy}
+            max={hoy}
+          />
+        ) : null}
         <CampoTexto
           etiqueta="Nota o motivo"
           type="text"

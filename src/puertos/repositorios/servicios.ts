@@ -37,6 +37,8 @@ export type DatosServicio = {
   readonly observaciones: string | null;
   /** Cuándo se espera empezar, `aaaa-mm-dd` (F3-02). No es la vigencia. */
   readonly fechaInicioEstimada: string | null;
+  /** El día en que empezó la ejecución, `aaaa-mm-dd` (R6); nulo hasta que pasa a «En ejecución». */
+  readonly fechaInicioReal: string | null;
 };
 
 export type Servicio = RegistroDe<DatosServicio>;
@@ -77,6 +79,16 @@ export type InicioEstimado = {
   readonly responsableId: string;
 };
 
+/** Un servicio mensual en ejecución, para calcular su próxima cuota. */
+export type MensualEnEjecucion = {
+  readonly id: string;
+  readonly codigo: string;
+  readonly titulo: string;
+  readonly responsableId: string;
+  /** `aaaa-mm-dd`; nulo si nunca se cargó (se lee del historial). */
+  readonly fechaInicioReal: string | null;
+};
+
 /** Un servicio «Cotizado» cuya cotización vigente fija una vigencia. */
 export type CotizacionPorVencer = {
   readonly id: string;
@@ -99,6 +111,8 @@ export type RepositorioServicios = Pick<
   }>;
   /** Los no eliminados que hoy están «Adjudicado», con inicio estimado en `rango`, por fecha. */
   inicioEstimadoEntre(rango: Rango): Promise<readonly InicioEstimado[]>;
+  /** Los no eliminados que hoy están «En ejecución» con facturación mensual. */
+  mensualesEnEjecucion(): Promise<readonly MensualEnEjecucion[]>;
   /** Los no eliminados hoy «Cotizado» cuya última cotización no anulada tiene vigencia. */
   cotizacionesPorVencer(): Promise<readonly CotizacionPorVencer[]>;
   /** Los cambios de estado, del primero (el alta) al último (el estado actual). */

@@ -1203,6 +1203,7 @@ async function sembrarServicios(
             observaciones: null,
             modalidadFacturacion: demo.facturacion,
             fechaInicioEstimada: null,
+            fechaInicioReal: null,
           },
           actor,
           RelojFijo(ahora),

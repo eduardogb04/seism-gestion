@@ -89,6 +89,7 @@ const ICONO: Record<AvisoDeServicio["tipo"], LucideIcon> = {
   egreso: Wallet,
   cotizacion: FileText,
   ajuste: FileText,
+  cuota: HandCoins,
 };
 
 /** Rojo si ya venció; ámbar si vence dentro del plazo de aviso; un inicio por venir, neutro. */

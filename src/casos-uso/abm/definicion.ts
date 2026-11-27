@@ -135,6 +135,8 @@ export type CampoAbm =
       readonly tipo: "lista";
       readonly etiqueta: string;
       readonly elemento: string;
+      /** `recursos`: cada línea `tipo | descripción | cantidad` se edita en campos separados (R7). */
+      readonly editor?: "recursos";
     };
 
 /** Los datos de un registro como los lee un recorrido por campos. */

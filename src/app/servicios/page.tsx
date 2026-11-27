@@ -18,10 +18,10 @@ import {
 import { cn } from "../_ui/cn.ts";
 import { Enlace } from "../_ui/enlace-next.ts";
 import { NOMBRE_DE_ETAPA } from "../_ui/etapa.tsx";
-import { FormularioAbm } from "../_ui/formulario-abm.tsx";
 import { Marco } from "../_ui/marco.tsx";
 import { Ventana } from "../_ui/ventana.tsx";
 import { sesionExigida } from "../(auth)/sesion-actual.ts";
+import { FormularioDeAlta } from "./_alta/formulario-de-alta.tsx";
 import {
   enlaceDelListado,
   type ParametrosDelListado,
@@ -305,7 +305,7 @@ async function VentanaDeAlta({
       : { ...formulario.escrito, clienteId };
   return (
     <Ventana titulo="Alta de servicio" rutaAlCerrar={rutaAlCerrar}>
-      <FormularioAbm
+      <FormularioDeAlta
         accion={crearServicio}
         campos={campos}
         elegibles={elegibles}

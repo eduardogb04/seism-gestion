@@ -140,11 +140,9 @@ export function importeAFacturar(
     )
     .reverse();
   for (const otro of sinLigar) {
+    const tope = otro.valor.importe.centavos;
     // biome-ignore lint/complexity/useMathMinMax: Math.min no admite bigint
-    const parte =
-      exceso < otro.valor.importe.centavos
-        ? exceso
-        : otro.valor.importe.centavos;
+    const parte = exceso < tope ? exceso : tope;
     if (otro.valor.id === ajuste.valor.id) {
       return crearImporte(parte, ajuste.valor.importe.moneda);
     }

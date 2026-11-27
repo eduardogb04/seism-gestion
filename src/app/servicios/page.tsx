@@ -230,6 +230,7 @@ export default async function Servicios({ searchParams }: Props) {
       </main>
       {puedeEscribir && parametros.nuevo !== undefined ? (
         <VentanaDeAlta
+          clienteId={parametros.clienteId}
           rutaAlCerrar={enlaceDelListado(parametros, {
             pagina: parametros.pagina ?? null,
           })}
@@ -289,11 +290,19 @@ function SelectorDeVista({
 }
 
 async function VentanaDeAlta({
+  clienteId,
   rutaAlCerrar,
 }: {
+  readonly clienteId: string | undefined;
   readonly rutaAlCerrar: string;
 }) {
-  const { campos, elegibles, escrito } = await armado().servicios.formulario();
+  const formulario = await armado().servicios.formulario();
+  const { campos, elegibles } = formulario;
+  // Desde la ficha del cliente (`?clienteId=`), el alta llega con él elegido.
+  const escrito =
+    clienteId === undefined
+      ? formulario.escrito
+      : { ...formulario.escrito, clienteId };
   return (
     <Ventana titulo="Alta de servicio" rutaAlCerrar={rutaAlCerrar}>
       <FormularioAbm

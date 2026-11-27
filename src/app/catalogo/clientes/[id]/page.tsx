@@ -16,6 +16,7 @@ import {
   pantallaDeCodigo,
 } from "../../../../casos-uso/sesion/errores.ts";
 import { formatearCuit } from "../../../../dominio/compartido/cuit.ts";
+import { TIPOS_QUE_RESTAN } from "../../../../dominio/servicios/comprobante.ts";
 import { armado } from "../../../../infraestructura/arranque/armado.ts";
 import { listadoDeServicios } from "../../../../server/servicios.ts";
 import { diasHasta, fechaCorta, hoyISO } from "../../../_inicio/formato.ts";
@@ -202,14 +203,13 @@ export default async function FichaDeUnCliente({
         where: {
           eliminadoEn: null,
           motivoAnulacion: null,
-          tipo: "factura",
           fecha: {
             gte: new Date(`${anio}-01-01T00:00:00Z`),
             lt: new Date(`${anio + 1}-01-01T00:00:00Z`),
           },
           servicio: { clienteId: id, eliminadoEn: null },
         },
-        select: { importeCentavos: true, importeMoneda: true },
+        select: { importeCentavos: true, importeMoneda: true, tipo: true },
       }),
       prisma.servicio.aggregate({
         where: { clienteId: id, eliminadoEn: null },
@@ -217,10 +217,13 @@ export default async function FichaDeUnCliente({
       }),
     ]);
     const facturado = new Map<string, bigint>();
+    // Facturas + notas de débito − notas de crédito (Eduardo, 27/11).
     for (const f of facturas) {
+      const resta = (TIPOS_QUE_RESTAN as readonly string[]).includes(f.tipo);
       facturado.set(
         f.importeMoneda,
-        (facturado.get(f.importeMoneda) ?? 0n) + f.importeCentavos,
+        (facturado.get(f.importeMoneda) ?? 0n) +
+          (resta ? -f.importeCentavos : f.importeCentavos),
       );
     }
 
@@ -418,7 +421,7 @@ export default async function FichaDeUnCliente({
             <div className="flex justify-end">
               {puedeCargar ? (
                 <Enlace
-                  href="/servicios"
+                  href={`/servicios?nuevo=1&clienteId=${id}`}
                   className={clasesDeBoton("secundario")}
                 >
                   Nuevo servicio
@@ -429,11 +432,16 @@ export default async function FichaDeUnCliente({
           </div>
         ) : null}
         {activa === "sitios" ? (
-          <PestanaSitios sitios={sitiosDe} puedeEscribir={puedeEscribir} />
+          <PestanaSitios
+            sitios={sitiosDe}
+            clienteId={id}
+            puedeEscribir={puedeEscribir}
+          />
         ) : null}
         {activa === "camiones" ? (
           <PestanaCamiones
             camiones={camionesDe}
+            clienteId={id}
             ruta={CAMIONES.ruta}
             puedeEscribir={puedeEscribir}
           />

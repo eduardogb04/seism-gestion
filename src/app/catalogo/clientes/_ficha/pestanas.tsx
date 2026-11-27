@@ -122,15 +122,17 @@ const LITROS = new Intl.NumberFormat("es-AR");
 
 export function PestanaSitios({
   sitios,
+  clienteId,
   puedeEscribir,
 }: {
   readonly sitios: readonly SitioDeFicha[];
+  readonly clienteId: string;
   readonly puedeEscribir: boolean;
 }) {
   const nuevo = puedeEscribir ? (
     <Pie>
       <Enlace
-        href={`${SITIOS.ruta}?nuevo=1`}
+        href={`${SITIOS.ruta}?nuevo=1&clienteId=${clienteId}`}
         className={clasesDeBoton("secundario")}
       >
         <Plus aria-hidden="true" />
@@ -252,16 +254,21 @@ function Vencimientos({ camion }: { readonly camion: CamionDeFicha }) {
 
 export function PestanaCamiones({
   camiones,
+  clienteId,
   ruta,
   puedeEscribir,
 }: {
   readonly camiones: readonly CamionDeFicha[];
+  readonly clienteId: string;
   readonly ruta: string;
   readonly puedeEscribir: boolean;
 }) {
   const nuevo = puedeEscribir ? (
     <Pie>
-      <Enlace href={`${ruta}?nuevo=1`} className={clasesDeBoton("secundario")}>
+      <Enlace
+        href={`${ruta}?nuevo=1&clienteId=${clienteId}`}
+        className={clasesDeBoton("secundario")}
+      >
         <Plus aria-hidden="true" />
         Nuevo camión
       </Enlace>

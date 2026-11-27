@@ -290,12 +290,17 @@ export async function PaginaListado<E extends EntidadAbm>({
           pedida={pedida}
           vuelta={consultaDe(vista)}
           rutaAlCerrar={enlace(definicion.ruta, vista)}
-          preseleccion={
-            typeof parametros.servicio === "string" &&
+          preseleccion={{
+            ...(typeof parametros.servicio === "string" &&
             "servicioId" in definicion.campos
               ? { servicioId: parametros.servicio }
-              : {}
-          }
+              : {}),
+            // Desde la ficha del cliente: el alta llega con el cliente elegido.
+            ...(typeof parametros.clienteId === "string" &&
+            "clienteId" in definicion.campos
+              ? { clienteId: parametros.clienteId }
+              : {}),
+          }}
         />
       )}
     </Marco>

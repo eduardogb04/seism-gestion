@@ -3,6 +3,7 @@ import {
   Building2,
   CalendarDays,
   ChartPie,
+  FolderOpen,
   HandCoins,
   House,
   Landmark,
@@ -49,6 +50,7 @@ export const GRUPOS: readonly Grupo[] = [
         atajo: "c",
       },
       { texto: "Clientes", ruta: "/catalogo/clientes", Icono: Building2 },
+      { texto: "Documentos", ruta: "/documentos", Icono: FolderOpen },
     ],
   },
   {

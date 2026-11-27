@@ -325,7 +325,7 @@ export function crearCasosUsoAjustesDeFacturacion({
         } else if (validado.ok) {
           for (const campo of ["precioUnitario", "importe"] as const) {
             const texto = validado.datos[campo];
-            if (texto === "") {
+            if (texto === null || texto === "") {
               continue;
             }
             const leido = leerImporte(campo, {
@@ -345,7 +345,7 @@ export function crearCasosUsoAjustesDeFacturacion({
         }
         const importe =
           validado.ok && moneda !== null
-            ? importeDeAjuste(validado.datos.cantidad || null, precio, directo)
+            ? importeDeAjuste(validado.datos.cantidad, precio, directo)
             : null;
         if (
           validado.ok &&

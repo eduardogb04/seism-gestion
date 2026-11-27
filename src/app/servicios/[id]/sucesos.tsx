@@ -72,7 +72,7 @@ export function VentanaDeAnulacion({
   readonly rutaAlCerrar: string;
 }) {
   return (
-    <Ventana titulo="Anular suceso" rutaAlCerrar={rutaAlCerrar}>
+    <Ventana titulo="¿Anular esta observación?" rutaAlCerrar={rutaAlCerrar}>
       {suceso === undefined ? (
         <ErrorEnPantalla error={pantallaDeCodigo("DOM-0009")} />
       ) : (

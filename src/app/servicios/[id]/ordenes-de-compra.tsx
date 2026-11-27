@@ -76,7 +76,14 @@ function VentanaDeAnulacion({
   readonly rutaAlCerrar: string;
 }) {
   return (
-    <Ventana titulo="Anular orden de compra" rutaAlCerrar={rutaAlCerrar}>
+    <Ventana
+      titulo={
+        orden === undefined
+          ? "Anular orden de compra"
+          : `¿Anular la orden de compra ${orden.numero}?`
+      }
+      rutaAlCerrar={rutaAlCerrar}
+    >
       {orden === undefined ? (
         <ErrorEnPantalla error={pantallaDeCodigo("DOM-0009")} />
       ) : (

@@ -103,10 +103,7 @@ test("una operadora carga un hito y un camión en «Adjudicado», inicia la ejec
   const filaDelHito = page.locator(
     '[data-hito="Entrega del informe de arranque"]',
   );
-  await expect(filaDelHito.locator("[data-hito-realizado]")).toHaveText("No");
-  await expect(filaDelHito.getByRole("button", { name: "Tildar" })).toHaveCount(
-    0,
-  );
+  await expect(filaDelHito.getByRole("checkbox")).toBeDisabled();
 
   await page.getByRole("link", { name: "Nuevo recurso" }).click();
   const recurso = ventana(page, "Nuevo recurso");
@@ -133,11 +130,10 @@ test("una operadora carga un hito y un camión en «Adjudicado», inicia la ejec
   await expect(estado).toHaveText("En ejecución");
 
   // 3. Ahora sí: se tilda, con la fecha y quién.
-  await filaDelHito.getByRole("button", { name: "Tildar" }).click();
+  await filaDelHito.getByRole("checkbox").click();
+  await page.getByRole("button", { name: "Confirmar" }).click();
   await expect(filaDelHito.locator("[data-hito-realizado]")).toHaveText(
     new RegExp(`^\\d{2}/\\d{2}/\\d{4} · ${OPERADORA}$`),
   );
-  await expect(
-    filaDelHito.getByRole("button", { name: "Destildar" }),
-  ).toBeVisible();
+  await expect(filaDelHito.getByRole("checkbox")).toBeChecked();
 });

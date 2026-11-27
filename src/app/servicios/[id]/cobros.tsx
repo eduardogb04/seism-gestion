@@ -43,7 +43,7 @@ function VentanaDeAnulacion({
   readonly rutaAlCerrar: string;
 }) {
   return (
-    <Ventana titulo="Anular cobro" rutaAlCerrar={rutaAlCerrar}>
+    <Ventana titulo="¿Anular este cobro?" rutaAlCerrar={rutaAlCerrar}>
       {cobro === undefined ? (
         <ErrorEnPantalla error={pantallaDeCodigo("DOM-0009")} />
       ) : (

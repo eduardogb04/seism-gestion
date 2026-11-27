@@ -2,21 +2,20 @@
  * Los recursos de un servicio (F3-02, F6-02), agrupados en *Humanos* (las
  * personas) y *Materiales* (camiones, equipos y materiales). Recibe los datos y
  * las acciones por props, para que el panel de cada etapa la ponga. Se cargan
- * (`?recurso=1`, una ventana sobre la misma pantalla) y se quitan en
- * «Adjudicado» y en «En ejecución»; en las demás etapas se ven y nada más.
+ * (con «+ Agregar recurso» en línea, al final) y se quitan en
+ * «Adjudicado» y en «En ejecución» (`?recurso=1` sigue abriendo la ventana, sin enlazarse); en las demás etapas se ven y nada más.
  */
 
 import type { DetalleDePlanificacion } from "../../../casos-uso/servicios/planificacion.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import { Boton, clasesDeBoton } from "../../_ui/boton.tsx";
-import { Enlace } from "../../_ui/enlace-next.ts";
 import {
   type EstadoFormulario,
   FormularioAbm,
 } from "../../_ui/formulario-abm.tsx";
-import { Tabla } from "../../_ui/tabla.tsx";
 import { Ventana } from "../../_ui/ventana.tsx";
+import { AgregarEnLinea } from "../[id]/_molde/fila-editable.tsx";
 import { Parte } from "../[id]/_molde/parte.tsx";
+import { FilaDeRecurso } from "./fila-de-recurso.tsx";
 
 export type AccionesDeRecursos = {
   readonly cargar: (
@@ -26,6 +25,9 @@ export type AccionesDeRecursos = {
   ) => Promise<EstadoFormulario>;
   readonly quitar: (servicioId: string, id: string) => Promise<void>;
 };
+
+/** El tipo con el que nace la fila (el valor, no un actor). */
+const INICIAL_DE_RECURSO = { ["tipo"]: "persona" };
 
 const GRUPOS = [
   { grupo: "humanos", titulo: "Humanos" },
@@ -57,7 +59,7 @@ async function VentanaDeRecurso({
   );
 }
 
-export function RecursosAgrupados({
+export async function RecursosAgrupados({
   enSeccion,
   servicioId,
   detalle: { recursos, planificable },
@@ -76,23 +78,14 @@ export function RecursosAgrupados({
   readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
 }) {
   const puedeCargar = puedeEscribir && planificable;
-  const cabeceras = ["Tipo", "Detalle", "Cantidad", "Desde", "Hasta"];
+  const camiones = puedeCargar
+    ? ((await armado().planificacion.formularioDeRecurso()).elegibles
+        .camionId ?? [])
+    : [];
   return (
     <Parte enSeccion={enSeccion} titulo="Recursos">
-      {puedeCargar && !enSeccion ? (
-        <p className="mb-3">
-          <Enlace
-            href={`${ruta}?recurso=1`}
-            scroll={false}
-            className={clasesDeBoton("primario")}
-            data-carga="planificacion"
-          >
-            Nuevo recurso
-          </Enlace>
-        </p>
-      ) : null}
       {recursos.length === 0 ? (
-        <p className={enSeccion ? "m-0 text-[13px] text-texto-3" : undefined}>
+        <p className="m-0 text-[13px] text-texto-3">
           Todavía no hay recursos cargados.
         </p>
       ) : (
@@ -101,52 +94,76 @@ export function RecursosAgrupados({
             (recurso) => recurso.grupo === grupo,
           );
           return delGrupo.length === 0 ? null : (
-            <div key={grupo} data-grupo-de-recursos={grupo} className="mb-4">
-              <h4
-                className={
-                  enSeccion
-                    ? "mt-0 mb-1.5 text-xs font-medium tracking-wide text-texto-3 uppercase"
-                    : "mb-2 text-lg font-semibold"
-                }
-              >
+            <div key={grupo} data-grupo-de-recursos={grupo} className="mb-3">
+              <h4 className="mt-0 mb-0.5 text-xs font-medium tracking-wide text-texto-3 uppercase">
                 {titulo}
               </h4>
-              <Tabla
-                cabeceras={puedeCargar ? [...cabeceras, "Acciones"] : cabeceras}
-              >
+              <ul className="m-0 list-none p-0">
                 {delGrupo.map((recurso) => (
-                  <tr key={recurso.id}>
-                    <td>{recurso.tipo}</td>
-                    <td>{recurso.detalle}</td>
-                    <td>{recurso.cantidad}</td>
-                    <td>{recurso.desde}</td>
-                    <td>{recurso.hasta}</td>
-                    {puedeCargar ? (
-                      <td>
-                        <form
-                          action={acciones.quitar.bind(
-                            null,
-                            servicioId,
-                            recurso.id,
-                          )}
-                        >
-                          <Boton
-                            variante={enSeccion ? "discreto" : "peligro"}
-                            type="submit"
-                            data-carga="planificacion"
-                          >
-                            Quitar
-                          </Boton>
-                        </form>
-                      </td>
-                    ) : null}
-                  </tr>
+                  <FilaDeRecurso
+                    key={recurso.id}
+                    titulo={`${recurso.tipo}${recurso.detalle === "" ? "" : ` · ${recurso.detalle}`}`}
+                    detalle={[
+                      recurso.cantidad === ""
+                        ? ""
+                        : `Cantidad ${recurso.cantidad}`,
+                      recurso.desde === "" && recurso.hasta === ""
+                        ? ""
+                        : `${recurso.desde || "…"} a ${recurso.hasta || "…"}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    quitar={
+                      puedeCargar
+                        ? acciones.quitar.bind(null, servicioId, recurso.id)
+                        : null
+                    }
+                  />
                 ))}
-              </Tabla>
+              </ul>
             </div>
           );
         })
       )}
+      {puedeCargar ? (
+        <AgregarEnLinea
+          texto="Agregar recurso"
+          inicial={INICIAL_DE_RECURSO}
+          campos={[
+            {
+              nombre: "tipo",
+              etiqueta: "Tipo",
+              tipo: "opcion",
+              requerido: true,
+              ancho: 7,
+              opciones: [
+                { valor: "persona", texto: "Persona" },
+                { valor: "camion", texto: "Camión" },
+                { valor: "equipo", texto: "Equipo" },
+                { valor: "material", texto: "Material" },
+              ],
+            },
+            {
+              nombre: "camionId",
+              etiqueta: "Camión",
+              tipo: "opcion",
+              requerido: true,
+              soloSi: { campo: "tipo", valor: "camion" },
+              opciones: camiones,
+            },
+            {
+              nombre: "descripcion",
+              etiqueta: "Persona o descripción",
+              ancho: 12,
+              crece: true,
+            },
+            { nombre: "cantidad", etiqueta: "Cantidad", ancho: 5 },
+            { nombre: "desde", etiqueta: "Desde", tipo: "fecha", ancho: 9 },
+            { nombre: "hasta", etiqueta: "Hasta", tipo: "fecha", ancho: 9 },
+          ]}
+          accion={acciones.cargar.bind(null, servicioId)}
+        />
+      ) : null}
       {puedeCargar && typeof parametros.recurso === "string" ? (
         <VentanaDeRecurso
           servicioId={servicioId}

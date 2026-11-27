@@ -53,7 +53,14 @@ export function VentanaDeAnulacion({
   readonly rutaAlCerrar: string;
 }) {
   return (
-    <Ventana titulo="Anular cotización" rutaAlCerrar={rutaAlCerrar}>
+    <Ventana
+      titulo={
+        cotizacion === undefined
+          ? "Anular cotización"
+          : `¿Anular la cotización v${cotizacion.version}?`
+      }
+      rutaAlCerrar={rutaAlCerrar}
+    >
       {cotizacion === undefined ? (
         <ErrorEnPantalla error={pantallaDeCodigo("DOM-0009")} />
       ) : (

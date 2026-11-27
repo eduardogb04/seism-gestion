@@ -68,6 +68,7 @@ export async function PanelCerrado({
   );
   const lectura = {
     servicioId: servicio.id,
+    clienteId: servicio.clienteId,
     ruta,
     puedeEscribir: false,
     parametros,

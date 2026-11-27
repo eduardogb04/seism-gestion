@@ -665,10 +665,8 @@ test("un servicio recorre todas las etapas y cada una tiene su panel", async ({
   ).toHaveValue(servicioUrl.split("/").at(-1) ?? "");
   await page.goto(`${servicioUrl}/en-ejecucion`);
   for (const hito of ["Movilización", "Informe"]) {
-    await page
-      .locator(`[data-hito="${hito}"]`)
-      .getByRole("button", { name: "Tildar" })
-      .click();
+    await page.locator(`[data-hito="${hito}"]`).getByRole("checkbox").click();
+    await page.getByRole("button", { name: "Confirmar" }).click();
     await expect(
       page.locator(`[data-hito="${hito}"]`).locator("[data-hito-realizado]"),
     ).toContainText(OPERADORA);

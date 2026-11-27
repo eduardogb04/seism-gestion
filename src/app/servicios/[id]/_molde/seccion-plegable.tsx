@@ -9,7 +9,7 @@
  */
 
 import { ChevronDown } from "lucide-react";
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 
 export const COOKIE_DE_SECCIONES = "secciones";
 
@@ -48,6 +48,12 @@ export function SeccionPlegable({
 }) {
   const [abierta, setAbierta] = useState(abiertaAlEmpezar);
   const id = useId();
+  // Un enlace que pide abrirla (`?verFacturas=1`) la abre aunque se hubiera cerrado.
+  useEffect(() => {
+    if (abiertaAlEmpezar) {
+      setAbierta(true);
+    }
+  }, [abiertaAlEmpezar]);
   return (
     <section
       aria-labelledby={`${id}-titulo`}

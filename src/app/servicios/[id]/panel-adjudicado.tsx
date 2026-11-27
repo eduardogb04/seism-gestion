@@ -9,21 +9,21 @@
 import {
   CalendarClock,
   ClipboardList,
-  Flag,
   ListChecks,
   Receipt,
   SlidersHorizontal,
-  UserPlus,
   Wallet,
 } from "lucide-react";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
-import { TarjetasDeModalidad } from "../_piezas/modalidad.tsx";
+import {
+  modalidadDesplegada,
+  TarjetasDeModalidad,
+} from "../_piezas/modalidad.tsx";
 import { PlantillaDeHitos } from "../_piezas/plantilla-de-hitos.tsx";
 import { RecursosAgrupados } from "../_piezas/recursos-agrupados.tsx";
 import { ResponsableEInicio } from "../_piezas/responsable-e-inicio.tsx";
 import { accionPrincipalDe } from "./_molde/accion-principal.ts";
 import {
-  type Accion,
   ListaDeControl,
   PanelDeEtapa,
   Seccion,
@@ -77,23 +77,21 @@ export async function PanelAdjudicado({
   const responsable = dato("Responsable");
   const propias = {
     servicioId: servicio.id,
+    clienteId: servicio.clienteId,
     ruta,
     puedeEscribir,
     parametros,
   };
-  const puedePlanificar = puedeEscribir && detalle.planificable;
-  const agregarRecurso: Accion = {
-    texto: "Agregar recurso",
-    href: `${ruta}?recurso=1`,
-    Icono: UserPlus,
-    carga: "planificacion",
-  };
-  const agregarHito: Accion = {
-    texto: "Agregar hito",
-    href: `${ruta}?hito=1`,
-    Icono: Flag,
-    carga: "planificacion",
-  };
+  const hitosEnModalidad =
+    modalidadDesplegada(facturacion, parametros) === "por_hitos";
+  const listaDeHitos = (
+    <PlantillaDeHitos
+      enSeccion
+      {...propias}
+      detalle={detalle}
+      acciones={ACCIONES_DE_HITOS}
+    />
+  );
   const control = [
     {
       texto: "Modalidad de facturación",
@@ -114,17 +112,11 @@ export async function PanelAdjudicado({
       texto: "Recursos",
       hecho: detalle.recursos.length > 0,
       detalle: cantidad(detalle.recursos.length, "cargado", "cargados"),
-      ...(puedePlanificar
-        ? { accion: { ...agregarRecurso, texto: "Agregar" } }
-        : {}),
     },
     {
       texto: "Hitos",
       hecho: detalle.hitos.length > 0,
       detalle: cantidad(detalle.hitos.length, "cargado", "cargados"),
-      ...(puedePlanificar
-        ? { accion: { ...agregarHito, texto: "Agregar" } }
-        : {}),
     },
   ];
   const listos = control.filter(({ hecho }) => hecho).length;
@@ -183,7 +175,6 @@ export async function PanelAdjudicado({
       secundarias={
         puedeEscribir
           ? [
-              ...(puedePlanificar ? [agregarRecurso, agregarHito] : []),
               ...(facturacion.admiteFactura
                 ? [
                     {
@@ -228,6 +219,9 @@ export async function PanelAdjudicado({
           ruta={ruta}
           puedeElegir={puedeEscribir}
           parametros={parametros}
+          vigencia={dato("Vigencia") || null}
+          ordenTotal={orden?.total ?? null}
+          hitos={listaDeHitos}
         />
       </Seccion>
       {puedeEscribir ? (
@@ -258,20 +252,17 @@ export async function PanelAdjudicado({
           acciones={ACCIONES_DE_RECURSOS}
         />
       </Seccion>
-      <Seccion
-        clave="adjudicado.hitos"
-        titulo="Hitos"
-        resumen={cantidad(detalle.hitos.length, "hito", "hitos")}
-        parametros={parametros}
-        abreCon={["hito"]}
-      >
-        <PlantillaDeHitos
-          enSeccion
-          {...propias}
-          detalle={detalle}
-          acciones={ACCIONES_DE_HITOS}
-        />
-      </Seccion>
+      {hitosEnModalidad ? null : (
+        <Seccion
+          clave="adjudicado.hitos"
+          titulo="Hitos"
+          resumen={cantidad(detalle.hitos.length, "hito", "hitos")}
+          parametros={parametros}
+          abreCon={["hito"]}
+        >
+          {listaDeHitos}
+        </Seccion>
+      )}
       <Seccion
         clave="adjudicado.orden"
         titulo="Orden de compra"

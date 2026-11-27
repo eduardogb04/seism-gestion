@@ -5,8 +5,14 @@
  * nada para facturar, finalizar el servicio.
  */
 
-import { HandCoins, HardHat, SlidersHorizontal } from "lucide-react";
+import {
+  HandCoins,
+  HardHat,
+  SlidersHorizontal,
+  TriangleAlert,
+} from "lucide-react";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
+import { Enlace } from "../../_ui/enlace-next.ts";
 import { TarjetasDeModalidad } from "../_piezas/modalidad.tsx";
 import { PlantillaDeHitos } from "../_piezas/plantilla-de-hitos.tsx";
 import { RecursosAgrupados } from "../_piezas/recursos-agrupados.tsx";
@@ -26,7 +32,6 @@ import {
 } from "./datos-de-panel.ts";
 import { DocumentosDeAlcance } from "./documentos-de-alcance.tsx";
 import { Egresos } from "./egresos.tsx";
-import { EnlaceDeSeccion } from "./enlace-de-seccion.tsx";
 import { AjusteDeCuota, HistorialDeCuota } from "./facturacion.tsx";
 import { Facturas } from "./facturas.tsx";
 import { OrdenesDeCompra } from "./ordenes-de-compra.tsx";
@@ -69,6 +74,7 @@ const DE_FACTURACION = [
   "cobrar",
   "anularCobro",
   "ajusteDeCuota",
+  "verFacturas",
 ];
 
 const DE_VENCIMIENTOS = ["vencimiento", "corregir", "descartar", "renovar"];
@@ -101,10 +107,32 @@ export async function PanelEnEjecucion({
     .map(({ porCobrar: importe }) => importe)
     .filter(Boolean);
   const porCobrar = porCobrarPorMoneda.join(" · ");
-  const proximo = proximoVencimiento(vencimientos);
+  const proximoDelServicio = proximoVencimiento(vencimientos);
+  const facturas = await armado().facturas.listar(servicio.id);
+  const cobranza = await armado().cobros.cobranza(servicio.id);
+  const conSaldo = facturas.filter(
+    ({ id, tipo }) =>
+      tipo !== "Nota de crédito" &&
+      cobranza.some(({ facturaId, cobrada }) => facturaId === id && !cobrada),
+  );
+  const vencidas = conSaldo.filter(
+    ({ vencimiento }) => diasHasta(vencimiento) < 0,
+  ).length;
+  /** El próximo de acá en adelante: facturas con saldo y vencimientos del servicio. */
+  const proximo = proximoVencimiento(
+    [
+      ...conSaldo.map(({ vencimiento, numero }) => ({
+        fecha: vencimiento,
+        descripcion: `Factura ${numero}`,
+        pendiente: true,
+      })),
+      ...vencimientos,
+    ].filter(({ fecha, pendiente }) => pendiente && diasHasta(fecha) >= 0),
+  );
   const faltan = proximo === undefined ? 0 : diasHasta(proximo.fecha);
   const propias = {
     servicioId: servicio.id,
+    clienteId: servicio.clienteId,
     ruta,
     puedeEscribir,
     parametros,
@@ -115,7 +143,6 @@ export async function PanelEnEjecucion({
   const puedeFinalizar =
     principal?.texto !== "Finalizar servicio" &&
     servicio.transiciones.some(({ valor }) => valor === "finalizado");
-  const puedePlanificar = puedeEscribir && detalle.planificable;
   return (
     <PanelDeEtapa
       etapa="en_ejecucion"
@@ -180,7 +207,29 @@ export async function PanelEnEjecucion({
                 {proximo.fecha}
               </span>
             ),
-          ...(proximo === undefined ? {} : { detalle: proximo.descripcion }),
+          ...(proximo === undefined && vencidas === 0
+            ? {}
+            : {
+                detalle: (
+                  <span className="flex flex-col gap-0.5">
+                    {proximo === undefined ? null : (
+                      <span>{proximo.descripcion}</span>
+                    )}
+                    {vencidas === 0 ? null : (
+                      <Enlace
+                        href={`${ruta}?verFacturas=1`}
+                        scroll={false}
+                        className="inline-flex items-center gap-1 text-peligro"
+                      >
+                        <TriangleAlert aria-hidden="true" className="size-3" />
+                        {vencidas === 1
+                          ? "1 factura vencida"
+                          : `${vencidas} facturas vencidas`}
+                      </Enlace>
+                    )}
+                  </span>
+                ),
+              }),
         },
       ]}
       principal={puedeEscribir ? principal : null}
@@ -232,6 +281,18 @@ export async function PanelEnEjecucion({
             ruta={ruta}
             puedeElegir={puedeEscribir}
             parametros={parametros}
+            vigencia={
+              servicio.datos.find(([de]) => de === "Vigencia")?.[1] ?? null
+            }
+            ordenTotal={orden?.total ?? null}
+            hitos={
+              <PlantillaDeHitos
+                enSeccion
+                {...propias}
+                detalle={detalle}
+                acciones={ACCIONES_DE_HITOS}
+              />
+            }
           />
         </Seccion>
       ) : null}
@@ -239,15 +300,6 @@ export async function PanelEnEjecucion({
         clave="en_ejecucion.hitos"
         titulo="Hitos"
         resumen={`${hechos.length} de ${detalle.hitos.length}`}
-        extra={
-          puedePlanificar ? (
-            <EnlaceDeSeccion
-              texto="Agregar hito"
-              href={`${ruta}?hito=1`}
-              carga="planificacion"
-            />
-          ) : undefined
-        }
         parametros={parametros}
         abreCon={["hito"]}
       >
@@ -279,7 +331,7 @@ export async function PanelEnEjecucion({
       <Seccion
         clave="en_ejecucion.vencimientos"
         titulo="Vencimientos"
-        resumen={proximo?.fecha}
+        resumen={proximoDelServicio?.fecha}
         parametros={parametros}
         abreCon={DE_VENCIMIENTOS}
       >
@@ -294,15 +346,6 @@ export async function PanelEnEjecucion({
         clave="en_ejecucion.recursos"
         titulo="Recursos"
         resumen={`${detalle.recursos.length}`}
-        extra={
-          puedePlanificar ? (
-            <EnlaceDeSeccion
-              texto="Agregar recurso"
-              href={`${ruta}?recurso=1`}
-              carga="planificacion"
-            />
-          ) : undefined
-        }
         parametros={parametros}
         abreCon={["recurso"]}
       >

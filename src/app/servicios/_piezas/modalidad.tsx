@@ -1,10 +1,14 @@
 /**
- * La modalidad de facturación como tres tarjetas elegibles (F6-04): la elegida
- * resaltada. Elegir una abre la ventana de siempre (`?modalidad=<valor>`), con
- * la cuota y el mes de inicio si es mensual; guarda la misma acción que antes.
+ * La modalidad de facturación como tres tarjetas elegibles (F6-04), cada una con
+ * su ícono, su texto y, desplegado debajo, lo que esa modalidad necesita:
+ * mensual, la cuota y el mes de inicio (con el resumen contra la OC); por
+ * hitos, la lista de hitos; puntual, la única factura por el total de la OC.
+ * Tocar una tarjeta (`?modalidad=<valor>`) despliega su panel; la elegida lleva
+ * el borde del acento y un tilde. Guarda la misma acción de siempre.
  */
 
 import { CalendarDays, Check, Flag, Receipt } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   ETIQUETAS_DE_MODALIDAD,
   type Facturacion,
@@ -13,13 +17,14 @@ import {
 import type { ModalidadDeFacturacion } from "../../../dominio/servicios/estados.ts";
 import { armado } from "../../../infraestructura/arranque/armado.ts";
 import { Enlace } from "../../_ui/enlace-next.ts";
-import { FormularioAbm } from "../../_ui/formulario-abm.tsx";
-import { Ventana } from "../../_ui/ventana.tsx";
+import type { EstadoFormulario } from "../../_ui/formulario-abm.tsx";
+import { HistorialDeCuota } from "../[id]/facturacion.tsx";
 import { cambiarModalidadDeFacturacion } from "../acciones.ts";
+import { ConfiguracionMensual, ElegirModalidad } from "./elegir-modalidad.tsx";
 
 const DETALLES: Readonly<Record<ModalidadDeFacturacion, string>> = {
   puntual: "Una sola factura, al terminar el trabajo.",
-  por_hitos: "Facturas libres, a medida que se avanza.",
+  por_hitos: "Facturas libres, a medida que se avanza el trabajo.",
   mensual: "Una cuota por mes mientras dure el servicio.",
 };
 
@@ -32,49 +37,208 @@ const ICONOS = {
 const esModalidad = (valor: unknown): valor is ModalidadDeFacturacion =>
   MODALIDADES_DE_FACTURACION.some((propia) => propia === valor);
 
-async function VentanaDeModalidad({
-  servicioId,
-  elegida,
-  rutaAlCerrar,
-}: {
-  readonly servicioId: string;
-  readonly elegida: ModalidadDeFacturacion;
-  readonly rutaAlCerrar: string;
-}) {
-  const { campos, escrito } =
-    await armado().facturacion.formularioDeModalidad(servicioId);
+type Parametros = Readonly<Record<string, string | string[] | undefined>>;
+
+/** La modalidad cuyo panel se despliega: la pedida en la dirección o, si no, la elegida. */
+export function modalidadDesplegada(
+  { modalidad }: Facturacion,
+  parametros: Parametros,
+): ModalidadDeFacturacion | null {
+  const pedida = parametros.modalidad;
+  if (esModalidad(pedida)) {
+    return pedida;
+  }
   return (
-    <Ventana titulo="Modalidad de facturación" rutaAlCerrar={rutaAlCerrar}>
-      <p className="mb-4">
-        Se puede cambiar mientras el servicio no tenga facturas. Mensual pide la
-        cuota sin IVA, en la moneda de la orden de compra, y el mes de inicio.
-      </p>
-      <FormularioAbm
-        accion={cambiarModalidadDeFacturacion.bind(null, servicioId)}
-        campos={campos}
-        elegibles={{}}
-        inicial={{ escrito: { ...escrito, modalidad: elegida }, errores: {} }}
-        enviar={{ texto: "Guardar", variante: "primario" }}
-        rutaAlCancelar={rutaAlCerrar}
-      />
-    </Ventana>
+    MODALIDADES_DE_FACTURACION.find(
+      (valor) => ETIQUETAS_DE_MODALIDAD[valor] === modalidad,
+    ) ?? null
   );
 }
 
-export async function TarjetasDeModalidad({
+/** `dd/mm/aaaa a dd/mm/aaaa` a la fecha final `aaaa-mm-dd`. */
+function finDeVigencia(vigencia: string | null): string | null {
+  const fin = vigencia?.split(" a ")[1];
+  const [dia = "", mes = "", anio = ""] = fin?.split("/") ?? [];
+  return anio === "" ? null : `${anio}-${mes}-${dia}`;
+}
+
+function PanelDeModalidad({
   servicioId,
-  facturacion: { modalidad },
+  valor,
+  facturacion,
+  puedeElegir,
+  vigencia,
+  ordenTotal,
+  hitos,
+  ruta,
+}: {
+  readonly servicioId: string;
+  readonly valor: ModalidadDeFacturacion;
+  readonly facturacion: Facturacion;
+  readonly puedeElegir: boolean;
+  readonly vigencia: string | null;
+  readonly ordenTotal: string | null;
+  readonly hitos: ReactNode;
+  readonly ruta: string;
+}) {
+  const accion = cambiarModalidadDeFacturacion.bind(null, servicioId);
+  const elegida = facturacion.modalidad === ETIQUETAS_DE_MODALIDAD[valor];
+  const hayOtra = facturacion.modalidad !== null && !elegida;
+  const cuerpo = (() => {
+    if (valor === "mensual") {
+      return (
+        <MensualDesplegado
+          servicioId={servicioId}
+          accion={accion}
+          elegida={elegida}
+          hayOtra={hayOtra}
+          facturacion={facturacion}
+          puedeElegir={puedeElegir}
+          vigencia={vigencia}
+          ordenTotal={ordenTotal}
+          ruta={ruta}
+        />
+      );
+    }
+    if (valor === "por_hitos") {
+      return (
+        <>
+          <p className="mt-0 mb-2 text-[13px] text-texto-2">
+            Los hitos son solo avance: las facturas se cargan libres.
+          </p>
+          {hitos}
+          {puedeElegir && !elegida ? (
+            <ElegirModalidad
+              valor="por_hitos"
+              texto="Elegir por hitos"
+              accion={accion}
+              cambia={hayOtra}
+            />
+          ) : null}
+        </>
+      );
+    }
+    return (
+      <>
+        <p className="mt-0 mb-0 text-sm text-texto-2">
+          Una sola factura por el total de la OC
+          {ordenTotal === null ? "" : ` (${ordenTotal})`} al terminar el
+          trabajo.
+        </p>
+        {puedeElegir && !elegida ? (
+          <ElegirModalidad
+            valor="puntual"
+            texto="Elegir puntual"
+            accion={accion}
+            cambia={hayOtra}
+          />
+        ) : null}
+      </>
+    );
+  })();
+  return (
+    <div
+      data-panel-de-modalidad={valor}
+      className="mt-3 rounded-tarjeta border border-borde bg-superficie-2/40 p-4"
+    >
+      {cuerpo}
+    </div>
+  );
+}
+
+async function MensualDesplegado({
+  servicioId,
+  accion,
+  elegida,
+  hayOtra,
+  facturacion,
+  puedeElegir,
+  vigencia,
+  ordenTotal,
+  ruta,
+}: {
+  readonly servicioId: string;
+  readonly accion: (
+    previo: EstadoFormulario,
+    formulario: FormData,
+  ) => Promise<EstadoFormulario>;
+  readonly elegida: boolean;
+  readonly hayOtra: boolean;
+  readonly facturacion: Facturacion;
+  readonly puedeElegir: boolean;
+  readonly vigencia: string | null;
+  readonly ordenTotal: string | null;
+  readonly ruta: string;
+}) {
+  if (elegida) {
+    const [vigente] = [...facturacion.cuotas].reverse();
+    return (
+      <>
+        <p className="m-0 text-sm text-texto-2">
+          Cuota vigente:{" "}
+          <strong className="cifras text-texto">
+            {vigente?.importe ?? "—"}
+          </strong>
+          {vigente === undefined ? "" : ` desde ${vigente.desde}`}.
+        </p>
+        <div className="mt-2">
+          <HistorialDeCuota cuotas={facturacion.cuotas} titulo={false} />
+        </div>
+        {puedeElegir ? (
+          <Enlace
+            href={`${ruta}?ajusteDeCuota=1`}
+            scroll={false}
+            className="mt-3 inline-flex text-[13px] font-medium"
+          >
+            Ajustar cuota
+          </Enlace>
+        ) : null}
+      </>
+    );
+  }
+  const { escrito } =
+    await armado().facturacion.formularioDeModalidad(servicioId);
+  const moneda = ordenTotal?.slice(0, 3) ?? null;
+  return puedeElegir ? (
+    <ConfiguracionMensual
+      accion={accion}
+      moneda={moneda}
+      cuotaInicial={escrito.cuota ?? ""}
+      desdeInicial={escrito.desde ?? ""}
+      vigenciaHasta={finDeVigencia(vigencia)}
+      ordenTotal={ordenTotal}
+      cambia={hayOtra}
+    />
+  ) : (
+    <p className="m-0 text-sm text-texto-2">
+      Una cuota por mes mientras dure el servicio.
+    </p>
+  );
+}
+
+export function TarjetasDeModalidad({
+  servicioId,
+  facturacion,
   ruta,
   puedeElegir,
   parametros,
+  vigencia = null,
+  ordenTotal = null,
+  hitos = null,
 }: {
   readonly servicioId: string;
   readonly facturacion: Facturacion;
   readonly ruta: string;
   readonly puedeElegir: boolean;
-  readonly parametros: Readonly<Record<string, string | string[] | undefined>>;
+  readonly parametros: Parametros;
+  /** `dd/mm/aaaa a dd/mm/aaaa`, o `null` si el servicio no tiene vigencia. */
+  readonly vigencia?: string | null;
+  /** El total de la orden de compra vigente (`ARS 1.000,00`). */
+  readonly ordenTotal?: string | null;
+  /** La lista de hitos que se muestra en la tarjeta «Por hitos». */
+  readonly hitos?: ReactNode;
 }) {
-  const pedida = parametros.modalidad;
+  const desplegada = modalidadDesplegada(facturacion, parametros);
   return (
     <>
       <ul
@@ -82,12 +246,16 @@ export async function TarjetasDeModalidad({
         className="m-0 grid list-none gap-3 p-0 @xl/panel:grid-cols-3"
       >
         {MODALIDADES_DE_FACTURACION.map((valor) => {
-          const elegida = modalidad === ETIQUETAS_DE_MODALIDAD[valor];
+          const elegida =
+            facturacion.modalidad === ETIQUETAS_DE_MODALIDAD[valor];
+          const abierta = desplegada === valor;
           const Icono = ICONOS[valor];
           const clases = `relative block h-full rounded-tarjeta border p-4 text-texto ${
             elegida
               ? "border-acento bg-acento-suave/50 ring-1 ring-acento"
-              : "border-borde bg-superficie"
+              : abierta
+                ? "border-borde-fuerte bg-superficie"
+                : "border-borde bg-superficie"
           }`;
           const contenido = (
             <>
@@ -131,13 +299,18 @@ export async function TarjetasDeModalidad({
           );
         })}
       </ul>
-      {puedeElegir && esModalidad(pedida) ? (
-        <VentanaDeModalidad
+      {desplegada === null ? null : (
+        <PanelDeModalidad
           servicioId={servicioId}
-          elegida={pedida}
-          rutaAlCerrar={ruta}
+          valor={desplegada}
+          facturacion={facturacion}
+          puedeElegir={puedeElegir}
+          vigencia={vigencia}
+          ordenTotal={ordenTotal}
+          hitos={hitos}
+          ruta={ruta}
         />
-      ) : null}
+      )}
     </>
   );
 }

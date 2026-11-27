@@ -53,6 +53,7 @@ export async function PanelFinalizado({
   const { egresos } = await armado().egresosDeServicio.listar(servicio.id);
   const propias = {
     servicioId: servicio.id,
+    clienteId: servicio.clienteId,
     ruta,
     puedeEscribir,
     parametros,

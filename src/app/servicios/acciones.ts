@@ -476,6 +476,35 @@ export async function cambiarRealizadoDeHito(
   );
 }
 
+/**
+ * Destildar un hito pide el motivo (`motivo` en el formulario): el caso de uso
+ * no lo guarda, así que queda como observación del servicio.
+ */
+export async function destildarHitoConMotivo(
+  servicioId: string,
+  clienteId: string,
+  id: string,
+  texto: string,
+  formulario: FormData,
+): Promise<void> {
+  const { motivo = "" } = escritoEn(formulario);
+  const hoy = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
+  return enElServicio(servicioId, async (actor) => {
+    await armado().planificacion.cambiarRealizadoDeHito(actor, id, false);
+    await armado().sucesos.crear(
+      actor,
+      { clienteId, servicioId },
+      {
+        fecha: hoy,
+        texto: `Hito "${texto}" destildado: ${motivo.trim()}`,
+        tipo: "observacion",
+      },
+    );
+  });
+}
+
 /** Subir o bajar un hito un lugar en la lista. */
 export async function cambiarOrdenDeHito(
   servicioId: string,

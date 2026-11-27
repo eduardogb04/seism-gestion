@@ -3,7 +3,7 @@
  * contra la imagen que se publica. Una operadora finaliza un servicio con un
  * camión, lleva su vencimiento a una fecha fija y desde el calendario de ese mes:
  *
- * 1. lo ve en la grilla y en la lista, cada uno con «Cotizar renovación»;
+ * 1. lo ve en la agenda y, en el panel de la entrada, «Cotizar renovación»;
  * 2. confirma en una ventana y llega al servicio nuevo, en «Creado»;
  * 3. el vencimiento sigue en el calendario, marcado «Renovado» con el enlace al
  *    servicio nuevo y sin «Cotizar renovación» (F5-03).
@@ -130,27 +130,22 @@ test("desde el calendario se cotiza la renovación de un vencimiento: lleva al s
   await correccion.getByRole("button", { name: "Guardar" }).click();
   await expect(ventana(page, "Corregir la fecha")).toHaveCount(0);
 
-  // 1. En el calendario de ese mes, en la grilla y en la lista, con el botón.
-  await page.goto("/calendario?mes=2040-02");
-  const enGrilla = page
-    .getByRole("table")
-    .first()
-    .locator("li")
-    .filter({ hasText: codigoOriginal?.[0] ?? "" });
-  const enLista = page
-    .getByRole("table")
-    .last()
-    .getByRole("row")
-    .filter({ hasText: codigoOriginal?.[0] ?? "" });
+  // 1. En la agenda de ese mes, con «Cotizar renovación» en el panel de la entrada.
+  await page.goto("/calendario?mes=2040-02&vista=agenda");
+  const entrada = page.getByRole("link", {
+    name: new RegExp(codigoOriginal?.[0] ?? ""),
+  });
+  await entrada.click();
   await expect(
-    enGrilla.getByRole("link", { name: "Cotizar renovación" }),
-  ).toBeVisible();
-  await expect(
-    enLista.getByRole("link", { name: "Cotizar renovación" }),
+    ventana(page, "Vencimientos").getByRole("link", {
+      name: "Cotizar renovación",
+    }),
   ).toBeVisible();
 
   // 2. Se confirma y lleva al servicio nuevo, en «Creado».
-  await enLista.getByRole("link", { name: "Cotizar renovación" }).click();
+  await ventana(page, "Vencimientos")
+    .getByRole("link", { name: "Cotizar renovación" })
+    .click();
   const renovacion = ventana(page, "Cotizar renovación");
   await expect(renovacion).toContainText("Camión ZZ001ZZ");
   await renovacion.getByRole("button", { name: "Confirmar" }).click();
@@ -164,16 +159,15 @@ test("desde el calendario se cotiza la renovación de un vencimiento: lleva al s
   expect(codigoNuevo, "el título del nuevo no trae su código").not.toBeNull();
 
   // 3. Sigue en el calendario, renovado, con el enlace al servicio nuevo.
-  await page.goto("/calendario?mes=2040-02");
-  for (const entrada of [enGrilla, enLista]) {
-    await expect(entrada).toContainText("Renovado");
-    await expect(
-      entrada.getByRole("link", { name: "Cotizar renovación" }),
-    ).toHaveCount(0);
-    await entrada
-      .getByRole("link", { name: codigoNuevo?.[0] ?? "", exact: true })
-      .click();
-    await expect(page).toHaveURL(urlNuevo);
-    await page.goto("/calendario?mes=2040-02");
-  }
+  await page.goto("/calendario?mes=2040-02&vista=agenda");
+  await expect(entrada).toContainText("Renovado");
+  await entrada.click();
+  const panel = ventana(page, "Vencimientos");
+  await expect(
+    panel.getByRole("link", { name: "Cotizar renovación" }),
+  ).toHaveCount(0);
+  await panel
+    .getByRole("link", { name: codigoNuevo?.[0] ?? "", exact: true })
+    .click();
+  await expect(page).toHaveURL(urlNuevo);
 });

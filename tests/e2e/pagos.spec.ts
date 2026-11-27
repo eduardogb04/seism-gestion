@@ -105,18 +105,21 @@ test("una operadora paga un egreso en dos partes y otro en dólares desde una cu
     "page",
   );
   await expect(fila(page, /Honorarios contables/)).toContainText(
-    "ARS 300.000,00",
+    /ARS.?300[.]000,00/,
   );
   await expect(fila(page, /Honorarios contables/)).toContainText(/\d+ días?/);
-  await expect(fila(page, /Curso de capacitación/)).toContainText("USD 500,00");
-  // El otro Combustible (12/10) está sin pagar; el del 03/09 está pagado entero.
-  await expect(fila(page, /03\/09\/2026/)).toHaveCount(0);
-  await page.getByLabel("Ver también los pagados").check();
-  await page.getByRole("button", { name: "Aplicar" }).click();
-  await expect(fila(page, /03\/09\/2026/)).toContainText("ARS 0,00");
+  await expect(fila(page, /Curso de capacitación/)).toContainText(
+    /USD.?500,00/,
+  );
+  // El otro Combustible (12/10) está sin pagar; el del 03/09 («Combustible», sin vencimiento) está pagado entero.
+  await expect(fila(page, /^Combustible Vehículos/)).toHaveCount(0);
+  await page.getByRole("link", { name: "Ver también los pagados" }).click();
+  await expect(fila(page, /^Combustible Vehículos/)).toContainText(/ARS.?0,00/);
   // Con la casilla, la fila saldada se ve pero no ofrece pagar; la que debe, sí.
   await expect(
-    fila(page, /03\/09\/2026/).getByRole("link", { name: "Registrar pago" }),
+    fila(page, /^Combustible Vehículos/).getByRole("link", {
+      name: "Registrar pago",
+    }),
   ).toHaveCount(0);
   await expect(
     fila(page, /Honorarios contables/).getByRole("link", {
@@ -141,25 +144,27 @@ test("una operadora paga un egreso en dos partes y otro en dólares desde una cu
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page).toHaveURL(/\/egresos\?/);
   await expect(
-    fila(page, /03\/09\/2026/).getByRole("link", { name: "Registrar pago" }),
+    fila(page, /03.09.2026/).getByRole("link", { name: "Registrar pago" }),
   ).toHaveCount(0);
   await page.goto("/egresos/pagos");
 
-  // Tocar el título de una columna ordena; la fila entera lleva al egreso.
+  // Tocar el título de una columna ordena (la lista se parte en Vencido y Próximo: cada grupo con su cabecera); la fila entera lleva al egreso.
   await page
-    .getByRole("columnheader", { name: "Concepto" })
+    .getByRole("columnheader", { name: "Egreso" })
+    .first()
     .getByRole("link")
     .click();
   await expect(page).toHaveURL(/orden=concepto&direccion=asc/);
   await expect(
-    page.getByRole("columnheader", { name: "Concepto" }),
+    page.getByRole("columnheader", { name: "Egreso" }).first(),
   ).toHaveAttribute("aria-sort", "ascending");
   await page
-    .getByRole("columnheader", { name: "Concepto" })
+    .getByRole("columnheader", { name: "Egreso" })
+    .first()
     .getByRole("link")
     .click();
   await expect(
-    page.getByRole("columnheader", { name: "Concepto" }),
+    page.getByRole("columnheader", { name: "Egreso" }).first(),
   ).toHaveAttribute("aria-sort", "descending");
 
   // 2. Pagar desde *Por pagar*: la ventana dice lo que falta y, al guardar, vuelve al listado.
@@ -186,7 +191,7 @@ test("una operadora paga un egreso en dos partes y otro en dólares desde una cu
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page).toHaveURL(/\/egresos\/pagos\?/);
   await expect(fila(page, /Honorarios contables/)).toContainText(
-    "ARS 200.000,00",
+    /ARS.?200[.]000,00/,
   );
   await abrirEgreso(page, "Honorarios contables");
   await expect(page.locator("[data-pagado]")).toHaveText("ARS 300.000,00");

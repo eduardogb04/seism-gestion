@@ -19,6 +19,7 @@
 
 import { readFile } from "node:fs/promises";
 import { type Browser, expect, type Page, test } from "@playwright/test";
+import { confirmarBaja } from "./_arnes/baja.ts";
 
 const ADMIN = "admin@ejemplo.test";
 const OPERADORA = "operador.catalogos@ejemplo.test";
@@ -184,7 +185,7 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
     .getByRole("link", { name: "Dar de baja" })
     .click();
   await expect(ventana(page, "Dar de baja")).toContainText("USD 2.500,50");
-  await page.getByRole("button", { name: "Confirmar baja" }).click();
+  await confirmarBaja(page);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(fila(page, /Alquiler de depósito/)).toHaveCount(0);
   await expect(page.locator("[data-codigo-error]")).toHaveCount(0);
@@ -192,11 +193,11 @@ test("una operadora da de alta (con el monto mal escrito primero), filtra, edita
   // 6. Cada fila lleva a la pantalla del egreso, con sus pagos.
   await page.goto("/egresos");
   await fila(page, /03\/09\/2026/)
-    .getByRole("link", { name: "03/09/2026" })
+    .getByRole("link", { name: "Combustible" })
     .click();
   await expect(page).toHaveURL(/\/egresos\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { name: "Pagos" })).toBeVisible();
-  await expect(page.getByText(/ARSs*150.000,00/).first()).toBeVisible();
+  await expect(page.getByText(/ARS.?150[.]000,00/).first()).toBeVisible();
 
   // 7. Editar un egreso con pagos, por debajo de lo pagado: el mensaje al lado del importe.
   await page.goto("/egresos");
@@ -244,7 +245,7 @@ test("un egreso de proyecto pide servicio y se guarda con su comprobante; uno de
     /Un egreso de un centro de costo de proyecto tiene que decir de qué servicio es/,
   );
   await expect(
-    alta.getByLabel("Servicio", { exact: true }),
+    alta.getByLabel(/^Servicio( ?opcional)?$/),
   ).toHaveAccessibleDescription(/tiene que decir de qué servicio es/);
   await expect(alta.getByLabel("Concepto")).toHaveValue(
     "Repuestos para tanque",
@@ -252,7 +253,7 @@ test("un egreso de proyecto pide servicio y se guarda con su comprobante; uno de
   await expect(alta.getByLabel("Centro de costo")).toHaveValue(/.+/);
 
   // 2. Con servicio (por código y título) y comprobante: se guarda.
-  const servicio = alta.getByLabel("Servicio", { exact: true });
+  const servicio = alta.getByLabel(/^Servicio( ?opcional)?$/);
   const opcion = servicio.locator("option", {
     hasText: "Operación de tanques — ejemplo",
   });
@@ -271,10 +272,12 @@ test("un egreso de proyecto pide servicio y se guarda con su comprobante; uno de
 
   // 3. Se ve en la pantalla del servicio, con el total por moneda, y el comprobante se descarga.
   await page.goto("/servicios");
-  await fila(page, /Operación de tanques — ejemplo/)
-    .getByRole("link", { name: "Ver" })
+  await page
+    .getByRole("link", { name: /Operación de tanques — ejemplo/ })
+    .first()
     .click();
-  await expect(page.getByRole("heading", { name: "Plata" })).toBeVisible();
+  // La sección Egresos del panel viene plegada.
+  await page.getByRole("button", { name: "Egresos", exact: true }).click();
   await expect(fila(page, /Repuestos para tanque/)).toContainText(
     "ARS 7.500,00",
   );
@@ -303,7 +306,7 @@ test("un egreso de proyecto pide servicio y se guarda con su comprobante; uno de
     .getByLabel("Centro de costo")
     .selectOption({ label: "Administración" });
   await otro.getByLabel("Importe", { exact: true }).fill("1.000,00");
-  const elegido = otro.getByLabel("Servicio", { exact: true });
+  const elegido = otro.getByLabel(/^Servicio( ?opcional)?$/);
   await elegido.selectOption({ index: 1 });
   await page.getByRole("button", { name: "Guardar" }).click();
   await expect(otro.locator("[data-error-de-campo]")).toHaveText(
@@ -319,7 +322,7 @@ test("un egreso de proyecto pide servicio y se guarda con su comprobante; uno de
     await fila(page, concepto)
       .getByRole("link", { name: "Dar de baja" })
       .click();
-    await page.getByRole("button", { name: "Confirmar baja" }).click();
+    await confirmarBaja(page);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(fila(page, concepto)).toHaveCount(0);
   }

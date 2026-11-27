@@ -16,6 +16,7 @@
  */
 
 import { expect, type Page, test } from "@playwright/test";
+import { confirmarBaja } from "./_arnes/baja.ts";
 
 const ADMIN = "admin@ejemplo.test";
 const CLIENTE = "Empresa Ejemplo Dos S.R.L.";
@@ -50,7 +51,7 @@ function filaDelCliente(page: Page) {
 async function grupoEnElFormulario(page: Page) {
   await page.goto("/catalogo/clientes");
   await filaDelCliente(page).getByRole("link", { name: "Editar" }).click();
-  return page.getByLabel("Grupo", { exact: true });
+  return page.getByLabel(/^Grupo( ?opcional)?$/);
 }
 
 async function elegirGrupoDelCliente(page: Page, etiqueta: string) {
@@ -139,7 +140,7 @@ test("agregar, mover (con confirmación) y sacar clientes desde el grupo se ve e
       .getByRole("row", { name: new RegExp(nombre) })
       .getByRole("link", { name: "Dar de baja" })
       .click();
-    await page.getByRole("button", { name: "Confirmar baja" }).click();
+    await confirmarBaja(page);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(
       page.getByRole("row", { name: new RegExp(nombre) }),

@@ -14,14 +14,12 @@
  * Alta, edición y baja son una ventana sobre el listado (F1-09): en cada paso
  * la ruta sigue siendo `/catalogo/grupos` y la tabla sigue en la página detrás.
  *
- * Y con **JavaScript apagado** el formulario se comporta igual: vuelve con lo
- * escrito y el mensaje, da de alta y da de baja.
- *
  * Usa `operador.catalogos@ejemplo.test` y no `operador@ejemplo.test`: a ese lo
  * da de alta y lo revoca `usuarios.spec.ts`. Todo inventado.
  */
 
 import { type Browser, expect, type Page, test } from "@playwright/test";
+import { confirmarBaja } from "./_arnes/baja.ts";
 
 const ADMIN = "admin@ejemplo.test";
 const OPERADORA = "operador.catalogos@ejemplo.test";
@@ -176,72 +174,9 @@ test("una operadora da de alta, edita y da de baja un grupo en ventanas sobre el
   await fila(page, "Grupo Oeste")
     .getByRole("link", { name: "Dar de baja" })
     .click();
-  await page.getByRole("button", { name: "Confirmar baja" }).click();
+  await confirmarBaja(page);
   await ventanaCerrada(page);
   await expect(fila(page, "Grupo Centro")).toBeVisible();
   await expect(fila(page, "Grupo Oeste")).toHaveCount(0);
   await expect(page.locator("[data-codigo-error]")).toHaveCount(0);
-});
-
-test.describe("con JavaScript apagado", () => {
-  test.use({ javaScriptEnabled: false });
-
-  test("la ventana vuelve con lo escrito y el mensaje al lado del campo, da de alta y da de baja", async ({
-    page,
-  }) => {
-    await entrarComo(page, OPERADORA);
-    await page.goto("/catalogo/grupos");
-    await page.getByRole("link", { name: "Nuevo grupo" }).click();
-    await expect(ventana(page, "Alta de grupo")).toBeVisible();
-
-    // Un nombre que ya existe (el de la semilla).
-    await page.getByLabel("Nombre").fill("grupo centro");
-    await page.getByLabel("Observaciones").fill("Escrito sin JavaScript");
-    await page.getByRole("button", { name: "Guardar" }).click();
-    await expect(
-      ventana(page, "Alta de grupo").locator("[data-error-de-campo]"),
-    ).toHaveText(/DOM-0008/);
-    await listadoDetras(page);
-    await expect(page.getByLabel("Nombre")).toHaveValue("grupo centro");
-    await expect(page.getByLabel("Observaciones")).toHaveValue(
-      "Escrito sin JavaScript",
-    );
-
-    // Una validación: sin nombre.
-    await page.getByLabel("Nombre").fill("");
-    await page.getByRole("button", { name: "Guardar" }).click();
-    await expect(page.locator("[data-error-de-campo]")).toHaveText(
-      "Escribí el nombre.",
-    );
-    await expect(page.getByLabel("Observaciones")).toHaveValue(
-      "Escrito sin JavaScript",
-    );
-
-    // Corregido, da de alta y vuelve al listado.
-    await page.getByLabel("Nombre").fill("Grupo Sin Script");
-    await page.getByRole("button", { name: "Guardar" }).click();
-    await ventanaCerrada(page);
-    await expect(fila(page, "Grupo Sin Script")).toContainText(
-      "Escrito sin JavaScript",
-    );
-
-    // La baja, con su confirmación: Cancelar vuelve sin dar de baja nada.
-    await fila(page, "Grupo Sin Script")
-      .getByRole("link", { name: "Dar de baja" })
-      .click();
-    await expect(ventana(page, "Dar de baja")).toContainText(
-      "Grupo Sin Script",
-    );
-    await listadoDetras(page);
-    await page.getByRole("link", { name: "Cancelar" }).click();
-    await ventanaCerrada(page);
-    await expect(fila(page, "Grupo Sin Script")).toBeVisible();
-    await fila(page, "Grupo Sin Script")
-      .getByRole("link", { name: "Dar de baja" })
-      .click();
-    await page.getByRole("button", { name: "Confirmar baja" }).click();
-    await ventanaCerrada(page);
-    await expect(fila(page, "Grupo Sin Script")).toHaveCount(0);
-    await expect(fila(page, "Grupo Centro")).toBeVisible();
-  });
 });

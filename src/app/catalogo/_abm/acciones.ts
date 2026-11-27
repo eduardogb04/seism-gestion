@@ -14,6 +14,7 @@
  * error del catálogo.
  */
 
+import { redirect } from "next/navigation.js";
 import type { ErroresPorCampo } from "../../../casos-uso/abm/abm.ts";
 import type {
   DefinicionAbm,
@@ -44,6 +45,8 @@ async function escribir(
     escrito: Escrito,
     archivo: ArchivoSubido | null,
   ) => Promise<Escritura>,
+  // La baja vuelve siempre al listado: la ventana `?baja=` es de un registro que ya no está.
+  { navegar = false }: { readonly navegar?: boolean } = {},
 ): Promise<EstadoFormulario> {
   const escrito = escritoEn(formulario);
   const archivo = await archivoSubidoEn(formulario);
@@ -60,6 +63,9 @@ async function escribir(
   }
   if ("errores" in resultado.valor) {
     return { escrito, errores: resultado.valor.errores };
+  }
+  if (navegar) {
+    redirect(resultado.valor.ruta);
   }
   await volverEnElLugar(resultado.valor.ruta, { conParametros: true });
   return { escrito, errores: {}, hecho: true };
@@ -104,8 +110,14 @@ export async function darDeBajaRegistro(
   _previo: EstadoFormulario,
   formulario: FormData,
 ): Promise<EstadoFormulario> {
-  return escribir(entidad, vuelta, formulario, async (actor, definicion) => {
-    await armado().abm.marcarEliminado(actor, definicion, id);
-    return { ok: true };
-  });
+  return escribir(
+    entidad,
+    vuelta,
+    formulario,
+    async (actor, definicion) => {
+      await armado().abm.marcarEliminado(actor, definicion, id);
+      return { ok: true };
+    },
+    { navegar: true },
+  );
 }

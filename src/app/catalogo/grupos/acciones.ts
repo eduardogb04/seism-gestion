@@ -69,8 +69,8 @@ export async function moverClienteAlGrupo(
       error: pantallaDeCodigo(resultado.codigo),
     };
   }
-  await volverEnElLugar(`/catalogo/grupos/${grupoId}`);
-  return { escrito: {}, errores: {}, hecho: true };
+  // Vuelve navegando: la ventana es de un cliente que ya cambió de grupo.
+  redirect(`/catalogo/grupos/${grupoId}`);
 }
 
 /** El retiro, ya confirmado. */
@@ -89,6 +89,6 @@ export async function sacarClienteDelGrupo(
       error: pantallaDeCodigo(resultado.codigo),
     };
   }
-  await volverEnElLugar(`/catalogo/grupos/${grupoId}`);
-  return { escrito: {}, errores: {}, hecho: true };
+  // Vuelve navegando: la ventana es de un cliente que ya cambió de grupo.
+  redirect(`/catalogo/grupos/${grupoId}`);
 }

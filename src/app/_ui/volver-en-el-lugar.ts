@@ -24,11 +24,23 @@ export async function volverEnElLugar(
   if (
     origen !== null &&
     origen.pathname === destino.pathname &&
-    (conParametros || destino.search === "")
+    (conParametros || destino.search === "") &&
+    !abreVentanaQueDeshace(origen)
   ) {
     return true;
   }
   redirect(ruta);
+}
+
+/**
+ * La ventana de origen es de un registro que la acción dio de baja, anuló o
+ * movió (`?baja=`, `?anularFactura=`, `?descartar=`…): quedarse la volvería a
+ * dibujar sobre algo que ya no está, así que se navega.
+ */
+function abreVentanaQueDeshace(origen: URL): boolean {
+  return [...origen.searchParams.keys()].some((clave) =>
+    /^(baja|anular|quitar|descartar|sacar|mover)/.test(clave),
+  );
 }
 
 async function paginaDeOrigen(): Promise<URL | null> {

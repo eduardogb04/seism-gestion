@@ -8,6 +8,7 @@
  * campo, o el error con su código. Ninguna lanza un error del catálogo.
  */
 
+import { redirect } from "next/navigation.js";
 import type { Escrito } from "../../casos-uso/abm/definicion.ts";
 import { pantallaDeCodigo } from "../../casos-uso/sesion/errores.ts";
 import { armado } from "../../infraestructura/arranque/armado.ts";
@@ -63,6 +64,6 @@ export async function anularPagoDeEgreso(
       error: pantallaDeCodigo(resultado.codigo),
     };
   }
-  await volverEnElLugar(`/egresos/${egresoId}`);
-  return { escrito: {}, errores: {}, hecho: true };
+  // Vuelve navegando: la ventana `?anular=` es de un pago que ya no está vigente.
+  redirect(`/egresos/${egresoId}`);
 }
